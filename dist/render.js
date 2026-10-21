@@ -61,6 +61,7 @@ export class AsciiRenderer {
     contrast = 1.18;
     edgeStrength = 1.2;
     brightness = .02;
+    performanceScale = 1;
     software = null;
     frame = 0;
     fpsStart = performance.now();
@@ -138,6 +139,8 @@ export class AsciiRenderer {
     }
     getGraphics() { return readGraphics({ quality: this.quality, density: this.density, glyphScale: this.glyphScale, contrast: this.contrast, edgeStrength: this.edgeStrength, brightness: this.brightness }); }
     setGraphics(input) { const x = readGraphics(input); this.density = x.density; this.glyphScale = x.glyphScale; this.contrast = x.contrast; this.edgeStrength = x.edgeStrength; this.brightness = x.brightness; this.quality = x.quality; }
+    /** Runtime-only cell scale; never included in graphics preferences or save games. */
+    setPerformanceScale(scale) { this.performanceScale = Number.isFinite(scale) ? Math.max(1, Math.min(2.4, scale)) : 1; }
     resize() { const rect = this.canvas.getBoundingClientRect(); const dpr = Math.min(window.devicePixelRatio || 1, 2); this.canvas.width = Math.min(1920, Math.max(320, Math.round((rect.width || W) * dpr))); this.canvas.height = Math.min(1080, Math.max(180, Math.round((rect.height || H) * dpr))); if (this.gl)
         this.gl.viewport(0, 0, this.canvas.width, this.canvas.height); }
     crop() {
@@ -168,7 +171,7 @@ export class AsciiRenderer {
             const dpr = this.canvas.width / (rect.width || W);
             const base = Math.max(5.0, Math.min(10.0, (rect.width || W) / 130)) * dpr;
             const cell = glyphCell(base, this.getGraphics());
-            gl.uniform2f(this.uniforms.u_cell, cell.width, cell.height);
+            gl.uniform2f(this.uniforms.u_cell, cell.width * this.performanceScale, cell.height * this.performanceScale);
             const crop = this.crop();
             gl.uniform4f(this.uniforms.u_crop, crop.x, crop.y, crop.w, crop.h);
             gl.uniform1f(this.uniforms.u_time, t * .001);
@@ -184,7 +187,7 @@ export class AsciiRenderer {
             return;
         const rect = this.canvas.getBoundingClientRect(), dpr = this.canvas.width / (rect.width || W);
         const cell = canvasGlyphCell(Math.max(5, Math.min(10, (rect.width || W) / 130)) * dpr, this.getGraphics(), this.canvas.width, this.canvas.height);
-        const cw = Math.round(cell.width), ch = Math.round(cell.height);
+        const cw = Math.ceil(cell.width * this.performanceScale), ch = Math.ceil(cell.height * this.performanceScale);
         const crop = this.crop(), data = this.ctx.getImageData(0, 0, W, H).data;
         if (!this.software || this.software.width !== this.canvas.width || this.software.height !== this.canvas.height)
             this.software = new SoftwareGlyphFrame(this.canvas.width, this.canvas.height, GLYPHS);

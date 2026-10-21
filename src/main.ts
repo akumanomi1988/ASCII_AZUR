@@ -9,6 +9,7 @@ import {ZONES,sweepMove,isWild,nearbyLandmark,configureWorld,captureWorldSnapsho
 import {SHOP,NPCS,QUESTS,buy,claimQuests,normalizeEconomy,newEconomy,type ShopItem,type NpcId} from './rpg.js';
 import {Sound,themeForZone} from './audio.js';
 import {FrameMetrics} from './core/frame-metrics.js';
+import {AdaptiveGlyphs} from './core/adaptive-glyphs.js';
 import {storyGuidance} from './story-navigation.js';
 import {ARKEN_STORY, ARKEN_FINALE_REWARD, arkenStoryBeat, arkenStoryIndex, concludeArken, canConcludeArken, type ArkenStoryState} from './story-campaign.js';
 import {readSave,writeSave} from './core/save-store.js';
@@ -24,7 +25,7 @@ const htmlEscape=(v:string)=>v.replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','
 type Battle={encounterId?:string;enemy:Creature;type:'wild'|'boss'|'expedition';busy:boolean;ally:number;log:string;guarding:boolean;selecting:boolean;bossPhase:1|2;chargeStage:0|1|2;effects:Record<string,StatusEffect[]>;};
 class AzurGame {
   private renderer=new AsciiRenderer(byId<HTMLCanvasElement>('game'));
-  private frameMetrics=new FrameMetrics();private debugPerformance=false;private lastDebugUpdate=0;private lastCompassUpdate=0;
+  private frameMetrics=new FrameMetrics();private adaptiveGlyphs=new AdaptiveGlyphs();private lastAdaptiveUpdate=0;private debugPerformance=false;private lastDebugUpdate=0;private lastCompassUpdate=0;
   private sound=new Sound();private soundEnabled=true;private reducedMotion=false;private combatCue:CombatCue|null=null;
   private save:SaveGame={version:1,zone:'village',x:4,y:16,team:[],storage:[],inventory:{seals:5,tonics:3},defeatedBoss:false,flags:[],playSeconds:0,rpg:newEconomy()};
   private expeditionMessage='';private roamingCache=new Map<string,RoamingEncounter[]>();
@@ -33,7 +34,7 @@ class AzurGame {
   private notifyTimer:number|undefined;private encounterCooldown=3;private timeSinceSave=0;
   private stick={x:0,y:0,pointerId:-1};private padStick={x:0,y:0};private padButtons=new Set<number>();private selectedBattleAction=0;private facing=2;private moving=false;
   private lastDungeonChamber=-1;private lastReveal=-1;private camera={x:4,y:16};private cameraZone='village';private evolution:{from:string;to:string;startedAt:number;duration:number}|null=null;
-  constructor(){this.restoreAudioSettings();this.restoreMotionSettings();this.restoreGraphicSettings();this.restoreAccessibility();this.mountDrawer();this.wire();this.loadState();requestAnimationFrame(this.loop);window.addEventListener('resize',()=>this.renderer.resize());if('serviceWorker'in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('./sw.js').catch(()=>{});}
+  constructor(){this.restoreAudioSettings();this.restoreMotionSettings();this.restoreGraphicSettings();this.restoreAdaptiveGraphics();this.restoreAccessibility();this.mountDrawer();this.wire();this.loadState();requestAnimationFrame(this.loop);window.addEventListener('resize',()=>this.renderer.resize());if('serviceWorker'in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('./sw.js').catch(()=>{});}
   private wire(){
     byId('newGame').addEventListener('click',()=>this.startNew());
     byId('continue').addEventListener('click',()=>this.continueGame());
@@ -83,6 +84,8 @@ class AzurGame {
   private restoreAudioSettings(){try{const v=JSON.parse(localStorage.getItem('ascii-azur-audio')||'null');if(v&&typeof v==='object'){this.soundEnabled=v.enabled!==false;if(Number.isFinite(v.music))this.sound.setMusicVolume(v.music);if(Number.isFinite(v.effects))this.sound.setEffectsVolume(v.effects);}}catch{/* preserve defaults */}if(!this.soundEnabled)this.sound.setEnabled(false);this.updateMuteUi();}
   private restoreGraphicSettings(){try{this.renderer.setGraphics(JSON.parse(localStorage.getItem('ascii-azur-graphics-v2')||'null'));}catch{this.renderer.setGraphics(DEFAULT_GRAPHICS);}}
   private storeGraphicSettings(){try{localStorage.setItem('ascii-azur-graphics-v2',JSON.stringify(this.renderer.getGraphics()));}catch{/* storage unavailable */}}
+  private restoreAdaptiveGraphics(){try{this.adaptiveGlyphs.configure(localStorage.getItem('ascii-azur-adaptive-fps-v1')==='true');}catch{/* preserve manual mode */}this.renderer.setPerformanceScale(this.adaptiveGlyphs.scale);}
+  private setAdaptiveGraphics(enabled:boolean){this.adaptiveGlyphs.configure(enabled);this.frameMetrics.reset();this.renderer.setPerformanceScale(this.adaptiveGlyphs.scale);try{localStorage.setItem('ascii-azur-adaptive-fps-v1',String(this.adaptiveGlyphs.active));}catch{/* storage disabled */}}
   private restoreMotionSettings(){try{const v=localStorage.getItem('ascii-azur-reduced-motion');this.reducedMotion=v===null?!!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches:v==='true';}catch{this.reducedMotion=false;}}
   private restoreAccessibility(){
     try{const settings=JSON.parse(localStorage.getItem('ascii-azur-accessibility')||'null');
@@ -560,6 +563,8 @@ class AzurGame {
       <div class="settings-row"><label for="glyphBrightness">Luminosidad <output id="glyphBrightnessValue"></output></label><input id="glyphBrightness" type="range" min="-.25" max=".25" step=".05"></div>
       <div class="settings-row"><label for="qualitySelect">Paleta cromática</label><select id="qualitySelect"><option value="1">Color atmosférico</option><option value="0.4">Color limitado</option></select></div>
       <div class="modal-content-block" id="glyphStats" aria-live="polite"></div>
+      <div class="settings-row"><label for="adaptiveFps">FPS estables · ajustar detalle automáticamente</label><input id="adaptiveFps" type="checkbox"></div>
+      <div class="modal-content-block" id="adaptiveFpsStats" aria-live="polite"></div>
       <div class="settings-row"><button id="resetGraphics" class="settings-reset">Restablecer gráficos</button></div>
       <div class="modal-content-block">Los tonos oscuros también se dibujan con caracteres, sin huecos artificiales. WebGL2 ofrece la trama más fina; Canvas2D limita el trabajo para mantener la partida fluida.</div>
       <div class="settings-row"><label for="musicVolume">Música</label><input id="musicVolume" type="range" min="0" max="100" step="1"></div>
@@ -577,12 +582,14 @@ class AzurGame {
       const canvas=this.renderer.canvas,rect=canvas.getBoundingClientRect(),dpr=canvas.width/(rect.width||960);
       const base=Math.max(5,Math.min(10,(rect.width||960)/130))*dpr;
       const requested=glyphCell(base,g),actual=this.renderer.mode==='gpu'?requested:canvasGlyphCell(base,g,canvas.width,canvas.height);
-      const target=glyphCount(canvas.width,canvas.height,requested),rendered=glyphCount(canvas.width,canvas.height,actual);
-      byId('glyphStats').textContent=`Trama ${Math.round(rendered).toLocaleString('es-ES')} caracteres · glifo ${actual.width.toFixed(1)} px · ${this.renderer.mode==='gpu'?'WebGL2':'Canvas2D'}${rendered<target?' · límite de rendimiento aplicado':''}`;};
+      const target=glyphCount(canvas.width,canvas.height,requested),rendered=glyphCount(canvas.width,canvas.height,{width:Math.ceil(actual.width*this.renderer.performanceScale),height:Math.ceil(actual.height*this.renderer.performanceScale)});
+      byId('glyphStats').textContent=`Trama ~${Math.round(rendered).toLocaleString('es-ES')} caracteres · glifo ${(actual.width*this.renderer.performanceScale).toFixed(1)} px · ${this.renderer.mode==='gpu'?'WebGL2':'Canvas2D'}${rendered<target?' · límite de rendimiento aplicado':''}`;
+      byId('adaptiveFpsStats').textContent=this.adaptiveGlyphs.active?`Objetivo 30 FPS · escala temporal ×${this.renderer.performanceScale.toFixed(2)} · ajustes artísticos originales conservados`:'Máxima fidelidad manual. Activa FPS estables solo si el dispositivo pierde fluidez.';};
     const change=(patch:Partial<GraphicsProfile>)=>{this.renderer.setGraphics({...this.renderer.getGraphics(),...patch});this.storeGraphicSettings();sync();};
     den.onchange=()=>change({density:Number(den.value)});qual.onchange=()=>change({quality:Number(qual.value)});
     for(const [id,key] of sliders)byId<HTMLInputElement>(id).oninput=()=>change({[key]:Number(byId<HTMLInputElement>(id).value)});
-    byId('resetGraphics').onclick=()=>change({...DEFAULT_GRAPHICS});sync();
+    byId('resetGraphics').onclick=()=>change({...DEFAULT_GRAPHICS});
+    const adaptive=byId<HTMLInputElement>('adaptiveFps');adaptive.checked=this.adaptiveGlyphs.active;adaptive.onchange=()=>{this.setAdaptiveGraphics(adaptive.checked);sync();};sync();
     const motion=byId<HTMLInputElement>('motionReduced');motion.checked=this.reducedMotion;
     motion.onchange=()=>{this.reducedMotion=motion.checked;try{localStorage.setItem('ascii-azur-reduced-motion',String(this.reducedMotion));}catch{/* storage blocked */}};
     const textSize=byId<HTMLInputElement>('largeText'),handed=byId<HTMLInputElement>('leftHanded');
@@ -613,7 +620,7 @@ class AzurGame {
 
   private loop=(now:number)=>{this.pollGamepad();if(this.last>0)this.frameMetrics.add(now-this.last);const dt=Math.min(.055,(now-this.last)/1000||0);this.last=now;this.seconds+=dt;this.flash=Math.max(0,this.flash-dt*1.7);if(this.started&&!this.dialogOpen&&!this.modalOpen&&!this.battle&&!this.evolution&&!byId('gameDrawer').classList.contains('open')){this.move(dt);this.save.playSeconds+=dt;this.timeSinceSave+=dt;if(this.timeSinceSave>90){this.timeSinceSave=0;this.saveNow(false);}}
     if(this.evolution&&this.seconds-this.evolution.startedAt>=this.evolution.duration){const newSpecies=this.evolution.to;this.evolution=null;byId('viewport').classList.remove('in-evolution');byId('evolutionBanner').classList.add('hidden');this.sound.setScene(themeForZone(this.save.zone as ZoneId));this.toast(`${SPECIES[newSpecies]!.name.toUpperCase()} HA DESPERTADO`);}
-    byId('viewport').classList.toggle('in-dungeon',!!this.save.dungeon?.active&&!this.battle);const ctx=this.renderer.ctx;ctx.clearRect(0,0,960,540);if(this.evolution){drawEvolution(ctx,this.evolution.from,this.evolution.to,this.seconds-this.evolution.startedAt,this.reducedMotion);}else if(this.battle&&this.save.team.length){drawBattle(ctx,this.battle.enemy,this.getAlly()!,this.seconds,this.flash,sampleCombatCue(this.combatCue,this.seconds,this.reducedMotion),this.reducedMotion,{enemy:this.statuses(this.battle.enemy).map(e=>e.kind),ally:this.statuses(this.getAlly()!).map(e=>e.kind)});}else if(this.save.dungeon?.active){const d=this.save.dungeon;drawDungeon(ctx,d,{x:d.x,y:d.y,facing:this.facing,walking:this.moving&&!this.dialogOpen},this.seconds,this.reducedMotion);}else{if(this.cameraZone!==this.save.zone){this.camera={x:this.save.x,y:this.save.y};this.cameraZone=this.save.zone;}const follow=1-Math.exp(-dt*9);this.camera.x+=(this.save.x-this.camera.x)*follow;this.camera.y+=(this.save.y-this.camera.y)*follow;drawWorld(ctx,this.save.zone as ZoneId,{x:this.save.x,y:this.save.y,facing:this.facing,walking:this.moving&&!this.dialogOpen},this.seconds,this.flash,this.save.defeatedBoss,this.camera,this.reducedMotion,this.roamers());}this.renderer.present(now);if(this.started&&now-this.lastCompassUpdate>180){this.lastCompassUpdate=now;this.updateStoryCompass();}if(now-this.lastDebugUpdate>750){this.lastDebugUpdate=now;const perf=this.frameMetrics.report();byId('fps').textContent=this.debugPerformance?`${this.renderer.mode.toUpperCase()} · ${this.renderer.fps} FPS · MAIN p95 ${perf.p95Ms.toFixed(1)}ms · ${perf.overBudget}/${perf.samples} >33ms`:`${this.renderer.mode.toUpperCase()} · ${this.renderer.fps} FPS`;}requestAnimationFrame(this.loop);};
+    byId('viewport').classList.toggle('in-dungeon',!!this.save.dungeon?.active&&!this.battle);const ctx=this.renderer.ctx;ctx.clearRect(0,0,960,540);if(this.evolution){drawEvolution(ctx,this.evolution.from,this.evolution.to,this.seconds-this.evolution.startedAt,this.reducedMotion);}else if(this.battle&&this.save.team.length){drawBattle(ctx,this.battle.enemy,this.getAlly()!,this.seconds,this.flash,sampleCombatCue(this.combatCue,this.seconds,this.reducedMotion),this.reducedMotion,{enemy:this.statuses(this.battle.enemy).map(e=>e.kind),ally:this.statuses(this.getAlly()!).map(e=>e.kind)});}else if(this.save.dungeon?.active){const d=this.save.dungeon;drawDungeon(ctx,d,{x:d.x,y:d.y,facing:this.facing,walking:this.moving&&!this.dialogOpen},this.seconds,this.reducedMotion);}else{if(this.cameraZone!==this.save.zone){this.camera={x:this.save.x,y:this.save.y};this.cameraZone=this.save.zone;}const follow=1-Math.exp(-dt*9);this.camera.x+=(this.save.x-this.camera.x)*follow;this.camera.y+=(this.save.y-this.camera.y)*follow;drawWorld(ctx,this.save.zone as ZoneId,{x:this.save.x,y:this.save.y,facing:this.facing,walking:this.moving&&!this.dialogOpen},this.seconds,this.flash,this.save.defeatedBoss,this.camera,this.reducedMotion,this.roamers());}this.renderer.present(now);if(now-this.lastAdaptiveUpdate>1900){this.lastAdaptiveUpdate=now;if(this.adaptiveGlyphs.observe(this.frameMetrics.report(),now,this.started&&!document.hidden&&!this.modalOpen)){this.renderer.setPerformanceScale(this.adaptiveGlyphs.scale);this.frameMetrics.reset();}const d=document.getElementById('adaptiveFpsStats');if(d&&this.modalOpen)d.textContent=this.adaptiveGlyphs.active?`Objetivo 30 FPS · escala temporal ×${this.renderer.performanceScale.toFixed(2)} · ajustes artísticos originales conservados`:'Máxima fidelidad manual. Activa FPS estables solo si el dispositivo pierde fluidez.';}if(this.started&&now-this.lastCompassUpdate>180){this.lastCompassUpdate=now;this.updateStoryCompass();}if(now-this.lastDebugUpdate>750){this.lastDebugUpdate=now;const perf=this.frameMetrics.report();byId('fps').textContent=this.debugPerformance?`${this.renderer.mode.toUpperCase()} · ${this.renderer.fps} FPS · MAIN p95 ${perf.p95Ms.toFixed(1)}ms · ${perf.overBudget}/${perf.samples} >33ms`:`${this.renderer.mode.toUpperCase()} · ${this.renderer.fps} FPS${this.adaptiveGlyphs.active?' · AUTO ×'+this.renderer.performanceScale.toFixed(2):''}`;}requestAnimationFrame(this.loop);};
   private move(dt:number){
     if(!byId('titleScreen').classList.contains('hidden')||!byId('starterScreen').classList.contains('hidden')){this.moving=false;return;}
     let dx=this.stick.x,dy=this.stick.y;

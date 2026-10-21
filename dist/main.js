@@ -9,6 +9,7 @@ import { ZONES, sweepMove, isWild, nearbyLandmark, configureWorld, captureWorldS
 import { SHOP, QUESTS, buy, claimQuests, normalizeEconomy, newEconomy } from './rpg.js';
 import { Sound, themeForZone } from './audio.js';
 import { FrameMetrics } from './core/frame-metrics.js';
+import { AdaptiveGlyphs } from './core/adaptive-glyphs.js';
 import { storyGuidance } from './story-navigation.js';
 import { ARKEN_STORY, ARKEN_FINALE_REWARD, arkenStoryBeat, arkenStoryIndex, concludeArken, canConcludeArken } from './story-campaign.js';
 import { readSave, writeSave } from './core/save-store.js';
@@ -25,6 +26,8 @@ const htmlEscape = (v) => v.replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt
 class AzurGame {
     renderer = new AsciiRenderer(byId('game'));
     frameMetrics = new FrameMetrics();
+    adaptiveGlyphs = new AdaptiveGlyphs();
+    lastAdaptiveUpdate = 0;
     debugPerformance = false;
     lastDebugUpdate = 0;
     lastCompassUpdate = 0;
@@ -59,7 +62,7 @@ class AzurGame {
     camera = { x: 4, y: 16 };
     cameraZone = 'village';
     evolution = null;
-    constructor() { this.restoreAudioSettings(); this.restoreMotionSettings(); this.restoreGraphicSettings(); this.restoreAccessibility(); this.mountDrawer(); this.wire(); this.loadState(); requestAnimationFrame(this.loop); window.addEventListener('resize', () => this.renderer.resize()); if ('serviceWorker' in navigator && location.protocol.startsWith('http'))
+    constructor() { this.restoreAudioSettings(); this.restoreMotionSettings(); this.restoreGraphicSettings(); this.restoreAdaptiveGraphics(); this.restoreAccessibility(); this.mountDrawer(); this.wire(); this.loadState(); requestAnimationFrame(this.loop); window.addEventListener('resize', () => this.renderer.resize()); if ('serviceWorker' in navigator && location.protocol.startsWith('http'))
         navigator.serviceWorker.register('./sw.js').catch(() => { }); }
     wire() {
         byId('newGame').addEventListener('click', () => this.startNew());
@@ -185,6 +188,14 @@ class AzurGame {
         localStorage.setItem('ascii-azur-graphics-v2', JSON.stringify(this.renderer.getGraphics()));
     }
     catch { /* storage unavailable */ } }
+    restoreAdaptiveGraphics() { try {
+        this.adaptiveGlyphs.configure(localStorage.getItem('ascii-azur-adaptive-fps-v1') === 'true');
+    }
+    catch { /* preserve manual mode */ } this.renderer.setPerformanceScale(this.adaptiveGlyphs.scale); }
+    setAdaptiveGraphics(enabled) { this.adaptiveGlyphs.configure(enabled); this.frameMetrics.reset(); this.renderer.setPerformanceScale(this.adaptiveGlyphs.scale); try {
+        localStorage.setItem('ascii-azur-adaptive-fps-v1', String(this.adaptiveGlyphs.active));
+    }
+    catch { /* storage disabled */ } }
     restoreMotionSettings() { try {
         const v = localStorage.getItem('ascii-azur-reduced-motion');
         this.reducedMotion = v === null ? !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches : v === 'true';
@@ -1339,6 +1350,8 @@ class AzurGame {
       <div class="settings-row"><label for="glyphBrightness">Luminosidad <output id="glyphBrightnessValue"></output></label><input id="glyphBrightness" type="range" min="-.25" max=".25" step=".05"></div>
       <div class="settings-row"><label for="qualitySelect">Paleta cromática</label><select id="qualitySelect"><option value="1">Color atmosférico</option><option value="0.4">Color limitado</option></select></div>
       <div class="modal-content-block" id="glyphStats" aria-live="polite"></div>
+      <div class="settings-row"><label for="adaptiveFps">FPS estables · ajustar detalle automáticamente</label><input id="adaptiveFps" type="checkbox"></div>
+      <div class="modal-content-block" id="adaptiveFpsStats" aria-live="polite"></div>
       <div class="settings-row"><button id="resetGraphics" class="settings-reset">Restablecer gráficos</button></div>
       <div class="modal-content-block">Los tonos oscuros también se dibujan con caracteres, sin huecos artificiales. WebGL2 ofrece la trama más fina; Canvas2D limita el trabajo para mantener la partida fluida.</div>
       <div class="settings-row"><label for="musicVolume">Música</label><input id="musicVolume" type="range" min="0" max="100" step="1"></div>
@@ -1364,8 +1377,9 @@ class AzurGame {
             const canvas = this.renderer.canvas, rect = canvas.getBoundingClientRect(), dpr = canvas.width / (rect.width || 960);
             const base = Math.max(5, Math.min(10, (rect.width || 960) / 130)) * dpr;
             const requested = glyphCell(base, g), actual = this.renderer.mode === 'gpu' ? requested : canvasGlyphCell(base, g, canvas.width, canvas.height);
-            const target = glyphCount(canvas.width, canvas.height, requested), rendered = glyphCount(canvas.width, canvas.height, actual);
-            byId('glyphStats').textContent = `Trama ${Math.round(rendered).toLocaleString('es-ES')} caracteres · glifo ${actual.width.toFixed(1)} px · ${this.renderer.mode === 'gpu' ? 'WebGL2' : 'Canvas2D'}${rendered < target ? ' · límite de rendimiento aplicado' : ''}`;
+            const target = glyphCount(canvas.width, canvas.height, requested), rendered = glyphCount(canvas.width, canvas.height, { width: Math.ceil(actual.width * this.renderer.performanceScale), height: Math.ceil(actual.height * this.renderer.performanceScale) });
+            byId('glyphStats').textContent = `Trama ~${Math.round(rendered).toLocaleString('es-ES')} caracteres · glifo ${(actual.width * this.renderer.performanceScale).toFixed(1)} px · ${this.renderer.mode === 'gpu' ? 'WebGL2' : 'Canvas2D'}${rendered < target ? ' · límite de rendimiento aplicado' : ''}`;
+            byId('adaptiveFpsStats').textContent = this.adaptiveGlyphs.active ? `Objetivo 30 FPS · escala temporal ×${this.renderer.performanceScale.toFixed(2)} · ajustes artísticos originales conservados` : 'Máxima fidelidad manual. Activa FPS estables solo si el dispositivo pierde fluidez.';
         };
         const change = (patch) => { this.renderer.setGraphics({ ...this.renderer.getGraphics(), ...patch }); this.storeGraphicSettings(); sync(); };
         den.onchange = () => change({ density: Number(den.value) });
@@ -1373,6 +1387,9 @@ class AzurGame {
         for (const [id, key] of sliders)
             byId(id).oninput = () => change({ [key]: Number(byId(id).value) });
         byId('resetGraphics').onclick = () => change({ ...DEFAULT_GRAPHICS });
+        const adaptive = byId('adaptiveFps');
+        adaptive.checked = this.adaptiveGlyphs.active;
+        adaptive.onchange = () => { this.setAdaptiveGraphics(adaptive.checked); sync(); };
         sync();
         const motion = byId('motionReduced');
         motion.checked = this.reducedMotion;
@@ -1478,6 +1495,16 @@ class AzurGame {
             drawWorld(ctx, this.save.zone, { x: this.save.x, y: this.save.y, facing: this.facing, walking: this.moving && !this.dialogOpen }, this.seconds, this.flash, this.save.defeatedBoss, this.camera, this.reducedMotion, this.roamers());
         }
         this.renderer.present(now);
+        if (now - this.lastAdaptiveUpdate > 1900) {
+            this.lastAdaptiveUpdate = now;
+            if (this.adaptiveGlyphs.observe(this.frameMetrics.report(), now, this.started && !document.hidden && !this.modalOpen)) {
+                this.renderer.setPerformanceScale(this.adaptiveGlyphs.scale);
+                this.frameMetrics.reset();
+            }
+            const d = document.getElementById('adaptiveFpsStats');
+            if (d && this.modalOpen)
+                d.textContent = this.adaptiveGlyphs.active ? `Objetivo 30 FPS · escala temporal ×${this.renderer.performanceScale.toFixed(2)} · ajustes artísticos originales conservados` : 'Máxima fidelidad manual. Activa FPS estables solo si el dispositivo pierde fluidez.';
+        }
         if (this.started && now - this.lastCompassUpdate > 180) {
             this.lastCompassUpdate = now;
             this.updateStoryCompass();
@@ -1485,7 +1512,7 @@ class AzurGame {
         if (now - this.lastDebugUpdate > 750) {
             this.lastDebugUpdate = now;
             const perf = this.frameMetrics.report();
-            byId('fps').textContent = this.debugPerformance ? `${this.renderer.mode.toUpperCase()} · ${this.renderer.fps} FPS · MAIN p95 ${perf.p95Ms.toFixed(1)}ms · ${perf.overBudget}/${perf.samples} >33ms` : `${this.renderer.mode.toUpperCase()} · ${this.renderer.fps} FPS`;
+            byId('fps').textContent = this.debugPerformance ? `${this.renderer.mode.toUpperCase()} · ${this.renderer.fps} FPS · MAIN p95 ${perf.p95Ms.toFixed(1)}ms · ${perf.overBudget}/${perf.samples} >33ms` : `${this.renderer.mode.toUpperCase()} · ${this.renderer.fps} FPS${this.adaptiveGlyphs.active ? ' · AUTO ×' + this.renderer.performanceScale.toFixed(2) : ''}`;
         }
         requestAnimationFrame(this.loop);
     };
