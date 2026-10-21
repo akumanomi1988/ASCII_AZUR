@@ -3,6 +3,8 @@ import {SPECIES,type Creature} from './domain.js';
 import type {CombatFxFrame} from './actors/combat-fx.js';
 import {sampleCreaturePerformance,rigFor,type CreatureAction,type CreaturePerformance} from './actors/creature-performance.js';
 import {CanvasGlyphCache} from './render/glyph-cache.js';
+import {sampleHeroPose} from './actors/hero-performance.js';
+import {glyphVisible} from './render/legibility.js';
 import {readGraphics,glyphCell,type GraphicsProfile} from './render/graphics-profile.js';
 import type {RoamingEncounter} from './world/encounters.js';
 export const W=960,H=540;
@@ -34,7 +36,7 @@ void main(){
  vec3 glyphCol=raw*2.55+vec3(.07,.10,.12)+glow*vec3(.1,.13,.15);
  glyphCol*=.95+sin(u_time*.7+noise*4.)*.025;
  glyphCol=mix(glyphCol,vec3(dot(glyphCol,vec3(.299,.587,.114))),1.-u_quality);
- float visibility=smoothstep(.035,.17,lum+edge*.30);if(lum<.20&&edge<.09&&noise>.22)visibility=0.;outColor=vec4(mix(bg,glyphCol,ink*.93*visibility),1.);
+ float visibility=smoothstep(.06,.25,lum+edge*.30);if(lum<.20&&edge<.09)visibility=0.;if(edge<.11&&lum<.58&&noise>.34)visibility=0.;outColor=vec4(mix(bg,glyphCol,ink*.93*visibility),1.);
 }`;
 function shader(gl:WebGL2RenderingContext,type:number,src:string):WebGLShader {const s=gl.createShader(type);if(!s)throw Error('shader');gl.shaderSource(s,src);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw Error('Shader: '+gl.getShaderInfoLog(s));return s;}
 function texture(gl:WebGL2RenderingContext):WebGLTexture {const t=gl.createTexture();if(!t)throw Error('texture');gl.bindTexture(gl.TEXTURE_2D,t);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);return t;}
@@ -78,8 +80,9 @@ export class AsciiRenderer {
         const gx=sample(srcX+ox,srcY)-sample(srcX-ox,srcY);
         const gy=sample(srcX,srcY+oy)-sample(srcX,srcY-oy);
         const edge=(Math.abs(gx)+Math.abs(gy))*this.edgeStrength;
-        if(level<.11 && edge<.19)continue;
-        if(level<.18&&edge<.08&&((Math.floor(x/cw)*31+Math.floor(y/ch)*17)%11)>2)continue;
+        const cellX=Math.floor(x/cw),cellY=Math.floor(y/ch);
+        const noise=Math.abs(Math.sin(cellX*12.9898+cellY*78.233)*43758.5453)%1;
+        if(!glyphVisible(level,edge,noise))continue;
         const v=Math.max(0,Math.min(1,Math.pow(level*1.55,.68)+edge*.30));
         let index=Math.max(0,Math.min(22,Math.floor(v*22)));
         if(edge>.29&&v>.12)index=Math.abs(gx)>Math.abs(gy)*1.25?26:Math.abs(gy)>Math.abs(gx)*1.25?24:gx*gy>0?25:23;
@@ -138,6 +141,31 @@ function creatureDetails(ctx:CanvasRenderingContext2D,id:string,perf:CreaturePer
    ctx.strokeStyle='#c2cfa4';ctx.beginPath();ctx.moveTo(-16,-17);ctx.lineTo(-7,-26);ctx.lineTo(2,-17);ctx.lineTo(12,-23);ctx.stroke();
    for(let i=0;i<4;i++){ctx.fillStyle=col;ctx.fillRect(-15+i*9,-29+(i%2)*4,3,3);}
  }
+ // Authored signature motifs: these survive both dense and coarse glyph sampling.
+ if(id==='cindrel'||id==='cinderwulf'){
+   // Flame-spine chain across the canid's back; Cinderwulf gets a longer crown.
+   const crest=id==='cinderwulf'?5:3;
+   ctx.fillStyle=id==='cinderwulf'?'#ffe6ae':'#ffc878';
+   for(let j=0;j<crest;j++){
+     const xx=-17+j*7,yy=-17-(j%2)*4;
+     poly(ctx,[[xx-3,yy+7],[xx,yy-8-(id==='cinderwulf'?4:0)],[xx+4,yy+6]],ctx.fillStyle as string);
+   }
+   // Tail splits into two individually readable tongues of fire.
+   ctx.strokeStyle='#ffbe68';ctx.lineWidth=3.3;ctx.beginPath();
+   ctx.moveTo(-28,-12);ctx.quadraticCurveTo(-35,-22+perf.tail*3,-42,-29+perf.tail*6);
+   ctx.moveTo(-31,-10);ctx.quadraticCurveTo(-35,-10+perf.tail*2,-41,-17+perf.tail*6);ctx.stroke();
+   ctx.fillStyle='#ffe2aa';ctx.fillRect(21,-10,3,2);
+ } else if(id==='velaria'){
+   // The mourner's veil and hanging lunar crown distinguish her from Wispawn.
+   ctx.strokeStyle='#cafff1';ctx.lineWidth=2.8;ctx.beginPath();
+   ctx.moveTo(-12,-29);ctx.quadraticCurveTo(0,-42,12,-29);ctx.stroke();
+   poly(ctx,[[-14,-25],[-24,-7],[-21+perf.tail*2,13],[-13,8],[-9,-5]],'#75c6b9');
+   poly(ctx,[[14,-25],[24,-7],[20-perf.tail*2,12],[13,8],[9,-5]],'#75c6b9');
+   ctx.fillStyle='#e2fff5';ctx.fillRect(-2,-38,4,11);
+   ctx.fillStyle='#85ead4';ctx.fillRect(-5,-30,10,3);
+   ctx.strokeStyle='#e3fff2';ctx.lineWidth=2.1;ctx.beginPath();
+   ctx.moveTo(-12,-4);ctx.quadraticCurveTo(0,5,12,-4);ctx.stroke();
+ }
  if(perf.expression==='feral'||perf.expression==='transcendent'){
    ctx.globalAlpha=.7;ctx.strokeStyle=col;ctx.lineWidth=1.4;
    for(let i=0;i<7;i++){const a=i*2.399+t*.6,r=23+i%3*8;ctx.beginPath();ctx.moveTo(Math.cos(a)*r, -15+Math.sin(a)*r);ctx.lineTo(Math.cos(a)*(r+5),-15+Math.sin(a)*(r+5));ctx.stroke();}
@@ -177,45 +205,70 @@ export function drawCreature(ctx:CanvasRenderingContext2D,speciesId:string,x:num
   }else{ // moss beast
     ctx.beginPath();ctx.ellipse(0,-8,22,18,0,0,7);ctx.fill();ctx.fillRect(-14,0,9,15);ctx.fillRect(8,0,9,15);poly(ctx,[[-16,-23],[-23,-44],[-9,-29],[9,-29],[22,-44],[17,-23]],col);ctx.fillStyle='#172534';ctx.fillRect(-9,-11,5,4);ctx.fillRect(8,-11,5,4);
   }creatureDetails(ctx,speciesId,perf,t,reducedMotion);ctx.restore();}
-export function drawHero(ctx:CanvasRenderingContext2D,x:number,y:number,t:number,moving:boolean,facing=2,npc=false){
-  const stride=Math.sin(t*12);const step=moving?stride*3.3:0;
-  ctx.save();ctx.translate(x,y+(moving?Math.abs(stride)*1.5:Math.sin(t*2)*.65));ctx.scale(.88,.88);
-  // Grounding shadow prevents visually floating glyph silhouettes.
-  ctx.fillStyle='#061016';ctx.globalAlpha=.72;ctx.beginPath();ctx.ellipse(0,4,18,5,0,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;
-  const cape=npc?'#416361':'#35677b',capeEdge=npc?'#799387':'#83b9bb';
+/** Four-authored-view traveller. The south, north, and lateral shapes remain legible at low glyph density. */
+export function drawHero(ctx:CanvasRenderingContext2D,x:number,y:number,t:number,moving:boolean,facing=2,npc=false,reducedMotion=false){
+  const pose=sampleHeroPose(t,moving,facing,reducedMotion),side=pose.view==='right'?1:-1;
+  const cape=npc?'#416361':'#35677b',capeEdge=npc?'#799387':'#8ed0dc';
   const cloth=npc?'#7b7966':'#485671',hood=npc?'#596b60':'#26394e';
-  const gold=npc?'#c8ad81':'#d7ac78';
-  // Two independently articulated legs and leather boots.
-  ctx.fillStyle='#29323c';ctx.fillRect(-10,-11+step,7,15);ctx.fillRect(4,-11-step,7,15);
-  ctx.fillStyle='#a7a18b';ctx.fillRect(-11,0+step,10,4);ctx.fillRect(3,0-step,10,4);
-  // Long asymmetrical cape with two floating hems.
-  poly(ctx,[[-14,-37],[-22,-30],[-23+step*.45,-8],[-17,-15],[-17-step*.30,1],[-8,-7],[6,-9],[18+step*.35,-1],[21,-28],[11,-38]],cape);
-  ctx.strokeStyle=capeEdge;ctx.lineWidth=1.6;ctx.beginPath();ctx.moveTo(-19,-30);ctx.lineTo(-17,-11);ctx.moveTo(17,-28);ctx.lineTo(15,-8);ctx.stroke();
-  // Torso, armour, pauldrons and golden chest sigil.
-  poly(ctx,[[-12,-38],[-16,-19],[-9,-11],[9,-11],[16,-19],[12,-38]],cloth);
-  poly(ctx,[[-15,-38],[-22,-34],[-18,-26],[-10,-28]],'#8caaa9');
-  poly(ctx,[[15,-38],[22,-34],[18,-26],[10,-28]],'#768e9d');
-  ctx.fillStyle='#253746';ctx.fillRect(-6,-34,12,16);
-  ctx.fillStyle=gold;ctx.fillRect(-2,-31,4,10);ctx.fillRect(-6,-27,12,3);
-  ctx.strokeStyle=gold;ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(-11,-13);ctx.lineTo(12,-13);ctx.stroke();
-  // Arms, gloves and distinctly held weapon.
-  ctx.fillStyle=cloth;ctx.fillRect(-19,-29+step*.40,7,17);ctx.fillRect(12,-29-step*.40,7,17);
-  ctx.fillStyle='#baa688';ctx.fillRect(-19,-14,8,6);ctx.fillRect(12,-14,8,6);
-  ctx.strokeStyle=gold;ctx.lineWidth=2.8;ctx.beginPath();ctx.moveTo(18,-12);ctx.lineTo(22,-39);ctx.stroke();
-  ctx.fillStyle='#dfe6d7';ctx.fillRect(20,-51,4,16);
-  ctx.fillStyle='#c99e65';ctx.fillRect(17,-38,10,3);
-  // Crown, hood shape, pale face and two deliberate bright eyes.
-  poly(ctx,[[-15,-43],[-12,-56],[-2,-66],[9,-60],[15,-45],[10,-37],[-11,-37]],hood);
-  poly(ctx,[[-11,-49],[-3,-61],[9,-56],[11,-45]],npc?'#819487':'#618a94');
-  poly(ctx,[[-10,-49],[-6,-42],[8,-42],[10,-50],[2,-54]],'#c5b49b');
-  ctx.fillStyle='#152634';ctx.fillRect(-7,-47,15,6);
-  ctx.fillStyle='#f0d3a2';ctx.fillRect(-6,-48,4,3);ctx.fillRect(4,-48,4,3);
-  ctx.fillStyle='#f6eac8';ctx.fillRect(-5,-47,2,2);ctx.fillRect(5,-47,2,2);
-  ctx.strokeStyle=gold;ctx.lineWidth=1.7;ctx.beginPath();ctx.moveTo(-2,-62);ctx.lineTo(2,-62);ctx.stroke();
-  // Front / side facing uses a compact coloured tabard, while eyes remain identifiable.
-  if(facing===0){ctx.fillStyle=hood;ctx.fillRect(-8,-47,16,6);ctx.fillStyle=gold;ctx.fillRect(-2,-49,4,2);}
-  if(facing===1){ctx.fillStyle='#ecdebd';ctx.fillRect(9,-47,4,4);}
-  if(facing===3){ctx.fillStyle='#ecdebd';ctx.fillRect(-13,-47,4,4);}
+  const gold=npc?'#c8ad81':'#e5bf7c';
+  ctx.save();ctx.translate(x,y+pose.bob);ctx.scale(.9,.9);
+  ctx.fillStyle='#061016';ctx.globalAlpha=.7;ctx.beginPath();ctx.ellipse(0,5,19,5,0,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;
+  if(pose.view==='left'||pose.view==='right'){
+    // A wholly different profile: narrow hood, forward face, trailing cloak and diagonal gait.
+    ctx.save();ctx.scale(side,1);
+    ctx.fillStyle='#263442';ctx.fillRect(-9,-11+pose.step,7,15);ctx.fillRect(3,-10-pose.step,7,15);
+    ctx.fillStyle='#ae9f83';ctx.fillRect(-11,1+pose.step,10,3);ctx.fillRect(2,1-pose.step,10,3);
+    poly(ctx,[[-8,-41],[-18,-34],[-26+pose.cape*.8,-8],[-23+pose.cape,2],[-7,-9],[9,-20],[7,-42]],cape);
+    poly(ctx,[[-8,-39],[-11,-24],[-4,-13],[9,-13],[13,-26],[7,-40]],cloth);
+    ctx.fillStyle='#b7bbac';ctx.fillRect(5,-34,7,6);ctx.fillStyle=gold;ctx.fillRect(3,-22,6,3);
+    // Arm is in front of the cloak and carries a distinctive weapon silhouette.
+    ctx.fillStyle='#374b5d';ctx.fillRect(4,-27+pose.arm,7,18);ctx.fillStyle='#c0a78e';ctx.fillRect(4,-13+pose.arm,7,5);
+    ctx.strokeStyle=gold;ctx.lineWidth=2.5;ctx.beginPath();ctx.moveTo(12,-12+pose.arm);ctx.lineTo(17,-39+pose.arm);ctx.stroke();
+    poly(ctx,[[15,-41+pose.arm],[19,-53+pose.arm],[22,-39+pose.arm]],'#e4f7ef');
+    // Profile hood has a pronounced nose and one high-contrast eye.
+    poly(ctx,[[-12,-46],[-10,-57],[-2,-66],[8,-62],[15,-47],[9,-40],[-8,-40]],hood);
+    poly(ctx,[[0,-55],[12,-52],[15,-46],[10,-40],[1,-42]],'#c6b4a0');
+    ctx.fillStyle='#142432';ctx.fillRect(7,-50,7,5);
+    if(!pose.blink){ctx.fillStyle='#f9e3b9';ctx.fillRect(11,-49,3,2);}
+    ctx.strokeStyle=capeEdge;ctx.lineWidth=1.7;ctx.beginPath();ctx.moveTo(-16,-30);ctx.lineTo(-21+pose.cape*.6,-5);ctx.stroke();
+    ctx.restore();
+  }else{
+    const back=pose.view==='back';
+    // Feet establish the direction of travel and are not obscured by the cape.
+    ctx.fillStyle='#29323c';ctx.fillRect(-10,-11+pose.step,7,15);ctx.fillRect(4,-11-pose.step,7,15);
+    ctx.fillStyle='#a7a18b';ctx.fillRect(-11,0+pose.step,10,4);ctx.fillRect(3,0-pose.step,10,4);
+    poly(ctx,[[-14,-38],[-22,-30],[-23-pose.cape*.4,-7],[-16+pose.cape*.15,1],[-8,-9],[6,-10],[18-pose.cape*.3,2],[22,-29],[11,-40]],cape);
+    ctx.strokeStyle=capeEdge;ctx.lineWidth=1.6;ctx.beginPath();ctx.moveTo(-19,-30);ctx.lineTo(-17-pose.cape*.3,-11);ctx.moveTo(17,-28);ctx.lineTo(15-pose.cape*.25,-8);ctx.stroke();
+    // The rear view is dominated by a long cloak and an unbroken hood; no phantom face/eyes.
+    if(back){
+      poly(ctx,[[-13,-38],[-15,-16],[-8,-5],[7,-5],[16,-17],[13,-39]],'#2a5667');
+      poly(ctx,[[-11,-35],[-5,-21],[0,-13],[6,-23],[11,-35]],'#3c7890');
+      ctx.strokeStyle=gold;ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(-1,-27);ctx.lineTo(0,-13);ctx.stroke();
+      ctx.fillStyle='#6a8290';ctx.fillRect(-18,-37,8,9);ctx.fillRect(10,-37,8,9);
+      ctx.strokeStyle=gold;ctx.lineWidth=2.5;ctx.beginPath();ctx.moveTo(17,-9);ctx.lineTo(22,-41);ctx.stroke();
+      ctx.fillStyle='#e0e8dc';ctx.fillRect(20,-51,4,15);
+      poly(ctx,[[-15,-44],[-13,-57],[-3,-66],[8,-59],[15,-45],[10,-37],[-12,-37]],hood);
+      poly(ctx,[[-12,-49],[-5,-59],[6,-57],[12,-47],[8,-42],[-9,-42]],'#3e6371');
+      ctx.strokeStyle='#85b4b5';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(-7,-54);ctx.lineTo(5,-54);ctx.stroke();
+    }else{
+      poly(ctx,[[-12,-38],[-16,-19],[-9,-11],[9,-11],[16,-19],[12,-38]],cloth);
+      poly(ctx,[[-15,-38],[-22,-34],[-18,-26],[-10,-28]],'#8caaa9');
+      poly(ctx,[[15,-38],[22,-34],[18,-26],[10,-28]],'#768e9d');
+      ctx.fillStyle='#253746';ctx.fillRect(-6,-34,12,16);
+      ctx.fillStyle=gold;ctx.fillRect(-2,-31,4,10);ctx.fillRect(-6,-27,12,3);
+      ctx.strokeStyle=gold;ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(-11,-13);ctx.lineTo(12,-13);ctx.stroke();
+      ctx.fillStyle=cloth;ctx.fillRect(-19,-29+pose.arm,7,17);ctx.fillRect(12,-29-pose.arm,7,17);
+      ctx.fillStyle='#baa688';ctx.fillRect(-19,-14,8,6);ctx.fillRect(12,-14,8,6);
+      ctx.strokeStyle=gold;ctx.lineWidth=2.8;ctx.beginPath();ctx.moveTo(18,-12);ctx.lineTo(22,-39);ctx.stroke();
+      ctx.fillStyle='#dfe6d7';ctx.fillRect(20,-51,4,16);ctx.fillStyle='#c99e65';ctx.fillRect(17,-38,10,3);
+      poly(ctx,[[-15,-43],[-12,-56],[-2,-66],[9,-60],[15,-45],[10,-37],[-11,-37]],hood);
+      poly(ctx,[[-11,-49],[-3,-61],[9,-56],[11,-45]],npc?'#819487':'#618a94');
+      poly(ctx,[[-10,-49],[-6,-42],[8,-42],[10,-50],[2,-54]],'#c5b49b');
+      ctx.fillStyle='#152634';ctx.fillRect(-7,-47,15,6);
+      if(!pose.blink){ctx.fillStyle='#f6eac8';ctx.fillRect(-5,-47,3,2);ctx.fillRect(5,-47,3,2);}
+      ctx.strokeStyle=gold;ctx.lineWidth=1.7;ctx.beginPath();ctx.moveTo(-2,-62);ctx.lineTo(2,-62);ctx.stroke();
+    }
+  }
   ctx.restore();
 }
 function drawArchivist(ctx:CanvasRenderingContext2D,x:number,y:number,t:number){
@@ -366,7 +419,7 @@ for(const e of roamers){const xx=(e.x+.5)*TILE-camX,yy=(e.y+.78)*TILE-camY;if(xx
     ctx.fillStyle='#f2c4a2';ctx.font='bold 13px monospace';ctx.textAlign='center';ctx.fillText('!',xx,yy-61);
   }});
 }
-objects.push({x:hero.x*TILE-camX,y:hero.y*TILE-camY,draw:()=>drawHero(ctx,(hero.x+.5)*TILE-camX,(hero.y+.55)*TILE-camY,t,hero.walking,hero.facing)});objects.sort((a,b)=>a.y-b.y);for(const obj of objects)obj.draw();
+objects.push({x:hero.x*TILE-camX,y:hero.y*TILE-camY,draw:()=>drawHero(ctx,(hero.x+.5)*TILE-camX,(hero.y+.55)*TILE-camY,t,hero.walking,hero.facing,false,reducedMotion)});objects.sort((a,b)=>a.y-b.y);for(const obj of objects)obj.draw();
 // Per-biome atmosphere: sparks in Arken, rain and spores in the woods, rising runes in the sanctuary.
 // All geometry passes through the same ASCII compositor as the physical world.
 drawClimate(ctx,zone,t,z.seed,reducedMotion);

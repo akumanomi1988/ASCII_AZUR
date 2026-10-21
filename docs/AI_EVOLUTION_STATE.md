@@ -1,57 +1,58 @@
 # ASCII AZUR — Autonomous Evolution State
 
-Last updated: 2026-10-21 · v0.13. Source of truth: `akumanomi1988/ASCII_AZUR` / `main`. This file tracks **verified evidence**, not a declared AAA milestone.
+Last audited: 2026-10-21, v0.14. Source of truth: `akumanomi1988/ASCII_AZUR` / `main` once promoted. One iteration per invocation; do not run scheduled or Work tasks without explicit consent.
 
-## Identity
+## Vision and invariant contracts
 
-Premium-quality original dark fantasy RPG with collectable creatures, strategic turn-based battles, persistent procedural worlds, hand-authored narrative, and recognisable ASCII/Unicode-based art. Android landscape is a primary intended platform; web is currently the working delivery target. Do not use protected Pokémon assets or story.
+Original dark fantasy creature RPG with visually distinctive colored ASCII/Unicode art. Character silhouettes must remain readable, creatures should have meaningful personalities, combat strategic, procedural worlds persistent per save, and mobile controls usable. No Pokémon franchise content. Existing v1 saves remain compatible. Game source in TypeScript; `play.html` is generated, not edited manually. GitHub Pages publishes only a standalone HTML plus provenance.
 
-## Release scope / gates
+## Current release scope and premium completion gate
 
-Current campaign: 3 regions, 12 species, short chapter, physical crypt, node-based expeditions. **Not content complete.** Premium release requires a start-to-finish campaign, replayable but meaningful game loop, strong presentation, reliable saves, real-device performance and independent playtesting. See evolution prompt for complete gate.
+Three regions, 12 species, opening narrative, seeded roguelite expeditions, physical crypt, 34 moves, visible/direct and random encounters, creature evolution and persistent saves. Incomplete campaign/story arc, content, audio mastering, physical Android device QA and external playtesting. Premium-complete gate: all 16 dimensions >=4/5, average >=4.5/5, start-to-end playthrough, 0 high/critical issues, build+CI+verified Pages provenance and validated game flow. This is not close to completion.
 
-## Quality assessment (0–5; engineering estimate only)
+## Evidence-based quality scorecard (0–5)
 
-| Area | Score | Evidence / primary gap |
-|---|---:|---|
-| Artistic direction | 3 | Atmospheric ASCII style; character readability varies |
-| ASCII rendering | 3 | GPU+Canvas paths, settings; Android GPU unmeasured |
-| Animation | 2 | Species pose/FX cues exist; no final rigs or authored performances |
-| World design | 2 | 3 regions and pathways; limited architecture and interiors |
-| Procedural generation | 3 | Deterministic and persistent, connectivity tests; limited geography |
-| Exploration | 3 | Rune puzzles, secrets, visible encounter sites; more variety needed |
-| Core gameplay | 3 | Movement, capture, quests and direct battles present; feel untested |
-| Combat | 3 | 34 moves, roles and AI; balance and strategy unverified |
-| Creatures | 2 | 12 species; anatomy and animation need substantial work |
-| Story and lore | 2 | Opening chapter only; climax of full narrative absent |
-| Progression | 2 | Level/evolution + quests; long-term economy/progression incomplete |
-| UX / HUD | 3 | Mobile drawer and render controls; responsive UX needs real-device QA |
-| Mobile experience | 2 | Touch joystick/emulated viewport PASS; physical device untested |
-| Audio | 3 | Procedural audio exists; composition and mastering incomplete |
-| Technical quality | 3 | 116 unit/integration tests and build; high complexity in `main.ts` |
-| Production readiness | 1 | No full campaign, Android build, legal review or player trials |
+| Domain | v0.13 | v0.14 | Evidence and measurable next acceptance |
+|---|---:|---:|---|
+| Art direction | 3 | 3 | Four hero directions; need consistent designs/biome art, validated by independent players |
+| ASCII rendering | 3 | 3 | Glyph dither CPU/GPU source, glyph settings; need actual Android WebGL2 screenshot+frame timings |
+| Animation | 2 | 2 | Deterministic 4-view pose and motion; need authored combat poses & readable transition frames |
+| World design | 2 | 2 | Three areas with landmarks; need differentiated locations and meaningful spatial exploration |
+| Procedural generation | 3 | 3 | Stable seeded geometry and test coverage; need varied layouts and persistence replay QA |
+| Exploration | 3 | 3 | Visible encounters, secrets, runes; need player-test exploration reward flow |
+| Core gameplay | 3 | 3 | Navigation/capture/story available; need objective feedback and flow satisfaction testing |
+| Combat | 3 | 3 | Tactical moves/battle replay; need encounter pacing/balance matrix and real-device interaction |
+| Creatures | 2 | 2 | Two unique motifs added; need 12 distinct readable designs at minimum mobile glyph size |
+| Story and lore | 2 | 2 | First chapter only; require a coherent complete beginning-middle-ending campaign |
+| Progression | 2 | 2 | Evolution, team and quests; need balanced full campaign progression and economy |
+| UX / HUD | 3 | 3 | Settings/joystick/drawer work; need device testing, information hierarchy and usability studies |
+| Mobile | 2 | 2 | Emulated portrait/landscape Chromium PASS; require real Android touch/FPS verification |
+| Audio | 3 | 3 | Generated ambience and combat feedback; need memorable themes, mixing and accessibility |
+| Technical | 3 | 3 | 123 tests, TypeScript build, offline cache; need lower coupling and stress/performance runs |
+| Production readiness | 1 | 1 | No complete campaign or published real-device QA; need whole-game E2E and release checks |
 
-Mean: **2.5 / 5** (author estimate). Previous comparable full assessment: unavailable; no artificial score delta assigned.
+Mean: **2.5/5** previous and current. No invented percentage or score gain; test evidence demonstrates scope completion, not commercially validated quality. Each next score increase requires observable acceptance beyond feature count.
 
-## This iteration
+## Iteration v0.14 — Art readability vertical slice
 
-- Fixed the discoverability problem behind "no direct battles": predictable visible overworld enemies plus freely selected direct encounters from the drawer, even in the starting village.
-- Graphic controls expanded: independent density, glyph size, contrast, brightness and edge sharpness with validation and persistence in both renderers.
-- QA: 116/116 tests PASS (previous 111/111); 200 world seeds sampled in the new tests; three viewport modes in browser PASS; fallback Canvas2D only.
-- Persistent save compatibility: SaveGame v1 unchanged. Visible encounter results use `flags` and checkpoints optionally store the encounter ID.
+- `src/actors/hero-performance.ts`: 4-way deterministic directional pose, blink, gait, cape sway and full reduced-motion freeze.
+- `src/render.ts`: independently composed back/front/profile hero views, authored motifs for Cindrel/Cinderwulf and Velaria.
+- `src/render/legibility.ts`: sparse, edge-aware glyph field; shader and fallback paths updated to reject uniform-ground noise while preserving bright figures.
+- Unit tests: 123 PASS (116 in previous release); 4-view checksums distinct; Chromium desktop, mobile landscape and legacy v0.13 regression checks PASS on Canvas2D. Offline cache audit 25/25 PASS.
+- **Not yet verified**: Android hardware GPU performance, user-perceived quality, complete campaign/playthrough.
 
 ## Architecture / risk decisions
 
-- `src/world/encounters.ts` generates deterministic, reachable, landmark-safe encounter locations; clearing is a save flag, not a world mutation.
-- `src/render/graphics-profile.ts` owns bounded renderer preferences; separate from `SaveGame`.
-- `src/main.ts` is still too large; extract runtime systems gradually without rewriting working gameplay.
-- Ultra density can reduce fallback FPS; real WebGL2 device profiling is a required release gate.
-- Existing code is public. Verify commercial compatibility for any future added assets.
+- Keep gameplay and save state unchanged. Character performance pure functions; drawing remains in Canvas prepass and goes through ASCII compositor.
+- Flat-area suppression is deliberately conservative: depends on luminance, edge contrast and per-cell dither; tune from measured gameplay feedback to avoid losing navigational cues.
+- `src/main.ts` remains a large unit; refactor incrementally without disturbing working systems.
+- Use only GitHub account `akumanomi1988` for writes; branch and Pages integrity checked with expected refs. No force pushes.
 
-## Deployment
+## Shipping and next priority
 
-Local: build, tests, source bundle and headless fallback browser PASS. GitHub commit / GitHub Actions / public Pages verification to be confirmed by release agent; **do not infer success from push**.
+The release agent must update the GitHub commit ID, CI job outcomes, Pages deployment SHA and live smoke test evidence after release. A green CI is not proof of public web health.
 
-## Next priority
-
-Golden Slice: identifiable hero and two distinctive creature rigs, purpose-built glyph density per subject, smoother frame-to-frame art and a real-device graphics profile. Afterwards improve authored locations and a complete campaign segment.
+1. Improve subject prominence at phone glyph density, and do *real* WebGL2/Android visual and performance testing (target >=30 stable FPS on defined supported hardware).
+2. Introduce authored creature-specific combat poses, readable hit reactions and differentiated original audio.
+3. Deliver a complete authored narrative slice with beginning, region climax, rewards and consequences.
+4. Measure accessibility and player experience with external testers.
