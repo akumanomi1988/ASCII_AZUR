@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {configureWorld,ZONES,isBlocked} from '../dist/world.js';
 import {visibleEncounters,nearbyEncounter} from '../dist/world/encounters.js';
-import {DEFAULT_GRAPHICS,boundGraphic,glyphCell,readGraphics} from '../dist/render/graphics-profile.js';
+import {DEFAULT_GRAPHICS,boundGraphic,glyphCell,canvasGlyphCell,glyphCount,readGraphics} from '../dist/render/graphics-profile.js';
 import {validateBattleCheckpoint,createCreature} from '../dist/domain.js';
 
 test('visible encounters are reproducible, reachable, interactive, and not in the village for 200 seeds',()=>{
@@ -31,9 +31,9 @@ test('legacy seed 0 never requires changing its generated map',()=>{
 });
 test('graphics preferences clamp invalid and hostile values; legacy settings remain compatible',()=>{
  assert.deepEqual(readGraphics(null),DEFAULT_GRAPHICS);
- const v=readGraphics({density:.48,quality:.4});assert.equal(v.density,.48);assert.equal(v.quality,.4);assert.equal(v.glyphScale,1);
+ const v=readGraphics({density:.48,quality:.4});assert.equal(v.density,.48);assert.equal(v.quality,.4);assert.equal(v.glyphScale,.8);
  const bad=readGraphics({density:-20,glyphScale:NaN,contrast:10000,edgeStrength:0,brightness:'99',quality:Infinity});
- assert.equal(bad.density,.42);assert.equal(bad.glyphScale,1);assert.equal(bad.contrast,1.8);assert.equal(bad.edgeStrength,.5);assert.equal(bad.brightness,0);
+ assert.equal(bad.density,.18);assert.equal(bad.glyphScale,.8);assert.equal(bad.contrast,1.8);assert.equal(bad.edgeStrength,.5);assert.equal(bad.brightness,.02);
  assert.equal(boundGraphic('quality',undefined),1);
 });
 test('glyph density and size are independent in both renderers',()=>{
@@ -46,4 +46,21 @@ test('checkpoints accept only canonical encounter identities',()=>{
  const c=createCreature('thorne',7);const state={enemy:createCreature('cindrel',6),type:'wild',ally:0,guarding:false,bossPhase:1,chargeStage:0,effects:{},encounterId:'forest-1'};
  assert.equal(validateBattleCheckpoint(state,[c]),true);
  assert.equal(validateBattleCheckpoint({...state,encounterId:'../../evil'},[c]),false);
+});
+
+test('microscopic GPU preset uses more than 100000 independently sampled cells at desktop size',()=>{
+ const ultra=readGraphics({density:.18,glyphScale:.5});
+ const cell=glyphCell(10,ultra);
+ assert.equal(cell.width,1.25);
+ assert.ok(glyphCount(1280,720,cell)>300000);
+ const standard=glyphCell(10,DEFAULT_GRAPHICS);
+ assert.ok(glyphCount(1280,720,standard)>60000);
+ assert.ok(glyphCount(1280,720,cell)>glyphCount(1280,720,standard)*3);
+});
+test('Canvas2D density cap preserves aspect ratio and never constrains WebGL2',()=>{
+ const preset=readGraphics({density:.18,glyphScale:.5});
+ const fallback=canvasGlyphCell(10,preset,1920,1080);
+ assert.ok(glyphCount(1920,1080,fallback)<=102000);
+ assert.ok(fallback.width>glyphCell(10,preset).width);
+ assert.ok(canvasGlyphCell(10,DEFAULT_GRAPHICS,320,180).width>=glyphCell(10,DEFAULT_GRAPHICS).width);
 });
