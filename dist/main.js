@@ -9,6 +9,7 @@ import { ZONES, sweepMove, isWild, nearbyLandmark, configureWorld, captureWorldS
 import { SHOP, QUESTS, buy, claimQuests, normalizeEconomy, newEconomy } from './rpg.js';
 import { Sound, themeForZone } from './audio.js';
 import { FrameMetrics } from './core/frame-metrics.js';
+import { storyGuidance } from './story-navigation.js';
 import { ARKEN_STORY, ARKEN_FINALE_REWARD, arkenStoryBeat, arkenStoryIndex, concludeArken, canConcludeArken } from './story-campaign.js';
 import { readSave, writeSave } from './core/save-store.js';
 import { transferStoredCreature, reserveCreature } from './party.js';
@@ -26,6 +27,7 @@ class AzurGame {
     frameMetrics = new FrameMetrics();
     debugPerformance = false;
     lastDebugUpdate = 0;
+    lastCompassUpdate = 0;
     sound = new Sound();
     soundEnabled = true;
     reducedMotion = false;
@@ -1398,7 +1400,20 @@ class AzurGame {
         if (notify)
             this.toast('NO SE PUDO GUARDAR · ALMACENAMIENTO LLENO');
     } }
+    updateStoryCompass() {
+        const node = byId('storyCompass');
+        if (!this.started) {
+            node.classList.add('hidden');
+            return;
+        }
+        const cue = storyGuidance(this.storyState, { zone: this.save.zone, x: this.save.x, y: this.save.y, inDungeon: !!this.save.dungeon?.active });
+        if (node.textContent !== cue.text)
+            node.textContent = cue.text;
+        node.classList.remove('hidden');
+        node.classList.toggle('is-near', cue.kind === 'interaction' || cue.kind === 'completed');
+    }
     updateUI() {
+        this.updateStoryCompass();
         const z = ZONES[this.save.zone];
         byId('zoneName').textContent = this.save.dungeon?.active ? 'Cripta de los Ecos' : z.name;
         byId('zoneSubtitle').textContent = this.save.dungeon?.active ? `${chamberAt(this.save.dungeon, this.save.dungeon.x, this.save.dungeon.y).name} · SELLOS ${chamberProgress(this.save.dungeon).completed}/3` : z.subtitle;
@@ -1463,6 +1478,10 @@ class AzurGame {
             drawWorld(ctx, this.save.zone, { x: this.save.x, y: this.save.y, facing: this.facing, walking: this.moving && !this.dialogOpen }, this.seconds, this.flash, this.save.defeatedBoss, this.camera, this.reducedMotion, this.roamers());
         }
         this.renderer.present(now);
+        if (this.started && now - this.lastCompassUpdate > 180) {
+            this.lastCompassUpdate = now;
+            this.updateStoryCompass();
+        }
         if (now - this.lastDebugUpdate > 750) {
             this.lastDebugUpdate = now;
             const perf = this.frameMetrics.report();

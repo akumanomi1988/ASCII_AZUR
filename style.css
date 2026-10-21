@@ -194,3 +194,9 @@
 .settings-row select{max-width:57%;min-width:140px}
 .settings-reset{min-height:38px;padding:7px 12px;border:1px solid #be9b6a;border-radius:4px;background:#273743;color:#eed5ad;cursor:pointer}
 @media(max-width:550px){.settings-row{gap:10px}.settings-row label{max-width:50%}.settings-row input[type=range]{width:46%}}
+
+/* v0.18 story compass is part of the objective HUD; it does not obstruct input. */
+.story-compass{display:inline-block;max-width:min(100%,260px);margin-top:9px;padding:7px 10px;background:#0a1c27dd;border:1px solid #b6986699;border-radius:4px;color:#e4c994;font:600 10px/1.3 'DM Mono',monospace;letter-spacing:.6px;white-space:normal;overflow-wrap:break-word;text-shadow:0 1px 8px #000;pointer-events:none}
+.story-compass.is-near{border-color:#72b2a5;color:#bcebd8;background:#0e302cdd}
+@media(orientation:landscape) and (max-height:600px){.story-compass{margin-top:4px;padding:4px 6px;max-width:183px;font-size:9px;line-height:1.2}}
+@media(orientation:portrait) and (max-width:550px){.story-compass{max-width:160px;font-size:9px;padding:5px 7px}}

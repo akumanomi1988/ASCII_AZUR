@@ -165,3 +165,16 @@ test('runtime: talking to the Archivist before clearing the crypt cannot award e
  assert.equal(game.economy.echoes,before);assert.equal(game.save.flags.includes('arken-vow-restored'),false);
  assert.match(dom.get('diaText').textContent,/Cripta de los Ecos/);
 });
+
+test('runtime: story compass follows first objective, responds to portal and preserves legacy saves',()=>{
+ const {game,dom,storage}=mount();game.startNew();game.pickStarter('cindrel');for(let i=0;i<3;i++)game.nextDialog();
+ assert.match(dom.get('storyCompass').textContent,/ARCHIVISTA/);
+ const previous=dom.get('storyCompass').textContent;
+ game.save.x=7;game.save.y=16;game.updateStoryCompass();assert.notEqual(dom.get('storyCompass').textContent,previous);
+ assert.match(dom.get('storyCompass').textContent,/ARCHIVISTA/);
+ game.addFlag('archivist');assert.match(dom.get('storyCompass').textContent,/PORTAL ESTE/);
+ game.interactLandmark({x:43,y:16,kind:'portal',label:'Bosque'});
+ assert.match(dom.get('storyCompass').textContent,/PORTAL ESTE/);
+ game.saveNow(false);const raw=JSON.parse(storage.getItem('ascii-azur-save-v1'));
+ assert.equal(raw.version,1);assert.equal(Object.hasOwn(raw,'navigation'),false);
+});

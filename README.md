@@ -1,4 +1,4 @@
-# ASCII AZUR v0.17 — The Unwritten
+# ASCII AZUR v0.18 — The Unwritten
 
 RPG de captura de criaturas y fantasía oscura, con mundo ASCII generado mediante WebGL2 (fallback Canvas2D), exploración procedural persistente y una cripta física de ocho cámaras. Android horizontal es la plataforma prioritaria; navegador web es el entorno de desarrollo y distribución actual.
 
@@ -15,7 +15,7 @@ RPG de captura de criaturas y fantasía oscura, con mundo ASCII generado mediant
 
 ## Estado de calidad
 
-v0.17 integra el arco narrativo de Arken con seis objetivos enlazados, desenlace con el Archivista y recompensa persistente única; v0.16 incorpora coreografías de combate por familia (9 gestos, impactos y siluetas), manteniendo intactas las reglas de daño y los guardados; v0.15 restaura la trama ASCII continua con glifos microscópicos, opciones visuales detalladas y un compositor Canvas2D acelerado; v0.14 agregó siluetas direccionales y v0.13 añadió encuentros visibles; v0.12 mejoró la dirección de arte de las ocho cámaras mediante materiales diferenciados, grabados, antorchas, iluminación y subtítulos de cámara; conserva topología y partidas antiguas. **No** constituye un juego AAA completo. Pendientes: arte final, campaña completa, rendimiento y batería real Android, música de producción, pruebas con jugadores, economía y balance extensivos. Documentación: `docs/ARCHITECTURE.md`, `RELEASE_v0.17.md`.
+v0.18 añade brújula contextual de misión —dirección, distancia y acción del siguiente hito incluso en móvil— sin alterar el guardado; v0.17 integra el arco narrativo de Arken con seis objetivos enlazados, desenlace con el Archivista y recompensa persistente única; v0.16 incorpora coreografías de combate por familia (9 gestos, impactos y siluetas), manteniendo intactas las reglas de daño y los guardados; v0.15 restaura la trama ASCII continua con glifos microscópicos, opciones visuales detalladas y un compositor Canvas2D acelerado; v0.14 agregó siluetas direccionales y v0.13 añadió encuentros visibles; v0.12 mejoró la dirección de arte de las ocho cámaras mediante materiales diferenciados, grabados, antorchas, iluminación y subtítulos de cámara; conserva topología y partidas antiguas. **No** constituye un juego AAA completo. Pendientes: arte final, campaña completa, rendimiento y batería real Android, música de producción, pruebas con jugadores, economía y balance extensivos. Documentación: `docs/ARCHITECTURE.md`, `RELEASE_v0.18.md`.
 
 ## Combates y ajustes
 
@@ -24,3 +24,7 @@ En Arken, Bosque de Ceniza y Santuario abre **Menú → Combate directo** para u
 ## Arco de Arken
 
 Tras elegir criatura, abre **Menú → Misiones** para seguir seis etapas: hablar con el Archivista, atravesar el bosque, alcanzar el santuario, vencer a Hollowhart, completar la cripta y regresar a Arken. El final se conserva en partidas v1 y su recompensa solo se entrega una vez. El arco es una historia local cerrada, no la campaña comercial completa.
+
+## Brújula narrativa
+
+Tras iniciar una partida aparece, bajo el nombre de la región, una guía compacta hacia el objetivo activo: Archivista, portales oeste/este o Hollowhart. Marca distancia aproximada en casillas; cerca de un personaje o portal indica ACCIÓN. La cripta utiliza su menú y el objetivo muestra instrucciones en lugar de inventar una coordenada del mundo. La flecha señala la dirección general; sigue los senderos para rodear obstáculos. Funciona con la semilla generada y guardados anteriores sin nuevos campos.

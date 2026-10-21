@@ -1,6 +1,6 @@
 # ASCII AZUR — Autonomous Evolution State
 
-Last audited: 2026-10-21, v0.17. Source of truth: `akumanomi1988/ASCII_AZUR` / `main` once promoted. One iteration per invocation; do not run scheduled or Work tasks without explicit consent.
+Last audited: 2026-10-21, v0.18. Source of truth: `akumanomi1988/ASCII_AZUR` / `main` once promoted. One iteration per invocation; do not run scheduled or Work tasks without explicit consent.
 
 ## Vision and invariant contracts
 
@@ -20,18 +20,27 @@ Three regions, 12 species, a playable closed Arken narrative arc, seeded rogueli
 | World design | 2 | 2 | Three areas with landmarks; need differentiated locations and meaningful spatial exploration |
 | Procedural generation | 3 | 3 | Stable seeded geometry and test coverage; need varied layouts and persistence replay QA |
 | Exploration | 3 | 3 | Visible encounters, secrets, runes; need player-test exploration reward flow |
-| Core gameplay | 3 | 3 | Navigation/capture/story available; six step objective journal added in v0.17; need natural-route playthrough and satisfaction testing |
+| Core gameplay | 3 | 3 | Navigation/capture/story and six-step journal; v0.18 real-time quest bearing/distance guidance tested on desktops and simulated mobiles; still need natural-route playthrough |
 | Combat | 3 | 3 | Tactical moves/battle replay; need encounter pacing/balance matrix and real-device interaction |
 | Creatures | 2 | 2 | Two unique motifs added; need 12 distinct readable designs at minimum mobile glyph size |
 | Story and lore | 2 | 2 | One fully integrated Arken arc (v0.17); global beginning-middle-ending campaign still missing; need a complete multi-region campaign |
 | Progression | 2 | 2 | Evolution, team and quests; need balanced full campaign progression and economy |
-| UX / HUD | 3 | 3 | Settings/joystick/drawer work; need device testing, information hierarchy and usability studies |
+| UX / HUD | 3 | 3 | Compact real-time objective compass added without menu overlap (v0.18); real-device readability and usability tests pending |
 | Mobile | 2 | 2 | Emulated portrait/landscape Chromium PASS; require real Android touch/FPS verification |
 | Audio | 3 | 3 | Generated ambience and combat feedback; need memorable themes, mixing and accessibility |
-| Technical | 3 | 3 | 137 tests, authored Arken story progression and combat direction and software compositor, offline cache; need real-device stress/performance runs |
+| Technical | 3 | 3 | 145 tests, seeded-landmark guidance, story progress, combat direction and offline cache; need real-device stress/performance |
 | Production readiness | 1 | 1 | No complete campaign or published real-device QA; need whole-game E2E and release checks |
 
 Mean: **2.5/5** previous and current. No invented percentage or score gain; test evidence demonstrates scope completion, not commercially validated quality. Each next score increase requires observable acceptance beyond feature count.
+
+## Iteration v0.18 — In-world quest compass (release candidate)
+
+- **Diagnosis:** v0.17 quests contained detailed directions but the field-of-view HUD did not show bearings, distance or actionable portal/NPC targets. In dense procedurally seeded biomes this increased navigation friction, especially on small phones.
+- **Change:** `src/story-navigation.ts` derives a purely visual next-objective cue from the actual *seed-adjusted* world landmarks. Shows dynamic eight-way arrow, estimated tile distance, proximity ACTION hint for Archivist/Hollowhart/portals, appropriate east/west inter-zone navigation, direct crypt menu guidance, in-crypt clue and completed story status. Does not pretend to offer obstacle-aware pathfinding.
+- **Integration:** `#storyCompass` within existing location HUD, refreshed 5x/sec during exploration and on mission/zone changes. CSS constrained for desktop, mobile landscape and portrait; no joystick/menu overlap. Legacy save schema unchanged; no location or path data written.
+- **Evidence:** local Node tests 145/145 PASS (eight new story-navigation and runtime checks), TypeScript compile PASS, PWA audit 28 reachable modules/29 cached entries PASS, generated standalone boot PASS. Playwright Chromium rendered desktop 1180×740 and simulated touchscreen landscape 844×390; startup/starter/dialog, objective label, presence and menu overlap PASS, no page JS exceptions. Real mobile GPU and outdoor readability remain unverified.
+- **Risk:** compass gives a straight-line bearing, not guaranteed walkable path; the authored deterministic path network must remain navigable. Subjective AAA quality cannot be asserted from tests alone. Quality score remains **2.5/5**.
+- **Release provenance:** populated below upon verified GitHub source and Pages deployment. Never mark HTTP live smoke passed without direct evidence.
 
 ## Iteration v0.17 — Arken main-story vertical slice
 
@@ -117,7 +126,6 @@ Source commit, GitHub Actions and Pages provenance are recorded below. Direct pu
 - Vertical slice 130/130 local tests and Chromium standalone smoke PASS on desktop and simulated mobile landscape. Android physical hardware, WebGL2 benchmark, end-to-end campaign and external art reviews remain open.
 - Quality score previous 2.5/5; current 2.5/5, with 16-domain baseline maintained.
 - Next priority: measure and optimize actual Android GPU FPS, verify combat identity and readability with users, then complete story progression.
-
 
 ## v0.17 verified GitHub delivery ledger — 2026-10-21
 
