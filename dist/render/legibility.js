@@ -1,9 +1,6 @@
-/** Sparse tonal field: preserve high-gradient silhouettes while suppressing static visual noise.
- * Mirrored by the fragment shader in render.ts. Quantities are normalized luminance/edge. */
-export function glyphVisible(luminance, edge, noise) {
-    if (luminance < .20 && edge < .09)
-        return false;
-    if (edge < .11 && luminance < .58 && noise > .34)
-        return false;
-    return true;
+/** Continuous tonal halftone. Only perfectly black, unlit pixels may remain empty.
+ * Dark midtones are drawn with small, low-coverage glyphs rather than stochastic holes.
+ * Synced with the GPU shader in render.ts. */
+export function glyphVisible(luminance, edge, _noise) {
+    return luminance + edge * .3 >= .012;
 }
