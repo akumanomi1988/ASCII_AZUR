@@ -1,10 +1,10 @@
 # ASCII AZUR — Autonomous Evolution State
 
-Last audited: 2026-10-21, v0.15. Source of truth: `akumanomi1988/ASCII_AZUR` / `main` once promoted. One iteration per invocation; do not run scheduled or Work tasks without explicit consent.
+Last audited: 2026-10-21, v0.16. Source of truth: `akumanomi1988/ASCII_AZUR` / `main` once promoted. One iteration per invocation; do not run scheduled or Work tasks without explicit consent.
 
 ## Vision and invariant contracts
 
-Original dark fantasy creature RPG with visually distinctive colored ASCII/Unicode art. Character silhouettes must remain readable, creatures should have meaningful personalities, combat strategic, procedural worlds persistent per save, and mobile controls usable. No Pokémon franchise content. Existing v1 saves remain compatible. Game source in TypeScript; `play.html` is generated, not edited manually. GitHub Pages publishes only a standalone HTML plus provenance.
+Original dark fantasy creature RPG with visually distinctive colored ASCII/Unicode art. Character silhouettes must remain readable, creatures should have meaningful personalities, combat strategic, procedural worlds persistent per save, and mobile controls usable. No Pokémon franchise content. Existing v1 saves remain compatible. Game source in TypeScript; `play.html` is generated at verify/release time, not committed. GitHub Pages distributes modular static assets (`index.html`, styles, `dist/`, PWA files) plus provenance.
 
 ## Current release scope and premium completion gate
 
@@ -28,10 +28,28 @@ Three regions, 12 species, opening narrative, seeded roguelite expeditions, phys
 | UX / HUD | 3 | 3 | Settings/joystick/drawer work; need device testing, information hierarchy and usability studies |
 | Mobile | 2 | 2 | Emulated portrait/landscape Chromium PASS; require real Android touch/FPS verification |
 | Audio | 3 | 3 | Generated ambience and combat feedback; need memorable themes, mixing and accessibility |
-| Technical | 3 | 3 | 125 tests, new software compositor, offline cache; need real-device stress/performance runs |
+| Technical | 3 | 3 | 130 tests, combat direction and software compositor, offline cache; need real-device stress/performance runs |
 | Production readiness | 1 | 1 | No complete campaign or published real-device QA; need whole-game E2E and release checks |
 
 Mean: **2.5/5** previous and current. No invented percentage or score gain; test evidence demonstrates scope completion, not commercially validated quality. Each next score increase requires observable acceptance beyond feature count.
+
+## Iteration v0.16 — Creature-specific combat choreography
+
+- **Diagnosis:** attacks for very different species shared practically identical movement and impact effects. This reduced the identity and readability of tactical fights.
+- **Design/implementation:** new pure `src/actors/battle-direction.ts` samples nine deterministic signature styles mapped across all twelve species; `src/render.ts` stages anticipation, mirrored lunges, recoil and themed hit silhouettes. Visual presentation never changes combat damage, AI, save format or turn order. Reduced-motion configuration suppresses kinetic effects.
+- **Local tests:** TypeScript PASS; **130/130 Node tests PASS**, including five new choreography tests; offline cache audit PASS (26 modules reachable, 27 cache entries); rebuilt standalone. Chromium self-contained HTML smoke: start game, pick starter, dismiss dialogue, initiate direct combat and execute a move on desktop 1180×740 and simulated mobile landscape 844×390; no uncaught JavaScript exceptions. The first generated HTML had a top-level helper collision, corrected before release.
+- **Distribution refactor:** stopped committing the giant `play.html`. CI regenerates and tests it before packaging, while GitHub Pages serves 34 modular files (compiled JS, HTML, CSS, assets, PWA and provenance) from `gh-pages`. This avoids giant-file GitHub write limits and stale bundled code. HTML standalone remains attached as an artifact.
+- **Limitations:** WebGL2/Android physical GPU benchmarking, independent player testing, complete story, and public-site browser smoke are not verified. Average quality remains **2.5/5**; the animation dimension remains 2/5 until stronger evidence.
+
+## v0.16 verified distribution ledger
+
+- Source branch: `feature/creature-battle-direction-v016`, promoted into `main` at commit `4f2a3c3daa3bf5a204392cda2d8503ccc0caae4c`.
+- Quality CI feature: run `39640111719` SUCCESS; CI `main`: run `39640354602` SUCCESS.
+- Modular `gh-pages` deployment: commit `9a1d3e17b2dbffe836d1e6812551670f3fb59fc3`; Pages workflow `39640540615` SUCCESS (build/deploy/report).
+- `gh-pages/build-info.json` identifies `0.16.0` and exact game-source commit `4f2a3c3daa3bf5a204392cda2d8503ccc0caae4c`.
+- Live URL: `https://akumanomi1988.github.io/ASCII_AZUR/`. Public site HTTP/browser smoke: **NOT VERIFIED** because the available external browser/network cannot access `github.io`; deploy success is not proof of full user playability.
+- Quality score previous/current **2.5/5 → 2.5/5**. Vertical-slice checks passed locally and via CI; premium completion gate remains unsatisfied.
+- Next priority: real Android WebGL2 FPS/instrumentation, combat feel playtesting, full authored campaign.
 
 ## Iteration v0.15 — Microscopic ASCII visual restoration
 
@@ -63,7 +81,7 @@ Mean: **2.5/5** previous and current. No invented percentage or score gain; test
 GitHub commit, CI results and Pages deployment are documented in the v0.15 ledger below. The direct public-site smoke and physical Android GPU validation are still open gates; a green CI is not proof of public web health.
 
 1. Improve subject prominence at phone glyph density, and do *real* WebGL2/Android visual and performance testing (target >=30 stable FPS on defined supported hardware).
-2. Introduce authored creature-specific combat poses, readable hit reactions and differentiated original audio.
+2. Validate the new battle choreography with players, improve creature-specific sound and readable impact feedback.
 3. Deliver a complete authored narrative slice with beginning, region climax, rewards and consequences.
 4. Measure accessibility and player experience with external testers.
 
