@@ -11,3 +11,6 @@ release/
 # Local browser artifacts; screenshots can be attached to QA reports instead.
 qa-*.png
 qa-dungeon.html
+
+# Standalone HTML is generated per release/CI.
+play.html
