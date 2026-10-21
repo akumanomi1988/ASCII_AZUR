@@ -1,6 +1,7 @@
 {
   "project": "ASCII AZUR",
-  "version": "0.15.0",
-  "source_commit": "4125d36579a4f70d0a0b5bf928e62335f2bd60db",
-  "branch": "main"
+  "version": "0.16.0",
+  "source_commit": "4f2a3c3daa3bf5a204392cda2d8503ccc0caae4c",
+  "distribution": "modular-static",
+  "entry": "index.html"
 }
