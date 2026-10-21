@@ -7,11 +7,11 @@ RPG de captura de criaturas y fantasía oscura, con mundo ASCII generado mediant
 - Requiere Node.js 22 y TypeScript 5.8.3 (`npm install` cuando hay acceso al registro).
 - `npm run build`: compila `src/` a `dist/`.
 - `npm test`: pruebas Node.js sobre `dist/`; ejecuta `build` tras editar TypeScript.
-- `npm run verify`: build + tests + auditoría de imports PWA.
+- `npm run verify`: build + generación del HTML autónomo + tests de arranque y lógica + auditoría de imports PWA.
 - `npm run release`: verify + HTML autónomo + ZIP de fuentes bajo `release/`.
 - `npm run serve`: servidor HTTP en puerto 8080; abre `http://localhost:8080` para probar guardados y PWA.
 
-`play.html` es un **artefacto generado**. No debes editarlo manualmente. Los archivos fuente de verdad están en `src/`. Los tests usan `node:test` sin frameworks innecesarios.
+`play.html` es un **artefacto generado, no versionado**. No debes editarlo manualmente. GitHub Pages utiliza los módulos compilados; el HTML autónomo descargable se genera en CI. Los archivos fuente de verdad están en `src/`. Los tests usan `node:test` sin frameworks innecesarios.
 
 ## Estado de calidad
 
