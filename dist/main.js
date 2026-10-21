@@ -1,5 +1,5 @@
 import { AsciiRenderer, drawWorld, drawBattle, drawEvolution } from './render.js';
-import { DEFAULT_GRAPHICS } from './render/graphics-profile.js';
+import { DEFAULT_GRAPHICS, glyphCell, canvasGlyphCell, glyphCount } from './render/graphics-profile.js';
 import { visibleEncounters, nearbyEncounter } from './world/encounters.js';
 import { drawDungeon } from './dungeons/draw-dungeon.js';
 import { chamberAt, chamberProgress } from './dungeons/room-art.js';
@@ -173,13 +173,13 @@ class AzurGame {
     catch { /* preserve defaults */ } if (!this.soundEnabled)
         this.sound.setEnabled(false); this.updateMuteUi(); }
     restoreGraphicSettings() { try {
-        this.renderer.setGraphics(JSON.parse(localStorage.getItem('ascii-azur-graphics-v1') || 'null'));
+        this.renderer.setGraphics(JSON.parse(localStorage.getItem('ascii-azur-graphics-v2') || 'null'));
     }
     catch {
         this.renderer.setGraphics(DEFAULT_GRAPHICS);
     } }
     storeGraphicSettings() { try {
-        localStorage.setItem('ascii-azur-graphics-v1', JSON.stringify(this.renderer.getGraphics()));
+        localStorage.setItem('ascii-azur-graphics-v2', JSON.stringify(this.renderer.getGraphics()));
     }
     catch { /* storage unavailable */ } }
     restoreMotionSettings() { try {
@@ -1297,15 +1297,16 @@ class AzurGame {
     settings() {
         this.toggleDrawer(false);
         this.sound.unlock();
-        this.showModal('AJUSTES · ARTE ASCII', `<div class="modal-content-block">Elige la definición visual del mundo. La densidad y el tamaño del glifo son independientes. Los ajustes se aplican en tiempo real al renderizador ${this.renderer.mode === 'gpu' ? 'WebGL2' : 'Canvas2D'} y permanecen guardados.</div>
-      <div class="settings-row"><label for="densitySelect">Densidad de caracteres</label><select id="densitySelect"><option value=".42">Extrema · más detalle</option><option value=".48">Ultra</option><option value=".56">Alta · recomendada</option><option value=".85">Equilibrada</option><option value="1.2">Rendimiento</option></select></div>
-      <div class="settings-row"><label for="glyphScale">Tamaño de caracteres <output id="glyphScaleValue"></output></label><input id="glyphScale" type="range" min=".65" max="1.85" step=".05"></div>
+        this.showModal('AJUSTES · ARTE ASCII', `<div class="modal-content-block">Mundo de caracteres diminutos y muy densos. La densidad y el tamaño del glifo son independientes. Los ajustes se aplican en tiempo real al renderizador ${this.renderer.mode === 'gpu' ? 'WebGL2' : 'Canvas2D'} y permanecen guardados.</div>
+      <div class="settings-row"><label for="densitySelect">Densidad de caracteres</label><select id="densitySelect"><option value="0.18">Microscópica · máxima</option><option value="0.24">Ultra fina</option><option value="0.32">Muy alta · recomendada</option><option value="0.42">Alta</option><option value="0.56">Equilibrada</option><option value="0.85">Rendimiento</option><option value="1.2">Muy rápida</option></select></div>
+      <div class="settings-row"><label for="glyphScale">Tamaño de caracteres <output id="glyphScaleValue"></output></label><input id="glyphScale" type="range" min=".5" max="1.85" step=".05"></div>
       <div class="settings-row"><label for="glyphContrast">Contraste <output id="glyphContrastValue"></output></label><input id="glyphContrast" type="range" min=".65" max="1.8" step=".05"></div>
       <div class="settings-row"><label for="glyphEdges">Definición de contornos <output id="glyphEdgesValue"></output></label><input id="glyphEdges" type="range" min=".5" max="2.4" step=".1"></div>
       <div class="settings-row"><label for="glyphBrightness">Luminosidad <output id="glyphBrightnessValue"></output></label><input id="glyphBrightness" type="range" min="-.25" max=".25" step=".05"></div>
-      <div class="settings-row"><label for="qualitySelect">Paleta cromática</label><select id="qualitySelect"><option value="1">Color atmosférico</option><option value=".4">Color limitado</option></select></div>
+      <div class="settings-row"><label for="qualitySelect">Paleta cromática</label><select id="qualitySelect"><option value="1">Color atmosférico</option><option value="0.4">Color limitado</option></select></div>
+      <div class="modal-content-block" id="glyphStats" aria-live="polite"></div>
       <div class="settings-row"><button id="resetGraphics" class="settings-reset">Restablecer gráficos</button></div>
-      <div class="modal-content-block">Consejo: densidad extrema y glifos pequeños dan más definición, pero consumen más GPU/CPU. Para móviles modestos, usa Equilibrada.</div>
+      <div class="modal-content-block">Los tonos oscuros también se dibujan con caracteres, sin huecos artificiales. WebGL2 ofrece la trama más fina; Canvas2D limita el trabajo para mantener la partida fluida.</div>
       <div class="settings-row"><label for="musicVolume">Música</label><input id="musicVolume" type="range" min="0" max="100" step="1"></div>
       <div class="settings-row"><label for="effectsVolume">Efectos</label><input id="effectsVolume" type="range" min="0" max="100" step="1"></div>
       <div class="settings-row"><label for="motionReduced">Reducir movimiento</label><input id="motionReduced" type="checkbox"></div>
@@ -1318,10 +1319,20 @@ class AzurGame {
         fx.oninput = () => { this.sound.setEffectsVolume(Number(fx.value) / 100); this.storeAudioSettings(); };
         const den = byId('densitySelect'), qual = byId('qualitySelect');
         const sliders = [['glyphScale', 'glyphScale'], ['glyphContrast', 'contrast'], ['glyphEdges', 'edgeStrength'], ['glyphBrightness', 'brightness']];
-        const sync = () => { const g = this.renderer.getGraphics(); den.value = String(g.density); qual.value = String(g.quality); for (const [id, key] of sliders) {
-            byId(id).value = String(g[key]);
-            byId(id + 'Value').textContent = key === 'brightness' ? g[key].toFixed(2) : g[key].toFixed(2) + '×';
-        } };
+        const sync = () => {
+            const g = this.renderer.getGraphics();
+            den.value = String(g.density);
+            qual.value = String(g.quality);
+            for (const [id, key] of sliders) {
+                byId(id).value = String(g[key]);
+                byId(id + 'Value').textContent = key === 'brightness' ? g[key].toFixed(2) : g[key].toFixed(2) + '×';
+            }
+            const canvas = this.renderer.canvas, rect = canvas.getBoundingClientRect(), dpr = canvas.width / (rect.width || 960);
+            const base = Math.max(5, Math.min(10, (rect.width || 960) / 130)) * dpr;
+            const requested = glyphCell(base, g), actual = this.renderer.mode === 'gpu' ? requested : canvasGlyphCell(base, g, canvas.width, canvas.height);
+            const target = glyphCount(canvas.width, canvas.height, requested), rendered = glyphCount(canvas.width, canvas.height, actual);
+            byId('glyphStats').textContent = `Trama ${Math.round(rendered).toLocaleString('es-ES')} caracteres · glifo ${actual.width.toFixed(1)} px · ${this.renderer.mode === 'gpu' ? 'WebGL2' : 'Canvas2D'}${rendered < target ? ' · límite de rendimiento aplicado' : ''}`;
+        };
         const change = (patch) => { this.renderer.setGraphics({ ...this.renderer.getGraphics(), ...patch }); this.storeGraphicSettings(); sync(); };
         den.onchange = () => change({ density: Number(den.value) });
         qual.onchange = () => change({ quality: Number(qual.value) });
