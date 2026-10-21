@@ -60,7 +60,7 @@ Mean: **2.5/5** previous and current. No invented percentage or score gain; test
 
 ## Shipping and next priority
 
-The release agent must update the GitHub commit ID, CI job outcomes, Pages deployment SHA and live smoke test evidence after release. A green CI is not proof of public web health.
+GitHub commit, CI results and Pages deployment are documented in the v0.15 ledger below. The direct public-site smoke and physical Android GPU validation are still open gates; a green CI is not proof of public web health.
 
 1. Improve subject prominence at phone glyph density, and do *real* WebGL2/Android visual and performance testing (target >=30 stable FPS on defined supported hardware).
 2. Introduce authored creature-specific combat poses, readable hit reactions and differentiated original audio.
@@ -72,8 +72,16 @@ The release agent must update the GitHub commit ID, CI job outcomes, Pages deplo
 - Previous v0.14 source: `f07d3db72dc4b1257c6cd9178766e983f037c5df`; Pages build `e53c310c6bce045d9d635d6035463fbdfbd6c47f`, run `39620740026` SUCCESS; source state documentation update `94cceba2f6aa303187cd60ffd1574f1a9f03d906` succeeded. This is **not** a v0.15 publication claim.
 - Target site: `https://akumanomi1988.github.io/ASCII_AZUR/`; browser smoke from this environment is restricted.
 
-## v0.15 shipping ledger (fill with evidence only after publishing)
+## v0.15 verified distribution ledger — 2026-10-21
 
-- Source commit: pending GitHub Actions verification.
-- gh-pages deployment: pending.
-- Public site HTTP smoke: unverified.
+- Source branch: `feature/microscopic-ascii-v015`; promoted source commit: `4125d36579a4f70d0a0b5bf928e62335f2bd60db`.
+- Branch CI: `39632636805` SUCCESS. `main` CI: `39632864910` SUCCESS.
+- GitHub Pages deployment branch: `gh-pages` commit `568a06c77b1e7f7cacec32d6acd538021da57774`.
+- Pages workflow: `39632917162` SUCCESS (build, deployment and status report completed).
+- `gh-pages/index.html` references the exact `main/play.html` blob `bde44c7969f1b8517a88ccf903182e815de46111`.
+- `gh-pages/build-info.json` indicates v0.15.0 and source commit `4125d36579a4f70d0a0b5bf928e62335f2bd60db`.
+- Public URL: `https://akumanomi1988.github.io/ASCII_AZUR/`.
+- **Public HTTP/browser smoke: NOT VERIFIED** — current browser/network tool cannot access the Pages hostname. Remote deployment PASS is not evidence of successful user interaction.
+- Local release acceptance: 125/125 tests, TypeScript build and offline audit PASS; real Android WebGL2 remains untested.
+- Quality scores remain **2.5/5** before and after this shipping iteration, because no new end-user/device evidence justifies an increase.
+- Next highest-impact gap: measure and optimize ultradense renderer on a physical Android GPU; follow with authored combat animations and a complete narrative slice.
