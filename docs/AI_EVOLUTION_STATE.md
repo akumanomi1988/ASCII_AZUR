@@ -1,6 +1,6 @@
 # ASCII AZUR — Autonomous Evolution State
 
-Last audited: 2026-10-21, v0.19. Source of truth: `akumanomi1988/ASCII_AZUR` / `main` once promoted. One iteration per invocation; do not run scheduled or Work tasks without explicit consent.
+Last audited: 2026-10-21, v0.20. Source of truth: `akumanomi1988/ASCII_AZUR` / `main` once promoted. One iteration per invocation; do not run scheduled or Work tasks without explicit consent.
 
 ## Vision and invariant contracts
 
@@ -167,3 +167,14 @@ Source commit, GitHub Actions and Pages provenance are recorded below. Direct pu
 - Local acceptance: 149/149 Node tests, TypeScript and offline audit PASS. 40 procedurally generated worlds checked for actionable routes; Chromium self-contained HTML desktop and touch landscape start/play/compass, no JS page errors. Independent Android/physical-GPU FPS test not performed.
 - Public URL `https://akumanomi1988.github.io/ASCII_AZUR/` and `/build-info.json`: **DIRECT HTTP/INTERACTIVE SMOKE UNVERIFIED** because available public-web tool cannot access that origin. GitHub Pages deploy SUCCESS is not an independent user-side verification.
 - Previous/current mean across 16 dimensions: **2.5/5 → 2.5/5**. Full premium/AAA-inspired gate remains unmet; real-device performance, complete global campaign, full human route playthrough and playtester evidence remain outstanding.
+
+## v0.20 verified delivery ledger — 2026-10-21
+
+- **Diagnosis:** on some devices microscopic glyphs can produce low framerates; v0.19 only reported FPS rather than reducing render workload. Preserve user-requested tiny characters by default.
+- **Implemented:** `AdaptiveGlyphs` optional main-thread pacing controller. It raises effective glyph-cell size gradually when p95/mean requestAnimationFrame timing stays slow, and restores finer glyphs after three fast windows; requires >=20 samples and >=1.8 seconds between checks. Scale is bounded to 1.0–2.4x. Works in Canvas2D and WebGL2 without modifying the selected density, save-game v1, combat, or world generation. Toggle defaults OFF and is stored separately in `ascii-azur-adaptive-fps-v1`; disabling immediately restores manual fidelity.
+- **Local acceptance:** `npm run verify` PASS: TypeScript, regenerated standalone HTML, **154/154 tests**, offline cache audit **29 imported JS / 30 cached resources**. Chromium desktop settings and mobile landscape start→starter→drawer→settings PASS, enabled/disabled checkbox and mocked localStorage checked, no uncaught JS errors. Origin navigation is blocked in test browser; mocked storage does not certify real-origin persistence.
+- **Source:** `feature/adaptive-glyph-fps-v020` commit `9757239473120248643a24b95804f2c3cd399349`, promoted to `main`. Feature CI `39670906478` SUCCESS and `main` CI `39671021689` SUCCESS.
+- **Pages:** `gh-pages` commit `e7601c7e882a4fb29e7b140f9b6f67ddffa5b520`, Pages workflow `39671211482` SUCCESS (build, deploy, report). Published `build-info.json` states v0.20.0 and the above exact source commit; `dist/core/adaptive-glyphs.js` blob `7e3730838479fc296a72bdc8d8f927f5f350bc31`.
+- **Live URL:** `https://akumanomi1988.github.io/ASCII_AZUR/`. Public-origin HTTP and full interaction smoke **NOT VERIFIED**: web/browser tool cannot access `github.io`; successful deployment is not proof of live-client behavior.
+- **Quality scorecard:** all 16 dimensions retained at conservative prior values. Previous mean **2.5/5**, current mean **2.5/5**. The 30 FPS target is best-effort and is NOT validated on Android physical hardware. Full premium gate remains open (entire global campaign, full natural playthrough, real-device performance and independent playtests).
+- **Next priority:** instrument physical Android GPU/CPU, p95 FPS and sustained heat/battery tests; tune the controller using observed traces, then finish the global campaign and full end-to-end journey.
