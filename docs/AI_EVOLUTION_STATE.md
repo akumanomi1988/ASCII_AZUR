@@ -12,7 +12,7 @@ Three regions, 12 species, a playable closed Arken narrative arc, seeded rogueli
 
 ## Evidence-based quality scorecard (0–5)
 
-| Domain | v0.14 | v0.15 | Evidence and measurable next acceptance |
+| Domain | v0.17 | v0.18 | Evidence and measurable next acceptance |
 |---|---:|---:|---|
 | Art direction | 3 | 3 | Four hero directions; need consistent designs/biome art, validated by independent players |
 | ASCII rendering | 3 | 3 | v0.15 continuous tiny glyphs + faster software buffer; GPU Android timings still unverified |
@@ -33,14 +33,14 @@ Three regions, 12 species, a playable closed Arken narrative arc, seeded rogueli
 
 Mean: **2.5/5** previous and current. No invented percentage or score gain; test evidence demonstrates scope completion, not commercially validated quality. Each next score increase requires observable acceptance beyond feature count.
 
-## Iteration v0.18 — In-world quest compass (release candidate)
+## Iteration v0.18 — In-world quest compass (verified delivery)
 
 - **Diagnosis:** v0.17 quests contained detailed directions but the field-of-view HUD did not show bearings, distance or actionable portal/NPC targets. In dense procedurally seeded biomes this increased navigation friction, especially on small phones.
 - **Change:** `src/story-navigation.ts` derives a purely visual next-objective cue from the actual *seed-adjusted* world landmarks. Shows dynamic eight-way arrow, estimated tile distance, proximity ACTION hint for Archivist/Hollowhart/portals, appropriate east/west inter-zone navigation, direct crypt menu guidance, in-crypt clue and completed story status. Does not pretend to offer obstacle-aware pathfinding.
 - **Integration:** `#storyCompass` within existing location HUD, refreshed 5x/sec during exploration and on mission/zone changes. CSS constrained for desktop, mobile landscape and portrait; no joystick/menu overlap. Legacy save schema unchanged; no location or path data written.
 - **Evidence:** local Node tests 145/145 PASS (eight new story-navigation and runtime checks), TypeScript compile PASS, PWA audit 28 reachable modules/29 cached entries PASS, generated standalone boot PASS. Playwright Chromium rendered desktop 1180×740 and simulated touchscreen landscape 844×390; startup/starter/dialog, objective label, presence and menu overlap PASS, no page JS exceptions. Real mobile GPU and outdoor readability remain unverified.
 - **Risk:** compass gives a straight-line bearing, not guaranteed walkable path; the authored deterministic path network must remain navigable. Subjective AAA quality cannot be asserted from tests alone. Quality score remains **2.5/5**.
-- **Release provenance:** populated below upon verified GitHub source and Pages deployment. Never mark HTTP live smoke passed without direct evidence.
+- **Release provenance:** recorded in the v0.18 verified release ledger. Public HTTP smoke remains unverified.
 
 ## Iteration v0.17 — Arken main-story vertical slice
 
@@ -136,3 +136,16 @@ Source commit, GitHub Actions and Pages provenance are recorded below. Direct pu
 - Local acceptance `npm run verify`: 137/137 Node PASS; TypeScript PASS; 27 reachable / 28 cached assets PASS. Desktop/mobile landscape Chromium `set_content` navigation→quest journal passed without JS exceptions. Story ending simulated in runtime tests, not a complete human end-to-end route.
 - Public URL `https://akumanomi1988.github.io/ASCII_AZUR/`. **Direct external HTTP/browser smoke UNVERIFIED** because the available browser refused `github.io`; never treat GitHub Actions SUCCESS as proof of public end-user playability.
 - Prior/current 16-dimension global quality average **2.5/5 → 2.5/5**; all 16 domain observations retained above. Premium completion gate remains unmet. Immediate risk: Android physical-device rendering, player-perceived quality, incomplete broader campaign and full natural end-to-end.
+
+
+## v0.18 verified release ledger — 2026-10-21
+
+- Personal GitHub repository only: `akumanomi1988/ASCII_AZUR`. No unrelated repositories or accounts modified.
+- Quality branch: `feature/quest-compass-v018`. Source commit promoted to `main`: `6fc981a6e569cf577293b29980ff7b9e91b5d6f6`.
+- GitHub quality CI on branch run `39648729280`: **SUCCESS**. CI on `main` run `39648895070`: **SUCCESS**.
+- GitHub Pages branch `gh-pages` publication commit: `0044a1c7e640457c9fd36b20bc3b76069bf24c8f`. Pages workflow `39649176586`: **SUCCESS**, all build, deploy, report steps passed.
+- `gh-pages/build-info.json` confirms `0.18.0` with exact source commit. Published `dist/story-navigation.js` blob `5bd3bd9e5ff0c8452826c409ccd166a3af1df14a` matches compiled `main` source artifact.
+- `npm run verify`: **145/145 PASS**, TypeScript build, browser-bootable standalone HTML, offline audit **28 reachable / 29 cached**. Chromium visual/smoke: desktop 1180×740 and landscape touch 844×390, visible compass and no menu overlap or JavaScript exceptions. Pathfinding is not implemented; compass indicates direction and approximate Euclidean distance only.
+- Target URL: `https://akumanomi1988.github.io/ASCII_AZUR/`. **Independent public-site HTTP and interaction smoke NOT VERIFIED**: tools cannot resolve or access `github.io` host (DNS failure). A successful Pages deployment is not evidence that the public website can be fully played on an external client.
+- **Quality**: v0.17 2.5/5 → v0.18 2.5/5. All 16 domain scores remain conservative. Completion gate still fails: no complete global commercial campaign, physical Android WebGL2 GPU FPS/performance validation, real-player usability/art feedback, and whole-campaign human end-to-end run.
+- **Next priority**: real-device ultra-dense ASCII performance and gameplay input QA; then broader campaign/creature content validated through external play sessions.
