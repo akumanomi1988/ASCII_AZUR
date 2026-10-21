@@ -1,8 +1,8 @@
 // Versioned offline cache. Older saved games stay in localStorage, outside this cache.
-const CACHE='ascii-azur-v016-q01';
+const CACHE='ascii-azur-v017-q01';
 const CORE=[
  './','./index.html','./style.css','./manifest.webmanifest','./assets/icon.svg',
- './dist/main.js','./dist/dungeons/labyrinth.js','./dist/dungeons/room-art.js','./dist/dungeons/draw-dungeon.js','./dist/creatures/loadout.js','./dist/expeditions/expedition.js','./dist/rpg.js','./dist/domain.js','./dist/party.js','./dist/combat/tactics.js','./dist/puzzles/runes.js','./dist/render.js',
+ './dist/story-campaign.js','./dist/main.js','./dist/dungeons/labyrinth.js','./dist/dungeons/room-art.js','./dist/dungeons/draw-dungeon.js','./dist/creatures/loadout.js','./dist/expeditions/expedition.js','./dist/rpg.js','./dist/domain.js','./dist/party.js','./dist/combat/tactics.js','./dist/puzzles/runes.js','./dist/render.js',
  './dist/world.js','./dist/world/discovery.js','./dist/world/encounters.js','./dist/audio.js','./dist/core/frame-metrics.js','./dist/core/save-store.js',
  './dist/render/glyph-cache.js','./dist/render/graphics-profile.js','./dist/render/legibility.js','./dist/render/software-glyph.js','./dist/actors/animation.js','./dist/actors/combat-fx.js','./dist/actors/battle-direction.js','./dist/actors/creature-performance.js','./dist/actors/hero-performance.js'
 ];
