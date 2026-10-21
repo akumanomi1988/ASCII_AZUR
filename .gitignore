@@ -1,0 +1,13 @@
+node_modules/
+coverage/
+playwright-report/
+test-results/
+.DS_Store
+.env
+.env.*
+!.env.example
+*.log
+release/
+# Local browser artifacts; screenshots can be attached to QA reports instead.
+qa-*.png
+qa-dungeon.html

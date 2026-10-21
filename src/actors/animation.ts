@@ -1,0 +1,60 @@
+/** Pure animation data contract. Every visual actor can sample its timeline without DOM. */
+export type ActorAction = 'idle'|'walk'|'run'|'interact'|'anticipate'|'attack'|'hurt'|'faint'|'capture'|'evolve';
+export type Facing = 0|1|2|3;
+export interface Pose {
+  x:number;y:number;scaleX:number;scaleY:number;rotation:number;alpha:number;
+}
+export interface PoseKeyframe { time:number;pose:Pose; }
+export interface AnimationEvent { time:number;type:'sfx'|'vfx'|'impact'|'camera';id:string; }
+export interface AnimationClip {
+  id:string;action:ActorAction;duration:number;loop:boolean;
+  keyframes:ReadonlyArray<PoseKeyframe>;
+  events?:ReadonlyArray<AnimationEvent>;
+}
+export interface ActorDefinition {
+  id:string;silhouetteId:string;family:string;
+  footAnchor:{x:number;y:number};scale:number;
+  facing:ReadonlyArray<Facing>;
+  clips:ReadonlyArray<AnimationClip>;
+}
+export const BASE_POSE:Readonly<Pose> = Object.freeze({x:0,y:0,scaleX:1,scaleY:1,rotation:0,alpha:1});
+export function validateClip(clip:AnimationClip):string[] {
+  const errors:string[]=[];
+  if(!clip.id||!Number.isFinite(clip.duration)||clip.duration<=0)errors.push('Invalid id/duration');
+  if(clip.keyframes.length<2)errors.push('At least two keyframes required');
+  let prev=-1;
+  for(const k of clip.keyframes){
+    if(!Number.isFinite(k.time)||k.time<0||k.time>clip.duration||k.time<=prev)errors.push('Keyframes must increase within duration');
+    prev=k.time;
+    if(!Object.values(k.pose).every(Number.isFinite)||k.pose.alpha<0||k.pose.alpha>1||k.pose.scaleX<=0||k.pose.scaleY<=0)errors.push('Invalid pose values');
+  }
+  for(const e of clip.events||[])if(e.time<0||e.time>clip.duration||!e.id)errors.push('Invalid cue');
+  return errors;
+}
+const lerp=(a:number,b:number,t:number)=>a+(b-a)*t;
+export function samplePose(clip:AnimationClip,seconds:number):Pose {
+  if(validateClip(clip).length)throw Error('Invalid animation clip');
+  const duration=clip.duration;
+  const t=clip.loop ? ((seconds%duration)+duration)%duration : Math.max(0,Math.min(duration,seconds));
+  const keys=clip.keyframes;
+  if(t<=keys[0]!.time)return {...keys[0]!.pose};
+  if(t>=keys[keys.length-1]!.time)return {...keys[keys.length-1]!.pose};
+  for(let i=1;i<keys.length;i++){
+    const b=keys[i]!;if(t>b.time)continue;
+    const a=keys[i-1]!;let k=(t-a.time)/(b.time-a.time);
+    // Hermite smoothing: no sudden motion at individual pose anchors.
+    k=k*k*(3-2*k);
+    return {x:lerp(a.pose.x,b.pose.x,k),y:lerp(a.pose.y,b.pose.y,k),scaleX:lerp(a.pose.scaleX,b.pose.scaleX,k),scaleY:lerp(a.pose.scaleY,b.pose.scaleY,k),rotation:lerp(a.pose.rotation,b.pose.rotation,k),alpha:lerp(a.pose.alpha,b.pose.alpha,k)};
+  }
+  return {...keys[keys.length-1]!.pose};
+}
+export function validateActor(actor:ActorDefinition):string[] {
+  const errors:string[]=[];
+  if(!actor.id||!actor.silhouetteId||!actor.family||!Number.isFinite(actor.scale)||actor.scale<=0)errors.push('Invalid actor identity/scale');
+  if(!Number.isFinite(actor.footAnchor.x)||!Number.isFinite(actor.footAnchor.y))errors.push('Invalid foot anchor');
+  if(!actor.facing.length||actor.facing.some(f=>![0,1,2,3].includes(f)))errors.push('Invalid facings');
+  const ids=new Set<string>();
+  for(const clip of actor.clips){if(ids.has(clip.id))errors.push('Duplicate clip id');ids.add(clip.id);errors.push(...validateClip(clip).map(e=>`${clip.id}: ${e}`));}
+  if(!actor.clips.some(c=>c.action==='idle'))errors.push('Missing idle clip');
+  return errors;
+}
