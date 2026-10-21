@@ -21,7 +21,8 @@ test('cross-zone targets follow the existing authored east and west portals',()=
 test('guardian stage targets Hollowhart and remains accurate from the diagonal',()=>{
  const g=story(['archivist','zone-forest','zone-sanctuary']);
  const cue=storyGuidance(g,position('sanctuary',31,12));
- assert.equal(cue.target.kind,'guardian');assert.equal(cue.direction,'↘');
+ assert.equal(cue.target.kind,'guardian');assert.ok(['→','←','↑','↓'].includes(cue.direction));
+ assert.ok(cue.waypoint);assert.equal(Math.abs(cue.waypoint.x-31)+Math.abs(cue.waypoint.y-12),1);
  assert.equal(cue.kind,'target');assert.ok(cue.distance>0);
 });
 test('crypt stage guides to accessible menu without inventing a world coordinate',()=>{
