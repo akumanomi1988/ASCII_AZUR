@@ -1,6 +1,7 @@
 import {hash,TILE,WORLD_H,WORLD_W,terrain,ZONES,type ZoneId} from './world.js';
 import {SPECIES,type Creature} from './domain.js';
 import type {CombatFxFrame} from './actors/combat-fx.js';
+import {sampleBattleSignature,type BattleSignature} from './actors/battle-direction.js';
 import {sampleCreaturePerformance,rigFor,type CreatureAction,type CreaturePerformance} from './actors/creature-performance.js';
 import {SoftwareGlyphFrame} from './render/software-glyph.js';
 import {sampleHeroPose} from './actors/hero-performance.js';
@@ -431,7 +432,7 @@ if(flash>0){ctx.fillStyle=`rgba(194,175,229,${flash*.25})`;ctx.fillRect(0,0,W,H)
 function spellColor(element:string):string{
  switch(element){case 'Ceniza':case 'ember':case 'ash':return '#ffac68';case 'Bruma':case 'mist':return '#8de5e1';case 'Raíz':case 'root':return '#afe4a0';case 'Éter':case 'aether':return '#d9aaff';default:return '#d9cbb3';}
 }
-function battleEffects(ctx:CanvasRenderingContext2D,fx:CombatFxFrame,t:number){
+function battleEffects(ctx:CanvasRenderingContext2D,fx:CombatFxFrame,t:number,signature:BattleSignature|null){
  const enemy={x:695,y:220},ally={x:268,y:309};
  const from=fx.actor==='ally'?ally:enemy,to=fx.actor==='ally'?enemy:ally;
  const color=spellColor(fx.element);
@@ -448,6 +449,22 @@ function battleEffects(ctx:CanvasRenderingContext2D,fx:CombatFxFrame,t:number){
      ctx.fillStyle=i%3===0?'#f8f1d9':color;
      ctx.fillRect(x+Math.cos(theta)*r,y+Math.sin(theta)*r,2+(i%3),2+(i%3));
    }
+ }
+ if(signature&&signature.impact>.03){
+   // The species family determines the silhouette of the blow, not merely its color.
+   const x=to.x,y=to.y-32,a=signature.impact;
+   ctx.save();ctx.globalAlpha=a*.77;ctx.strokeStyle=color;ctx.lineWidth=2+a*4;
+   ctx.translate(x,y);
+   switch(signature.kind){
+     case 'pounce':case 'talons':for(let i=-1;i<=1;i++){ctx.beginPath();ctx.moveTo(-27+i*13,-24);ctx.quadraticCurveTo(i*11,0,24+i*12,27);ctx.stroke();}break;
+     case 'spectral':for(let i=0;i<3;i++){ctx.beginPath();ctx.ellipse(0,0,12+i*19,29+i*12,t*.3,0,Math.PI*2);ctx.stroke();}break;
+     case 'wingstorm':for(let i=-1;i<=1;i+=2){ctx.beginPath();ctx.moveTo(0,0);ctx.quadraticCurveTo(i*42,-40,i*67,-5);ctx.quadraticCurveTo(i*37,21,0,0);ctx.stroke();}break;
+     case 'stampede':case 'quake':for(let i=-3;i<=3;i++){const h=13+(3-Math.abs(i))*10;ctx.beginPath();ctx.moveTo(i*21,h);ctx.lineTo(i*24,15-h*a);ctx.stroke();}break;
+     case 'riptide':for(let i=0;i<3;i++){ctx.beginPath();ctx.arc(0,0,17+i*18,-1.4+i*.4,1.9+i*.4);ctx.stroke();}break;
+     case 'thorns':for(let i=0;i<8;i++){const z=i*Math.PI/4;ctx.beginPath();ctx.moveTo(Math.cos(z)*12,Math.sin(z)*12);ctx.lineTo(Math.cos(z)*60,Math.sin(z)*60);ctx.lineTo(Math.cos(z+.25)*43,Math.sin(z+.25)*43);ctx.stroke();}break;
+     case 'antlers':for(let i of [-1,1]){ctx.beginPath();ctx.moveTo(0,25);ctx.lineTo(i*21,-25);ctx.lineTo(i*48,-45);ctx.moveTo(i*21,-25);ctx.lineTo(i*13,-50);ctx.stroke();}break;
+   }
+   ctx.restore();
  }
  if(fx.impact>0){
    const x=to.x,y=to.y-32;ctx.strokeStyle=color;ctx.lineWidth=2+fx.impact*6;ctx.globalAlpha=.75*fx.impact;
@@ -487,9 +504,11 @@ export function drawBattle(ctx:CanvasRenderingContext2D,enemy:Creature,ally:Crea
  ctx.globalAlpha=1;
  light(ctx,702,124,220,SPECIES[enemy.speciesId]!.color,.20);light(ctx,255,286,180,SPECIES[ally.speciesId]!.color,.16);
  ctx.fillStyle='#38505a';ctx.beginPath();ctx.ellipse(700,258,137,20,0,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.ellipse(260,339,148,24,0,0,Math.PI*2);ctx.fill();
+ const signature=fx?sampleBattleSignature((fx.actor==='ally'?ally:enemy).speciesId,fx,reducedMotion):null;
  const renderUnit=(unit:Creature,x:number,y:number,scale:number,role:'ally'|'enemy',pose?:{x:number;y:number;scaleX:number;scaleY:number;rotation:number;alpha:number})=>{
    ctx.save();ctx.translate(x,y);if(pose){ctx.translate(pose.x,pose.y);ctx.rotate(pose.rotation);ctx.scale(pose.scaleX,pose.scaleY);ctx.globalAlpha*=pose.alpha;}
-   const action:CreatureAction=fx?.kind==='attack'?(fx.actor===role?'attack':'hurt'):'idle';
+   if(signature){const p=fx!.actor===role?signature.attacker:signature.defender;ctx.translate(p.x,p.y);ctx.rotate(p.rotation);ctx.scale(p.scaleX,p.scaleY);ctx.globalAlpha*=p.alpha;}
+   const action:CreatureAction=fx?.kind==='attack'?(fx.actor===role?'attack':signature&&signature.impact>.08?'hurt':'idle'):'idle';
    drawCreature(ctx,unit.speciesId,0,0,scale,t,action,reducedMotion);ctx.restore();
  };
  const enemyPose=fx?(fx.actor==='enemy'?fx.attacker:fx.target):undefined;
@@ -513,7 +532,7 @@ export function drawBattle(ctx:CanvasRenderingContext2D,enemy:Creature,ally:Crea
  };
  aura(695,234,statuses?.enemy??[]);aura(268,319,statuses?.ally??[]);
  for(let i=0;i<44;i++){const x=hash(i,41,6)*W,y=hash(i,82,4)*H;ctx.globalAlpha=.08+hash(i,12,8)*.14;ctx.fillStyle='#a6d0d4';ctx.fillRect(x+Math.sin(t+i)*6,y,2,2);}ctx.globalAlpha=1;
- if(fx)battleEffects(ctx,fx,t);
+ if(fx)battleEffects(ctx,fx,t,signature);
  if(flash>0){ctx.fillStyle=`rgba(231,210,195,${flash*.24})`;ctx.fillRect(0,0,W,H);}
  ctx.restore();
 }

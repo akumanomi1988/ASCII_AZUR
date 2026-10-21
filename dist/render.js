@@ -1,5 +1,6 @@
 import { hash, TILE, WORLD_H, WORLD_W, terrain, ZONES } from './world.js';
 import { SPECIES } from './domain.js';
+import { sampleBattleSignature } from './actors/battle-direction.js';
 import { sampleCreaturePerformance, rigFor } from './actors/creature-performance.js';
 import { SoftwareGlyphFrame } from './render/software-glyph.js';
 import { sampleHeroPose } from './actors/hero-performance.js';
@@ -1168,7 +1169,7 @@ function spellColor(element) {
         default: return '#d9cbb3';
     }
 }
-function battleEffects(ctx, fx, t) {
+function battleEffects(ctx, fx, t, signature) {
     const enemy = { x: 695, y: 220 }, ally = { x: 268, y: 309 };
     const from = fx.actor === 'ally' ? ally : enemy, to = fx.actor === 'ally' ? enemy : ally;
     const color = spellColor(fx.element);
@@ -1189,6 +1190,81 @@ function battleEffects(ctx, fx, t) {
             ctx.fillStyle = i % 3 === 0 ? '#f8f1d9' : color;
             ctx.fillRect(x + Math.cos(theta) * r, y + Math.sin(theta) * r, 2 + (i % 3), 2 + (i % 3));
         }
+    }
+    if (signature && signature.impact > .03) {
+        // The species family determines the silhouette of the blow, not merely its color.
+        const x = to.x, y = to.y - 32, a = signature.impact;
+        ctx.save();
+        ctx.globalAlpha = a * .77;
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2 + a * 4;
+        ctx.translate(x, y);
+        switch (signature.kind) {
+            case 'pounce':
+            case 'talons':
+                for (let i = -1; i <= 1; i++) {
+                    ctx.beginPath();
+                    ctx.moveTo(-27 + i * 13, -24);
+                    ctx.quadraticCurveTo(i * 11, 0, 24 + i * 12, 27);
+                    ctx.stroke();
+                }
+                break;
+            case 'spectral':
+                for (let i = 0; i < 3; i++) {
+                    ctx.beginPath();
+                    ctx.ellipse(0, 0, 12 + i * 19, 29 + i * 12, t * .3, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+                break;
+            case 'wingstorm':
+                for (let i = -1; i <= 1; i += 2) {
+                    ctx.beginPath();
+                    ctx.moveTo(0, 0);
+                    ctx.quadraticCurveTo(i * 42, -40, i * 67, -5);
+                    ctx.quadraticCurveTo(i * 37, 21, 0, 0);
+                    ctx.stroke();
+                }
+                break;
+            case 'stampede':
+            case 'quake':
+                for (let i = -3; i <= 3; i++) {
+                    const h = 13 + (3 - Math.abs(i)) * 10;
+                    ctx.beginPath();
+                    ctx.moveTo(i * 21, h);
+                    ctx.lineTo(i * 24, 15 - h * a);
+                    ctx.stroke();
+                }
+                break;
+            case 'riptide':
+                for (let i = 0; i < 3; i++) {
+                    ctx.beginPath();
+                    ctx.arc(0, 0, 17 + i * 18, -1.4 + i * .4, 1.9 + i * .4);
+                    ctx.stroke();
+                }
+                break;
+            case 'thorns':
+                for (let i = 0; i < 8; i++) {
+                    const z = i * Math.PI / 4;
+                    ctx.beginPath();
+                    ctx.moveTo(Math.cos(z) * 12, Math.sin(z) * 12);
+                    ctx.lineTo(Math.cos(z) * 60, Math.sin(z) * 60);
+                    ctx.lineTo(Math.cos(z + .25) * 43, Math.sin(z + .25) * 43);
+                    ctx.stroke();
+                }
+                break;
+            case 'antlers':
+                for (let i of [-1, 1]) {
+                    ctx.beginPath();
+                    ctx.moveTo(0, 25);
+                    ctx.lineTo(i * 21, -25);
+                    ctx.lineTo(i * 48, -45);
+                    ctx.moveTo(i * 21, -25);
+                    ctx.lineTo(i * 13, -50);
+                    ctx.stroke();
+                }
+                break;
+        }
+        ctx.restore();
     }
     if (fx.impact > 0) {
         const x = to.x, y = to.y - 32;
@@ -1278,6 +1354,7 @@ export function drawBattle(ctx, enemy, ally, t, flash = 0, fx = null, reducedMot
     ctx.beginPath();
     ctx.ellipse(260, 339, 148, 24, 0, 0, Math.PI * 2);
     ctx.fill();
+    const signature = fx ? sampleBattleSignature((fx.actor === 'ally' ? ally : enemy).speciesId, fx, reducedMotion) : null;
     const renderUnit = (unit, x, y, scale, role, pose) => {
         ctx.save();
         ctx.translate(x, y);
@@ -1287,7 +1364,14 @@ export function drawBattle(ctx, enemy, ally, t, flash = 0, fx = null, reducedMot
             ctx.scale(pose.scaleX, pose.scaleY);
             ctx.globalAlpha *= pose.alpha;
         }
-        const action = fx?.kind === 'attack' ? (fx.actor === role ? 'attack' : 'hurt') : 'idle';
+        if (signature) {
+            const p = fx.actor === role ? signature.attacker : signature.defender;
+            ctx.translate(p.x, p.y);
+            ctx.rotate(p.rotation);
+            ctx.scale(p.scaleX, p.scaleY);
+            ctx.globalAlpha *= p.alpha;
+        }
+        const action = fx?.kind === 'attack' ? (fx.actor === role ? 'attack' : signature && signature.impact > .08 ? 'hurt' : 'idle') : 'idle';
         drawCreature(ctx, unit.speciesId, 0, 0, scale, t, action, reducedMotion);
         ctx.restore();
     };
@@ -1327,7 +1411,7 @@ export function drawBattle(ctx, enemy, ally, t, flash = 0, fx = null, reducedMot
     }
     ctx.globalAlpha = 1;
     if (fx)
-        battleEffects(ctx, fx, t);
+        battleEffects(ctx, fx, t, signature);
     if (flash > 0) {
         ctx.fillStyle = `rgba(231,210,195,${flash * .24})`;
         ctx.fillRect(0, 0, W, H);
