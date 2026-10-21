@@ -2,10 +2,10 @@ import {hash,TILE,WORLD_H,WORLD_W,terrain,ZONES,type ZoneId} from './world.js';
 import {SPECIES,type Creature} from './domain.js';
 import type {CombatFxFrame} from './actors/combat-fx.js';
 import {sampleCreaturePerformance,rigFor,type CreatureAction,type CreaturePerformance} from './actors/creature-performance.js';
-import {CanvasGlyphCache} from './render/glyph-cache.js';
+import {SoftwareGlyphFrame} from './render/software-glyph.js';
 import {sampleHeroPose} from './actors/hero-performance.js';
 import {glyphVisible} from './render/legibility.js';
-import {readGraphics,glyphCell,type GraphicsProfile} from './render/graphics-profile.js';
+import {readGraphics,glyphCell,canvasGlyphCell,type GraphicsProfile} from './render/graphics-profile.js';
 import type {RoamingEncounter} from './world/encounters.js';
 export const W=960,H=540;
 const GLYPHS=' .,:;irsXA253hMHGS#9B&@/-\\|*+o%';
@@ -25,7 +25,8 @@ void main(){
  float edge=(length(n-s)+length(e-w))*u_edges;
  float v=clamp(pow(lum*1.55,.68)+edge*.27,0.,1.);
  float noise=fract(sin(dot(cell,vec2(12.9898,78.233)))*43758.5453);
- int index=int(floor(clamp(v*22.+(noise-.5)*.5,0.,22.)));
+ // Every nonblack tonal cell receives at least a point. Subtle dither avoids banding.
+ int index=int(floor(clamp(v*22.+(noise-.5)*1.25,1.,22.)));
  // Reserve explicit directional strokes for silhouette boundaries; preserve color for identity.
  if(edge>.30&&v>.12){float horiz=length(e-w),vert=length(n-s);index=horiz>vert*1.25?26:vert>horiz*1.25?24:(dot(e-w,n-s)>0.?25:23);}
  vec2 glyphUV=fract(pos/u_cell);int atlasX=index%8;int atlasY=index/8;
@@ -36,14 +37,17 @@ void main(){
  vec3 glyphCol=raw*2.55+vec3(.07,.10,.12)+glow*vec3(.1,.13,.15);
  glyphCol*=.95+sin(u_time*.7+noise*4.)*.025;
  glyphCol=mix(glyphCol,vec3(dot(glyphCol,vec3(.299,.587,.114))),1.-u_quality);
- float visibility=smoothstep(.06,.25,lum+edge*.30);if(lum<.20&&edge<.09)visibility=0.;if(edge<.11&&lum<.58&&noise>.34)visibility=0.;outColor=vec4(mix(bg,glyphCol,ink*.93*visibility),1.);
+ // Full-coverage tonal dithering: dark midtones get fine strokes, not missing cells.
+ float visibility=clamp(.22+lum*2.2+edge*.35,0.,1.);
+ if(lum+edge*.3<.012)visibility=0.;
+ outColor=vec4(mix(bg,glyphCol,ink*.95*visibility),1.);
 }`;
 function shader(gl:WebGL2RenderingContext,type:number,src:string):WebGLShader {const s=gl.createShader(type);if(!s)throw Error('shader');gl.shaderSource(s,src);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw Error('Shader: '+gl.getShaderInfoLog(s));return s;}
 function texture(gl:WebGL2RenderingContext):WebGLTexture {const t=gl.createTexture();if(!t)throw Error('texture');gl.bindTexture(gl.TEXTURE_2D,t);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);return t;}
 export class AsciiRenderer {
   canvas:HTMLCanvasElement;readonly source:HTMLCanvasElement;readonly ctx:CanvasRenderingContext2D;
   private gl:WebGL2RenderingContext|null=null;private program:WebGLProgram|null=null;private tex:WebGLTexture|null=null;private atlas:WebGLTexture|null=null;private uniforms:Record<string,WebGLUniformLocation|null>={};
-  quality=1; density=.56;glyphScale=1;contrast=1.12;edgeStrength=1.2;brightness=0;private fallbackGlyphs:CanvasGlyphCache|null=null;private frame=0;private fpsStart=performance.now();fps=0;mode:'gpu'|'fallback'='fallback';
+  quality=1; density=.32;glyphScale=.8;contrast=1.18;edgeStrength=1.2;brightness=.02;private software:SoftwareGlyphFrame|null=null;private frame=0;private fpsStart=performance.now();fps=0;mode:'gpu'|'fallback'='fallback';
   constructor(canvas:HTMLCanvasElement){this.canvas=canvas;this.source=document.createElement('canvas');this.source.width=W;this.source.height=H;const ctx=this.source.getContext('2d',{alpha:false});if(!ctx)throw Error('Canvas2D no disponible');this.ctx=ctx;this.initGPU();}
   private initGPU(){const gl=this.canvas.getContext('webgl2',{alpha:false,antialias:false,preserveDrawingBuffer:true,powerPreference:'high-performance'});if(!gl){this.initFallback();return;}try{const p=gl.createProgram();if(!p)throw Error('program');gl.attachShader(p,shader(gl,gl.VERTEX_SHADER,VS));gl.attachShader(p,shader(gl,gl.FRAGMENT_SHADER,FS));gl.linkProgram(p);if(!gl.getProgramParameter(p,gl.LINK_STATUS))throw Error('Link: '+gl.getProgramInfoLog(p));gl.useProgram(p);const arr=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,arr);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,1,1]),gl.STATIC_DRAW);const pos=gl.getAttribLocation(p,'a_pos');gl.enableVertexAttribArray(pos);gl.vertexAttribPointer(pos,2,gl.FLOAT,false,0,0);this.tex=texture(gl);gl.activeTexture(gl.TEXTURE1);this.atlas=texture(gl);const atlas=document.createElement('canvas');atlas.width=8*32;atlas.height=4*36;const a=atlas.getContext('2d');if(!a)throw Error('glyph atlas');a.clearRect(0,0,atlas.width,atlas.height);a.fillStyle='#fff';a.font='bold 31px monospace';a.textAlign='center';a.textBaseline='middle';for(let i=0;i<GLYPHS.length;i++){a.fillText(GLYPHS[i]!,i%8*32+16,Math.floor(i/8)*36+19);}gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,false);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,atlas);for(const k of ['u_resolution','u_cell','u_time','u_quality','u_contrast','u_edges','u_brightness','u_crop'])this.uniforms[k]=gl.getUniformLocation(p,k);gl.uniform1i(gl.getUniformLocation(p,'u_scene'),0);gl.uniform1i(gl.getUniformLocation(p,'u_atlas'),1);this.gl=gl;this.program=p;this.mode='gpu';this.resize();}catch(e){console.error('WebGL ASCII falló:',e);this.initFallback();}}
   private initFallback(){this.gl=null;this.mode='fallback';// When WebGL2 is missing, keep the game playable with a CPU glyph compositor.
@@ -61,11 +65,10 @@ export class AsciiRenderer {
       const crop=this.crop();gl.uniform4f(this.uniforms.u_crop!,crop.x,crop.y,crop.w,crop.h);gl.uniform1f(this.uniforms.u_time!,t*.001);gl.uniform1f(this.uniforms.u_quality!,this.quality);gl.uniform1f(this.uniforms.u_contrast!,this.contrast);gl.uniform1f(this.uniforms.u_edges!,this.edgeStrength);gl.uniform1f(this.uniforms.u_brightness!,this.brightness);gl.drawArrays(gl.TRIANGLE_STRIP,0,4);return;}
     const c=this.canvas.getContext('2d');if(!c)return;
     const rect=this.canvas.getBoundingClientRect(), dpr=this.canvas.width/(rect.width||W);
-    const cell=glyphCell(Math.max(5,Math.min(10,(rect.width||W)/130))*dpr,this.getGraphics());
+    const cell=canvasGlyphCell(Math.max(5,Math.min(10,(rect.width||W)/130))*dpr,this.getGraphics(),this.canvas.width,this.canvas.height);
     const cw=Math.round(cell.width),ch=Math.round(cell.height);const crop=this.crop(),data=this.ctx.getImageData(0,0,W,H).data;
-    c.fillStyle='#07111a';c.fillRect(0,0,this.canvas.width,this.canvas.height);
-    if(!this.fallbackGlyphs)this.fallbackGlyphs=new CanvasGlyphCache(GLYPHS);
-    c.imageSmoothingEnabled=false;
+    if(!this.software||this.software.width!==this.canvas.width||this.software.height!==this.canvas.height)this.software=new SoftwareGlyphFrame(this.canvas.width,this.canvas.height,GLYPHS);
+    this.software.clear();
     for(let y=0;y<this.canvas.height;y+=ch){
       const srcY=Math.min(H-1,Math.floor((crop.y+(y+ch*.5)/this.canvas.height*crop.h)*H));
       for(let x=0;x<this.canvas.width;x+=cw){
@@ -84,13 +87,13 @@ export class AsciiRenderer {
         const noise=Math.abs(Math.sin(cellX*12.9898+cellY*78.233)*43758.5453)%1;
         if(!glyphVisible(level,edge,noise))continue;
         const v=Math.max(0,Math.min(1,Math.pow(level*1.55,.68)+edge*.30));
-        let index=Math.max(0,Math.min(22,Math.floor(v*22)));
+        let index=Math.max(1,Math.min(22,Math.floor(v*22+(noise-.5)*1.25)));
         if(edge>.29&&v>.12)index=Math.abs(gx)>Math.abs(gy)*1.25?26:Math.abs(gy)>Math.abs(gx)*1.25?24:gx*gy>0?25:23;
-        const alpha=Math.min(1,Math.max(.16,(level+edge*.28+.06)*3.15));
-        this.fallbackGlyphs.draw(c,index,x,y,cw,ch,r,g,b,alpha);
+        const alpha=Math.min(1,Math.max(.22,(level+edge*.28+.09)*3.15));
+        this.software.put(index,x,y,cw,ch,r,g,b,alpha);
       }
     }
-    c.globalAlpha=1;
+    c.putImageData(this.software.data,0,0);
   }
 }
 export interface DrawPlayer {x:number;y:number;facing:number;walking:boolean;}
