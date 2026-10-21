@@ -117,3 +117,14 @@ Source commit, GitHub Actions and Pages provenance are recorded below. Direct pu
 - Vertical slice 130/130 local tests and Chromium standalone smoke PASS on desktop and simulated mobile landscape. Android physical hardware, WebGL2 benchmark, end-to-end campaign and external art reviews remain open.
 - Quality score previous 2.5/5; current 2.5/5, with 16-domain baseline maintained.
 - Next priority: measure and optimize actual Android GPU FPS, verify combat identity and readability with users, then complete story progression.
+
+
+## v0.17 verified GitHub delivery ledger — 2026-10-21
+
+- Source branch `feature/arken-story-arc-v017` and `main` code commit: `ea4e18409149c47d59f6ae10b4248edc04cd6d1c`.
+- Quality CI feature workflow `39645007749`: SUCCESS. Quality CI on `main` `39645143810`: SUCCESS.
+- GitHub Pages deployment branch `gh-pages`, commit `34065e3b941872766f65d3d7f3db0090dab82c77`, workflow `39645316526`: SUCCESS (build, deploy and report all successful).
+- `gh-pages/build-info.json` says `0.17.0`, source SHA `ea4e18409149c47d59f6ae10b4248edc04cd6d1c`. Published `dist/story-campaign.js` git blob `a613fb66906919bee6ddf82870be8ce9229c8a0f` equals compiled `main` artifact.
+- Local acceptance `npm run verify`: 137/137 Node PASS; TypeScript PASS; 27 reachable / 28 cached assets PASS. Desktop/mobile landscape Chromium `set_content` navigation→quest journal passed without JS exceptions. Story ending simulated in runtime tests, not a complete human end-to-end route.
+- Public URL `https://akumanomi1988.github.io/ASCII_AZUR/`. **Direct external HTTP/browser smoke UNVERIFIED** because the available browser refused `github.io`; never treat GitHub Actions SUCCESS as proof of public end-user playability.
+- Prior/current 16-dimension global quality average **2.5/5 → 2.5/5**; all 16 domain observations retained above. Premium completion gate remains unmet. Immediate risk: Android physical-device rendering, player-perceived quality, incomplete broader campaign and full natural end-to-end.
