@@ -9,8 +9,8 @@ ver=json.loads((root/'package.json').read_text())['version']
 play=release/f'ASCII_AZUR_v{ver}_JUGAR.html';shutil.copy2(root/'play.html',play)
 archive=release/f'ASCII_AZUR_v{ver}_FUENTES.zip'
 folders=('src/','dist/','tests/','tools/','.github/','assets/','docs/')
-roots=('README.md','package.json','tsconfig.json','index.html','style.css','sw.js','manifest.webmanifest','.gitignore','play.html','RELEASE_v0.11.md')
-files=sorted([f for f in root.rglob('*') if f.is_file() and f.relative_to(root).as_posix().startswith(folders) and '__pycache__' not in f.parts and f.suffix!='.pyc'] + [root/name for name in roots if (root/name).exists()]+[f for f in root.glob('RELEASE_v0.12.md')])
+roots=('README.md','package.json','tsconfig.json','index.html','style.css','sw.js','manifest.webmanifest','.gitignore','play.html')
+files=sorted([f for f in root.rglob('*') if f.is_file() and f.relative_to(root).as_posix().startswith(folders) and '__pycache__' not in f.parts and f.suffix!='.pyc'] + [root/name for name in roots if (root/name).exists()]+sorted(root.glob('RELEASE_v*.md')))
 with ZipFile(archive,'w',ZIP_DEFLATED,compresslevel=8) as z:
     for f in files:
         info=ZipInfo('ASCII_AZUR/'+f.relative_to(root).as_posix(),date_time=(2026,1,1,0,0,0))

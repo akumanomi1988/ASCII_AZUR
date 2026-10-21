@@ -92,6 +92,8 @@ export function validateBattleCheckpoint(value, team) {
         return false;
     if (!['wild', 'boss', 'expedition'].includes(b.type || '') || !Number.isInteger(b.ally) || b.ally < 0 || b.ally >= team.length || typeof b.guarding !== 'boolean' || ![1, 2].includes(b.bossPhase || 0) || ![0, 1, 2].includes(b.chargeStage ?? -1))
         return false;
+    if (b.encounterId !== undefined && (!/^(forest|sanctuary)-[0-2]$/.test(b.encounterId)))
+        return false;
     if (!b.effects || typeof b.effects !== 'object' || Array.isArray(b.effects) || Object.keys(b.effects).length > 8)
         return false;
     return Object.entries(b.effects).every(([key, list]) => key.length < 85 && Array.isArray(list) && list.length <= 3 && list.every(s => !!s && ['scorch', 'weaken', 'fracture'].includes(s.kind) && Number.isInteger(s.remaining) && s.remaining >= 1 && s.remaining <= 5));

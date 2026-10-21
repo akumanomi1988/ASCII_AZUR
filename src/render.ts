@@ -3,6 +3,8 @@ import {SPECIES,type Creature} from './domain.js';
 import type {CombatFxFrame} from './actors/combat-fx.js';
 import {sampleCreaturePerformance,rigFor,type CreatureAction,type CreaturePerformance} from './actors/creature-performance.js';
 import {CanvasGlyphCache} from './render/glyph-cache.js';
+import {readGraphics,glyphCell,type GraphicsProfile} from './render/graphics-profile.js';
+import type {RoamingEncounter} from './world/encounters.js';
 export const W=960,H=540;
 const GLYPHS=' .,:;irsXA253hMHGS#9B&@/-\\|*+o%';
 const VS=`#version 300 es
@@ -10,15 +12,15 @@ in vec2 a_pos;out vec2 v_uv;
 void main(){v_uv=a_pos*.5+.5;gl_Position=vec4(a_pos,0.,1.);}`;
 const FS=`#version 300 es
 precision highp float;
-uniform sampler2D u_scene;uniform sampler2D u_atlas;uniform vec2 u_resolution;uniform vec2 u_cell;uniform float u_time;uniform float u_quality;uniform vec4 u_crop;
+uniform sampler2D u_scene;uniform sampler2D u_atlas;uniform vec2 u_resolution;uniform vec2 u_cell;uniform float u_time;uniform float u_quality;uniform float u_contrast;uniform float u_edges;uniform float u_brightness;uniform vec4 u_crop;
 in vec2 v_uv;out vec4 outColor;
 vec3 at(vec2 p){vec2 uv=u_crop.xy+p*u_crop.zw;return texture(u_scene,vec2(clamp(uv.x,0.,1.),1.-clamp(uv.y,0.,1.))).rgb;}
 void main(){
  vec2 pos=vec2(gl_FragCoord.x,u_resolution.y-gl_FragCoord.y);
  vec2 cell=floor(pos/u_cell);vec2 center=(cell+.5)*u_cell/u_resolution;
  vec3 raw=at(center);vec2 d=max(u_cell/u_resolution,vec2(.001))*0.45;vec3 n=at(center+vec2(0.,-d.y));vec3 s=at(center+vec2(0.,d.y));vec3 e=at(center+vec2(d.x,0.));vec3 w=at(center-vec2(d.x,0.));
- float lum=dot(raw,vec3(.2126,.7152,.0722));
- float edge=length(n-s)+length(e-w);
+ float lum=clamp((dot(raw,vec3(.2126,.7152,.0722))-.5)*u_contrast+.5+u_brightness,0.,1.);
+ float edge=(length(n-s)+length(e-w))*u_edges;
  float v=clamp(pow(lum*1.55,.68)+edge*.27,0.,1.);
  float noise=fract(sin(dot(cell,vec2(12.9898,78.233)))*43758.5453);
  int index=int(floor(clamp(v*22.+(noise-.5)*.5,0.,22.)));
@@ -32,18 +34,20 @@ void main(){
  vec3 glyphCol=raw*2.55+vec3(.07,.10,.12)+glow*vec3(.1,.13,.15);
  glyphCol*=.95+sin(u_time*.7+noise*4.)*.025;
  glyphCol=mix(glyphCol,vec3(dot(glyphCol,vec3(.299,.587,.114))),1.-u_quality);
- float visibility=smoothstep(.045,.21,lum+edge*.25);if(lum<.20&&edge<.09&&noise>.22)visibility=0.;outColor=vec4(mix(bg,glyphCol,ink*.93*visibility),1.);
+ float visibility=smoothstep(.035,.17,lum+edge*.30);if(lum<.20&&edge<.09&&noise>.22)visibility=0.;outColor=vec4(mix(bg,glyphCol,ink*.93*visibility),1.);
 }`;
 function shader(gl:WebGL2RenderingContext,type:number,src:string):WebGLShader {const s=gl.createShader(type);if(!s)throw Error('shader');gl.shaderSource(s,src);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw Error('Shader: '+gl.getShaderInfoLog(s));return s;}
 function texture(gl:WebGL2RenderingContext):WebGLTexture {const t=gl.createTexture();if(!t)throw Error('texture');gl.bindTexture(gl.TEXTURE_2D,t);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);return t;}
 export class AsciiRenderer {
   canvas:HTMLCanvasElement;readonly source:HTMLCanvasElement;readonly ctx:CanvasRenderingContext2D;
   private gl:WebGL2RenderingContext|null=null;private program:WebGLProgram|null=null;private tex:WebGLTexture|null=null;private atlas:WebGLTexture|null=null;private uniforms:Record<string,WebGLUniformLocation|null>={};
-  quality=1; density=.56;private fallbackGlyphs:CanvasGlyphCache|null=null;private frame=0;private fpsStart=performance.now();fps=0;mode:'gpu'|'fallback'='fallback';
+  quality=1; density=.56;glyphScale=1;contrast=1.12;edgeStrength=1.2;brightness=0;private fallbackGlyphs:CanvasGlyphCache|null=null;private frame=0;private fpsStart=performance.now();fps=0;mode:'gpu'|'fallback'='fallback';
   constructor(canvas:HTMLCanvasElement){this.canvas=canvas;this.source=document.createElement('canvas');this.source.width=W;this.source.height=H;const ctx=this.source.getContext('2d',{alpha:false});if(!ctx)throw Error('Canvas2D no disponible');this.ctx=ctx;this.initGPU();}
-  private initGPU(){const gl=this.canvas.getContext('webgl2',{alpha:false,antialias:false,preserveDrawingBuffer:true,powerPreference:'high-performance'});if(!gl){this.initFallback();return;}try{const p=gl.createProgram();if(!p)throw Error('program');gl.attachShader(p,shader(gl,gl.VERTEX_SHADER,VS));gl.attachShader(p,shader(gl,gl.FRAGMENT_SHADER,FS));gl.linkProgram(p);if(!gl.getProgramParameter(p,gl.LINK_STATUS))throw Error('Link: '+gl.getProgramInfoLog(p));gl.useProgram(p);const arr=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,arr);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,1,1]),gl.STATIC_DRAW);const pos=gl.getAttribLocation(p,'a_pos');gl.enableVertexAttribArray(pos);gl.vertexAttribPointer(pos,2,gl.FLOAT,false,0,0);this.tex=texture(gl);gl.activeTexture(gl.TEXTURE1);this.atlas=texture(gl);const atlas=document.createElement('canvas');atlas.width=8*32;atlas.height=4*36;const a=atlas.getContext('2d');if(!a)throw Error('glyph atlas');a.clearRect(0,0,atlas.width,atlas.height);a.fillStyle='#fff';a.font='bold 31px monospace';a.textAlign='center';a.textBaseline='middle';for(let i=0;i<GLYPHS.length;i++){a.fillText(GLYPHS[i]!,i%8*32+16,Math.floor(i/8)*36+19);}gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,false);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,atlas);for(const k of ['u_resolution','u_cell','u_time','u_quality','u_crop'])this.uniforms[k]=gl.getUniformLocation(p,k);gl.uniform1i(gl.getUniformLocation(p,'u_scene'),0);gl.uniform1i(gl.getUniformLocation(p,'u_atlas'),1);this.gl=gl;this.program=p;this.mode='gpu';this.resize();}catch(e){console.error('WebGL ASCII falló:',e);this.initFallback();}}
+  private initGPU(){const gl=this.canvas.getContext('webgl2',{alpha:false,antialias:false,preserveDrawingBuffer:true,powerPreference:'high-performance'});if(!gl){this.initFallback();return;}try{const p=gl.createProgram();if(!p)throw Error('program');gl.attachShader(p,shader(gl,gl.VERTEX_SHADER,VS));gl.attachShader(p,shader(gl,gl.FRAGMENT_SHADER,FS));gl.linkProgram(p);if(!gl.getProgramParameter(p,gl.LINK_STATUS))throw Error('Link: '+gl.getProgramInfoLog(p));gl.useProgram(p);const arr=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,arr);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,1,1]),gl.STATIC_DRAW);const pos=gl.getAttribLocation(p,'a_pos');gl.enableVertexAttribArray(pos);gl.vertexAttribPointer(pos,2,gl.FLOAT,false,0,0);this.tex=texture(gl);gl.activeTexture(gl.TEXTURE1);this.atlas=texture(gl);const atlas=document.createElement('canvas');atlas.width=8*32;atlas.height=4*36;const a=atlas.getContext('2d');if(!a)throw Error('glyph atlas');a.clearRect(0,0,atlas.width,atlas.height);a.fillStyle='#fff';a.font='bold 31px monospace';a.textAlign='center';a.textBaseline='middle';for(let i=0;i<GLYPHS.length;i++){a.fillText(GLYPHS[i]!,i%8*32+16,Math.floor(i/8)*36+19);}gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,false);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,atlas);for(const k of ['u_resolution','u_cell','u_time','u_quality','u_contrast','u_edges','u_brightness','u_crop'])this.uniforms[k]=gl.getUniformLocation(p,k);gl.uniform1i(gl.getUniformLocation(p,'u_scene'),0);gl.uniform1i(gl.getUniformLocation(p,'u_atlas'),1);this.gl=gl;this.program=p;this.mode='gpu';this.resize();}catch(e){console.error('WebGL ASCII falló:',e);this.initFallback();}}
   private initFallback(){this.gl=null;this.mode='fallback';// When WebGL2 is missing, keep the game playable with a CPU glyph compositor.
     let fallback=this.canvas.getContext('2d');if(!fallback){const replacement=document.createElement('canvas');replacement.id=this.canvas.id;replacement.className=this.canvas.className;replacement.setAttribute('aria-label',this.canvas.getAttribute('aria-label')||'Juego ASCII');this.canvas.replaceWith(replacement);this.canvas=replacement;fallback=this.canvas.getContext('2d');}if(!fallback)throw Error('Sin motor gráfico soportado');this.resize();}
+  getGraphics():GraphicsProfile{return readGraphics({quality:this.quality,density:this.density,glyphScale:this.glyphScale,contrast:this.contrast,edgeStrength:this.edgeStrength,brightness:this.brightness});}
+  setGraphics(input:unknown){const x=readGraphics(input);this.density=x.density;this.glyphScale=x.glyphScale;this.contrast=x.contrast;this.edgeStrength=x.edgeStrength;this.brightness=x.brightness;this.quality=x.quality;}
   resize(){const rect=this.canvas.getBoundingClientRect();const dpr=Math.min(window.devicePixelRatio||1,2);this.canvas.width=Math.min(1920,Math.max(320,Math.round((rect.width||W)*dpr)));this.canvas.height=Math.min(1080,Math.max(180,Math.round((rect.height||H)*dpr)));if(this.gl)this.gl.viewport(0,0,this.canvas.width,this.canvas.height);}
   private crop(){const aspect=this.canvas.width/this.canvas.height,sourceAspect=W/H;
     if(aspect<sourceAspect){const frac=aspect/sourceAspect;return{x:(1-frac)/2,y:0,w:frac,h:1};}
@@ -51,12 +55,12 @@ export class AsciiRenderer {
   }
   present(t:number){this.frame++;if(t-this.fpsStart>800){this.fps=Math.round(this.frame*1000/(t-this.fpsStart));this.frame=0;this.fpsStart=t;}const gl=this.gl;if(gl&&this.program&&this.tex){gl.useProgram(this.program);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,this.tex);gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,true);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,this.source);gl.uniform2f(this.uniforms.u_resolution!,this.canvas.width,this.canvas.height);const rect=this.canvas.getBoundingClientRect();const dpr=this.canvas.width/(rect.width||W);
       const base=Math.max(5.0,Math.min(10.0,(rect.width||W)/130))*dpr;
-      gl.uniform2f(this.uniforms.u_cell!,base*this.density,base*1.38*this.density);
-      const crop=this.crop();gl.uniform4f(this.uniforms.u_crop!,crop.x,crop.y,crop.w,crop.h);gl.uniform1f(this.uniforms.u_time!,t*.001);gl.uniform1f(this.uniforms.u_quality!,this.quality);gl.drawArrays(gl.TRIANGLE_STRIP,0,4);return;}
+      const cell=glyphCell(base,this.getGraphics());gl.uniform2f(this.uniforms.u_cell!,cell.width,cell.height);
+      const crop=this.crop();gl.uniform4f(this.uniforms.u_crop!,crop.x,crop.y,crop.w,crop.h);gl.uniform1f(this.uniforms.u_time!,t*.001);gl.uniform1f(this.uniforms.u_quality!,this.quality);gl.uniform1f(this.uniforms.u_contrast!,this.contrast);gl.uniform1f(this.uniforms.u_edges!,this.edgeStrength);gl.uniform1f(this.uniforms.u_brightness!,this.brightness);gl.drawArrays(gl.TRIANGLE_STRIP,0,4);return;}
     const c=this.canvas.getContext('2d');if(!c)return;
     const rect=this.canvas.getBoundingClientRect(), dpr=this.canvas.width/(rect.width||W);
-    const cw=Math.max(4,Math.round(Math.max(5,Math.min(10,(rect.width||W)/130))*dpr*this.density));
-    const ch=Math.max(6,Math.round(cw*1.38));const crop=this.crop(),data=this.ctx.getImageData(0,0,W,H).data;
+    const cell=glyphCell(Math.max(5,Math.min(10,(rect.width||W)/130))*dpr,this.getGraphics());
+    const cw=Math.round(cell.width),ch=Math.round(cell.height);const crop=this.crop(),data=this.ctx.getImageData(0,0,W,H).data;
     c.fillStyle='#07111a';c.fillRect(0,0,this.canvas.width,this.canvas.height);
     if(!this.fallbackGlyphs)this.fallbackGlyphs=new CanvasGlyphCache(GLYPHS);
     c.imageSmoothingEnabled=false;
@@ -65,20 +69,21 @@ export class AsciiRenderer {
       for(let x=0;x<this.canvas.width;x+=cw){
         const srcX=Math.min(W-1,Math.floor((crop.x+(x+cw*.5)/this.canvas.width*crop.w)*W));
         const i=(srcY*W+srcX)*4,r=data[i]!,g=data[i+1]!,b=data[i+2]!;
-        const level=(r*.2126+g*.7152+b*.0722)/255;
+        const rawLevel=(r*.2126+g*.7152+b*.0722)/255;
+        const level=Math.max(0,Math.min(1,(rawLevel-.5)*this.contrast+.5+this.brightness));
         // Brightness palette is 0..22; 23..26 are reserved for directional strokes.
         const sample=(px:number,py:number)=>{const j=(Math.max(0,Math.min(H-1,py))*W+Math.max(0,Math.min(W-1,px)))*4;return (data[j]!*.2126+data[j+1]!*.7152+data[j+2]!*.0722)/255;};
         const ox=Math.max(1,Math.floor(cw*crop.w*W/this.canvas.width*.48));
         const oy=Math.max(1,Math.floor(ch*crop.h*H/this.canvas.height*.48));
         const gx=sample(srcX+ox,srcY)-sample(srcX-ox,srcY);
         const gy=sample(srcX,srcY+oy)-sample(srcX,srcY-oy);
-        const edge=Math.abs(gx)+Math.abs(gy);
+        const edge=(Math.abs(gx)+Math.abs(gy))*this.edgeStrength;
         if(level<.11 && edge<.19)continue;
         if(level<.18&&edge<.08&&((Math.floor(x/cw)*31+Math.floor(y/ch)*17)%11)>2)continue;
         const v=Math.max(0,Math.min(1,Math.pow(level*1.55,.68)+edge*.30));
         let index=Math.max(0,Math.min(22,Math.floor(v*22)));
         if(edge>.29&&v>.12)index=Math.abs(gx)>Math.abs(gy)*1.25?26:Math.abs(gy)>Math.abs(gx)*1.25?24:gx*gy>0?25:23;
-        const alpha=Math.min(1,Math.max(.12,(level+edge*.23+.06)*3.15));
+        const alpha=Math.min(1,Math.max(.16,(level+edge*.28+.06)*3.15));
         this.fallbackGlyphs.draw(c,index,x,y,cw,ch,r,g,b,alpha);
       }
     }
@@ -331,7 +336,7 @@ function drawClimate(ctx:CanvasRenderingContext2D,zone:ZoneId,t:number,seed:numb
  }
  ctx.restore();
 }
-export function drawWorld(ctx:CanvasRenderingContext2D,zone:ZoneId,hero:DrawPlayer,t:number,flash=0,defeated=false,camera?:Camera,reducedMotion=false){const z=ZONES[zone];const c=camera||hero;
+export function drawWorld(ctx:CanvasRenderingContext2D,zone:ZoneId,hero:DrawPlayer,t:number,flash=0,defeated=false,camera?:Camera,reducedMotion=false,roamers:readonly RoamingEncounter[]=[]){const z=ZONES[zone];const c=camera||hero;
   const camX=Math.max(0,Math.min(WORLD_W*TILE-W,(c.x+.5)*TILE-W*.5));const camY=Math.max(0,Math.min(WORLD_H*TILE-H,(c.y+.5)*TILE-H*.5));drawGround(ctx,zone,camX,camY,t);const objects:{x:number;y:number;draw:()=>void}[]=[];
 const left=Math.max(0,Math.floor(camX/TILE)-2),right=Math.min(WORLD_W-1,Math.ceil((camX+W)/TILE)+2),top=Math.max(0,Math.floor(camY/TILE)-3),bottom=Math.min(WORLD_H-1,Math.ceil((camY+H)/TILE)+2);
 for(let y=top;y<=bottom;y++)for(let x=left;x<=right;x++){const typ=terrain(zone,x,y);const xx=(x+.5)*TILE-camX,yy=(y+.78)*TILE-camY,k=hash(x,y,z.seed);if(typ==='tree'){
@@ -353,6 +358,14 @@ for(const l of z.landmarks){const xx=(l.x+.5)*TILE-camX,yy=(l.y+.75)*TILE-camY;i
  if(l.kind==='chest')objects.push({x:xx,y:yy,draw:()=>{ctx.fillStyle='#705b46';ctx.fillRect(xx-18,yy-14,36,18);ctx.fillStyle='#b29869';ctx.fillRect(xx-18,yy-18,36,8);ctx.fillRect(xx-2,yy-18,5,22);light(ctx,xx,yy,40,'#e5a778',.18);}});
  if(l.kind==='guardian'&&!defeated)objects.push({x:xx,y:yy,draw:()=>{drawCreature(ctx,'hollowhart',xx,yy,2.25,t);light(ctx,xx,yy-45,120,'#a791d5',.3);}});
  }
+for(const e of roamers){const xx=(e.x+.5)*TILE-camX,yy=(e.y+.78)*TILE-camY;if(xx<-80||xx>W+80||yy<-80||yy>H+80)continue;
+  objects.push({x:xx,y:yy,draw:()=>{
+    const pulse=reducedMotion?.5:.58+.09*Math.sin(t*2+e.x);
+    light(ctx,xx,yy-24,52,'#e6a38e',pulse);
+    drawCreature(ctx,e.speciesId,xx,yy-.5,0.85,t,'idle',reducedMotion);
+    ctx.fillStyle='#f2c4a2';ctx.font='bold 13px monospace';ctx.textAlign='center';ctx.fillText('!',xx,yy-61);
+  }});
+}
 objects.push({x:hero.x*TILE-camX,y:hero.y*TILE-camY,draw:()=>drawHero(ctx,(hero.x+.5)*TILE-camX,(hero.y+.55)*TILE-camY,t,hero.walking,hero.facing)});objects.sort((a,b)=>a.y-b.y);for(const obj of objects)obj.draw();
 // Per-biome atmosphere: sparks in Arken, rain and spores in the woods, rising runes in the sanctuary.
 // All geometry passes through the same ASCII compositor as the physical world.

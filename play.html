@@ -187,9 +187,17 @@
 /* Spatial crypt: legible dungeon cartography, with less restrictive vignette. */
 .azur-dungeon-map{display:block;width:100%;height:auto;max-height:40vh;image-rendering:pixelated;background:#070d13;border:1px solid #526b78;margin:8px auto 12px}.viewport.in-dungeon .vignette{box-shadow:inset 0 0 32px 6px #02070d45,inset 0 -18px 30px #02070d44}
 
+/* Typography and glyph tuning in the settings drawer. */
+.settings-row label{display:flex;align-items:center;gap:6px;flex-wrap:wrap;color:#d5dfde;font-size:12px}
+.settings-row output{font:11px monospace;color:#f0c990;min-width:42px}
+.settings-row input[type=range]{min-width:100px;accent-color:#d7ab73}
+.settings-row select{max-width:57%;min-width:140px}
+.settings-reset{min-height:38px;padding:7px 12px;border:1px solid #be9b6a;border-radius:4px;background:#273743;color:#eed5ad;cursor:pointer}
+@media(max-width:550px){.settings-row{gap:10px}.settings-row label{max-width:50%}.settings-row input[type=range]{width:46%}}
+
 </style></head><body>
 <div id="app">
-<header class="topbar"><div class="brand"><span class="brand-mark">⟐</span><div><div class="brand-name">ASCII <span>AZUR</span></div><div class="brand-small">THE UNWRITTEN · CHAPTER I</div></div></div><div class="top-actions"><span class="live-tag"><i></i> WORLD ENGINE v0.12</span><button id="mute" title="Activar/desactivar sonido" class="icon-btn" aria-label="Silenciar">♫</button><button id="settings" title="Ajustes" class="icon-btn" aria-label="Ajustes">⚙</button><button id="fullscreen" title="Pantalla completa" class="icon-btn" aria-label="Pantalla completa">⛶</button></div></header>
+<header class="topbar"><div class="brand"><span class="brand-mark">⟐</span><div><div class="brand-name">ASCII <span>AZUR</span></div><div class="brand-small">THE UNWRITTEN · CHAPTER I</div></div></div><div class="top-actions"><span class="live-tag"><i></i> WORLD ENGINE v0.13</span><button id="mute" title="Activar/desactivar sonido" class="icon-btn" aria-label="Silenciar">♫</button><button id="settings" title="Ajustes" class="icon-btn" aria-label="Ajustes">⚙</button><button id="fullscreen" title="Pantalla completa" class="icon-btn" aria-label="Pantalla completa">⛶</button></div></header>
 <main class="layout"><div class="game-column"><div class="viewport" id="viewport" tabindex="0" aria-label="Juego ASCII AZUR">
 <div id="evolutionBanner" class="evolution-banner hidden" role="status" aria-live="polite"></div>
 <canvas id="game" width="960" height="540" aria-label="Escenario generado mediante glifos"></canvas><div class="vignette"></div>
@@ -887,6 +895,42 @@ function discoveredPercent(discovered, zone) {
     return Math.floor(count / DISCOVERY_CELLS * 100);
 }
 
+// --- world/encounters.js ---
+/** Stable, visible overworld encounters, placed on reachable paths (not hidden RNG). */
+
+const SPECIES_BY_ZONE = {
+    forest: ['cindrel', 'mireling', 'thorne', 'briarling', 'ashboar'],
+    sanctuary: ['wispawn', 'gravemoth', 'runeowl', 'rillfin', 'velaria']
+};
+function visibleEncounters(zone, seed) {
+    if (zone === 'village')
+        return [];
+    const accessible = getReachableTiles(zone), out = [];
+    // One guaranteed early encounter, one midpoint, one later encounter, each by a route.
+    for (let slot = 0; slot < 3; slot++) {
+        const target = slot === 0 ? 12 : slot === 1 ? 24 : 36;
+        const candidates = [...accessible].map(index => ({ x: index % WORLD_W, y: Math.floor(index / WORLD_W) }))
+            .filter(p => Math.abs(p.x - target) <= 5 && p.x >= 6 && p.x <= 40
+            && terrain(zone, p.x, p.y) === 'path'
+            && ZONES[zone].landmarks.every(l => Math.hypot(l.x - p.x, l.y - p.y) >= 3)
+            && out.every(e => Math.hypot(e.x - p.x, e.y - p.y) >= 6));
+        candidates.sort((a, b) => {
+            const score = (p) => Math.abs(p.x - target) * 10 + hash(p.x, p.y, seed + slot * 17) * 8;
+            return score(a) - score(b);
+        });
+        const pick = candidates[0];
+        if (!pick)
+            continue;
+        const creatures = SPECIES_BY_ZONE[zone];
+        const variant = Math.floor(hash(slot + 1, seed & 255, seed + 45) * creatures.length);
+        out.push({ id: `${zone}-${slot}`, x: pick.x, y: pick.y, speciesId: creatures[variant], level: zone === 'forest' ? 5 + slot : 8 + slot });
+    }
+    return out;
+}
+function nearbyEncounter(encounters, flags, x, y, radius = 1.65) {
+    return encounters.find(e => !flags.includes('roamer-' + e.id) && Math.hypot(e.x - x, e.y - y) <= radius);
+}
+
 // --- domain.js ---
 
 
@@ -981,6 +1025,8 @@ function validateBattleCheckpoint(value, team) {
     if (!e || typeof e.uid !== 'string' || e.uid.length > 80 || typeof e.speciesId !== 'string' || !SPECIES[e.speciesId] || !Number.isInteger(e.level) || e.level < 1 || e.level > 30 || !Number.isInteger(e.hp) || e.hp < 0 || e.hp > maxHp(e) || !Number.isInteger(e.exp) || e.exp < 0 || !Array.isArray(e.moves) || e.moves.length < 1 || e.moves.length > 4 || e.moves.some(m => typeof m !== 'string' || !MOVES[m]))
         return false;
     if (!['wild', 'boss', 'expedition'].includes(b.type || '') || !Number.isInteger(b.ally) || b.ally < 0 || b.ally >= team.length || typeof b.guarding !== 'boolean' || ![1, 2].includes(b.bossPhase || 0) || ![0, 1, 2].includes(b.chargeStage ?? -1))
+        return false;
+    if (b.encounterId !== undefined && (!/^(forest|sanctuary)-[0-2]$/.test(b.encounterId)))
         return false;
     if (!b.effects || typeof b.effects !== 'object' || Array.isArray(b.effects) || Object.keys(b.effects).length > 8)
         return false;
@@ -1461,7 +1507,29 @@ class CanvasGlyphCache {
     }
 }
 
+// --- render/graphics-profile.js ---
+const DEFAULT_GRAPHICS = { density: .56, glyphScale: 1, contrast: 1.12, edgeStrength: 1.2, brightness: 0, quality: 1 };
+const LIMITS = {
+    density: [.42, 1.5], glyphScale: [.65, 1.85], contrast: [.65, 1.8], edgeStrength: [.5, 2.4], brightness: [-.25, .25], quality: [.2, 1]
+};
+function boundGraphic(key, value) {
+    const [min, max] = LIMITS[key];
+    if (typeof value !== 'number' || !Number.isFinite(value))
+        return DEFAULT_GRAPHICS[key];
+    return Math.round(Math.min(max, Math.max(min, value)) * 100) / 100;
+}
+function readGraphics(raw) {
+    const settings = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+    return Object.fromEntries(Object.keys(DEFAULT_GRAPHICS)
+        .map(key => [key, boundGraphic(key, settings[key])]));
+}
+function glyphCell(base, profile) {
+    const width = Math.max(3, base * profile.density * profile.glyphScale);
+    return { width, height: width * 1.38 };
+}
+
 // --- render.js ---
+
 
 
 
@@ -1473,15 +1541,15 @@ in vec2 a_pos;out vec2 v_uv;
 void main(){v_uv=a_pos*.5+.5;gl_Position=vec4(a_pos,0.,1.);}`;
 const FS = `#version 300 es
 precision highp float;
-uniform sampler2D u_scene;uniform sampler2D u_atlas;uniform vec2 u_resolution;uniform vec2 u_cell;uniform float u_time;uniform float u_quality;uniform vec4 u_crop;
+uniform sampler2D u_scene;uniform sampler2D u_atlas;uniform vec2 u_resolution;uniform vec2 u_cell;uniform float u_time;uniform float u_quality;uniform float u_contrast;uniform float u_edges;uniform float u_brightness;uniform vec4 u_crop;
 in vec2 v_uv;out vec4 outColor;
 vec3 at(vec2 p){vec2 uv=u_crop.xy+p*u_crop.zw;return texture(u_scene,vec2(clamp(uv.x,0.,1.),1.-clamp(uv.y,0.,1.))).rgb;}
 void main(){
  vec2 pos=vec2(gl_FragCoord.x,u_resolution.y-gl_FragCoord.y);
  vec2 cell=floor(pos/u_cell);vec2 center=(cell+.5)*u_cell/u_resolution;
  vec3 raw=at(center);vec2 d=max(u_cell/u_resolution,vec2(.001))*0.45;vec3 n=at(center+vec2(0.,-d.y));vec3 s=at(center+vec2(0.,d.y));vec3 e=at(center+vec2(d.x,0.));vec3 w=at(center-vec2(d.x,0.));
- float lum=dot(raw,vec3(.2126,.7152,.0722));
- float edge=length(n-s)+length(e-w);
+ float lum=clamp((dot(raw,vec3(.2126,.7152,.0722))-.5)*u_contrast+.5+u_brightness,0.,1.);
+ float edge=(length(n-s)+length(e-w))*u_edges;
  float v=clamp(pow(lum*1.55,.68)+edge*.27,0.,1.);
  float noise=fract(sin(dot(cell,vec2(12.9898,78.233)))*43758.5453);
  int index=int(floor(clamp(v*22.+(noise-.5)*.5,0.,22.)));
@@ -1495,7 +1563,7 @@ void main(){
  vec3 glyphCol=raw*2.55+vec3(.07,.10,.12)+glow*vec3(.1,.13,.15);
  glyphCol*=.95+sin(u_time*.7+noise*4.)*.025;
  glyphCol=mix(glyphCol,vec3(dot(glyphCol,vec3(.299,.587,.114))),1.-u_quality);
- float visibility=smoothstep(.045,.21,lum+edge*.25);if(lum<.20&&edge<.09&&noise>.22)visibility=0.;outColor=vec4(mix(bg,glyphCol,ink*.93*visibility),1.);
+ float visibility=smoothstep(.035,.17,lum+edge*.30);if(lum<.20&&edge<.09&&noise>.22)visibility=0.;outColor=vec4(mix(bg,glyphCol,ink*.93*visibility),1.);
 }`;
 function shader(gl, type, src) { const s = gl.createShader(type); if (!s)
     throw Error('shader'); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS))
@@ -1513,6 +1581,10 @@ class AsciiRenderer {
     uniforms = {};
     quality = 1;
     density = .56;
+    glyphScale = 1;
+    contrast = 1.12;
+    edgeStrength = 1.2;
+    brightness = 0;
     fallbackGlyphs = null;
     frame = 0;
     fpsStart = performance.now();
@@ -1558,7 +1630,7 @@ class AsciiRenderer {
         }
         gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, atlas);
-        for (const k of ['u_resolution', 'u_cell', 'u_time', 'u_quality', 'u_crop'])
+        for (const k of ['u_resolution', 'u_cell', 'u_time', 'u_quality', 'u_contrast', 'u_edges', 'u_brightness', 'u_crop'])
             this.uniforms[k] = gl.getUniformLocation(p, k);
         gl.uniform1i(gl.getUniformLocation(p, 'u_scene'), 0);
         gl.uniform1i(gl.getUniformLocation(p, 'u_atlas'), 1);
@@ -1588,6 +1660,8 @@ class AsciiRenderer {
             throw Error('Sin motor gráfico soportado');
         this.resize();
     }
+    getGraphics() { return readGraphics({ quality: this.quality, density: this.density, glyphScale: this.glyphScale, contrast: this.contrast, edgeStrength: this.edgeStrength, brightness: this.brightness }); }
+    setGraphics(input) { const x = readGraphics(input); this.density = x.density; this.glyphScale = x.glyphScale; this.contrast = x.contrast; this.edgeStrength = x.edgeStrength; this.brightness = x.brightness; this.quality = x.quality; }
     resize() { const rect = this.canvas.getBoundingClientRect(); const dpr = Math.min(window.devicePixelRatio || 1, 2); this.canvas.width = Math.min(1920, Math.max(320, Math.round((rect.width || W) * dpr))); this.canvas.height = Math.min(1080, Math.max(180, Math.round((rect.height || H) * dpr))); if (this.gl)
         this.gl.viewport(0, 0, this.canvas.width, this.canvas.height); }
     crop() {
@@ -1617,11 +1691,15 @@ class AsciiRenderer {
             const rect = this.canvas.getBoundingClientRect();
             const dpr = this.canvas.width / (rect.width || W);
             const base = Math.max(5.0, Math.min(10.0, (rect.width || W) / 130)) * dpr;
-            gl.uniform2f(this.uniforms.u_cell, base * this.density, base * 1.38 * this.density);
+            const cell = glyphCell(base, this.getGraphics());
+            gl.uniform2f(this.uniforms.u_cell, cell.width, cell.height);
             const crop = this.crop();
             gl.uniform4f(this.uniforms.u_crop, crop.x, crop.y, crop.w, crop.h);
             gl.uniform1f(this.uniforms.u_time, t * .001);
             gl.uniform1f(this.uniforms.u_quality, this.quality);
+            gl.uniform1f(this.uniforms.u_contrast, this.contrast);
+            gl.uniform1f(this.uniforms.u_edges, this.edgeStrength);
+            gl.uniform1f(this.uniforms.u_brightness, this.brightness);
             gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
             return;
         }
@@ -1629,8 +1707,8 @@ class AsciiRenderer {
         if (!c)
             return;
         const rect = this.canvas.getBoundingClientRect(), dpr = this.canvas.width / (rect.width || W);
-        const cw = Math.max(4, Math.round(Math.max(5, Math.min(10, (rect.width || W) / 130)) * dpr * this.density));
-        const ch = Math.max(6, Math.round(cw * 1.38));
+        const cell = glyphCell(Math.max(5, Math.min(10, (rect.width || W) / 130)) * dpr, this.getGraphics());
+        const cw = Math.round(cell.width), ch = Math.round(cell.height);
         const crop = this.crop(), data = this.ctx.getImageData(0, 0, W, H).data;
         c.fillStyle = '#07111a';
         c.fillRect(0, 0, this.canvas.width, this.canvas.height);
@@ -1642,14 +1720,15 @@ class AsciiRenderer {
             for (let x = 0; x < this.canvas.width; x += cw) {
                 const srcX = Math.min(W - 1, Math.floor((crop.x + (x + cw * .5) / this.canvas.width * crop.w) * W));
                 const i = (srcY * W + srcX) * 4, r = data[i], g = data[i + 1], b = data[i + 2];
-                const level = (r * .2126 + g * .7152 + b * .0722) / 255;
+                const rawLevel = (r * .2126 + g * .7152 + b * .0722) / 255;
+                const level = Math.max(0, Math.min(1, (rawLevel - .5) * this.contrast + .5 + this.brightness));
                 // Brightness palette is 0..22; 23..26 are reserved for directional strokes.
                 const sample = (px, py) => { const j = (Math.max(0, Math.min(H - 1, py)) * W + Math.max(0, Math.min(W - 1, px))) * 4; return (data[j] * .2126 + data[j + 1] * .7152 + data[j + 2] * .0722) / 255; };
                 const ox = Math.max(1, Math.floor(cw * crop.w * W / this.canvas.width * .48));
                 const oy = Math.max(1, Math.floor(ch * crop.h * H / this.canvas.height * .48));
                 const gx = sample(srcX + ox, srcY) - sample(srcX - ox, srcY);
                 const gy = sample(srcX, srcY + oy) - sample(srcX, srcY - oy);
-                const edge = Math.abs(gx) + Math.abs(gy);
+                const edge = (Math.abs(gx) + Math.abs(gy)) * this.edgeStrength;
                 if (level < .11 && edge < .19)
                     continue;
                 if (level < .18 && edge < .08 && ((Math.floor(x / cw) * 31 + Math.floor(y / ch) * 17) % 11) > 2)
@@ -1658,7 +1737,7 @@ class AsciiRenderer {
                 let index = Math.max(0, Math.min(22, Math.floor(v * 22)));
                 if (edge > .29 && v > .12)
                     index = Math.abs(gx) > Math.abs(gy) * 1.25 ? 26 : Math.abs(gy) > Math.abs(gx) * 1.25 ? 24 : gx * gy > 0 ? 25 : 23;
-                const alpha = Math.min(1, Math.max(.12, (level + edge * .23 + .06) * 3.15));
+                const alpha = Math.min(1, Math.max(.16, (level + edge * .28 + .06) * 3.15));
                 this.fallbackGlyphs.draw(c, index, x, y, cw, ch, r, g, b, alpha);
             }
         }
@@ -2422,7 +2501,7 @@ function drawClimate(ctx, zone, t, seed, reduced = false) {
     }
     ctx.restore();
 }
-function drawWorld(ctx, zone, hero, t, flash = 0, defeated = false, camera, reducedMotion = false) {
+function drawWorld(ctx, zone, hero, t, flash = 0, defeated = false, camera, reducedMotion = false, roamers = []) {
     const z = ZONES[zone];
     const c = camera || hero;
     const camX = Math.max(0, Math.min(WORLD_W * TILE - W, (c.x + .5) * TILE - W * .5));
@@ -2473,6 +2552,20 @@ function drawWorld(ctx, zone, hero, t, flash = 0, defeated = false, camera, redu
             objects.push({ x: xx, y: yy, draw: () => { ctx.fillStyle = '#705b46'; ctx.fillRect(xx - 18, yy - 14, 36, 18); ctx.fillStyle = '#b29869'; ctx.fillRect(xx - 18, yy - 18, 36, 8); ctx.fillRect(xx - 2, yy - 18, 5, 22); light(ctx, xx, yy, 40, '#e5a778', .18); } });
         if (l.kind === 'guardian' && !defeated)
             objects.push({ x: xx, y: yy, draw: () => { drawCreature(ctx, 'hollowhart', xx, yy, 2.25, t); light(ctx, xx, yy - 45, 120, '#a791d5', .3); } });
+    }
+    for (const e of roamers) {
+        const xx = (e.x + .5) * TILE - camX, yy = (e.y + .78) * TILE - camY;
+        if (xx < -80 || xx > W + 80 || yy < -80 || yy > H + 80)
+            continue;
+        objects.push({ x: xx, y: yy, draw: () => {
+                const pulse = reducedMotion ? .5 : .58 + .09 * Math.sin(t * 2 + e.x);
+                light(ctx, xx, yy - 24, 52, '#e6a38e', pulse);
+                drawCreature(ctx, e.speciesId, xx, yy - .5, 0.85, t, 'idle', reducedMotion);
+                ctx.fillStyle = '#f2c4a2';
+                ctx.font = 'bold 13px monospace';
+                ctx.textAlign = 'center';
+                ctx.fillText('!', xx, yy - 61);
+            } });
     }
     objects.push({ x: hero.x * TILE - camX, y: hero.y * TILE - camY, draw: () => drawHero(ctx, (hero.x + .5) * TILE - camX, (hero.y + .55) * TILE - camY, t, hero.walking, hero.facing) });
     objects.sort((a, b) => a.y - b.y);
@@ -3243,6 +3336,8 @@ class Sound {
 
 
 
+
+
 const byId = (id) => { const el = document.getElementById(id); if (!el)
     throw Error('Falta elemento UI: ' + id); return el; };
 const htmlEscape = (v) => v.replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
@@ -3257,6 +3352,7 @@ class AzurGame {
     combatCue = null;
     save = { version: 1, zone: 'village', x: 4, y: 16, team: [], storage: [], inventory: { seals: 5, tonics: 3 }, defeatedBoss: false, flags: [], playSeconds: 0, rpg: newEconomy() };
     expeditionMessage = '';
+    roamingCache = new Map();
     started = false;
     keys = new Set();
     battle = null;
@@ -3398,17 +3494,13 @@ class AzurGame {
     catch { /* preserve defaults */ } if (!this.soundEnabled)
         this.sound.setEnabled(false); this.updateMuteUi(); }
     restoreGraphicSettings() { try {
-        const raw = JSON.parse(localStorage.getItem('ascii-azur-graphics-v1') || 'null');
-        if (!raw || typeof raw !== 'object')
-            return;
-        if ([.48, .56, .62, .85, 1.2].includes(raw.density))
-            this.renderer.density = raw.density;
-        if ([.4, 1].includes(raw.quality))
-            this.renderer.quality = raw.quality;
+        this.renderer.setGraphics(JSON.parse(localStorage.getItem('ascii-azur-graphics-v1') || 'null'));
     }
-    catch { /* use safe defaults */ } }
+    catch {
+        this.renderer.setGraphics(DEFAULT_GRAPHICS);
+    } }
     storeGraphicSettings() { try {
-        localStorage.setItem('ascii-azur-graphics-v1', JSON.stringify({ density: this.renderer.density, quality: this.renderer.quality }));
+        localStorage.setItem('ascii-azur-graphics-v1', JSON.stringify(this.renderer.getGraphics()));
     }
     catch { /* storage unavailable */ } }
     restoreMotionSettings() { try {
@@ -3441,13 +3533,15 @@ class AzurGame {
         byId('drawerActions').append(byId('teamBtn'), byId('bagBtn'), byId('saveBtn'));
         const extra = document.createElement('div');
         extra.className = 'drawer-actions extended';
-        extra.innerHTML = '<button id="questsBtn">✧ MISIONES</button><button id="codexBtn">❖ BESTIARIO</button><button id="mapBtn">◇ MAPA</button><button id="expeditionsBtn">✦ EXPEDICIONES</button><button id="dungeonBtn">♜ CRIPTA EXPLORABLE</button>';
+        extra.innerHTML = '<button id="questsBtn">✧ MISIONES</button><button id="codexBtn">❖ BESTIARIO</button><button id="mapBtn">◇ MAPA</button><button id="expeditionsBtn">✦ EXPEDICIONES</button><button id="dungeonBtn">♜ CRIPTA EXPLORABLE</button><button id="duelBtn">⚔ COMBATE DIRECTO</button><button id="graphicsBtn">⚙ OPCIONES GRÁFICAS</button>';
         byId('drawerActions').after(extra);
         extra.querySelector('#questsBtn')?.addEventListener('click', () => this.openQuests());
         extra.querySelector('#codexBtn')?.addEventListener('click', () => this.openCodex());
         extra.querySelector('#mapBtn')?.addEventListener('click', () => this.openMap());
         extra.querySelector('#expeditionsBtn')?.addEventListener('click', () => this.openExpedition());
         extra.querySelector('#dungeonBtn')?.addEventListener('click', () => this.openDungeonMenu());
+        extra.querySelector('#duelBtn')?.addEventListener('click', () => this.openDuel());
+        extra.querySelector('#graphicsBtn')?.addEventListener('click', () => this.settings());
         const backup = document.createElement('div');
         backup.className = 'drawer-actions extended';
         backup.innerHTML = '<button id="exportBtn">⇩ EXPORTAR PARTIDA</button><button id="importBtn">⇧ IMPORTAR PARTIDA</button><input type="file" id="restoreFile" accept="application/json,.json" hidden>';
@@ -3469,6 +3563,7 @@ class AzurGame {
                     return;
                 this.save = json;
                 configureWorld(this.save.worldSeed ?? 0, this.save.worldSnapshot);
+                this.roamingCache.clear();
                 this.save.rpg = normalizeEconomy(json.rpg);
                 this.started = true;
                 this.battle = null;
@@ -3540,7 +3635,7 @@ class AzurGame {
         }
     }
     catch { /* blocked storage */ } }
-    reset() { this.resetJoystick(); this.toggleDrawer(false); this.save = { version: 1, zone: 'village', x: 4, y: 16, team: [], storage: [], inventory: { seals: 5, tonics: 3 }, defeatedBoss: false, flags: [], playSeconds: 0, rpg: newEconomy(), worldSeed: freshWorldSeed() }; configureWorld(this.save.worldSeed); this.save.worldSnapshot = captureWorldSnapshot(); this.battle = null; this.evolution = null; this.combatCue = null; this.keys.clear(); this.encounterCooldown = 4; this.camera = { x: 4, y: 16 }; this.cameraZone = 'village'; this.lastReveal = -1; }
+    reset() { this.resetJoystick(); this.toggleDrawer(false); this.roamingCache.clear(); this.save = { version: 1, zone: 'village', x: 4, y: 16, team: [], storage: [], inventory: { seals: 5, tonics: 3 }, defeatedBoss: false, flags: [], playSeconds: 0, rpg: newEconomy(), worldSeed: freshWorldSeed() }; configureWorld(this.save.worldSeed); this.save.worldSnapshot = captureWorldSnapshot(); this.battle = null; this.evolution = null; this.combatCue = null; this.keys.clear(); this.encounterCooldown = 4; this.camera = { x: 4, y: 16 }; this.cameraZone = 'village'; this.lastReveal = -1; }
     startNew() { try {
         if (readSave(localStorage) && !window.confirm('Crear un viaje nuevo sustituirá tu partida actual. Puedes continuarla y exportarla antes de empezar. ¿Crear nuevo mundo?'))
             return;
@@ -3557,6 +3652,7 @@ class AzurGame {
         const raw = result.state;
         this.save = raw;
         configureWorld(this.save.worldSeed ?? 0, this.save.worldSnapshot);
+        this.roamingCache.clear();
         this.save.rpg = normalizeEconomy(raw.rpg);
         this.camera = { x: this.save.x, y: this.save.y };
         this.cameraZone = this.save.zone;
@@ -3610,10 +3706,18 @@ class AzurGame {
         return; if (this.save.dungeon?.active) {
         this.dungeonInteract();
         return;
+    } const roamer = this.nearRoamer(); if (roamer) {
+        this.startBattle(roamer.speciesId, roamer.level, 'wild', roamer.id);
+        return;
     } const l = nearbyLandmark(this.save.zone, this.save.x, this.save.y, 2.15); if (!l) {
         this.toast('NO HAY NADA CON LO QUE INTERACTUAR');
         return;
     } this.interactLandmark(l); }
+    roamers() { const key = this.save.zone + ':' + (this.save.worldSeed ?? 0); let list = this.roamingCache.get(key); if (!list) {
+        list = visibleEncounters(this.save.zone, this.save.worldSeed ?? 0);
+        this.roamingCache.set(key, list);
+    } return list.filter(e => !this.flag('roamer-' + e.id)); }
+    nearRoamer() { return nearbyEncounter(this.roamers(), this.save.flags, this.save.x, this.save.y, 1.8); }
     interactLandmark(l) {
         switch (l.kind) {
             case 'npc':
@@ -3681,7 +3785,7 @@ class AzurGame {
         const b = this.battle;
         if (!b || !this.started)
             return;
-        const record = { enemy: { ...b.enemy, moves: [...b.enemy.moves] }, type: b.type, ally: b.ally, guarding: b.guarding, bossPhase: b.bossPhase, chargeStage: b.chargeStage, effects: Object.fromEntries(Object.entries(b.effects).map(([uid, arr]) => [uid, arr.map(a => ({ ...a }))])) };
+        const record = { enemy: { ...b.enemy, moves: [...b.enemy.moves] }, type: b.type, ally: b.ally, guarding: b.guarding, bossPhase: b.bossPhase, chargeStage: b.chargeStage, encounterId: b.encounterId, effects: Object.fromEntries(Object.entries(b.effects).map(([uid, arr]) => [uid, arr.map(a => ({ ...a }))])) };
         this.save.activeBattle = record;
         this.saveNow(false);
     }
@@ -3689,7 +3793,7 @@ class AzurGame {
         const b = this.save.activeBattle;
         if (!b || !this.started)
             return;
-        this.battle = { enemy: { ...b.enemy, moves: [...b.enemy.moves] }, type: b.type, ally: b.ally, guarding: b.guarding, bossPhase: b.bossPhase, chargeStage: b.chargeStage, effects: Object.fromEntries(Object.entries(b.effects).map(([id, arr]) => [id, arr.map(s => ({ ...s }))])), busy: false, selecting: false, log: 'El combate continúa donde lo dejaste. El silencio no ha ganado.' };
+        this.battle = { enemy: { ...b.enemy, moves: [...b.enemy.moves] }, type: b.type, ally: b.ally, guarding: b.guarding, bossPhase: b.bossPhase, chargeStage: b.chargeStage, encounterId: b.encounterId, effects: Object.fromEntries(Object.entries(b.effects).map(([id, arr]) => [id, arr.map(s => ({ ...s }))])), busy: false, selecting: false, log: 'El combate continúa donde lo dejaste. El silencio no ha ganado.' };
         const available = this.save.team.findIndex(c => c.hp > 0);
         if (available < 0) {
             this.defeat();
@@ -3707,11 +3811,11 @@ class AzurGame {
             window.setTimeout(() => this.winBattle(), 250);
         }
     }
-    startBattle(id, level, type) { if (this.battle)
+    startBattle(id, level, type, encounterId) { if (this.battle)
         return; this.toggleDrawer(false); this.resetJoystick(); let ally = this.save.team.findIndex(c => c.hp > 0); if (ally < 0) {
         this.defeat();
         return;
-    } this.sound.setScene(type === 'boss' ? 'boss' : 'battle'); this.battle = { enemy: createCreature(id, level), type, busy: false, ally, guarding: false, selecting: false, bossPhase: 1, chargeStage: 0, effects: {}, log: type === 'boss' ? 'HOLLOWHART, EL ÚLTIMO GUARDIÁN, DESPIERTA.' : type === 'expedition' ? `LA GRIETA SE ABRE: ${SPECIES[id].name.toUpperCase()} TE DESAFÍA.` : `¡UN ${SPECIES[id].name.toUpperCase()} SALVAJE APARECE!` }; this.combatCue = null; this.encounterCooldown = 9; byId('battle').classList.remove('hidden'); byId('viewport').classList.add('in-battle'); byId('prompt').classList.add('hidden'); this.sound.portal(); this.refreshBattle(); }
+    } this.sound.setScene(type === 'boss' ? 'boss' : 'battle'); this.battle = { enemy: createCreature(id, level), type, encounterId, busy: false, ally, guarding: false, selecting: false, bossPhase: 1, chargeStage: 0, effects: {}, log: type === 'boss' ? 'HOLLOWHART, EL ÚLTIMO GUARDIÁN, DESPIERTA.' : type === 'expedition' ? `LA GRIETA SE ABRE: ${SPECIES[id].name.toUpperCase()} TE DESAFÍA.` : `¡UN ${SPECIES[id].name.toUpperCase()} SALVAJE APARECE!` }; this.combatCue = null; this.encounterCooldown = 9; byId('battle').classList.remove('hidden'); byId('viewport').classList.add('in-battle'); byId('prompt').classList.add('hidden'); this.sound.portal(); this.refreshBattle(); }
     getAlly() { return this.battle ? this.save.team[this.battle.ally] : null; }
     statuses(c) { return this.battle?.effects[c.uid] ?? []; }
     setStatuses(c, list) { if (this.battle)
@@ -3899,7 +4003,8 @@ class AzurGame {
         this.refreshBattle();
     }
     winBattle() { const b = this.battle, ally = this.getAlly(); if (!b || !ally)
-        return; const amount = b.type === 'boss' ? 95 : 11 + b.enemy.level * 3; const beforeSpecies = ally.speciesId; const gain = gainExp(ally, amount); const originalName = SPECIES[b.enemy.speciesId].name; this.finishBattle(); this.sound.pick(); if (b.type === 'wild' && this.save.dungeon?.active && this.save.dungeon.pending !== null)
+        return; const amount = b.type === 'boss' ? 95 : 11 + b.enemy.level * 3; const beforeSpecies = ally.speciesId; const gain = gainExp(ally, amount); const originalName = SPECIES[b.enemy.speciesId].name; this.finishBattle(); if (b.encounterId)
+        this.addFlag('roamer-' + b.encounterId); this.sound.pick(); if (b.type === 'wild' && this.save.dungeon?.active && this.save.dungeon.pending !== null)
         this.finishDungeonEnemy(); if (b.type === 'expedition') {
         this.expeditionBattleWon();
         if (gain.evolved)
@@ -3945,6 +4050,8 @@ class AzurGame {
             stored = true;
         }
         this.finishBattle();
+        if (b.encounterId)
+            this.addFlag('roamer-' + b.encounterId);
         this.sound.pick();
         if (this.save.dungeon?.active && this.save.dungeon.pending !== null)
             this.finishDungeonEnemy();
@@ -4198,6 +4305,15 @@ class AzurGame {
         exit.onclick = () => this.abandonExpedition();
     }
     /** Spatial roguelite prototype: a real maze, not a route-selection overlay. */
+    openDuel() {
+        if (!this.started || this.battle || this.dialogOpen || this.save.dungeon?.active)
+            return;
+        const region = this.save.zone;
+        const group = region === 'village' ? ['cindrel', 'briarling', 'mireling'] : region === 'forest' ? ['cindrel', 'thorne', 'mireling'] : ['runeowl', 'wispawn', 'gravemoth'];
+        this.showModal('COMBATE DIRECTO', `<div class="modal-content-block">Desafía a una criatura salvaje. Puedes combatir, capturarla o huir. Los retos directos no alteran los guardianes ni la historia.</div>${group.map((speciesId, i) => `<div class="modal-option"><div><strong>${htmlEscape(SPECIES[speciesId].name)}</strong><small>NIVEL ${region === 'village' ? 3 + i : region === 'forest' ? 5 + i : 8 + i} · ${htmlEscape(SPECIES[speciesId].element)}</small></div><button data-duel="${speciesId}">COMBATIR</button></div>`).join('')}`);
+        for (const button of byId('modalContent').querySelectorAll('[data-duel]'))
+            button.onclick = () => { const id = button.dataset.duel; const level = (region === 'village' ? 3 : region === 'forest' ? 5 : 8) + group.indexOf(id); this.hideModal(); this.startBattle(id, level, 'wild'); };
+    }
     openDungeonMenu() {
         if (!this.started || this.battle || this.evolution || this.dialogOpen)
             return;
@@ -4499,10 +4615,53 @@ class AzurGame {
     }
     openBag() { if (!this.started || this.evolution || this.battle || this.dialogOpen || !byId('starterScreen').classList.contains('hidden'))
         return; this.showModal('MOCHILA DEL PORTADOR', `<div class="modal-content-block">Objetos recuperados entre las ruinas de Azur. · ✦ ${this.economy.echoes} ECOS</div><div class="modal-option"><div><strong>◇ Sellos de Vínculo</strong> × ${this.save.inventory.seals}<small>Permiten capturar criaturas debilitadas durante el combate.</small></div></div><div class="modal-option"><div><strong>✚ Tónicos</strong> × ${this.save.inventory.tonics}<small>Recuperan 28 HP de una criatura durante el combate.</small></div></div><div class="modal-content-block">Descansa en las Lumbres para curar al equipo y recuperar un sello. Los cofres contienen suministros limitados.</div>`); }
-    settings() { this.toggleDrawer(false); this.sound.unlock(); this.showModal('AJUSTES Y AUDIO', `<div class="modal-content-block">El motor traduce la escena intermedia a caracteres mediante ${this.renderer.mode === 'gpu' ? 'WebGL 2.0' : 'Canvas 2D (compatibilidad)'}. Los cambios son inmediatos.</div><div class="settings-row"><span>Densidad de glifos</span><select id="densitySelect"><option value=".48">Ultra · máxima definición</option><option value=".56">Alta+ · recomendada</option><option value=".62">Alta</option><option value=".85">Equilibrada</option><option value="1.2">Rendimiento</option></select></div><div class="settings-row"><span>Tratamiento cromático</span><select id="qualitySelect"><option value="1">Color atmosférico</option><option value="0.4">Casi monocromo</option></select></div><div class="modal-content-block">Recomendación Android: perfil «Rendimiento» si el equipo no mantiene 30 FPS.</div><div class="modal-content-block">BANDA SONORA GENERATIVA · Web Audio, sin archivos de música. La música empieza tras el primer toque por seguridad del navegador.</div><div class="settings-row"><label for="musicVolume">Música</label><input id="musicVolume" type="range" min="0" max="100" step="1"></div><div class="settings-row"><label for="effectsVolume">Efectos</label><input id="effectsVolume" type="range" min="0" max="100" step="1"></div><div class="settings-row"><label for="motionReduced">Reducir movimiento y sacudidas</label><input id="motionReduced" type="checkbox"></div><div class="settings-row"><label for="largeText">Texto ampliado</label><input id="largeText" type="checkbox"></div><div class="settings-row"><label for="leftHanded">Joystick a la derecha</label><input id="leftHanded" type="checkbox"></div>`, true); const mus = byId('musicVolume'), fx = byId('effectsVolume'); mus.value = String(Math.round(this.sound.getMusicVolume() * 100)); fx.value = String(Math.round(this.sound.getEffectsVolume() * 100)); mus.oninput = () => { this.sound.setMusicVolume(Number(mus.value) / 100); this.storeAudioSettings(); }; fx.oninput = () => { this.sound.setEffectsVolume(Number(fx.value) / 100); this.storeAudioSettings(); }; const den = byId('densitySelect'), qual = byId('qualitySelect'); den.value = String(this.renderer.density); qual.value = String(this.renderer.quality); den.onchange = () => { this.renderer.density = Number(den.value); this.storeGraphicSettings(); }; qual.onchange = () => { this.renderer.quality = Number(qual.value); this.storeGraphicSettings(); }; const motion = byId('motionReduced'); motion.checked = this.reducedMotion; motion.onchange = () => { this.reducedMotion = motion.checked; try {
-        localStorage.setItem('ascii-azur-reduced-motion', String(this.reducedMotion));
+    settings() {
+        this.toggleDrawer(false);
+        this.sound.unlock();
+        this.showModal('AJUSTES · ARTE ASCII', `<div class="modal-content-block">Elige la definición visual del mundo. La densidad y el tamaño del glifo son independientes. Los ajustes se aplican en tiempo real al renderizador ${this.renderer.mode === 'gpu' ? 'WebGL2' : 'Canvas2D'} y permanecen guardados.</div>
+      <div class="settings-row"><label for="densitySelect">Densidad de caracteres</label><select id="densitySelect"><option value=".42">Extrema · más detalle</option><option value=".48">Ultra</option><option value=".56">Alta · recomendada</option><option value=".85">Equilibrada</option><option value="1.2">Rendimiento</option></select></div>
+      <div class="settings-row"><label for="glyphScale">Tamaño de caracteres <output id="glyphScaleValue"></output></label><input id="glyphScale" type="range" min=".65" max="1.85" step=".05"></div>
+      <div class="settings-row"><label for="glyphContrast">Contraste <output id="glyphContrastValue"></output></label><input id="glyphContrast" type="range" min=".65" max="1.8" step=".05"></div>
+      <div class="settings-row"><label for="glyphEdges">Definición de contornos <output id="glyphEdgesValue"></output></label><input id="glyphEdges" type="range" min=".5" max="2.4" step=".1"></div>
+      <div class="settings-row"><label for="glyphBrightness">Luminosidad <output id="glyphBrightnessValue"></output></label><input id="glyphBrightness" type="range" min="-.25" max=".25" step=".05"></div>
+      <div class="settings-row"><label for="qualitySelect">Paleta cromática</label><select id="qualitySelect"><option value="1">Color atmosférico</option><option value=".4">Color limitado</option></select></div>
+      <div class="settings-row"><button id="resetGraphics" class="settings-reset">Restablecer gráficos</button></div>
+      <div class="modal-content-block">Consejo: densidad extrema y glifos pequeños dan más definición, pero consumen más GPU/CPU. Para móviles modestos, usa Equilibrada.</div>
+      <div class="settings-row"><label for="musicVolume">Música</label><input id="musicVolume" type="range" min="0" max="100" step="1"></div>
+      <div class="settings-row"><label for="effectsVolume">Efectos</label><input id="effectsVolume" type="range" min="0" max="100" step="1"></div>
+      <div class="settings-row"><label for="motionReduced">Reducir movimiento</label><input id="motionReduced" type="checkbox"></div>
+      <div class="settings-row"><label for="largeText">Texto ampliado</label><input id="largeText" type="checkbox"></div>
+      <div class="settings-row"><label for="leftHanded">Joystick a la derecha</label><input id="leftHanded" type="checkbox"></div>`, true);
+        const mus = byId('musicVolume'), fx = byId('effectsVolume');
+        mus.value = String(Math.round(this.sound.getMusicVolume() * 100));
+        fx.value = String(Math.round(this.sound.getEffectsVolume() * 100));
+        mus.oninput = () => { this.sound.setMusicVolume(Number(mus.value) / 100); this.storeAudioSettings(); };
+        fx.oninput = () => { this.sound.setEffectsVolume(Number(fx.value) / 100); this.storeAudioSettings(); };
+        const den = byId('densitySelect'), qual = byId('qualitySelect');
+        const sliders = [['glyphScale', 'glyphScale'], ['glyphContrast', 'contrast'], ['glyphEdges', 'edgeStrength'], ['glyphBrightness', 'brightness']];
+        const sync = () => { const g = this.renderer.getGraphics(); den.value = String(g.density); qual.value = String(g.quality); for (const [id, key] of sliders) {
+            byId(id).value = String(g[key]);
+            byId(id + 'Value').textContent = key === 'brightness' ? g[key].toFixed(2) : g[key].toFixed(2) + '×';
+        } };
+        const change = (patch) => { this.renderer.setGraphics({ ...this.renderer.getGraphics(), ...patch }); this.storeGraphicSettings(); sync(); };
+        den.onchange = () => change({ density: Number(den.value) });
+        qual.onchange = () => change({ quality: Number(qual.value) });
+        for (const [id, key] of sliders)
+            byId(id).oninput = () => change({ [key]: Number(byId(id).value) });
+        byId('resetGraphics').onclick = () => change({ ...DEFAULT_GRAPHICS });
+        sync();
+        const motion = byId('motionReduced');
+        motion.checked = this.reducedMotion;
+        motion.onchange = () => { this.reducedMotion = motion.checked; try {
+            localStorage.setItem('ascii-azur-reduced-motion', String(this.reducedMotion));
+        }
+        catch { /* storage blocked */ } };
+        const textSize = byId('largeText'), handed = byId('leftHanded');
+        textSize.checked = document.documentElement.classList.contains('azur-large-text');
+        handed.checked = document.documentElement.classList.contains('azur-left-handed');
+        textSize.onchange = () => { document.documentElement.classList.toggle('azur-large-text', textSize.checked); this.persistAccessibility(); };
+        handed.onchange = () => { document.documentElement.classList.toggle('azur-left-handed', handed.checked); this.persistAccessibility(); };
     }
-    catch { /* almacenamiento bloqueado */ } }; const textSize = byId('largeText'), handed = byId('leftHanded'); textSize.checked = document.documentElement.classList.contains('azur-large-text'); handed.checked = document.documentElement.classList.contains('azur-left-handed'); textSize.onchange = () => { document.documentElement.classList.toggle('azur-large-text', textSize.checked); this.persistAccessibility(); }; handed.onchange = () => { document.documentElement.classList.toggle('azur-left-handed', handed.checked); this.persistAccessibility(); }; }
     showModal(title, body, allowIntro = false) { if (this.evolution || this.battle || this.dialogOpen || (!allowIntro && !byId('titleScreen').classList.contains('hidden')) || !byId('starterScreen').classList.contains('hidden'))
         return; this.toggleDrawer(false); this.modalOpen = true; byId('modalTitle').textContent = title; byId('modalContent').innerHTML = body; byId('modal').classList.remove('hidden'); }
     hideModal() { this.modalOpen = false; byId('modal').classList.add('hidden'); }
@@ -4593,7 +4752,7 @@ class AzurGame {
             const follow = 1 - Math.exp(-dt * 9);
             this.camera.x += (this.save.x - this.camera.x) * follow;
             this.camera.y += (this.save.y - this.camera.y) * follow;
-            drawWorld(ctx, this.save.zone, { x: this.save.x, y: this.save.y, facing: this.facing, walking: this.moving && !this.dialogOpen }, this.seconds, this.flash, this.save.defeatedBoss, this.camera, this.reducedMotion);
+            drawWorld(ctx, this.save.zone, { x: this.save.x, y: this.save.y, facing: this.facing, walking: this.moving && !this.dialogOpen }, this.seconds, this.flash, this.save.defeatedBoss, this.camera, this.reducedMotion, this.roamers());
         }
         this.renderer.present(now);
         if (now - this.lastDebugUpdate > 750) {
@@ -4668,7 +4827,8 @@ class AzurGame {
                 }
             }
         }
-        const label = this.save.dungeon?.active ? nearbyDungeonEvent(this.save.dungeon, 1.85)?.label : nearbyLandmark(this.save.zone, this.save.x, this.save.y, 2)?.label;
+        const encounter = !this.save.dungeon?.active ? this.nearRoamer() : undefined;
+        const label = this.save.dungeon?.active ? nearbyDungeonEvent(this.save.dungeon, 1.85)?.label : encounter ? `⚔ DESAFIAR A ${SPECIES[encounter.speciesId].name.toUpperCase()}` : nearbyLandmark(this.save.zone, this.save.x, this.save.y, 2)?.label;
         const el = byId('prompt');
         if (label && !this.battle && !this.dialogOpen && !this.modalOpen) {
             el.classList.remove('hidden');
