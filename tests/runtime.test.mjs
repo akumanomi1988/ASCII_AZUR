@@ -130,3 +130,38 @@ test('runtime: entering the crypt shows the active chamber and three story seals
  assert.equal(game.save.dungeon.tiles,before,'visual changes must not regenerate dungeon');
  assert.ok(dom.get('zoneSubtitle').textContent.includes('SELLOS'));
 });
+
+test('runtime: main quest provides guided stages and concludes once when Archivist hears both relics',()=>{
+ const {game,dom,storage}=mount();game.startNew();game.pickStarter('cindrel');for(let i=0;i<3;i++)game.nextDialog();
+ assert.match(dom.get('missionChip').textContent,/ARCHIVISTA/);
+ game.interactNpc('archivist');for(let i=0;i<2;i++)game.nextDialog();
+ assert.match(dom.get('missionChip').textContent,/BOSQUE/);
+ game.interactLandmark({x:43,y:16,kind:'portal',label:'Bosque'});
+ game.interactLandmark({x:43,y:16,kind:'portal',label:'Santuario'});
+ assert.match(dom.get('missionChip').textContent,/HOLLOWHART/);
+ game.startBattle('hollowhart',12,'boss');game.winBattle();for(let i=0;i<3;i++)game.nextDialog();
+ assert.match(dom.get('missionChip').textContent,/CRIPTA/);
+ game.save.zone='village';game.enterDungeon(false);
+ // Sentinel and inscription clearance is validated in existing dungeon tests.
+ game.save.dungeon.cleared=[2,3,5];const exit=game.save.dungeon.events.find(e=>e.kind==='exit');
+ game.save.dungeon.x=exit.x;game.save.dungeon.y=exit.y;game.dungeonInteract();game.nextDialog();
+ assert.equal(game.save.dungeon.finished,true);assert.match(dom.get('missionChip').textContent,/ARCHIVISTA/);
+ game.save.dungeon.active=false;const before=game.economy.echoes,seals=game.save.inventory.seals;
+ game.interactNpc('archivist');assert.equal(game.save.flags.filter(f=>f==='arken-vow-restored').length,1);
+ assert.equal(game.economy.echoes,before+200);assert.equal(game.save.inventory.seals,seals+4);
+ assert.match(dom.get('missionChip').textContent,/COMPLETADO/);
+ for(let i=0;i<3;i++)game.nextDialog();
+ game.interactNpc('archivist');assert.equal(game.economy.echoes,before+200);
+ assert.equal(game.save.flags.filter(f=>f==='arken-vow-restored').length,1);
+ assert.ok(storage.getItem('ascii-azur-save-v1'));
+});
+test('runtime: talking to the Archivist before clearing the crypt cannot award ending',()=>{
+ const {game,dom}=mount();game.startNew();game.pickStarter('thorne');for(let i=0;i<3;i++)game.nextDialog();
+ game.interactNpc('archivist');for(let i=0;i<2;i++)game.nextDialog();
+ game.interactLandmark({x:43,y:16,kind:'portal',label:'Bosque'});
+ game.interactLandmark({x:43,y:16,kind:'portal',label:'Santuario'});
+ game.startBattle('hollowhart',12,'boss');game.winBattle();for(let i=0;i<3;i++)game.nextDialog();
+ game.save.zone='village';const before=game.economy.echoes;game.interactNpc('archivist');
+ assert.equal(game.economy.echoes,before);assert.equal(game.save.flags.includes('arken-vow-restored'),false);
+ assert.match(dom.get('diaText').textContent,/Cripta de los Ecos/);
+});

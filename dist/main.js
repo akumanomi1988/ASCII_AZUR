@@ -9,6 +9,7 @@ import { ZONES, sweepMove, isWild, nearbyLandmark, configureWorld, captureWorldS
 import { SHOP, QUESTS, buy, claimQuests, normalizeEconomy, newEconomy } from './rpg.js';
 import { Sound, themeForZone } from './audio.js';
 import { FrameMetrics } from './core/frame-metrics.js';
+import { ARKEN_STORY, ARKEN_FINALE_REWARD, arkenStoryBeat, arkenStoryIndex, concludeArken, canConcludeArken } from './story-campaign.js';
 import { readSave, writeSave } from './core/save-store.js';
 import { transferStoredCreature, reserveCreature } from './party.js';
 import { createCombatCue, sampleCombatCue, guardDamage } from './actors/combat-fx.js';
@@ -354,6 +355,21 @@ class AzurGame {
         el.addEventListener('click', () => this.pickStarter(el.dataset.starter)); }
     pickStarter(id) { this.sound.setScene('village'); this.save.team = [createCreature(id, 5)]; this.revealPosition(); this.started = true; byId('starterScreen').classList.add('hidden'); this.sound.pick(); this.toast('NUEVO MUNDO · SEMILLA ' + this.save.worldSeed); this.dialog([{ title: 'El último Portador', text: 'Los nombres se están desvaneciendo. El tuyo permanece porque alguien lo recuerda.' }, { title: 'El último Portador', text: 'Al este se extiende el Bosque de Ceniza. Encuentra el Santuario sin Voz y recupera la Primera Palabra.' }, { title: 'Comienza el viaje', text: 'Muévete con WASD o las flechas. Pulsa E para interactuar. Busca las hogueras para recuperar la fuerza.' }]); this.updateUI(); this.saveNow(false); }
     flag(id) { return this.save.flags.includes(id); }
+    get storyState() { return { flags: this.save.flags, defeatedBoss: this.save.defeatedBoss, dungeonFinished: !!this.save.dungeon?.finished }; }
+    storyBeat() { return arkenStoryBeat(this.storyState); }
+    concludeStory() {
+        const result = concludeArken(this.storyState);
+        if (!result.newlyCompleted)
+            return false;
+        this.save.flags = result.flags;
+        this.economy.echoes = Math.min(999999, this.economy.echoes + ARKEN_FINALE_REWARD.echoes);
+        this.save.inventory.seals = Math.min(9999, this.save.inventory.seals + ARKEN_FINALE_REWARD.seals);
+        this.sound.pick();
+        this.processQuests();
+        this.saveNow(false);
+        this.updateUI();
+        return true;
+    }
     get economy() { if (!this.save.rpg)
         this.save.rpg = newEconomy(); return this.save.rpg; }
     addFlag(id) { if (!this.flag(id))
@@ -695,7 +711,7 @@ class AzurGame {
     } if (b.type === 'boss') {
         this.save.defeatedBoss = true;
         this.addFlag('first-word');
-        this.dialog([{ title: 'El lenguaje se quiebra', text: 'Hollowhart cae de rodillas. Entre sus astas aparece una palabra que no puede pronunciarse.' }, { title: 'LA PRIMERA PALABRA', text: 'La primera sílaba del mundo es tuya. El bosque vuelve a respirar. Pero más allá del santuario alguien ha comenzado a borrar el cielo.' }, { title: 'FIN DEL CAPÍTULO I', text: 'Has completado la primera aventura de ASCII AZUR. Puedes seguir explorando, completar tu colección y descubrir nuevas evoluciones.' }]);
+        this.dialog([{ title: 'El lenguaje se quiebra', text: 'Hollowhart cae de rodillas. Entre sus astas aparece una palabra que no puede pronunciarse.' }, { title: 'LA PRIMERA PALABRA', text: 'La primera sílaba del mundo es tuya. El bosque vuelve a respirar. Pero más allá del santuario alguien ha comenzado a borrar el cielo.' }, { title: 'FIN DEL CAPÍTULO I', text: 'La Primera Palabra ha vuelto, pero Arken aún no puede recordarlo todo. Regresa a la aldea, desciende a la Cripta de los Ecos y busca el Último Signo.' }]);
     }
     else {
         if (!gain.evolved)
@@ -800,7 +816,17 @@ class AzurGame {
             e.visitedNpcs.push(id);
         if (id === 'archivist') {
             this.addFlag('archivist');
-            this.dialog([{ title: 'El Archivista', text: 'Hubo un tiempo en que el cielo estaba lleno de palabras. Ahora llueven sus cenizas.' }, { title: 'El Archivista', text: 'Busca las Lumbres, hazte acompañar de criaturas y desciende al Santuario sin Voz.' }]);
+            if (canConcludeArken(this.storyState) && this.concludeStory()) {
+                this.dialog([{ title: 'EL JURAMENTO DE ARKEN', text: 'El Archivista une la Primera Palabra y el Último Signo. Las voces de los desaparecidos vuelven a llenar la plaza.' },
+                    { title: 'LO QUE NO SE BORRA', text: 'Tus criaturas pronuncian los nombres que el silencio robó. Arken recupera su memoria; la primera región vuelve a tener un mañana.' },
+                    { title: 'FIN DEL ARCO DE ARKEN', text: `Has cerrado la primera historia completa. Recibes ${ARKEN_FINALE_REWARD.echoes} Ecos y ${ARKEN_FINALE_REWARD.seals} Sellos. El mundo continúa abierto para nuevas aventuras.` }]);
+            }
+            else if (this.flag('arken-vow-restored'))
+                this.dialog([{ title: 'El Archivista', text: 'La Palabra y el Signo siguen vivos gracias a tus vínculos. El juramento de Arken ya no puede borrarse.' }]);
+            else if (this.save.defeatedBoss && !this.save.dungeon?.finished)
+                this.dialog([{ title: 'El Archivista', text: 'La Primera Palabra no basta para proteger Arken. Entra en la Cripta de los Ecos desde el menú, recupera el Último Signo y regresa a contarme lo que has visto.' }]);
+            else
+                this.dialog([{ title: 'El Archivista', text: 'Hubo un tiempo en que el cielo estaba lleno de palabras. Ahora llueven sus cenizas.' }, { title: 'El Archivista', text: 'Busca las Lumbres, hazte acompañar de criaturas y desciende al Santuario sin Voz.' }]);
         }
         else if (id === 'merchant') {
             this.dialog([{ title: 'Mara, la Buhonera', text: 'Los Ecos aún valen algo en este mundo roto. Vuelve a hablarme para ver mis mercancías.' }]);
@@ -1057,7 +1083,7 @@ class AzurGame {
                 this.economy.echoes = Math.min(999999, this.economy.echoes + 150);
                 this.save.inventory.seals = Math.min(9999, this.save.inventory.seals + 3);
                 this.addFlag('dungeon-first-clear');
-                this.dialog([{ title: 'EL SIGNO RECUPERADO', text: 'La cripta cede. Recuperas 150 Ecos y 3 Sellos. El Último Signo ya forma parte de tu historia.' }]);
+                this.dialog([{ title: 'EL SIGNO RECUPERADO', text: 'La cripta cede. Recuperas 150 Ecos y 3 Sellos. Sal por el umbral y lleva el Último Signo al Archivista de Arken.' }]);
             }
             else
                 this.toast('EL ÚLTIMO SIGNO YA ES TUYO');
@@ -1120,8 +1146,14 @@ class AzurGame {
         window.setTimeout(() => URL.revokeObjectURL(url), 3000);
         this.toast('COPIA DE LA PARTIDA PREPARADA');
     }
-    openQuests() { if (!this.started)
-        return; this.showModal('DIARIO · MISIONES', `<div class="shop-balance">${this.economy.echoes} ECOS · ${this.economy.completed.length}/${QUESTS.length} ENCARGOS</div>` + QUESTS.map(q => `<div class="modal-option"><div><strong>${htmlEscape(q.name)}</strong><small>${htmlEscape(q.description)}</small><small>RECOMPENSA · ${q.reward} ECOS</small></div><span class="quest-state ${this.economy.completed.includes(q.id) ? 'done' : ''}">${this.economy.completed.includes(q.id) ? '✓ HECHA' : 'PENDIENTE'}</span></div>`).join('')); }
+    openQuests() {
+        if (!this.started)
+            return;
+        const step = arkenStoryIndex(this.storyState), beat = this.storyBeat();
+        const mainQuest = `<div class="modal-content-block"><strong>ARCO PRINCIPAL · ${Math.min(step, 6)}/6 ETAPAS</strong><p>${htmlEscape(beat.objective)}</p>${htmlEscape(beat.hint)}</div>` +
+            ARKEN_STORY.slice(0, 6).map((chapter, i) => `<div class="modal-option"><div><strong>${htmlEscape(chapter.title)}</strong><small>${htmlEscape(chapter.objective)}</small></div><span class="quest-state ${i < step ? 'done' : ''}">${i < step ? '✓ HECHA' : i === step ? 'ACTUAL' : 'PENDIENTE'}</span></div>`).join('');
+        this.showModal('DIARIO · MISIONES', mainQuest + `<div class="shop-balance">${this.economy.echoes} ECOS · ${this.economy.completed.length}/${QUESTS.length} ENCARGOS SECUNDARIOS</div>` + QUESTS.map(q => `<div class="modal-option"><div><strong>${htmlEscape(q.name)}</strong><small>${htmlEscape(q.description)}</small><small>RECOMPENSA · ${q.reward} ECOS</small></div><span class="quest-state ${this.economy.completed.includes(q.id) ? 'done' : ''}">${this.economy.completed.includes(q.id) ? '✓ HECHA' : 'PENDIENTE'}</span></div>`).join(''));
+    }
     openCodex() { if (!this.started)
         return; const known = new Set([...this.save.team, ...this.save.storage].map(c => c.speciesId)); this.showModal('CÓDICE · VÍNCULOS', `<div class="modal-content-block">${known.size} / ${Object.keys(SPECIES).length} especies vinculadas.</div>` + Object.values(SPECIES).map(sp => `<div class="modal-option"><div><strong style="color:${sp.color}">${known.has(sp.id) ? htmlEscape(sp.name) : '??????'}</strong><small>${known.has(sp.id) ? htmlEscape(sp.title + ' · ' + sp.element + ' · ' + sp.desc) : 'Esta criatura aún no ha compartido su nombre.'}</small></div></div>`).join('')); }
     revealPosition() { if (!this.save.worldSeed)
@@ -1375,26 +1407,12 @@ class AzurGame {
         byId('echoCount').textContent = String(this.economy.echoes);
         byId('rosterNum').textContent = `${this.save.team.length}/6`;
         byId('roster').innerHTML = this.save.team.length ? this.save.team.map(c => { const s = SPECIES[c.speciesId]; return `<div class="creature-row"><div class="creature-icon" style="color:${s.color}">${s.shape === 0 || s.shape === 5 ? '♨' : s.shape === 2 ? '✣' : s.shape === 4 ? '✶' : s.shape === 6 ? '♜' : '◈'}</div><div><strong>${htmlEscape(s.name)} <span style="color:#839da1;font:9px monospace">LV ${c.level}</span></strong><small>${s.element.toUpperCase()} · ${c.hp}/${maxHp(c)} HP</small><div class="mini-health"><div style="width:${c.hp / maxHp(c) * 100}%"></div></div></div></div>`; }).join('') : '<div class="roster-empty">Aún no tienes vínculos.</div>';
-        const pieces = [this.flag('archivist'), this.flag('zone-forest'), this.save.defeatedBoss].filter(Boolean).length;
-        byId('fragBar').style.width = (pieces / 3 * 100) + '%';
-        byId('fragments').textContent = `${pieces} / 3 RECUERDOS RECUPERADOS`;
-        if (this.save.defeatedBoss) {
-            byId('missionChip').textContent = 'CAPÍTULO I COMPLETADO';
-            byId('journalText').textContent = 'La Primera Palabra ha sido rescatada. El silencio aún cubre otras regiones.';
-            byId('quest').innerHTML = '<div class="quest-icon">✦</div><div><small>CAPÍTULO COMPLETADO</small><strong>La Primera Palabra</strong><span>El lenguaje ha comenzado a sanar.</span></div>';
-        }
-        else if (this.save.zone === 'sanctuary') {
-            byId('missionChip').textContent = 'ENFRENTA AL GUARDIÁN';
-            byId('journalText').textContent = 'Has alcanzado el santuario. El guardián protege lo último que queda de la lengua antigua.';
-        }
-        else if (this.save.zone === 'forest') {
-            byId('missionChip').textContent = 'ALCANZA EL SANTUARIO';
-            byId('journalText').textContent = 'La niebla cubre el camino. Cada criatura posee un fragmento de la memoria del mundo.';
-        }
-        else {
-            byId('missionChip').textContent = 'BUSCA EL BOSQUE AL ESTE';
-            byId('journalText').textContent = 'El Archivista conoce la historia de las criaturas. Habla con él antes de partir.';
-        }
+        const step = arkenStoryIndex(this.storyState), beat = this.storyBeat();
+        byId('fragBar').style.width = (Math.min(step, 6) / 6 * 100) + '%';
+        byId('fragments').textContent = `${Math.min(step, 6)} / 6 HITOS DE ARKEN`;
+        byId('missionChip').textContent = step === 6 ? 'ARCO DE ARKEN COMPLETADO' : beat.objective.toUpperCase();
+        byId('journalText').textContent = beat.hint;
+        byId('quest').innerHTML = `<div class="quest-icon">${step === 6 ? '✦' : '◇'}</div><div><small>${step === 6 ? 'HISTORIA COMPLETADA' : `MISIÓN PRINCIPAL · ${step + 1}/6`}</small><strong>${htmlEscape(beat.title)}</strong><span>${htmlEscape(beat.objective)}</span></div>`;
     }
     loop = (now) => {
         this.pollGamepad();
