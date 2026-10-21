@@ -197,7 +197,7 @@
 
 </style></head><body>
 <div id="app">
-<header class="topbar"><div class="brand"><span class="brand-mark">⟐</span><div><div class="brand-name">ASCII <span>AZUR</span></div><div class="brand-small">THE UNWRITTEN · CHAPTER I</div></div></div><div class="top-actions"><span class="live-tag"><i></i> WORLD ENGINE v0.14</span><button id="mute" title="Activar/desactivar sonido" class="icon-btn" aria-label="Silenciar">♫</button><button id="settings" title="Ajustes" class="icon-btn" aria-label="Ajustes">⚙</button><button id="fullscreen" title="Pantalla completa" class="icon-btn" aria-label="Pantalla completa">⛶</button></div></header>
+<header class="topbar"><div class="brand"><span class="brand-mark">⟐</span><div><div class="brand-name">ASCII <span>AZUR</span></div><div class="brand-small">THE UNWRITTEN · CHAPTER I</div></div></div><div class="top-actions"><span class="live-tag"><i></i> WORLD ENGINE v0.15</span><button id="mute" title="Activar/desactivar sonido" class="icon-btn" aria-label="Silenciar">♫</button><button id="settings" title="Ajustes" class="icon-btn" aria-label="Ajustes">⚙</button><button id="fullscreen" title="Pantalla completa" class="icon-btn" aria-label="Pantalla completa">⛶</button></div></header>
 <main class="layout"><div class="game-column"><div class="viewport" id="viewport" tabindex="0" aria-label="Juego ASCII AZUR">
 <div id="evolutionBanner" class="evolution-banner hidden" role="status" aria-live="polite"></div>
 <canvas id="game" width="960" height="540" aria-label="Escenario generado mediante glifos"></canvas><div class="vignette"></div>
@@ -1527,9 +1527,9 @@ class CanvasGlyphCache {
 }
 
 // --- render/graphics-profile.js ---
-const DEFAULT_GRAPHICS = { density: .56, glyphScale: 1, contrast: 1.12, edgeStrength: 1.2, brightness: 0, quality: 1 };
+const DEFAULT_GRAPHICS = { density: .32, glyphScale: .8, contrast: 1.18, edgeStrength: 1.2, brightness: .02, quality: 1 };
 const LIMITS = {
-    density: [.42, 1.5], glyphScale: [.65, 1.85], contrast: [.65, 1.8], edgeStrength: [.5, 2.4], brightness: [-.25, .25], quality: [.2, 1]
+    density: [.18, 1.5], glyphScale: [.5, 1.85], contrast: [.65, 1.8], edgeStrength: [.5, 2.4], brightness: [-.25, .25], quality: [.2, 1]
 };
 function boundGraphic(key, value) {
     const [min, max] = LIMITS[key];
@@ -1543,19 +1543,110 @@ function readGraphics(raw) {
         .map(key => [key, boundGraphic(key, settings[key])]));
 }
 function glyphCell(base, profile) {
-    const width = Math.max(3, base * profile.density * profile.glyphScale);
+    const width = Math.max(1.25, base * profile.density * profile.glyphScale);
     return { width, height: width * 1.38 };
+}
+/** A Canvas2D device draws glyphs individually, unlike the shader which shades a full quad.
+ * Never silently cap WebGL; bound only the fallback work per frame to a tested glyph budget. */
+function canvasGlyphCell(base, profile, canvasWidth, canvasHeight, maxGlyphs = 100000) {
+    const requested = glyphCell(base, profile);
+    const budgetWidth = Math.sqrt((canvasWidth * canvasHeight) / (maxGlyphs * 1.38));
+    const width = Math.ceil(Math.max(requested.width, budgetWidth));
+    return { width, height: Math.ceil(width * 1.38) };
+}
+/** The number of independently sampled cells — useful for tuning density without guessing. */
+function glyphCount(width, height, cell) {
+    return Math.ceil(width / cell.width) * Math.ceil(height / cell.height);
 }
 
 // --- render/legibility.js ---
-/** Sparse tonal field: preserve high-gradient silhouettes while suppressing static visual noise.
- * Mirrored by the fragment shader in render.ts. Quantities are normalized luminance/edge. */
-function glyphVisible(luminance, edge, noise) {
-    if (luminance < .20 && edge < .09)
-        return false;
-    if (edge < .11 && luminance < .58 && noise > .34)
-        return false;
-    return true;
+/** Continuous tonal halftone. Only perfectly black, unlit pixels may remain empty.
+ * Dark midtones are drawn with small, low-coverage glyphs rather than stochastic holes.
+ * Synced with the GPU shader in render.ts. */
+function glyphVisible(luminance, edge, _noise) {
+    return luminance + edge * .3 >= .012;
+}
+
+// --- render/software-glyph.js ---
+/** Rasterized ASCII for Canvas2D-only devices. Draws a single ImageData per frame
+ * rather than tens of thousands of drawImage calls. All marks originate in glyph masks. */
+class SoftwareGlyphFrame {
+    data;
+    packed;
+    alpha;
+    scaled = new Map();
+    width;
+    height;
+    constructor(width, height, glyphs) {
+        this.width = width;
+        this.height = height;
+        this.data = new ImageData(width, height);
+        this.packed = new Uint32Array(this.data.data.buffer);
+        const atlas = document.createElement('canvas');
+        atlas.width = 96;
+        atlas.height = 68;
+        const ctx = atlas.getContext('2d', { willReadFrequently: true });
+        if (!ctx)
+            throw Error('Canvas2D glyph atlas unavailable');
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 15px monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        for (let i = 0; i < glyphs.length; i++)
+            ctx.fillText(glyphs[i], i % 8 * 12 + 6, Math.floor(i / 8) * 17 + 9);
+        const raw = ctx.getImageData(0, 0, atlas.width, atlas.height).data;
+        this.alpha = Array.from(glyphs, (_, i) => {
+            const a = new Uint8Array(12 * 17), ox = i % 8 * 12, oy = Math.floor(i / 8) * 17;
+            for (let y = 0; y < 17; y++)
+                for (let x = 0; x < 12; x++)
+                    a[y * 12 + x] = raw[((oy + y) * atlas.width + ox + x) * 4 + 3];
+            return a;
+        });
+    }
+    clear() { this.packed.fill(0xff160e08); }
+    /** Area-coverage sampling plus a hint of local maximum keeps punctuation at 2px. */
+    mask(index, w, h) {
+        const key = `${index}/${w}/${h}`;
+        let m = this.scaled.get(key);
+        if (m)
+            return m;
+        const alpha = this.alpha[index];
+        m = new Uint8Array(w * h);
+        if (!alpha)
+            return m;
+        for (let y = 0; y < h; y++)
+            for (let x = 0; x < w; x++) {
+                const x0 = Math.floor(x * 12 / w), x1 = Math.max(x0 + 1, Math.ceil((x + 1) * 12 / w));
+                const y0 = Math.floor(y * 17 / h), y1 = Math.max(y0 + 1, Math.ceil((y + 1) * 17 / h));
+                let sum = 0, max = 0, n = 0;
+                for (let sy = y0; sy < Math.min(17, y1); sy++)
+                    for (let sx = x0; sx < Math.min(12, x1); sx++) {
+                        const v = alpha[sy * 12 + sx];
+                        sum += v;
+                        max = Math.max(max, v);
+                        n++;
+                    }
+                m[y * w + x] = Math.round(max * .28 + (sum / n) * .72);
+            }
+        this.scaled.set(key, m);
+        return m;
+    }
+    put(index, x, y, w, h, r, g, b, opacity) {
+        if (index <= 0 || opacity <= 0)
+            return;
+        const mask = this.mask(index, w, h), buf = this.data.data;
+        const R = Math.min(255, r * 1.72 + 18), G = Math.min(255, g * 1.72 + 20), B = Math.min(255, b * 1.72 + 24);
+        for (let sy = 0; sy < h && y + sy < this.height; sy++)
+            for (let sx = 0; sx < w && x + sx < this.width; sx++) {
+                const coverage = mask[sy * w + sx] / 255 * opacity;
+                if (coverage < .025)
+                    continue;
+                const p = ((y + sy) * this.width + x + sx) * 4;
+                buf[p] = Math.round(buf[p] * (1 - coverage) + R * coverage);
+                buf[p + 1] = Math.round(buf[p + 1] * (1 - coverage) + G * coverage);
+                buf[p + 2] = Math.round(buf[p + 2] * (1 - coverage) + B * coverage);
+            }
+    }
 }
 
 // --- render.js ---
@@ -1584,7 +1675,8 @@ void main(){
  float edge=(length(n-s)+length(e-w))*u_edges;
  float v=clamp(pow(lum*1.55,.68)+edge*.27,0.,1.);
  float noise=fract(sin(dot(cell,vec2(12.9898,78.233)))*43758.5453);
- int index=int(floor(clamp(v*22.+(noise-.5)*.5,0.,22.)));
+ // Every nonblack tonal cell receives at least a point. Subtle dither avoids banding.
+ int index=int(floor(clamp(v*22.+(noise-.5)*1.25,1.,22.)));
  // Reserve explicit directional strokes for silhouette boundaries; preserve color for identity.
  if(edge>.30&&v>.12){float horiz=length(e-w),vert=length(n-s);index=horiz>vert*1.25?26:vert>horiz*1.25?24:(dot(e-w,n-s)>0.?25:23);}
  vec2 glyphUV=fract(pos/u_cell);int atlasX=index%8;int atlasY=index/8;
@@ -1595,7 +1687,10 @@ void main(){
  vec3 glyphCol=raw*2.55+vec3(.07,.10,.12)+glow*vec3(.1,.13,.15);
  glyphCol*=.95+sin(u_time*.7+noise*4.)*.025;
  glyphCol=mix(glyphCol,vec3(dot(glyphCol,vec3(.299,.587,.114))),1.-u_quality);
- float visibility=smoothstep(.06,.25,lum+edge*.30);if(lum<.20&&edge<.09)visibility=0.;if(edge<.11&&lum<.58&&noise>.34)visibility=0.;outColor=vec4(mix(bg,glyphCol,ink*.93*visibility),1.);
+ // Full-coverage tonal dithering: dark midtones get fine strokes, not missing cells.
+ float visibility=clamp(.22+lum*2.2+edge*.35,0.,1.);
+ if(lum+edge*.3<.012)visibility=0.;
+ outColor=vec4(mix(bg,glyphCol,ink*.95*visibility),1.);
 }`;
 function shader(gl, type, src) { const s = gl.createShader(type); if (!s)
     throw Error('shader'); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS))
@@ -1612,12 +1707,12 @@ class AsciiRenderer {
     atlas = null;
     uniforms = {};
     quality = 1;
-    density = .56;
-    glyphScale = 1;
-    contrast = 1.12;
+    density = .32;
+    glyphScale = .8;
+    contrast = 1.18;
     edgeStrength = 1.2;
-    brightness = 0;
-    fallbackGlyphs = null;
+    brightness = .02;
+    software = null;
     frame = 0;
     fpsStart = performance.now();
     fps = 0;
@@ -1739,14 +1834,12 @@ class AsciiRenderer {
         if (!c)
             return;
         const rect = this.canvas.getBoundingClientRect(), dpr = this.canvas.width / (rect.width || W);
-        const cell = glyphCell(Math.max(5, Math.min(10, (rect.width || W) / 130)) * dpr, this.getGraphics());
+        const cell = canvasGlyphCell(Math.max(5, Math.min(10, (rect.width || W) / 130)) * dpr, this.getGraphics(), this.canvas.width, this.canvas.height);
         const cw = Math.round(cell.width), ch = Math.round(cell.height);
         const crop = this.crop(), data = this.ctx.getImageData(0, 0, W, H).data;
-        c.fillStyle = '#07111a';
-        c.fillRect(0, 0, this.canvas.width, this.canvas.height);
-        if (!this.fallbackGlyphs)
-            this.fallbackGlyphs = new CanvasGlyphCache(GLYPHS);
-        c.imageSmoothingEnabled = false;
+        if (!this.software || this.software.width !== this.canvas.width || this.software.height !== this.canvas.height)
+            this.software = new SoftwareGlyphFrame(this.canvas.width, this.canvas.height, GLYPHS);
+        this.software.clear();
         for (let y = 0; y < this.canvas.height; y += ch) {
             const srcY = Math.min(H - 1, Math.floor((crop.y + (y + ch * .5) / this.canvas.height * crop.h) * H));
             for (let x = 0; x < this.canvas.width; x += cw) {
@@ -1766,14 +1859,14 @@ class AsciiRenderer {
                 if (!glyphVisible(level, edge, noise))
                     continue;
                 const v = Math.max(0, Math.min(1, Math.pow(level * 1.55, .68) + edge * .30));
-                let index = Math.max(0, Math.min(22, Math.floor(v * 22)));
+                let index = Math.max(1, Math.min(22, Math.floor(v * 22 + (noise - .5) * 1.25)));
                 if (edge > .29 && v > .12)
                     index = Math.abs(gx) > Math.abs(gy) * 1.25 ? 26 : Math.abs(gy) > Math.abs(gx) * 1.25 ? 24 : gx * gy > 0 ? 25 : 23;
-                const alpha = Math.min(1, Math.max(.16, (level + edge * .28 + .06) * 3.15));
-                this.fallbackGlyphs.draw(c, index, x, y, cw, ch, r, g, b, alpha);
+                const alpha = Math.min(1, Math.max(.22, (level + edge * .28 + .09) * 3.15));
+                this.software.put(index, x, y, cw, ch, r, g, b, alpha);
             }
         }
-        c.globalAlpha = 1;
+        c.putImageData(this.software.data, 0, 0);
     }
 }
 function light(ctx, x, y, r, color, strength = .5) { const g = ctx.createRadialGradient(x, y, 2, x, y, r); g.addColorStop(0, color); g.addColorStop(1, 'transparent'); ctx.save(); ctx.globalCompositeOperation = 'screen'; ctx.globalAlpha = strength; ctx.fillStyle = g; ctx.fillRect(x - r, y - r, r * 2, r * 2); ctx.restore(); }
@@ -3627,13 +3720,13 @@ class AzurGame {
     catch { /* preserve defaults */ } if (!this.soundEnabled)
         this.sound.setEnabled(false); this.updateMuteUi(); }
     restoreGraphicSettings() { try {
-        this.renderer.setGraphics(JSON.parse(localStorage.getItem('ascii-azur-graphics-v1') || 'null'));
+        this.renderer.setGraphics(JSON.parse(localStorage.getItem('ascii-azur-graphics-v2') || 'null'));
     }
     catch {
         this.renderer.setGraphics(DEFAULT_GRAPHICS);
     } }
     storeGraphicSettings() { try {
-        localStorage.setItem('ascii-azur-graphics-v1', JSON.stringify(this.renderer.getGraphics()));
+        localStorage.setItem('ascii-azur-graphics-v2', JSON.stringify(this.renderer.getGraphics()));
     }
     catch { /* storage unavailable */ } }
     restoreMotionSettings() { try {
@@ -4751,15 +4844,16 @@ class AzurGame {
     settings() {
         this.toggleDrawer(false);
         this.sound.unlock();
-        this.showModal('AJUSTES · ARTE ASCII', `<div class="modal-content-block">Elige la definición visual del mundo. La densidad y el tamaño del glifo son independientes. Los ajustes se aplican en tiempo real al renderizador ${this.renderer.mode === 'gpu' ? 'WebGL2' : 'Canvas2D'} y permanecen guardados.</div>
-      <div class="settings-row"><label for="densitySelect">Densidad de caracteres</label><select id="densitySelect"><option value=".42">Extrema · más detalle</option><option value=".48">Ultra</option><option value=".56">Alta · recomendada</option><option value=".85">Equilibrada</option><option value="1.2">Rendimiento</option></select></div>
-      <div class="settings-row"><label for="glyphScale">Tamaño de caracteres <output id="glyphScaleValue"></output></label><input id="glyphScale" type="range" min=".65" max="1.85" step=".05"></div>
+        this.showModal('AJUSTES · ARTE ASCII', `<div class="modal-content-block">Mundo de caracteres diminutos y muy densos. La densidad y el tamaño del glifo son independientes. Los ajustes se aplican en tiempo real al renderizador ${this.renderer.mode === 'gpu' ? 'WebGL2' : 'Canvas2D'} y permanecen guardados.</div>
+      <div class="settings-row"><label for="densitySelect">Densidad de caracteres</label><select id="densitySelect"><option value="0.18">Microscópica · máxima</option><option value="0.24">Ultra fina</option><option value="0.32">Muy alta · recomendada</option><option value="0.42">Alta</option><option value="0.56">Equilibrada</option><option value="0.85">Rendimiento</option><option value="1.2">Muy rápida</option></select></div>
+      <div class="settings-row"><label for="glyphScale">Tamaño de caracteres <output id="glyphScaleValue"></output></label><input id="glyphScale" type="range" min=".5" max="1.85" step=".05"></div>
       <div class="settings-row"><label for="glyphContrast">Contraste <output id="glyphContrastValue"></output></label><input id="glyphContrast" type="range" min=".65" max="1.8" step=".05"></div>
       <div class="settings-row"><label for="glyphEdges">Definición de contornos <output id="glyphEdgesValue"></output></label><input id="glyphEdges" type="range" min=".5" max="2.4" step=".1"></div>
       <div class="settings-row"><label for="glyphBrightness">Luminosidad <output id="glyphBrightnessValue"></output></label><input id="glyphBrightness" type="range" min="-.25" max=".25" step=".05"></div>
-      <div class="settings-row"><label for="qualitySelect">Paleta cromática</label><select id="qualitySelect"><option value="1">Color atmosférico</option><option value=".4">Color limitado</option></select></div>
+      <div class="settings-row"><label for="qualitySelect">Paleta cromática</label><select id="qualitySelect"><option value="1">Color atmosférico</option><option value="0.4">Color limitado</option></select></div>
+      <div class="modal-content-block" id="glyphStats" aria-live="polite"></div>
       <div class="settings-row"><button id="resetGraphics" class="settings-reset">Restablecer gráficos</button></div>
-      <div class="modal-content-block">Consejo: densidad extrema y glifos pequeños dan más definición, pero consumen más GPU/CPU. Para móviles modestos, usa Equilibrada.</div>
+      <div class="modal-content-block">Los tonos oscuros también se dibujan con caracteres, sin huecos artificiales. WebGL2 ofrece la trama más fina; Canvas2D limita el trabajo para mantener la partida fluida.</div>
       <div class="settings-row"><label for="musicVolume">Música</label><input id="musicVolume" type="range" min="0" max="100" step="1"></div>
       <div class="settings-row"><label for="effectsVolume">Efectos</label><input id="effectsVolume" type="range" min="0" max="100" step="1"></div>
       <div class="settings-row"><label for="motionReduced">Reducir movimiento</label><input id="motionReduced" type="checkbox"></div>
@@ -4772,10 +4866,20 @@ class AzurGame {
         fx.oninput = () => { this.sound.setEffectsVolume(Number(fx.value) / 100); this.storeAudioSettings(); };
         const den = byId('densitySelect'), qual = byId('qualitySelect');
         const sliders = [['glyphScale', 'glyphScale'], ['glyphContrast', 'contrast'], ['glyphEdges', 'edgeStrength'], ['glyphBrightness', 'brightness']];
-        const sync = () => { const g = this.renderer.getGraphics(); den.value = String(g.density); qual.value = String(g.quality); for (const [id, key] of sliders) {
-            byId(id).value = String(g[key]);
-            byId(id + 'Value').textContent = key === 'brightness' ? g[key].toFixed(2) : g[key].toFixed(2) + '×';
-        } };
+        const sync = () => {
+            const g = this.renderer.getGraphics();
+            den.value = String(g.density);
+            qual.value = String(g.quality);
+            for (const [id, key] of sliders) {
+                byId(id).value = String(g[key]);
+                byId(id + 'Value').textContent = key === 'brightness' ? g[key].toFixed(2) : g[key].toFixed(2) + '×';
+            }
+            const canvas = this.renderer.canvas, rect = canvas.getBoundingClientRect(), dpr = canvas.width / (rect.width || 960);
+            const base = Math.max(5, Math.min(10, (rect.width || 960) / 130)) * dpr;
+            const requested = glyphCell(base, g), actual = this.renderer.mode === 'gpu' ? requested : canvasGlyphCell(base, g, canvas.width, canvas.height);
+            const target = glyphCount(canvas.width, canvas.height, requested), rendered = glyphCount(canvas.width, canvas.height, actual);
+            byId('glyphStats').textContent = `Trama ${Math.round(rendered).toLocaleString('es-ES')} caracteres · glifo ${actual.width.toFixed(1)} px · ${this.renderer.mode === 'gpu' ? 'WebGL2' : 'Canvas2D'}${rendered < target ? ' · límite de rendimiento aplicado' : ''}`;
+        };
         const change = (patch) => { this.renderer.setGraphics({ ...this.renderer.getGraphics(), ...patch }); this.storeGraphicSettings(); sync(); };
         den.onchange = () => change({ density: Number(den.value) });
         qual.onchange = () => change({ quality: Number(qual.value) });
