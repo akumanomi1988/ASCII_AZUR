@@ -1,10 +1,10 @@
 import { hash, TILE, WORLD_H, WORLD_W, terrain, ZONES } from './world.js';
 import { SPECIES } from './domain.js';
 import { sampleCreaturePerformance, rigFor } from './actors/creature-performance.js';
-import { CanvasGlyphCache } from './render/glyph-cache.js';
+import { SoftwareGlyphFrame } from './render/software-glyph.js';
 import { sampleHeroPose } from './actors/hero-performance.js';
 import { glyphVisible } from './render/legibility.js';
-import { readGraphics, glyphCell } from './render/graphics-profile.js';
+import { readGraphics, glyphCell, canvasGlyphCell } from './render/graphics-profile.js';
 export const W = 960, H = 540;
 const GLYPHS = ' .,:;irsXA253hMHGS#9B&@/-\\|*+o%';
 const VS = `#version 300 es
@@ -23,7 +23,8 @@ void main(){
  float edge=(length(n-s)+length(e-w))*u_edges;
  float v=clamp(pow(lum*1.55,.68)+edge*.27,0.,1.);
  float noise=fract(sin(dot(cell,vec2(12.9898,78.233)))*43758.5453);
- int index=int(floor(clamp(v*22.+(noise-.5)*.5,0.,22.)));
+ // Every nonblack tonal cell receives at least a point. Subtle dither avoids banding.
+ int index=int(floor(clamp(v*22.+(noise-.5)*1.25,1.,22.)));
  // Reserve explicit directional strokes for silhouette boundaries; preserve color for identity.
  if(edge>.30&&v>.12){float horiz=length(e-w),vert=length(n-s);index=horiz>vert*1.25?26:vert>horiz*1.25?24:(dot(e-w,n-s)>0.?25:23);}
  vec2 glyphUV=fract(pos/u_cell);int atlasX=index%8;int atlasY=index/8;
@@ -34,7 +35,10 @@ void main(){
  vec3 glyphCol=raw*2.55+vec3(.07,.10,.12)+glow*vec3(.1,.13,.15);
  glyphCol*=.95+sin(u_time*.7+noise*4.)*.025;
  glyphCol=mix(glyphCol,vec3(dot(glyphCol,vec3(.299,.587,.114))),1.-u_quality);
- float visibility=smoothstep(.06,.25,lum+edge*.30);if(lum<.20&&edge<.09)visibility=0.;if(edge<.11&&lum<.58&&noise>.34)visibility=0.;outColor=vec4(mix(bg,glyphCol,ink*.93*visibility),1.);
+ // Full-coverage tonal dithering: dark midtones get fine strokes, not missing cells.
+ float visibility=clamp(.22+lum*2.2+edge*.35,0.,1.);
+ if(lum+edge*.3<.012)visibility=0.;
+ outColor=vec4(mix(bg,glyphCol,ink*.95*visibility),1.);
 }`;
 function shader(gl, type, src) { const s = gl.createShader(type); if (!s)
     throw Error('shader'); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS))
@@ -51,12 +55,12 @@ export class AsciiRenderer {
     atlas = null;
     uniforms = {};
     quality = 1;
-    density = .56;
-    glyphScale = 1;
-    contrast = 1.12;
+    density = .32;
+    glyphScale = .8;
+    contrast = 1.18;
     edgeStrength = 1.2;
-    brightness = 0;
-    fallbackGlyphs = null;
+    brightness = .02;
+    software = null;
     frame = 0;
     fpsStart = performance.now();
     fps = 0;
@@ -178,14 +182,12 @@ export class AsciiRenderer {
         if (!c)
             return;
         const rect = this.canvas.getBoundingClientRect(), dpr = this.canvas.width / (rect.width || W);
-        const cell = glyphCell(Math.max(5, Math.min(10, (rect.width || W) / 130)) * dpr, this.getGraphics());
+        const cell = canvasGlyphCell(Math.max(5, Math.min(10, (rect.width || W) / 130)) * dpr, this.getGraphics(), this.canvas.width, this.canvas.height);
         const cw = Math.round(cell.width), ch = Math.round(cell.height);
         const crop = this.crop(), data = this.ctx.getImageData(0, 0, W, H).data;
-        c.fillStyle = '#07111a';
-        c.fillRect(0, 0, this.canvas.width, this.canvas.height);
-        if (!this.fallbackGlyphs)
-            this.fallbackGlyphs = new CanvasGlyphCache(GLYPHS);
-        c.imageSmoothingEnabled = false;
+        if (!this.software || this.software.width !== this.canvas.width || this.software.height !== this.canvas.height)
+            this.software = new SoftwareGlyphFrame(this.canvas.width, this.canvas.height, GLYPHS);
+        this.software.clear();
         for (let y = 0; y < this.canvas.height; y += ch) {
             const srcY = Math.min(H - 1, Math.floor((crop.y + (y + ch * .5) / this.canvas.height * crop.h) * H));
             for (let x = 0; x < this.canvas.width; x += cw) {
@@ -205,14 +207,14 @@ export class AsciiRenderer {
                 if (!glyphVisible(level, edge, noise))
                     continue;
                 const v = Math.max(0, Math.min(1, Math.pow(level * 1.55, .68) + edge * .30));
-                let index = Math.max(0, Math.min(22, Math.floor(v * 22)));
+                let index = Math.max(1, Math.min(22, Math.floor(v * 22 + (noise - .5) * 1.25)));
                 if (edge > .29 && v > .12)
                     index = Math.abs(gx) > Math.abs(gy) * 1.25 ? 26 : Math.abs(gy) > Math.abs(gx) * 1.25 ? 24 : gx * gy > 0 ? 25 : 23;
-                const alpha = Math.min(1, Math.max(.16, (level + edge * .28 + .06) * 3.15));
-                this.fallbackGlyphs.draw(c, index, x, y, cw, ch, r, g, b, alpha);
+                const alpha = Math.min(1, Math.max(.22, (level + edge * .28 + .09) * 3.15));
+                this.software.put(index, x, y, cw, ch, r, g, b, alpha);
             }
         }
-        c.globalAlpha = 1;
+        c.putImageData(this.software.data, 0, 0);
     }
 }
 function light(ctx, x, y, r, color, strength = .5) { const g = ctx.createRadialGradient(x, y, 2, x, y, r); g.addColorStop(0, color); g.addColorStop(1, 'transparent'); ctx.save(); ctx.globalCompositeOperation = 'screen'; ctx.globalAlpha = strength; ctx.fillStyle = g; ctx.fillRect(x - r, y - r, r * 2, r * 2); ctx.restore(); }
