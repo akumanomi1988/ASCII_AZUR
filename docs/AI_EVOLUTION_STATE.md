@@ -1,6 +1,6 @@
 # ASCII AZUR — Autonomous Evolution State
 
-Last audited: 2026-10-21, v0.18. Source of truth: `akumanomi1988/ASCII_AZUR` / `main` once promoted. One iteration per invocation; do not run scheduled or Work tasks without explicit consent.
+Last audited: 2026-10-21, v0.19. Source of truth: `akumanomi1988/ASCII_AZUR` / `main` once promoted. One iteration per invocation; do not run scheduled or Work tasks without explicit consent.
 
 ## Vision and invariant contracts
 
@@ -12,7 +12,7 @@ Three regions, 12 species, a playable closed Arken narrative arc, seeded rogueli
 
 ## Evidence-based quality scorecard (0–5)
 
-| Domain | v0.17 | v0.18 | Evidence and measurable next acceptance |
+| Domain | v0.18 | v0.19 | Evidence and measurable next acceptance |
 |---|---:|---:|---|
 | Art direction | 3 | 3 | Four hero directions; need consistent designs/biome art, validated by independent players |
 | ASCII rendering | 3 | 3 | v0.15 continuous tiny glyphs + faster software buffer; GPU Android timings still unverified |
@@ -20,18 +20,26 @@ Three regions, 12 species, a playable closed Arken narrative arc, seeded rogueli
 | World design | 2 | 2 | Three areas with landmarks; need differentiated locations and meaningful spatial exploration |
 | Procedural generation | 3 | 3 | Stable seeded geometry and test coverage; need varied layouts and persistence replay QA |
 | Exploration | 3 | 3 | Visible encounters, secrets, runes; need player-test exploration reward flow |
-| Core gameplay | 3 | 3 | Navigation/capture/story and six-step journal; v0.18 real-time quest bearing/distance guidance tested on desktops and simulated mobiles; still need natural-route playthrough |
+| Core gameplay | 3 | 3 | v0.19 quest compass follows walkable routes instead of Euclidean direction through obstacles; player-perceived natural navigation remains unverified |
 | Combat | 3 | 3 | Tactical moves/battle replay; need encounter pacing/balance matrix and real-device interaction |
 | Creatures | 2 | 2 | Two unique motifs added; need 12 distinct readable designs at minimum mobile glyph size |
 | Story and lore | 2 | 2 | One fully integrated Arken arc (v0.17); global beginning-middle-ending campaign still missing; need a complete multi-region campaign |
 | Progression | 2 | 2 | Evolution, team and quests; need balanced full campaign progression and economy |
-| UX / HUD | 3 | 3 | Compact real-time objective compass added without menu overlap (v0.18); real-device readability and usability tests pending |
+| UX / HUD | 3 | 3 | v0.19 route-aware compass, compact remaining-steps cue; real-device readability and usability tests pending |
 | Mobile | 2 | 2 | Emulated portrait/landscape Chromium PASS; require real Android touch/FPS verification |
 | Audio | 3 | 3 | Generated ambience and combat feedback; need memorable themes, mixing and accessibility |
-| Technical | 3 | 3 | 145 tests, seeded-landmark guidance, story progress, combat direction and offline cache; need real-device stress/performance |
+| Technical | 3 | 3 | v0.19 cached shortest route fields and world-revision invalidation, procedureally seeded route tests; real-device stress/performance pending |
 | Production readiness | 1 | 1 | No complete campaign or published real-device QA; need whole-game E2E and release checks |
 
 Mean: **2.5/5** previous and current. No invented percentage or score gain; test evidence demonstrates scope completion, not commercially validated quality. Each next score increase requires observable acceptance beyond feature count.
+
+## Iteration v0.19 — Walkable quest navigation
+
+- **Diagnosis:** v0.18 compass used Euclidean straight-line bearings; its pointer could lead the player into trees, walls and stones.
+- **Selected improvement:** cache a reverse breadth-first search on the exact solid-terrain/NPC collision map, then show the next walkable cardinal step and route distance to an actionable tile. The NPC/Guardian tile itself is never a travel waypoint.
+- **Safety/integration:** no changes to procedural terrain, combat, saves, touch controls or micro-glyph shader. Reset route cache on every world generation and snapshot load, even when the seed does not change.
+- **Evidence:** initial local release candidate 149/149 Node tests, TypeScript compilation, 28 JS dependencies / 29 offline cached items PASS. Tests traverse target routes over 40 procedural seeds and validate detours and save snapshot invalidation. Chromium standalone desktop and mobile landscape smoke PASS without uncaught JS exceptions.
+- **Unverified:** independent players, real Android WebGL2, complete global campaign and direct live `github.io` browser test. Previous/current global rating **2.5/5 → 2.5/5**. Do not represent this as a premium-complete product.
 
 ## Iteration v0.18 — In-world quest compass (verified delivery)
 
