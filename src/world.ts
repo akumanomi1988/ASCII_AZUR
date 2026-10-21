@@ -35,6 +35,9 @@ export function captureWorldSnapshot():WorldSnapshot|null{
 const SECRET_CACHE:Partial<Record<ZoneId,Landmark>>={forest:{x:20,y:6,kind:'chest',label:'Alijo entre raíces'},sanctuary:{x:20,y:6,kind:'chest',label:'Reliquia olvidada'}};
 const ORIGINAL_LANDMARKS:Record<ZoneId,Landmark[]>=Object.fromEntries(IDS.map(z=>[z,ZONES[z].landmarks.map(l=>({...l}))])) as Record<ZoneId,Landmark[]>;
 let activeSeed=0;
+let azurWorldRevision=0;
+/** Changes on every world restore, even with an identical seed and a different snapshot. */
+export function getWorldRevision():number{return azurWorldRevision;}
 let generated:Record<ZoneId,Tile[]>|null=null;
 export function getWorldSeed(){return activeSeed;}
 export function seedFromText(input:string):number{
@@ -130,6 +133,7 @@ function buildZone(id:ZoneId,seed:number):Tile[]{
  return arr;
 }
 export function configureWorld(seed:number,snapshot?:WorldSnapshot):void{
+ azurWorldRevision++;
  activeSeed=(Number.isSafeInteger(seed)&&seed>=0&&seed<=0xFFFFFFFF)?seed>>>0:0;
  for(const id of IDS)ZONES[id].landmarks=ORIGINAL_LANDMARKS[id].map(l=>({...l}));
  generated=null;
