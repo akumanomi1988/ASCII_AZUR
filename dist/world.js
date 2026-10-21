@@ -50,6 +50,8 @@ export function captureWorldSnapshot() {
 const SECRET_CACHE = { forest: { x: 20, y: 6, kind: 'chest', label: 'Alijo entre raíces' }, sanctuary: { x: 20, y: 6, kind: 'chest', label: 'Reliquia olvidada' } };
 const ORIGINAL_LANDMARKS = Object.fromEntries(IDS.map(z => [z, ZONES[z].landmarks.map(l => ({ ...l }))]));
 let activeSeed = 0;
+let azurWorldRevision = 0;
+export function getWorldRevision() { return azurWorldRevision; }
 let generated = null;
 export function getWorldSeed() { return activeSeed; }
 export function seedFromText(input) {
@@ -184,6 +186,7 @@ function buildZone(id, seed) {
     return arr;
 }
 export function configureWorld(seed, snapshot) {
+    azurWorldRevision++;
     activeSeed = (Number.isSafeInteger(seed) && seed >= 0 && seed <= 0xFFFFFFFF) ? seed >>> 0 : 0;
     for (const id of IDS)
         ZONES[id].landmarks = ORIGINAL_LANDMARKS[id].map(l => ({ ...l }));
