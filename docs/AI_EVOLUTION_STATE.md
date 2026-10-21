@@ -157,3 +157,13 @@ Source commit, GitHub Actions and Pages provenance are recorded below. Direct pu
 - Target URL: `https://akumanomi1988.github.io/ASCII_AZUR/`. **Independent public-site HTTP and interaction smoke NOT VERIFIED**: tools cannot resolve or access `github.io` host (DNS failure). A successful Pages deployment is not evidence that the public website can be fully played on an external client.
 - **Quality**: v0.17 2.5/5 → v0.18 2.5/5. All 16 domain scores remain conservative. Completion gate still fails: no complete global commercial campaign, physical Android WebGL2 GPU FPS/performance validation, real-player usability/art feedback, and whole-campaign human end-to-end run.
 - **Next priority**: real-device ultra-dense ASCII performance and gameplay input QA; then broader campaign/creature content validated through external play sessions.
+
+## v0.19 verified GitHub delivery ledger — 2026-10-21
+
+- Source branch: `feature/walkable-compass-v019`; promoted into `main` at commit `5b339de3897ae295eb34f83ce1da89ccf2f17e5e`.
+- Quality gates: feature workflow `39660514588` SUCCESS; `main` workflow `39660654643` SUCCESS.
+- `gh-pages` commit: `dfcb95fc09ea4210538a0320f47bc2a79c21fcb0`; Pages workflow `39660831110` SUCCESS.
+- `gh-pages/build-info.json` says `0.19.0` and exact source commit `5b339de3897ae295eb34f83ce1da89ccf2f17e5e`. Published `dist/story-navigation.js` blob `590eb29998208a1f3166f39e2cc40639ee9e1094` and `dist/world.js` blob `02f27f263ce304505a1039ba1eac1bcd108f7f93` correspond to that source tree.
+- Local acceptance: 149/149 Node tests, TypeScript and offline audit PASS. 40 procedurally generated worlds checked for actionable routes; Chromium self-contained HTML desktop and touch landscape start/play/compass, no JS page errors. Independent Android/physical-GPU FPS test not performed.
+- Public URL `https://akumanomi1988.github.io/ASCII_AZUR/` and `/build-info.json`: **DIRECT HTTP/INTERACTIVE SMOKE UNVERIFIED** because available public-web tool cannot access that origin. GitHub Pages deploy SUCCESS is not an independent user-side verification.
+- Previous/current mean across 16 dimensions: **2.5/5 → 2.5/5**. Full premium/AAA-inspired gate remains unmet; real-device performance, complete global campaign, full human route playthrough and playtester evidence remain outstanding.
