@@ -50,9 +50,20 @@ Mean: **2.5/5** previous and current. No invented percentage or score gain; test
 
 ## Shipping and next priority
 
-The release agent must update the GitHub commit ID, CI job outcomes, Pages deployment SHA and live smoke test evidence after release. A green CI is not proof of public web health.
+The distribution ledger below records validated GitHub build and deployment results. Public URL smoke remains unverified; a green CI is not proof of live-site interaction.
 
 1. Improve subject prominence at phone glyph density, and do *real* WebGL2/Android visual and performance testing (target >=30 stable FPS on defined supported hardware).
 2. Introduce authored creature-specific combat poses, readable hit reactions and differentiated original audio.
 3. Deliver a complete authored narrative slice with beginning, region climax, rewards and consequences.
 4. Measure accessibility and player experience with external testers.
+
+
+## Verified distribution ledger — v0.14
+
+- Game source commit (feature and `main`): `f07d3db72dc4b1257c6cd9178766e983f037c5df`.
+- GitHub Actions feature quality: `39620523424`, SUCCESS; `main` quality: `39620650464`, SUCCESS.
+- `gh-pages` deployment commit: `e53c310c6bce045d9d635d6035463fbdfbd6c47f`.
+- GitHub Pages workflow: `39620740026`, SUCCESS with build/deploy/report steps successful.
+- `gh-pages/build-info.json` identifies the exact source commit and v0.14.0. `index.html` uses the exact source `play.html` blob.
+- Target public URL: `https://akumanomi1988.github.io/ASCII_AZUR/`.
+- Public browser/HTTP smoke is **NOT VERIFIED**: this environment cannot reach the Pages host. This gate remains open.
