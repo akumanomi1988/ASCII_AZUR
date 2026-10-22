@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
+import {dungeonTilePath} from './helpers/dungeon-path.mjs';
 const fakeContext={
  clearRect(){},fillRect(){},fillText(){},beginPath(){},moveTo(){},lineTo(){},closePath(){},fill(){},stroke(){},translate(){},scale(){},save(){},restore(){},ellipse(){},quadraticCurveTo(){},setTransform(){},drawImage(){},
  createLinearGradient(){return{addColorStop(){}}},createRadialGradient(){return{addColorStop(){}}},
@@ -203,4 +204,57 @@ test('runtime: capture action displays precise probability and updates with targ
  const before=control().textContent;game.battle.effects[game.battle.enemy.uid]=[{kind:'weaken',remaining:2}];game.refreshBattle();
  assert.notEqual(control().textContent,before);assert.match(control().title,/8 puntos porcentuales/);
  game.battle.type='boss';game.refreshBattle();assert.equal(control().disabled,true);
+});
+
+/** Real spatial crypt traversal; battle outcomes are controlled, not a human fight. */
+test('runtime: complete Arken narrative through physical crypt traversal and reward once',()=>{
+ const {game,dom,storage}=mount();
+ game.startNew();game.pickStarter('cindrel');for(let i=0;i<3;i++)game.nextDialog();
+ game.interactNpc('archivist');while(game.dialogOpen)game.nextDialog();
+ game.interactLandmark({kind:'portal',x:43,y:16,label:'Bosque'});
+ game.interactLandmark({kind:'portal',x:43,y:16,label:'Santuario'});
+ assert.equal(game.save.zone,'sanctuary');
+ game.startBattle('hollowhart',12,'boss');assert.equal(game.battle.type,'boss');
+ game.winBattle();while(game.dialogOpen)game.nextDialog();
+ assert.equal(game.save.defeatedBoss,true);
+ game.interactLandmark({kind:'portal',x:2,y:16,label:'Bosque'});
+ game.interactLandmark({kind:'portal',x:2,y:16,label:'Arken'});
+ assert.equal(game.save.zone,'village');
+ game.enterDungeon(false);assert.equal(game.save.dungeon.active,true);
+ const seed=game.save.dungeon.seed;
+ const walkTo=event=>{
+  const d=game.save.dungeon,route=dungeonTilePath(d,{x:d.x,y:d.y},event);
+  for(const step of route.slice(1)){
+   const current=game.save.dungeon,dx=step.x-current.x,dy=step.y-current.y;
+   game.stick.x=Math.abs(dx)<.05?0:Math.sign(dx);
+   game.stick.y=Math.abs(dy)<.05?0:Math.sign(dy);
+   for(let i=0;i<5;i++)game.move(1/(4.35*5));
+   assert.ok(Math.hypot(game.save.dungeon.x-step.x,game.save.dungeon.y-step.y)<.04,
+    'seed '+seed+': corridor inaccessible '+step.x+','+step.y);
+  }
+  game.resetJoystick();
+ };
+ for(const id of [2,3,5,7]){
+  walkTo(game.save.dungeon.events[id]);
+  game.dungeonInteract();
+  if(id===2||id===5){
+   assert.equal(game.battle?.type,'wild');
+   assert.equal(game.save.dungeon.pending,id);
+   game.winBattle();assert.equal(game.battle,null);
+  }
+  while(game.dialogOpen)game.nextDialog();
+ }
+ assert.equal(game.save.dungeon.finished,true);
+ assert.ok([2,3,5].every(id=>game.save.dungeon.cleared.includes(id)));
+ walkTo(game.save.dungeon.events[0]);game.dungeonInteract();
+ assert.equal(game.save.dungeon.active,false);
+ const echoes=game.economy.echoes,seals=game.save.inventory.seals;
+ game.interactNpc('archivist');while(game.dialogOpen)game.nextDialog();
+ assert.equal(game.save.flags.filter(x=>x==='arken-vow-restored').length,1);
+ assert.equal(game.economy.echoes,echoes+200);
+ assert.equal(game.save.inventory.seals,seals+4);
+ assert.match(dom.get('missionChip').textContent,/COMPLETADO/);
+ game.interactNpc('archivist');while(game.dialogOpen)game.nextDialog();
+ assert.equal(game.economy.echoes,echoes+200);
+ assert.ok(storage.getItem('ascii-azur-save-v1'));
 });

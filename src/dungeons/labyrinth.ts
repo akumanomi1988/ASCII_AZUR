@@ -67,9 +67,11 @@ export function dungeonConnected(run:DungeonRun):boolean {
 }
 /** Collision with a foot capsule approximated by a small circle. Substeps avoid tunnelling. */
 export function dungeonSweep(run:DungeonRun,x:number,y:number,dx:number,dy:number){
+ // Positions refer to tile centres at integral coordinates; checking from a corner
+ // incorrectly rejected single-tile corridors in generated dungeon layouts.
  const can=(px:number,py:number)=>[
   [0,0],[.23,0],[-.23,0],[0,.23],[0,-.23],[.17,.17],[-.17,-.17],[-.17,.17],[.17,-.17]
- ].every(([ox,oy])=>walkable(tileDungeon(run,px+ox!,py+oy!)));
+ ].every(([ox,oy])=>walkable(tileDungeon(run,px+.5+ox!,py+.5+oy!)));
  const steps=Math.max(1,Math.ceil(Math.hypot(dx,dy)/.16));
  for(let i=0;i<steps;i++){const nx=x+dx/steps,ny=y+dy/steps;
   if(can(nx,y))x=nx;
