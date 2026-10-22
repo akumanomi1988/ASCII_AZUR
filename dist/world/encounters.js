@@ -9,7 +9,14 @@ const FOREST_TRAIL_POOLS = [
     ['thorne', 'briarling'], // Root: Ash's mid-trail advantage
     ['wispawn', 'gravemoth'] // Ether: Mist's late-trail advantage
 ];
-const SANCTUARY_SPECIES = ['wispawn', 'gravemoth', 'runeowl', 'rillfin', 'velaria'];
+/** A staged Sanctuary pilgrimage: every starter gets one genuinely favourable
+ * elemental opponent (Ash > Root, Root > Mist, Mist > Ether). Identity and
+ * placement remain seed-dependent, while v1 roamer IDs and XP stay stable. */
+const SANCTUARY_TRAIL_POOLS = [
+    ['briarling', 'thorne'], // Root: Ash counterplay
+    ['mireling', 'rillfin', 'velaria'], // Mist: Root counterplay
+    ['wispawn', 'gravemoth', 'runeowl'] // Ether: Mist counterplay
+];
 export function visibleEncounters(zone, seed) {
     if (zone === 'village')
         return [];
@@ -37,7 +44,7 @@ export function visibleEncounters(zone, seed) {
         const pick = candidates[0];
         if (!pick)
             continue;
-        const creatures = zone === 'forest' ? FOREST_TRAIL_POOLS[slot] : SANCTUARY_SPECIES;
+        const creatures = (zone === 'forest' ? FOREST_TRAIL_POOLS : SANCTUARY_TRAIL_POOLS)[slot];
         const variant = Math.floor(hash(slot + 1, seed & 255, seed + 45) * creatures.length);
         out.push({ id: `${zone}-${slot}`, x: pick.x, y: pick.y, speciesId: creatures[variant], level: zone === 'forest' ? 5 + slot : 8 + slot });
     }
