@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {ARKEN_FINALE_FLAG,ARKEN_STORY,arkenStoryIndex,arkenStoryBeat,canConcludeArken,concludeArken,guardianPreparation,sanctuaryRoutePlan} from '../dist/story-campaign.js';
+import {ARKEN_FINALE_FLAG,ARKEN_STORY,arkenStoryIndex,arkenStoryBeat,canConcludeArken,concludeArken,guardianPreparation,sanctuaryRoutePlan,sanctuaryOathProgress,SANCTUARY_OATHS_FLAG,SANCTUARY_OATHS_REWARD} from '../dist/story-campaign.js';
 const state=(flags=[],defeatedBoss=false,dungeonFinished=false)=>({flags,defeatedBoss,dungeonFinished});
 test('seven authored story beats have actionable, unique Spanish objectives',()=>{
  assert.equal(ARKEN_STORY.length,7);
@@ -90,4 +90,14 @@ test('Sanctuary scouting uses only equipped offensive counters and persists clea
   [null,'Thorne',null],'fainted or unequipped moves may not falsely promise a counter');
  assert.equal(sanctuaryRoutePlan([{...root,moves:['verdancy']}],route,[]).every(x=>x.counter===null),true,
   'non-damaging skills do not count as offensive counters');
+});
+
+test('Sanctuary oaths accept first victory or capture flags and never permit repeat payout',()=>{
+ const partial=['roamer-sanctuary-0','roamer-sanctuary-0','roamer-sanctuary-2'];
+ assert.deepEqual(sanctuaryOathProgress(partial),{resolved:2,ready:false,claimed:false});
+ const complete=[...partial,'roamer-sanctuary-1'];
+ assert.deepEqual(sanctuaryOathProgress(complete),{resolved:3,ready:true,claimed:false});
+ assert.deepEqual(sanctuaryOathProgress([...complete,SANCTUARY_OATHS_FLAG]),
+  {resolved:3,ready:false,claimed:true});
+ assert.deepEqual(SANCTUARY_OATHS_REWARD,{echoes:40,seals:2,tonics:2});
 });
