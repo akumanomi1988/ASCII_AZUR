@@ -63,3 +63,14 @@ The current game includes three regions, 12 species, an authored six-step Arken 
 6. Execute a full gameplay end-to-end acceptance campaign; remove all high/critical defects and verify all 16 quality dimensions at least 4/5, average at least 4.5/5 before any premium-complete claim.
 
 **Next iteration priority:** multi-seed, three-starter progression balance through the Guardian and crypt; remove observed difficulty/dead-end problems before expanding the global campaign. Score gain requires measurable player evidence.
+
+
+## 2026-10-22 — Graphics and UI overhaul v0.27 (feature branch, verification pending)
+
+- Renderers: Added ascii and glyph-pixel profiles, independent RGB foreground/background cell compositing on WebGL2 and Canvas2D, glyph atlas edge sampling safety, fine/balanced/chunky integer cell presets, and removal of repeated global directional-stroke selection.
+- The scene remains shared across modes; this is not a second world generator. Presentation prefs remain outside SaveGame(version:1).
+- Reusable VISUAL_ASSETS includes authored semantic descriptors for actors, creatures, trees, cottages, ruins, stone, trails, and relics. Tree/cottage/ruin render paths consume the shared palette.
+- Inputs: Viewport-local modal and drawer, contextual keyboard handling with editable-input escape hatch, standard arrow/WASD focus, Enter/Space activation, Escape transitions, focus return and modal Tab containment. Mouse/touch buttons still invoke the same game handlers.
+- Settings: Immediate graphics-mode switch, per-mode controls, pixel detail presets and persistent legacy-compatible preferences. UI palette adapts to active graphics mode.
+- Distribution: New compiled modules in standalone bundle and service-worker cache; version updated to 0.27.0.
+- Acceptance status: Implementation committed to feature branch. CI build, runtime tests, visual inspection, device FPS, production deployment and public smoke must be verified before marking completed.
