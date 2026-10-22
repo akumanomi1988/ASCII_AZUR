@@ -98,3 +98,8 @@ The current game includes three regions, 12 species, an authored six-step Arken 
 - Visually reviewed the four deterministic captures from CI `39807555358`. All four are now opaque, including previously blank ASCII/Canvas2D; however, pixel-mode bright surfaces still showed regular vertical glyph bands.
 - Replaced pixel glyph selection driven by raw luminance with structure-driven selection (local color deviation and edge contrast) on both WebGL2 and Canvas2D. Uniform colored cell backgrounds should now read as continuous surfaces, while real boundaries receive glyph detail.
 - Preallocated the fixed source-scene GPU texture and replaced per-frame texture-storage redefinition with `texSubImage2D`; preserves scene size and game state while reducing GL texture-allocation work. Browser validation and visual acceptance of this revision must run again before closing.
+
+## 2026-10-22 — WebGL texture update rollback
+
+- The fixed-allocation WebGL2 `texSubImage2D` experiment from `81ce49a` caused repeated first-variant Chromium CI timeouts (`39808164260` and `39808563603`) whereas the previous `texImage2D` renderer passed all four browser checks.
+- Reverted **only** the unverified upload optimization. Structure-driven pixel glyph selection remains in place. Do not count the texture optimization as shipped or performance-improving without measured evidence.
