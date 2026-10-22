@@ -46,6 +46,7 @@ class AzurGame {
     battle = null;
     dialogQueue = [];
     modalInvoking = null;
+    modalBack = null;
     drawerInvoking = null;
     dialogOpen = false;
     modalOpen = false;
@@ -86,7 +87,7 @@ class AzurGame {
         byId('saveBtn').addEventListener('click', () => this.saveNow(true));
         byId('teamBtn').addEventListener('click', () => this.openTeam());
         byId('bagBtn').addEventListener('click', () => this.openBag());
-        byId('closeModal').addEventListener('click', () => this.hideModal());
+        byId('closeModal').addEventListener('click', () => this.closeModalOrBack());
         byId('modal').addEventListener('click', e => { if (e.target === byId('modal'))
             this.hideModal(); });
         byId('closeDialogue').addEventListener('click', () => this.nextDialog());
@@ -115,13 +116,13 @@ class AzurGame {
         if (isTypingTarget(e.target)) {
             if (e.key === 'Escape' && this.modalOpen) {
                 e.preventDefault();
-                this.hideModal();
+                this.closeModalOrBack();
             }
             return;
         }
         if (e.key === 'Escape') {
             if (this.modalOpen)
-                this.hideModal();
+                this.closeModalOrBack();
             else if (this.dialogOpen)
                 this.nextDialog();
             else if (drawerOpen)
@@ -218,7 +219,7 @@ class AzurGame {
             this.toggleDrawer();
         if (pressed(1)) {
             if (this.modalOpen)
-                this.hideModal();
+                this.closeModalOrBack();
             else if (this.dialogOpen)
                 this.nextDialog();
             else if (this.battle?.selecting) {
@@ -1429,6 +1430,7 @@ class AzurGame {
         for (const button of byId('modalContent').querySelectorAll('[data-skill-slot]'))
             button.onclick = () => this.openSkillChoices(uid, Number(button.dataset.skillSlot));
         byId('skillBack').onclick = () => { this.hideModal(); this.openTeam(); };
+        this.modalBack = () => this.openTeam();
     }
     openSkillChoices(uid, index) {
         const creature = this.save.team.find(c => c.uid === uid);
@@ -1455,6 +1457,7 @@ class AzurGame {
                 }
             };
         byId('skillChoicesBack').onclick = () => this.openSkills(uid);
+        this.modalBack = () => this.openSkills(uid);
     }
     openRosterSwap(storedUid) {
         const stored = this.save.storage.find(c => c.uid === storedUid);
@@ -1479,6 +1482,7 @@ class AzurGame {
                 }
             };
         byId('rosterBack').onclick = () => { this.hideModal(); this.openTeam(); };
+        this.modalBack = () => this.openTeam();
     }
     openBag() { if (!this.started || this.evolution || this.battle || this.dialogOpen || !byId('starterScreen').classList.contains('hidden'))
         return; this.showModal('MOCHILA DEL PORTADOR', `<div class="modal-content-block">Objetos recuperados entre las ruinas de Azur. · ✦ ${this.economy.echoes} ECOS</div><div class="modal-option"><div><strong>◇ Sellos de Vínculo</strong> × ${this.save.inventory.seals}<small>Permiten capturar criaturas debilitadas durante el combate.</small></div></div><div class="modal-option"><div><strong>✚ Tónicos</strong> × ${this.save.inventory.tonics}<small>Recuperan 28 HP de una criatura durante el combate.</small></div></div><div class="modal-content-block">Descansa en las Lumbres para curar al equipo y recuperar un sello. Los cofres contienen suministros limitados.</div>`); }
@@ -1565,7 +1569,9 @@ class AzurGame {
         if (this.evolution || (this.battle && !allowBattle) || this.dialogOpen || (!allowIntro && !byId('titleScreen').classList.contains('hidden')) || !byId('starterScreen').classList.contains('hidden'))
             return;
         const fromDrawer = byId('gameDrawer').classList.contains('open');
-        this.modalInvoking = fromDrawer ? byId('drawerToggle') : document.activeElement;
+        if (!this.modalOpen)
+            this.modalInvoking = fromDrawer ? byId('drawerToggle') : document.activeElement;
+        this.modalBack = null;
         this.toggleDrawer(false);
         this.keys.clear();
         this.resetJoystick();
@@ -1575,7 +1581,12 @@ class AzurGame {
         byId('modal').classList.remove('hidden');
         focusMenuFirst(byId('modal'));
     }
-    hideModal() { this.modalOpen = false; byId('modal').classList.add('hidden'); this.keys.clear(); this.modalInvoking?.focus?.(); this.modalInvoking = null; }
+    /** Escape and gamepad Back return to the parent panel before dismissing the overlay. */
+    closeModalOrBack() { const back = this.modalBack; this.modalBack = null; if (back)
+        back();
+    else
+        this.hideModal(); }
+    hideModal() { this.modalOpen = false; this.modalBack = null; byId('modal').classList.add('hidden'); this.keys.clear(); this.modalInvoking?.focus?.(); this.modalInvoking = null; }
     saveNow(notify) { if (!this.started)
         return; try {
         writeSave(localStorage, this.save);
