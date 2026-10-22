@@ -9,7 +9,7 @@ A checkbox means the evidence stated below exists. A completed automated gate me
 
 | Phase | Weight | Completed | Progress | Remaining milestone gate |
 |---|---:|---:|---:|---|
-| 1. Core gameplay and balance | 20% | 2/4 | 50% | C3 balanced multi-starter Guardian/crypt; C4 human combat balance |
+| 1. Core gameplay and balance | 20% | 3/4 | 75% | C4 human combat balance |
 | 2. World and exploration | 15% | 2/4 | 50% | W3 authored new regions; W4 exploratory QA |
 | 3. Complete story and narrative | 20% | 1/4 | 25% | N2 authored second chapter; N3 global climax/ending; N4 human narrative QA |
 | 4. Creatures and progression | 10% | 1/4 | 25% | P2 broader roles/collection; P3 sidequests/evolution identity; P4 player-tested balance |
@@ -22,7 +22,7 @@ A checkbox means the evidence stated below exists. A completed automated gate me
 
 - **C1 [x]** Real damage, status, creature-capture and save/checkpoint mechanics; `tests/runtime.test.mjs`, `tests/combat-quality.test.mjs`; previous main CI 39836396417 SUCCESS.
 - **C2 [x]** Scripted Arken-to-crypt interactive battle/guardian/ending walkthrough without injected wins in `tests/runtime.test.mjs` (single preselected build/seed; not all starter balance).
-- **C3 [ ]** Across >=12 deterministic world seeds × 3 starters: route capture through player commands, >=90% Guardian win and crypt completion under a documented fixed resource policy, no forced wins/XP, all saves reload without duplication.
+- **C3 [x]** Across >=12 deterministic world seeds × 3 starters: route capture through player commands, >=90% Guardian win and crypt completion under a documented fixed resource policy, no forced wins/XP, all saves reload without duplication.
 - **C4 [ ]** At least 20 externally observed complete combat sessions, no dominant starter, no critical progression traps, signoff of tuning.
 - **W1 [x]** Deterministic procedural topology, reachable visible routes and v1 snapshot/reload regression on 512 seeds in `tests/encounters-graphics.test.mjs`.
 - **W2 [x]** Every starter has exactly one advantageous Sanctuary encounter across >=512 seeds; three reachable seeded encounters/levels 8–10; two/three/three species variants; in-game optional scouting uses actual equipped moves and cleared flags; Keeper awards a single 2-seal/2-tonic/40-echo oath completion on defeating or capturing each distinct roamer (including old saves), without a save schema bump; TS/Node/runtime and published build pass.
@@ -60,3 +60,13 @@ Baseline before macroiteration 001: completed=9/32 milestones. Phase sequence=2/
 
 ## Premium blockers
 Global authored campaign absent; captured-party multi-seed Guardian/crypt tuning not proven; physical Android performance and human playtests missing; full public-site independent smoke unverified. Automated green does not qualify as commercial release acceptance.
+
+
+## Verified macroiteration 002 — C3 Guardian and crypt progression (2026-10-22)
+
+- Before: Core 2/4 milestones = **50%**, weighted global **33.75%** (10/32 milestones). After verified C3: Core **3/4 = 75%**, weighted global **38.75% (+5.00 pp)** (11/32 milestones). The other seven phase percentages remain unchanged.
+- Gameplay content: Arken three distinct first-win lessons (+55 XP each) and Iria's once-only two-tonic reward; selectable Guardian lead based on real offensive moves and remaining HP; Hollowhart's powerful Ether Eclipse only fires as its announced charged attack; all changes persist under the v1 save schema.
+- Deterministic 12-seed × 3-starter C3 acceptance: **Cindrel 12/12 Guardian + 12/12 crypt, Velaria 12/12 + 12/12, Thorne 12/12 + 12/12**, with actual capture attempts, earned experience, no injected victory, three unique lessons, combat/guard/tonic commands, physical crypt traversal and save/reload verification. Machine gate checks >=11/12 per cohort. There were six nonfinal Cindrel route combat losses; these were not hidden by the completion metric. Surface portals and encounter entry are invoked through game handlers rather than walked tile by tile, so this evidence does **not** close full-campaign human navigation acceptance.
+- Source publication: PR [#3](https://github.com/akumanomi1988/ASCII_AZUR/pull/3) merged as `b441c8968967c3d1118f7b8d922f493ddab00e37`. Main [Actions run 39860844260](https://github.com/akumanomi1988/ASCII_AZUR/actions/runs/39860844260) **SUCCESS**: 214/214 Node tests, TypeScript PASS, 4/4 Chromium graphics/backend acceptance, standalone/release + PWA audit PASS (33 dependent JS modules, 34 cached modules/assets), version 0.28.0.
+- Pages: `gh-pages` commit `4ca86a4037ce35e81885ce796cd3a7f5c8f606d9`, `build-info.json.source_commit=b441c8968967c3d1118f7b8d922f493ddab00e37`, [Pages workflow 39860967515](https://github.com/akumanomi1988/ASCII_AZUR/actions/runs/39860967515) **SUCCESS**. Independent public HTTP smoke of the GitHub Pages game and live `build-info.json` remains **UNVERIFIED**: external reader cannot access `github.io`.
+- **Quality scores unchanged** (conservative mean 2.5/5; zero independent >=4/5 acceptances). Programmatic wins on fixed seeds do not prove human game feel, Android hardware performance, finished global story, or broad difficulty balance.
