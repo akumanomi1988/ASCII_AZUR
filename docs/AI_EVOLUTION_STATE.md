@@ -1,6 +1,6 @@
 # ASCII AZUR — Autonomous Evolution State
 
-Last audited: 2026-10-21, v0.20. Source of truth: `akumanomi1988/ASCII_AZUR` / `main` once promoted. One iteration per invocation; do not run scheduled or Work tasks without explicit consent.
+Last audited: 2026-10-22, v0.21. Source of truth: `akumanomi1988/ASCII_AZUR` / `main` once promoted. One iteration per invocation; do not run scheduled or Work tasks without explicit consent.
 
 ## Vision and invariant contracts
 
@@ -178,3 +178,14 @@ Source commit, GitHub Actions and Pages provenance are recorded below. Direct pu
 - **Live URL:** `https://akumanomi1988.github.io/ASCII_AZUR/`. Public-origin HTTP and full interaction smoke **NOT VERIFIED**: web/browser tool cannot access `github.io`; successful deployment is not proof of live-client behavior.
 - **Quality scorecard:** all 16 dimensions retained at conservative prior values. Previous mean **2.5/5**, current mean **2.5/5**. The 30 FPS target is best-effort and is NOT validated on Android physical hardware. Full premium gate remains open (entire global campaign, full natural playthrough, real-device performance and independent playtests).
 - **Next priority:** instrument physical Android GPU/CPU, p95 FPS and sustained heat/battery tests; tune the controller using observed traces, then finish the global campaign and full end-to-end journey.
+
+## v0.21 verified release ledger — 2026-10-22
+
+- **Problem / priority:** combat skills exposed attack details primarily through a mouse-hover title. On touch screens, players lacked damage, affinity and status-probability information before choosing an attack.
+- **Implemented:** pure `src/combat/move-preview.ts` creates visible, accessible move-card summaries from the game's exact damage/status model. For attacks it shows the estimated min–max damage for existing .90–1.09 roll variance, `EFICAZ` / `RESISTIDO` affinity, optional status probability in percent, draining and cleansing labels. Healing shows recoverable current HP rather than fictitious damage. The existing damage calculation, AI, damage RNG, creature stats, turn sequence, capture and v1 saves are unchanged. Each button provides the details visually and through an accessible label.
+- **Evidence:** `npm run release` PASS: TypeScript, regenerated playable standalone, **161/161 tests PASS** (seven new regression tests), offline audit **30 imported JS / 31 cached assets**. Chromium local standalone smoke PASS in desktop 1180×740, simulated landscape touch 844×390 and portrait touch 390×844: new game, creature selection, drawer→direct battle→fight selection, visible move ranges, no script errors and no move-card overflow. Not a physical Android, and touch readability was not independently playtested.
+- **Source branch/commit:** `feature/tactical-move-previews-v021` promoted to `main`, commit `6c94bba7bc8ecfd3cece2721861d86db1ce69de9`. Feature CI workflow `39725739719`: SUCCESS; `main` CI workflow `39725801212`: SUCCESS.
+- **Published distribution:** `gh-pages` commit `84a627bd470034396ee0d5dfd52c8709fbdc93c9`, deployment workflow `39725871183` SUCCESS (build, deploy, status). `gh-pages/build-info.json` points to v0.21.0 and the exact above source commit. Published `dist/combat/move-preview.js` blob `a2d0900c1eab3450ccfa66ca27c8fc3602fe83cf`.
+- **Website:** `https://akumanomi1988.github.io/ASCII_AZUR/`. External HTTP browser/tool cannot reach `github.io`, so independent public-origin gameplay smoke **NOT VERIFIED**. Pages workflow success does not certify end-user access.
+- **Quality:** previous 16-domain average **2.5/5**; current **2.5/5**. Combat/UX tactical clarity increased technically, but commercial acceptance requires player feedback. The premium gate remains unpassed due to incomplete global campaign, untested physical Android/WebGL2 sustained FPS, independent player testing, and missing full natural playthrough.
+- **Next highest impact:** physical-device sustained FPS and touch UX, followed by a full extended campaign and a reproducible end-to-end playthrough with no progression blockers. Automated deployment from `main` remains a desired CD improvement; current Pages requires a separate `gh-pages` update.
