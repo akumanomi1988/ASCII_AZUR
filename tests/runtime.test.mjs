@@ -447,3 +447,45 @@ test('runtime: actual attack commands award first-roamer XP once and persist the
  assert.equal(lifetimeXP(game.save.team[0])-after,26,'no second trail bonus');
  assert.equal(game.save.flags.filter(x=>x==='roamer-forest-0').length,1);
 });
+
+test('runtime: first trail victory restores party and persists recovery exactly once; random fights never do',()=>{
+ const {game,storage}=mount();game.startNew();game.pickStarter('cindrel');while(game.dialogOpen)game.nextDialog();
+ const partner={...game.save.team[0],uid:'trail-partner',speciesId:'velaria',hp:1};
+ const unconscious={...game.save.team[0],uid:'fainted-trail',speciesId:'thorne',hp:0};
+ game.save.team[0].hp=2;game.save.team.push(partner,unconscious);
+ game.startBattle('briarling',5,'wild','forest-0');game.winBattle();
+ assert.ok(game.save.team[0].hp>2,'first trail win must restore active ally');
+ assert.ok(game.save.team[1].hp>1,'first trail win must restore living companion');
+ assert.equal(game.save.team[2].hp,0,'respite must not revive');
+ assert.ok(game.save.flags.includes('roamer-forest-0'));
+ assert.ok(JSON.parse(storage.getItem('ascii-azur-save-v1')).team[0].hp>2,'recovery must survive reload');
+ game.save.team[0].hp=2;
+ game.startBattle('briarling',5,'wild','forest-0');game.winBattle();
+ assert.equal(game.save.team[0].hp,2,'repeated encounters cannot restore HP');
+ game.startBattle('briarling',5,'wild');game.winBattle();
+ assert.equal(game.save.team[0].hp,2,'random encounters cannot restore HP');
+});
+test('runtime: three starters can defeat a first forest trail encounter using real move commands',()=>{
+ for(const [i,starter] of ['cindrel','velaria','thorne'].entries()){
+  const {game,dom,flushTimers}=mount({virtualTime:true,seed:17+i*13});
+  dom.get('worldSeedInput').value=String(1000+i);
+  game.startNew();game.pickStarter(starter);while(game.dialogOpen)game.nextDialog();
+  game.interactLandmark({x:43,y:16,kind:'portal',label:'Bosque'});
+  assert.equal(game.save.zone,'forest');
+  const trail=game.roamers().find(e=>e.id==='forest-0');assert.ok(trail,starter+' must have an accessible first trail');
+  game.startBattle(trail.speciesId,trail.level,'wild',trail.id);
+  let turns=0;
+  while(game.battle&&turns++<40){
+   if(game.battle.busy){flushTimers();continue;}
+   const ally=game.getAlly();
+   if(ally.hp<maxHp(ally)*.38&&game.save.inventory.tonics>0){game.tonic();flushTimers();continue;}
+   const move=ally.moves.filter(id=>MOVES[id]&&MOVES[id].power>0)
+      .sort((a,b)=>damage(ally,game.battle.enemy,MOVES[b]).value-damage(ally,game.battle.enemy,MOVES[a]).value)[0];
+   assert.ok(move,starter+' has no attack');
+   game.useMove(move);flushTimers();
+  }
+  assert.ok(turns<40,starter+' battle exceeded budget');
+  assert.ok(game.save.flags.includes('roamer-'+trail.id),starter+' must win with normal inputs');
+  assert.ok(game.save.team[0].hp>0,starter+' must remain conscious');
+ }
+});
