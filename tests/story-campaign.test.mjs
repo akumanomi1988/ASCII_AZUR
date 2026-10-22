@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {ARKEN_FINALE_FLAG,ARKEN_STORY,arkenStoryIndex,arkenStoryBeat,canConcludeArken,concludeArken,guardianPreparation,sanctuaryRoutePlan,sanctuaryOathProgress,SANCTUARY_OATHS_FLAG,SANCTUARY_OATHS_REWARD} from '../dist/story-campaign.js';
+import {ARKEN_FINALE_FLAG,ARKEN_STORY,arkenStoryIndex,arkenStoryBeat,canConcludeArken,concludeArken,guardianPreparation,guardianRecommendedLead,sanctuaryRoutePlan,sanctuaryOathProgress,SANCTUARY_OATHS_FLAG,SANCTUARY_OATHS_REWARD} from '../dist/story-campaign.js';
 const state=(flags=[],defeatedBoss=false,dungeonFinished=false)=>({flags,defeatedBoss,dungeonFinished});
 test('seven authored story beats have actionable, unique Spanish objectives',()=>{
  assert.equal(ARKEN_STORY.length,7);
@@ -100,4 +100,14 @@ test('Sanctuary oaths accept first victory or capture flags and never permit rep
  assert.deepEqual(sanctuaryOathProgress([...complete,SANCTUARY_OATHS_FLAG]),
   {resolved:3,ready:false,claimed:true});
  assert.deepEqual(SANCTUARY_OATHS_REWARD,{echoes:40,seals:2,tonics:2});
+});
+
+test('Guardian formation recommendation uses equipped attacks, health and available party, never mutating saves',()=>{
+ const mist={uid:'v',speciesId:'velaria',level:10,exp:0,hp:60,moves:['fog','tide']};
+ const ash={uid:'a',speciesId:'cinderwulf',level:10,exp:0,hp:70,moves:['ember','smolder']};
+ const original=JSON.stringify([mist,ash]);
+ assert.equal(guardianRecommendedLead([mist,ash]),1);
+ assert.equal(guardianRecommendedLead([mist,{...ash,hp:0}]),0);
+ assert.equal(guardianRecommendedLead([]),-1);
+ assert.equal(JSON.stringify([mist,ash]),original);
 });

@@ -12,7 +12,7 @@ import {Sound,themeForZone} from './audio.js';
 import {FrameMetrics} from './core/frame-metrics.js';
 import {AdaptiveGlyphs} from './core/adaptive-glyphs.js';
 import {storyGuidance} from './story-navigation.js';
-import {ARKEN_STORY, ARKEN_FINALE_REWARD, arkenStoryBeat, arkenStoryIndex, concludeArken, canConcludeArken, guardianPreparation, sanctuaryRoutePlan, sanctuaryOathProgress, SANCTUARY_OATHS_FLAG, SANCTUARY_OATHS_REWARD, type ArkenStoryState} from './story-campaign.js';
+import {ARKEN_STORY, ARKEN_FINALE_REWARD, arkenStoryBeat, arkenStoryIndex, concludeArken, canConcludeArken, guardianPreparation, guardianRecommendedLead, sanctuaryRoutePlan, sanctuaryOathProgress, SANCTUARY_OATHS_FLAG, SANCTUARY_OATHS_REWARD, type ArkenStoryState} from './story-campaign.js';
 import {readSave,writeSave} from './core/save-store.js';
 import {transferStoredCreature,reserveCreature,grantPartyExperience} from './party.js';
 import {createCombatCue,sampleCombatCue,guardDamage,type CombatCue,type FxKind,type CombatSide} from './actors/combat-fx.js';
@@ -273,7 +273,7 @@ class AzurGame {
     else if(b.pending==='victory'||(b.pending===undefined&&b.enemy.hp<=0)){this.battle!.busy=true;window.setTimeout(()=>this.winBattle(),250);}
     else if(b.pending==='defeat'){this.battle!.busy=true;window.setTimeout(()=>this.defeat(),250);}
   }
-  private startBattle(id:string,level:number,type:'wild'|'boss'|'expedition',encounterId?:string){if(this.battle)return;this.toggleDrawer(false);this.resetJoystick();let ally=this.save.team.findIndex(c=>c.hp>0);if(ally<0){this.defeat();return;}this.sound.setScene(type==='boss'?'boss':'battle');this.battle={enemy:createCreature(id,level),type,encounterId,busy:false,ally,guarding:false,selecting:false,bossPhase:1,chargeStage:0,effects:{},log:type==='boss'?'HOLLOWHART, EL ÚLTIMO GUARDIÁN, DESPIERTA.':type==='expedition'?`LA GRIETA SE ABRE: ${SPECIES[id]!.name.toUpperCase()} TE DESAFÍA.`:`¡UN ${SPECIES[id]!.name.toUpperCase()} SALVAJE APARECE!`};this.combatCue=null;this.encounterCooldown=9;byId('battle').classList.remove('hidden');byId('viewport').classList.add('in-battle');byId('prompt').classList.add('hidden');this.sound.portal();this.refreshBattle();}
+  private startBattle(id:string,level:number,type:'wild'|'boss'|'expedition',encounterId?:string,leadIndex?:number){if(this.battle)return;this.toggleDrawer(false);this.resetJoystick();let ally=this.save.team.findIndex(c=>c.hp>0);if(Number.isInteger(leadIndex)&&this.save.team[leadIndex!]?.hp>0)ally=leadIndex!;if(ally<0){this.defeat();return;}this.sound.setScene(type==='boss'?'boss':'battle');this.battle={enemy:createCreature(id,level),type,encounterId,busy:false,ally,guarding:false,selecting:false,bossPhase:1,chargeStage:0,effects:{},log:type==='boss'?'HOLLOWHART, EL ÚLTIMO GUARDIÁN, DESPIERTA.':type==='expedition'?`LA GRIETA SE ABRE: ${SPECIES[id]!.name.toUpperCase()} TE DESAFÍA.`:`¡UN ${SPECIES[id]!.name.toUpperCase()} SALVAJE APARECE!`};this.combatCue=null;this.encounterCooldown=9;byId('battle').classList.remove('hidden');byId('viewport').classList.add('in-battle');byId('prompt').classList.add('hidden');this.sound.portal();this.refreshBattle();}
   /** Explicit warning and tactical plan before the point-of-no-return boss encounter.
    * Players may still challenge the boss underlevelled; this never gates progression. */
   private prepareGuardianBattle(){
@@ -282,9 +282,11 @@ class AzurGame {
     const intro=result.ready?'Equipo preparado. Hollowhart conserva un ataque cargado peligroso.':
       'Hollowhart puede derrotarte. Puedes combatir o prepararte.';
     const advice=result.advice.map(line=>`<p>${htmlEscape(line)}</p>`).join('');
-    this.showModal('HOLLOWHART · EL DESAFÍO',`<div class="guardian-prep"><p>${htmlEscape(intro)}</p>${advice}<p>Hollowhart combate con Raíz. Solo libera su poderoso ECLIPSE de Éter después de acumular el silencio: usa GUARDIA durante el aviso, incluso con un aliado de Ceniza. Conserva tónicos.</p><div class="guardian-options"><button id="guardianProceed" aria-label="Iniciar combate contra Hollowhart">COMBATIR</button><button id="guardianRetreat">PREPARARSE</button></div></div>`);
+    const suggested=guardianRecommendedLead(this.save.team);
+    const options=this.save.team.map((c,i)=>c.hp<=0?'':`<option value="${i}" ${i===suggested?'selected':''}>${htmlEscape(SPECIES[c.speciesId]!.name)} · NV ${c.level} · ${c.hp}/${maxHp(c)} HP${i===suggested?' · RECOMENDADO':''}</option>`).join('');
+    this.showModal('HOLLOWHART · EL DESAFÍO',`<div class="guardian-prep"><p>${htmlEscape(intro)}</p>${advice}<p>Hollowhart combate con Raíz. Solo libera su poderoso ECLIPSE de Éter después de acumular el silencio: usa GUARDIA durante el aviso, incluso con un aliado de Ceniza. Conserva tónicos.</p><label for="guardianLeadSelect">CRIATURA QUE ABRE EL COMBATE</label><select id="guardianLeadSelect" aria-label="Elegir criatura inicial contra Hollowhart">${options}</select><div class="guardian-options"><button id="guardianProceed" aria-label="Iniciar combate contra Hollowhart con la criatura elegida">COMBATIR</button><button id="guardianRetreat">PREPARARSE</button></div></div>`);
     if(!this.modalOpen)return;
-    byId<HTMLButtonElement>('guardianProceed').onclick=()=>{this.hideModal();this.startBattle('hollowhart',12,'boss');};
+    byId<HTMLButtonElement>('guardianProceed').onclick=()=>{const raw=Number(byId<HTMLSelectElement>('guardianLeadSelect').value);const selected=Number.isSafeInteger(raw)&&this.save.team[raw]?.hp>0?raw:suggested;this.hideModal();this.startBattle('hollowhart',12,'boss',undefined,selected);};
     byId<HTMLButtonElement>('guardianRetreat').onclick=()=>this.hideModal();
   }
   private getAlly(){return this.battle?this.save.team[this.battle.ally]:null;}

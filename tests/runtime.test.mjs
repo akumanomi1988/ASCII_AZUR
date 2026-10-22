@@ -704,7 +704,7 @@ test('C3 measurement: three starters across twelve worlds with legitimate captur
   game.startNew();game.pickStarter(starter);
   const dialogs=()=>{while(game.dialogOpen)game.nextDialog();if(game.evolution){game.seconds=game.evolution.startedAt+game.evolution.duration;game.loop(1000);}};
   dialogs();game.interactNpc('archivist');dialogs();
-  let wins=0,failures=0,captures=0,tonics=0,actions=0,guardian=false,crypt=false,training=0;
+  let wins=0,failures=0,captures=0,tonics=0,actions=0,guardian=false,crypt=false,training=0,bossStarted=false,bossTurns=0,lastBossHp=-1;
   const battle=(species,level,type='wild',encounterId=undefined,bind=false)=>{
    dialogs();if(game.battle)throw Error('Prior encounter still active');
    const originalSize=game.save.team.length, priorDefeated=game.save.defeatedBoss,oldEchoes=game.economy.echoes;
@@ -714,7 +714,7 @@ test('C3 measurement: three starters across twelve worlds with legitimate captur
     const b=game.battle,ally=game.getAlly();
     if(b.busy){flushTimers();continue;}
     if(b.chargeStage===2){game.defend();flushTimers();actions++;continue;}
-    if(game.save.inventory.tonics>0&&ally.hp<maxHp(ally)*.34){
+    if(bind&&game.save.inventory.tonics>0&&ally.hp<maxHp(ally)*.28){
      game.tonic();tonics++;actions++;flushTimers();continue;
     }
     if(bind&&game.save.inventory.seals>0&&b.enemy.hp/maxHp(b.enemy)<=.60){
@@ -768,12 +768,12 @@ test('C3 measurement: three starters across twelve worlds with legitimate captur
    heal();dialogs();
    if(game.evolution){dialogs();}
    game.interactLandmark({kind:'guardian',x:35,y:16,label:'Hollowhart'});
-   if(game.modalOpen){dom.get('guardianProceed').onclick();battle /* Guardian already started below */;}
+   if(game.modalOpen){dom.get('guardianProceed').onclick();}
    if(game.battle){
     // Resolve the prepared boss battle through ordinary player commands.
-    const b=game.battle;let turns=0;
+    bossStarted=true;let turns=0;
     while(game.battle&&turns++<90){
-      const state=game.battle,ally=game.getAlly();
+      const state=game.battle,ally=game.getAlly();lastBossHp=state.enemy.hp;
       if(state.busy){flushTimers();continue;}
       if(state.chargeStage===2){game.defend();flushTimers();actions++;continue;}
       if(game.save.inventory.tonics>0&&ally.hp<maxHp(ally)*.4){game.tonic();tonics++;flushTimers();actions++;continue;}
@@ -781,7 +781,7 @@ test('C3 measurement: three starters across twelve worlds with legitimate captur
       if(!ids.length)throw Error('No boss moves');
       game.useMove(ids[0]);actions++;flushTimers();
     }
-    assert.ok(turns<90,'boss softlock');
+    assert.ok(turns<90,'boss softlock');bossTurns=turns;
     guardian=game.save.defeatedBoss;dialogs();
    }
   }
@@ -826,12 +826,13 @@ test('C3 measurement: three starters across twelve worlds with legitimate captur
   const reopened=mount({virtualTime:true,seed:n*42+starter.length,priorSave:raw});
   reopened.game.continueGame();reopened.flushTimers();
   assert.deepEqual(JSON.parse(JSON.stringify(reopened.game.save.flags)),JSON.parse(JSON.stringify(game.save.flags)),'no loss/duplication on reload');
-  cohorts.push({starter,world,training,captures,wins,failures,tonics,actions,guardian,crypt,level:game.save.team[0]?.level});
+  cohorts.push({starter,world,training,captures,wins,failures,tonics,actions,bossStarted,bossTurns,lastBossHp,guardian,crypt,level:game.save.team[0]?.level});
  }
  for(const starter of starters){
   const cases=cohorts.filter(c=>c.starter===starter);
   console.log('C3_COHORT '+JSON.stringify({starter,runs:cases.length,captures:cases.map(c=>c.captures),training:cases.map(c=>c.training),
    bossWins:cases.filter(c=>c.guardian).length,cryptWins:cases.filter(c=>c.crypt).length,
+   bossStarted:cases.filter(c=>c.bossStarted).length,bossTurns:cases.map(c=>c.bossTurns),bossFinalHP:cases.map(c=>c.lastBossHp),
    tonics:cases.reduce((s,c)=>s+c.tonics,0),failures:cases.reduce((s,c)=>s+c.failures,0),
    levels:cases.map(c=>c.level)}));
  }
@@ -840,7 +841,7 @@ test('C3 measurement: three starters across twelve worlds with legitimate captur
 
 test('runtime: Hollowhart cannot use untelegraphed Eclipse; charged blow has actionable cue and GUARDIA counterplay',()=>{
  const {game,flushTimers}=mount({virtualTime:true,seed:779});
- game.startNew();game.pickStarter('cindrel');while(game.dialogOpen)game.nextDialog();
+ game.startNew();game.pickStarter('thorne');while(game.dialogOpen)game.nextDialog();
  game.startBattle('hollowhart',12,'boss');
  game.enemyTurn();
  assert.doesNotMatch(game.battle.log,/usa Eclipse/,'early Eclipse undermines preparation');
@@ -850,4 +851,18 @@ test('runtime: Hollowhart cannot use untelegraphed Eclipse; charged blow has act
  game.defend();flushTimers();
  assert.match(game.battle?.log||'',/RUPTURA DEL SILENCIO/);
  assert.match(game.battle?.log||'',/guardia/);
+});
+
+test('runtime: Guardian selection starts with chosen conscious ally and persists active battle slot',()=>{
+ const {game,dom,storage}=mount({virtualTime:true,seed:98});
+ game.startNew();game.pickStarter('velaria');while(game.dialogOpen)game.nextDialog();
+ // Isolated UI fixture: multi-seed progression test independently recruits with actual capture.
+ game.save.team.push({uid:'formation-ash',speciesId:'cinderwulf',level:10,exp:0,hp:75,moves:['smolder','ember']});
+ game.interactLandmark({kind:'guardian',x:35,y:16,label:'Hollowhart'});
+ assert.equal(game.modalOpen,true);
+ assert.match(dom.get('modalContent').innerHTML,/guardianLeadSelect/);
+ dom.get('guardianLeadSelect').value='1';
+ dom.get('guardianProceed').onclick();
+ assert.equal(game.battle.ally,1);
+ assert.equal(JSON.parse(storage.getItem('ascii-azur-save-v1')).activeBattle.ally,1);
 });
