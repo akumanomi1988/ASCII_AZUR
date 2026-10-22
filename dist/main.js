@@ -16,6 +16,7 @@ import { readSave, writeSave } from './core/save-store.js';
 import { transferStoredCreature, reserveCreature } from './party.js';
 import { createCombatCue, sampleCombatCue, guardDamage } from './actors/combat-fx.js';
 import { MOVE_EFFECTS, STATUS_INFO, applyEffect, attackWithStatuses, chooseEnemyMove, endTurnEffects, statusLabel, skillUtility } from './combat/tactics.js';
+import { previewMove } from './combat/move-preview.js';
 import { reveal, isDiscovered, discoveredPercent } from './world/discovery.js';
 import { RUNE_PUZZLES, RUNE_SYMBOLS, submitRune, claimRune } from './puzzles/runes.js';
 import { unlockedMoves, equipMove } from './creatures/loadout.js';
@@ -554,9 +555,23 @@ class AzurGame {
         byId('battleLog').textContent = b.log;
         const actions = byId('battleActions');
         actions.replaceChildren();
-        const add = (name, func, special = false, disabled = false, detail = '') => { const button = document.createElement('button'); button.textContent = name; button.disabled = b.busy || disabled; if (special)
+        const add = (name, func, special = false, disabled = false, detail = '', preview) => { const button = document.createElement('button'); button.textContent = name; button.disabled = b.busy || disabled; if (special)
             button.classList.add('special'); if (detail)
-            button.title = detail; button.onclick = func; actions.appendChild(button); };
+            button.title = detail; if (preview) {
+            button.classList.add('battle-move');
+            button.textContent = '';
+            const label = document.createElement('span');
+            label.className = 'battle-move-name';
+            label.textContent = name;
+            const metrics = document.createElement('span');
+            metrics.className = 'battle-move-estimate';
+            metrics.textContent = preview.summary;
+            const effects = document.createElement('span');
+            effects.className = 'battle-move-extra';
+            effects.textContent = preview.extra;
+            button.append(label, metrics, effects);
+            button.setAttribute('aria-label', preview.accessible);
+        } button.onclick = func; actions.appendChild(button); };
         if (b.selecting) {
             this.selectedBattleAction = 0;
             for (const { c, i } of this.save.team.map((c, i) => ({ c, i }))) {
@@ -572,7 +587,7 @@ class AzurGame {
         for (const id of ally.moves) {
             const m = MOVES[id];
             if (m)
-                add(`✦ ${m.name} · ${m.element}`, () => this.useMove(id), false, (m.role === 'heal' && ally.hp === maxHp(ally)) || (m.role === 'cleanse' && !this.statuses(ally).length), `${m.description} · Potencia ${m.power}${MOVE_EFFECTS[id] ? ' · ' + STATUS_INFO[MOVE_EFFECTS[id].kind].description : ''}`);
+                add(`✦ ${m.name} · ${m.element}`, () => this.useMove(id), false, (m.role === 'heal' && ally.hp === maxHp(ally)) || (m.role === 'cleanse' && !this.statuses(ally).length), `${m.description} · Potencia ${m.power}${MOVE_EFFECTS[id] ? ' · ' + STATUS_INFO[MOVE_EFFECTS[id].kind].description : ''}`, previewMove(ally, b.enemy, m, this.statuses(ally), this.statuses(b.enemy)));
         }
         add('⛨ GUARDIA · -55% DAÑO', () => this.defend());
         add(`◇ VINCULAR (${this.save.inventory.seals})`, () => this.capture(), true, b.type !== 'wild' || this.save.inventory.seals === 0);
