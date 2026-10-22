@@ -26,9 +26,12 @@ if(new URLSearchParams(location.search).has('fallback')){
 const params=new URLSearchParams(location.search);
 localStorage.setItem('ascii-azur-graphics-v2',JSON.stringify({renderMode:params.get('mode')||'ascii',pixelDetail:'chunky'}));
 // Bound headless CPU fallback work: functional acceptance is not a sustained FPS benchmark.
-if(params.has('fallback')){
+// Headless acceptance intentionally captures a bounded number of real rendered frames.
+// Sustained-performance profiling is a separate measurement, not this CI interaction gate.
+{
  const nativeFrame=window.requestAnimationFrame.bind(window);let frames=0;
- window.requestAnimationFrame=callback=>frames++<12?nativeFrame(callback):0;
+ const frameBudget=params.has('fallback')?12:20;
+ window.requestAnimationFrame=callback=>frames++<frameBudget?nativeFrame(callback):0;
 }
 window.addEventListener('load',()=>setTimeout(async()=>{
  const check=(ok,msg)=>{if(!ok)throw Error(msg)};
