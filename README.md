@@ -45,6 +45,6 @@ Las victorias conceden el 100 % de experiencia al combatiente activo y el 50 % a
 
 La primera victoria sobre cada criatura visible de los senderos en Bosque de Ceniza o Santuario otorga **+48 EXP** además de la experiencia normal, distribuida con la misma regla de equipo (titular al 100 %, acompañantes conscientes al 50 %). Los rastros derrotados desaparecen persistentemente, así que esta recompensa no se puede repetir al recargar; capturarlos concede la criatura, no el bonus de victoria. Los combates aleatorios, guardianes y expediciones no cambian. Los tres rastros del bosque aportan suficiente EXP teórica para pasar de nivel inicial 5 a nivel 8 si el titular vence los tres sin cambiarlo; esto **no demuestra** que todas las configuraciones puedan superar los combates sin más preparación.
 
-## v0.27 — El reposo del sendero
+## v0.26.1 — El reposo del sendero
 
 Vencer **por primera vez** a un encuentro visible del Bosque o del Santuario recupera el 25 % de la salud máxima de cada criatura consciente (sin superar su máximo ni revivir debilitadas). Esta recuperación ocurre después de la experiencia y acompaña la bonificación única de +48 EXP. Las capturas, rematches, combates aleatorios, centinelas y jefes no recuperan salud por esta mecánica. Se mantiene el guardado v1. El objetivo es reducir los viajes obligatorios a las lumbres durante la ruta inicial; el equilibrio completo requiere pruebas con jugadores.
