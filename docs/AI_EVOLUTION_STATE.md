@@ -103,3 +103,8 @@ The current game includes three regions, 12 species, an authored six-step Arken 
 
 - The fixed-allocation WebGL2 `texSubImage2D` experiment from `81ce49a` caused repeated first-variant Chromium CI timeouts (`39808164260` and `39808563603`) whereas the previous `texImage2D` renderer passed all four browser checks.
 - Reverted **only** the unverified upload optimization. Structure-driven pixel glyph selection remains in place. Do not count the texture optimization as shipped or performance-improving without measured evidence.
+
+## 2026-10-22 — Hero visual focus
+
+- The reviewed same-seed Chromium montage reveals a disproportionate ground area and an easily lost main-player silhouette. Added a restrained, localized teal ambient halo and small ground contact ring beneath the player, consistently in both renderer modes. The visual cue is scene-space, camera-following, uses existing Canvas2D compositing, and changes no collision, save or animation logic.
+- Screenshot comparison and release verification must pass for this change; real-device visual inspection remains mandatory for artistic acceptance.

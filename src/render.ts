@@ -463,7 +463,16 @@ for(const e of roamers){const xx=(e.x+.5)*TILE-camX,yy=(e.y+.78)*TILE-camY;if(xx
     ctx.fillStyle='#f2c4a2';ctx.font='bold 13px monospace';ctx.textAlign='center';ctx.fillText('!',xx,yy-61);
   }});
 }
-objects.push({x:hero.x*TILE-camX,y:hero.y*TILE-camY,draw:()=>drawHero(ctx,(hero.x+.5)*TILE-camX,(hero.y+.55)*TILE-camY,t,hero.walking,hero.facing,false,reducedMotion)});objects.sort((a,b)=>a.y-b.y);for(const obj of objects)obj.draw();
+// Localized visual focus is presentation-only and follows the authored four-way silhouette.
+const heroScreenX=(hero.x+.5)*TILE-camX,heroScreenY=(hero.y+.55)*TILE-camY;
+objects.push({x:hero.x*TILE-camX,y:hero.y*TILE-camY,draw:()=>{
+  light(ctx,heroScreenX,heroScreenY-30,46,'#85cfc3',.19);
+  ctx.save();
+  ctx.strokeStyle='#91c8c3';ctx.globalAlpha=.65;ctx.lineWidth=2;
+  ctx.beginPath();ctx.ellipse(heroScreenX,heroScreenY+3,18,5,0,0,Math.PI*2);ctx.stroke();
+  ctx.restore();
+  drawHero(ctx,heroScreenX,heroScreenY,t,hero.walking,hero.facing,false,reducedMotion);
+}});objects.sort((a,b)=>a.y-b.y);for(const obj of objects)obj.draw();
 // Per-biome atmosphere: sparks in Arken, rain and spores in the woods, rising runes in the sanctuary.
 // All geometry passes through the same ASCII compositor as the physical world.
 drawClimate(ctx,zone,t,z.seed,reducedMotion);
