@@ -1,6 +1,6 @@
 # ASCII AZUR — Autonomous Evolution State
 
-Last audited: 2026-10-22, v0.26 candidate. Source of truth: `akumanomi1988/ASCII_AZUR` / `main` once promoted. One iteration per invocation; do not run scheduled or Work tasks without explicit consent.
+Last audited: 2026-10-22, v0.26 (CI and Pages delivery verified; public browser smoke not verified). Source of truth: `akumanomi1988/ASCII_AZUR` / `main` once promoted. One iteration per invocation; do not run scheduled or Work tasks without explicit consent.
 
 ## Vision and invariant contracts
 
@@ -24,7 +24,7 @@ Three regions, 12 species, a playable closed Arken narrative arc, seeded rogueli
 | Combat | 3 | 3 | Tactical moves/battle replay; need encounter pacing/balance matrix and real-device interaction |
 | Creatures | 2 | 2 | Two unique motifs added; need 12 distinct readable designs at minimum mobile glyph size |
 | Story and lore | 2 | 2 | One fully integrated Arken arc (v0.17); global beginning-middle-ending campaign still missing; need a complete multi-region campaign |
-| Progression | 2 | 2 | Evolution, team and quests; need balanced full campaign progression and economy |
+| Progression | 2 | 2 | v0.26 persistent first-trail XP 48, 3 starter threshold tests and one natural-command payout; full campaign balance still pending |
 | UX / HUD | 3 | 3 | v0.19 route-aware compass, compact remaining-steps cue; real-device readability and usability tests pending |
 | Mobile | 2 | 2 | Emulated portrait/landscape Chromium PASS; require real Android touch/FPS verification |
 | Audio | 3 | 3 | Generated ambience and combat feedback; need memorable themes, mixing and accessibility |
@@ -236,10 +236,14 @@ Source commit, GitHub Actions and Pages provenance are recorded below. Direct pu
 - **Quality model:** 16-dimension aggregate **2.5/5 previous → 2.5/5 current**. New progression behavior is technically verified; grind reduction, combat balance, Android hardware FPS and perceived player enjoyment are unverified. Premium-complete gate is NOT passed.
 - **Next highest priority:** compare start-to-Guardian balance across all three starters and many deterministic world/encounter seeds using legitimate gameplay commands; reduce unnecessary grind based on the measured distribution, without making tactical encounters trivial. Then expand the global multi-region campaign and independently test on physical Android devices with sustained WebGL2 frame timing.
 
-## Iteration v0.26 — Persistent first-trail XP (candidate; CI/deployment pending)
+## Iteration v0.26 — Persistent first-trail XP (verified delivery; live client not verified)
 
-- **Diagnosis:** v0.24 scripted first playthrough used 18 repeated wild battles to prepare for the guardian. The three persistent forest trail enemies gave only the same XP as random battles; initial exploration did not accelerate progression.
-- **Implementation:** an extra 48 XP on each first victory over a canonical visible trail encounter (forest/sanctuary slots 0–2), computed before marking the persistent `roamer-*` flag. The normal party XP payout applies; defeated and reserve creatures receive nothing. Captures remove that encounter without the victory bonus. No save, world generation, combat strength or graphics format changes.
-- **Acceptance target:** deterministic three-starter experience threshold at forest levels 5–7; real combat victory via player attack commands, idempotent payout and persistent encounter flag; strict build, full tests, offline PWA audit, main CI, exact Pages provenance.
-- **Score:** previous **2.5/5**, current **2.5/5** pending independent balance/playtesting. Cannot claim a human-validated 18-fight reduction; repeated fight counts depend on survival, captures and routing.
-- **Outstanding:** global campaign, real Android WebGL2 and performance, external testers, complete user-input playthrough, direct public-origin gameplay smoke. Next: multi-seed three-starter natural Guardian balance testing, then authored progression expansion.
+- **Diagnosis:** v0.24 scripted playthrough used 18 repeated wild battles preparing for Hollowhart. Persistent, visible forest encounters paid no more experience than random battles; exploration had little progression leverage. These 18 encounters are one tested strategy, not a proven gameplay minimum.
+- **Implemented:** +48 XP for the first *victory* against canonical visible encounters `forest-0..2` and `sanctuary-0..2`. The existing `roamer-*` flag is applied when the encounter resolves; capture consumes that encounter without victory XP. Old v1 saves use the existing flags without migration. Random battles, dungeon, boss and expedition rewards remain unchanged. Standard 100% active / 50% conscious-team XP propagation and evolutions are preserved.
+- **Quantified design:** three forest enemies at level 5, 6, 7 provide 26+29+32 base plus 144 bonus = **231 XP**; a level-5 starter needs 216 XP to reach level 8. Pure regression confirms the XP threshold for Cindrel, Velaria and Thorne. This is not proof of natural fight survivability or minimum grind.
+- **Test evidence:** feature CI `39763097341` SUCCESS; main CI `39763205296` SUCCESS at source commit `ce9d0e2d2ec43107531dbdf3877ba595b063ced7`: TypeScript strict build, **180/180 Node tests PASS**, standalone 343140 bytes, **31 reachable JS modules / 32 offline cached assets**, release packaging PASS. A new runtime test executes actual move commands for the first victory and an artificial repeat in the test harness, asserting 74 XP first / 26 XP repeat and only one flag. Initial CI `39762917313` failed two existing Guardian copy assertions; reverted extra text and retested green.
+- **Published GitHub Pages:** branch `gh-pages` commit `fdcf992a5a582f37aa4043a7e5ea80b5fb34cf9f`; Pages deployment workflow `39763347819` SUCCESS (build/deploy/report). `build-info.json` reports `0.26.0` and the exact source SHA with verified main CI. Published `index.html`, `sw.js`, `dist/main.js` and `dist/world/encounters.js` have exactly the same Git blob SHA as source commit.
+- **Independent public URL:** `https://akumanomi1988.github.io/ASCII_AZUR/` — public-origin direct HTTP / playable touch/desktop smoke **NOT VERIFIED**; inspection tools cannot fetch github.io. Successful Pages deployment and matching blobs are delivery evidence, not an actual remote browser user test. No independent real-device Android, GPU performance or external playtest performed this iteration.
+- **Iteration acceptance:** 8/9 targeted checks verified: canonical bonus, one-time XP flag, random/boss exclusion, shared-XP regression, starter thresholds, actual attack-command win, full build/test/PWA gates, exact Pages provenance. Ninth (live public-origin interactive smoke) unverified, not passed.
+- **Quality model:** 16 scores unchanged; previous mean **2.5/5**, current **2.5/5**, **0/16** domains reach 4/5. Premium completion gate FAIL. No unverifiable score inflation. No full global campaign or independent natural playthrough.
+- **Next priority:** test legitimate start→Guardian play across all three starters and many seeds, measure wins / repeated encounters / captures / time to goal, then adjust balance from observed outcomes. Continue full authored campaign and real Android sustained WebGL2 FPS/touch QA.
