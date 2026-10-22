@@ -10,6 +10,8 @@ export interface Creature {uid:string;speciesId:string;level:number;exp:number;h
 /** Serializable combat checkpoint; saved before every interactive command finishes. */
 export interface BattleCheckpoint {
  enemy:Creature;type:'wild'|'boss'|'expedition';encounterId?:string;ally:number;guarding:boolean;
+ /** Optional for legacy v1 saves. Committed action still awaiting resolution. */
+ pending?:'enemy'|'capture'|'victory'|'defeat';
  bossPhase:1|2;chargeStage:0|1|2;
  effects:Record<string,{kind:'scorch'|'weaken'|'fracture';remaining:number}[]>;
 }
@@ -90,6 +92,7 @@ export function validateBattleCheckpoint(value:unknown,team:Creature[]):value is
  const b=value as Partial<BattleCheckpoint>,e=b.enemy as Partial<Creature>|undefined;
  if(!e||typeof e.uid!=='string'||e.uid.length>80||typeof e.speciesId!=='string'||!SPECIES[e.speciesId]||!Number.isInteger(e.level)||e.level!<1||e.level!>30||!Number.isInteger(e.hp)||e.hp!<0||e.hp!>maxHp(e as Creature)||!Number.isInteger(e.exp)||e.exp!<0||!Array.isArray(e.moves)||e.moves.length<1||e.moves.length>4||e.moves.some(m=>typeof m!=='string'||!MOVES[m]))return false;
  if(!['wild','boss','expedition'].includes(b.type||'')||!Number.isInteger(b.ally)||b.ally!<0||b.ally!>=team.length||typeof b.guarding!=='boolean'||![1,2].includes(b.bossPhase||0)||![0,1,2].includes(b.chargeStage??-1))return false;
+ if(b.pending!==undefined&&!['enemy','capture','victory','defeat'].includes(b.pending))return false;
  if(b.encounterId!==undefined&&(!/^(forest|sanctuary)-[0-2]$/.test(b.encounterId)))return false;
  if(!b.effects||typeof b.effects!=='object'||Array.isArray(b.effects)||Object.keys(b.effects).length>8)return false;
  return Object.entries(b.effects).every(([key,list])=>key.length<85&&Array.isArray(list)&&list.length<=3&&list.every(s=>!!s&&['scorch','weaken','fracture'].includes(s.kind)&&Number.isInteger(s.remaining)&&s.remaining>=1&&s.remaining<=5));

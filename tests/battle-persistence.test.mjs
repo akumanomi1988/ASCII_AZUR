@@ -18,6 +18,8 @@ test('checkpointed encounter survives save roundtrip with HP, effects and turn s
 test('checkpoint validation rejects invalid status, enemy HP, unknown move and ally index',()=>{
  const s=saved(),b=battle(s);
  assert.equal(validateBattleCheckpoint(b,s.team),true);
+ for(const pending of ['enemy','capture','victory','defeat'])assert.equal(validateBattleCheckpoint({...b,pending},s.team),true);
+ assert.equal(validateBattleCheckpoint({...b,pending:'free-extra-turn'},s.team),false);
  const bad=[{...b,ally:2},{...b,enemy:{...b.enemy,hp:9000}},{...b,enemy:{...b.enemy,moves:['delete_all']}},{...b,effects:{lol:[{kind:'sleep_forever',remaining:3}]}},{...b,effects:{lol:[{kind:'scorch',remaining:999}]}}];
  for(const v of bad)assert.equal(validateBattleCheckpoint(v,s.team),false);
 });

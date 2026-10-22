@@ -25,7 +25,7 @@ import {unlockedMoves,equipMove} from './creatures/loadout.js';
 import {BIOMES,createExpedition,chooseRoom,completeBattle,availableRooms,expeditionComplete,settleExpedition,roomById,type Biome,type Reward} from './expeditions/expedition.js';
 const byId=<T extends HTMLElement>(id:string)=>{const el=document.getElementById(id);if(!el)throw Error('Falta elemento UI: '+id);return el as T;};
 const htmlEscape=(v:string)=>v.replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]!));
-type Battle={encounterId?:string;enemy:Creature;type:'wild'|'boss'|'expedition';busy:boolean;ally:number;log:string;guarding:boolean;selecting:boolean;bossPhase:1|2;chargeStage:0|1|2;effects:Record<string,StatusEffect[]>;};
+type Battle={encounterId?:string;enemy:Creature;type:'wild'|'boss'|'expedition';pending?:BattleCheckpoint['pending'];busy:boolean;ally:number;log:string;guarding:boolean;selecting:boolean;bossPhase:1|2;chargeStage:0|1|2;effects:Record<string,StatusEffect[]>;};
 class AzurGame {
   private renderer=new AsciiRenderer(byId<HTMLCanvasElement>('game'));
   private frameMetrics=new FrameMetrics();private adaptiveGlyphs=new AdaptiveGlyphs();private lastAdaptiveUpdate=0;private debugPerformance=false;private lastDebugUpdate=0;private lastCompassUpdate=0;
@@ -259,15 +259,18 @@ class AzurGame {
     case 'guardian':if(this.save.defeatedBoss){this.toast('EL GUARDIÁN DESCANSA');return;}this.prepareGuardianBattle();break;}}
   private checkpointBattle(){
     const b=this.battle;if(!b||!this.started)return;
-    const record:BattleCheckpoint={enemy:{...b.enemy,moves:[...b.enemy.moves]},type:b.type,ally:b.ally,guarding:b.guarding,bossPhase:b.bossPhase,chargeStage:b.chargeStage,encounterId:b.encounterId,effects:Object.fromEntries(Object.entries(b.effects).map(([uid,arr])=>[uid,arr.map(a=>({...a}))]))};
+    const record:BattleCheckpoint={enemy:{...b.enemy,moves:[...b.enemy.moves]},type:b.type,ally:b.ally,guarding:b.guarding,bossPhase:b.bossPhase,chargeStage:b.chargeStage,encounterId:b.encounterId,pending:b.pending,effects:Object.fromEntries(Object.entries(b.effects).map(([uid,arr])=>[uid,arr.map(a=>({...a}))]))};
     this.save.activeBattle=record;this.saveNow(false);
   }
   private restoreBattle(){
     const b=this.save.activeBattle;if(!b||!this.started)return;
-    this.battle={enemy:{...b.enemy,moves:[...b.enemy.moves]},type:b.type,ally:b.ally,guarding:b.guarding,bossPhase:b.bossPhase,chargeStage:b.chargeStage,encounterId:b.encounterId,effects:Object.fromEntries(Object.entries(b.effects).map(([id,arr])=>[id,arr.map(s=>({...s}))])),busy:false,selecting:false,log:'El combate continúa donde lo dejaste. El silencio no ha ganado.'};
+    this.battle={enemy:{...b.enemy,moves:[...b.enemy.moves]},type:b.type,ally:b.ally,guarding:b.guarding,bossPhase:b.bossPhase,chargeStage:b.chargeStage,encounterId:b.encounterId,pending:b.pending,effects:Object.fromEntries(Object.entries(b.effects).map(([id,arr])=>[id,arr.map(s=>({...s}))])),busy:!!b.pending,selecting:false,log:b.pending?'La acción anterior sigue resolviéndose. El turno no puede repetirse.':'El combate continúa donde lo dejaste. El silencio no ha ganado.'};
     const available=this.save.team.findIndex(c=>c.hp>0);if(available<0){this.defeat();return;}if(!this.save.team[this.battle.ally]?.hp)this.battle.ally=available;
     this.sound.setScene(b.type==='boss'?'boss':'battle');this.toggleDrawer(false);byId('battle').classList.remove('hidden');byId('viewport').classList.add('in-battle');this.refreshBattle();
-    if(b.enemy.hp<=0){this.battle!.busy=true;window.setTimeout(()=>this.winBattle(),250);}
+    if(b.pending==='enemy')window.setTimeout(()=>this.enemyTurn(),250);
+    else if(b.pending==='capture')window.setTimeout(()=>this.resolveCapture(),250);
+    else if(b.pending==='victory'||(b.pending===undefined&&b.enemy.hp<=0)){this.battle!.busy=true;window.setTimeout(()=>this.winBattle(),250);}
+    else if(b.pending==='defeat'){this.battle!.busy=true;window.setTimeout(()=>this.defeat(),250);}
   }
   private startBattle(id:string,level:number,type:'wild'|'boss'|'expedition',encounterId?:string){if(this.battle)return;this.toggleDrawer(false);this.resetJoystick();let ally=this.save.team.findIndex(c=>c.hp>0);if(ally<0){this.defeat();return;}this.sound.setScene(type==='boss'?'boss':'battle');this.battle={enemy:createCreature(id,level),type,encounterId,busy:false,ally,guarding:false,selecting:false,bossPhase:1,chargeStage:0,effects:{},log:type==='boss'?'HOLLOWHART, EL ÚLTIMO GUARDIÁN, DESPIERTA.':type==='expedition'?`LA GRIETA SE ABRE: ${SPECIES[id]!.name.toUpperCase()} TE DESAFÍA.`:`¡UN ${SPECIES[id]!.name.toUpperCase()} SALVAJE APARECE!`};this.combatCue=null;this.encounterCooldown=9;byId('battle').classList.remove('hidden');byId('viewport').classList.add('in-battle');byId('prompt').classList.add('hidden');this.sound.portal();this.refreshBattle();}
   /** Explicit warning and tactical plan before the point-of-no-return boss encounter.
@@ -328,14 +331,17 @@ class AzurGame {
     const selfBurn=this.tickBurn(ally);if(selfBurn)b.log+=` ${SPECIES[ally.speciesId]!.name} sufre ${selfBurn} por ARDOR.`;
     if((b.type==='boss'||(b.type==='expedition'&&this.save.expedition?.pending&&roomById(this.save.expedition,this.save.expedition.pending)?.kind==='boss'))&&b.bossPhase===1&&b.enemy.hp>0&&b.enemy.hp<=maxHp(b.enemy)*.5){b.bossPhase=2;b.chargeStage=1;b.log+=` ¡${SPECIES[b.enemy.speciesId]!.name.toUpperCase()} DESATA SU SEGUNDO NOMBRE!`;this.flash=.72;}
     if(ally.hp<=0){const next=this.save.team.findIndex(c=>c.hp>0);if(next>=0)b.ally=next;}
-    this.refreshBattle();if(b.enemy.hp<=0){window.setTimeout(()=>this.winBattle(),960);return;}if(!this.save.team.some(c=>c.hp>0)){window.setTimeout(()=>this.defeat(),960);return;}window.setTimeout(()=>this.enemyTurn(),1000);
+    // Commit the action before a delayed response so reload cannot grant an extra turn.
+    b.pending=b.enemy.hp<=0?'victory':!this.save.team.some(c=>c.hp>0)?'defeat':'enemy';
+    this.refreshBattle();if(b.pending==='victory'){window.setTimeout(()=>this.winBattle(),960);return;}if(b.pending==='defeat'){window.setTimeout(()=>this.defeat(),960);return;}window.setTimeout(()=>this.enemyTurn(),1000);
   }
   private defend(){const b=this.battle,ally=this.getAlly();if(!b||!ally||b.busy)return;
     b.busy=true;b.guarding=true;b.log=`${SPECIES[ally.speciesId]!.name} protege sus recuerdos. El próximo ataque hará un 55% menos de daño.`;
-    this.setCombatCue('guard','ally',SPECIES[ally.speciesId]!.element);this.sound.select();const burn=this.tickBurn(ally);if(burn)b.log+=` ${burn} de daño por ARDOR.`;if(ally.hp<=0){const next=this.save.team.findIndex(c=>c.hp>0);if(next>=0)b.ally=next;else{this.defeat();return;}}this.refreshBattle();
+    this.setCombatCue('guard','ally',SPECIES[ally.speciesId]!.element);this.sound.select();const burn=this.tickBurn(ally);if(burn)b.log+=` ${burn} de daño por ARDOR.`;if(ally.hp<=0){const next=this.save.team.findIndex(c=>c.hp>0);if(next>=0)b.ally=next;else{this.defeat();return;}}b.pending='enemy';this.refreshBattle();
     window.setTimeout(()=>this.enemyTurn(),680);
   }
   private enemyTurn(){const b=this.battle,ally=this.getAlly();if(!b||!ally)return;
+    b.pending=undefined; // A checkpoint after this turn records the next player decision.
     if(b.chargeStage===1){b.chargeStage=2;b.guarding=false;b.busy=false;b.log=`¡${SPECIES[b.enemy.speciesId]!.name.toUpperCase()} ACUMULA EL SILENCIO! Su próximo ataque será devastador. Usa GUARDIA.`;
       this.setCombatCue('guard','enemy','Éter');this.refreshBattle();return;}
     const charged=b.chargeStage===2;b.chargeStage=0;
@@ -352,9 +358,9 @@ class AzurGame {
     b.log=`${SPECIES[b.enemy.speciesId]!.name} usa ${charged?'RUPTURA DEL SILENCIO':m.name}. ${actual?'Recibes '+actual+' de daño':''}${recovered?' · Recupera '+recovered+' HP':''}${enemyUtility.cleanse?' · Purifica sus estados':''}${b.guarding&&actual?' (guardia)':''}${affliction}.`;
     const burn=this.tickBurn(b.enemy);if(burn)b.log+=` ${SPECIES[b.enemy.speciesId]!.name} sufre ${burn} por ARDOR.`;
     b.guarding=false;this.setCombatCue(m.role==='heal'?'heal':'attack','enemy',charged?'Éter':m.element,actual,result.effective);this.sound.hitElement(charged?'Éter':m.element);this.flash=charged?.4:.18;
-    if(ally.hp<=0){const next=this.save.team.findIndex(c=>c.hp>0);if(next<0){this.refreshBattle();window.setTimeout(()=>this.defeat(),1050);return;}
+    if(ally.hp<=0){const next=this.save.team.findIndex(c=>c.hp>0);if(next<0){b.pending='defeat';this.refreshBattle();window.setTimeout(()=>this.defeat(),1050);return;}
       b.ally=next;b.log+=` ${SPECIES[this.save.team[next]!.speciesId]!.name} acude a tu llamada.`;}
-    if(b.enemy.hp<=0){this.refreshBattle();window.setTimeout(()=>this.winBattle(),760);return;}
+    if(b.enemy.hp<=0){b.pending='victory';this.refreshBattle();window.setTimeout(()=>this.winBattle(),760);return;}
     b.busy=false;this.refreshBattle();
   }
   private winBattle(){const b=this.battle,ally=this.getAlly();if(!b||!ally)return;const bonus=firstRoamerVictoryBonus(b.type,b.encounterId,this.save.flags);const amount=(b.type==='boss'?95:11+b.enemy.level*3)+bonus;const awards=grantPartyExperience(this.save.team,b.ally,amount);if(bonus>0)this.save.team=recoverTrailParty(this.save.team);const gain=awards.find(a=>a.active)!;const evolution=awards.find(a=>a.evolved);const supporters=awards.filter(a=>!a.active);const originalName=SPECIES[b.enemy.speciesId]!.name;this.finishBattle();if(b.encounterId)this.addFlag('roamer-'+b.encounterId);this.sound.pick();if(b.type==='wild'&&this.save.dungeon?.active&&this.save.dungeon.pending!==null)this.finishDungeonEnemy();if(b.type==='expedition'){this.expeditionBattleWon();if(evolution)this.beginEvolution(evolution.from,evolution.to);this.saveNow(false);this.updateUI();window.setTimeout(()=>this.openExpedition(),evolution?3500:620);return;}if(b.type==='boss'){this.save.defeatedBoss=true;this.addFlag('first-word');this.dialog([{title:'El lenguaje se quiebra',text:'Hollowhart cae de rodillas. Entre sus astas aparece una palabra que no puede pronunciarse.'},{title:'LA PRIMERA PALABRA',text:'La primera sílaba del mundo es tuya. El bosque vuelve a respirar. Pero más allá del santuario alguien ha comenzado a borrar el cielo.'},{title:'FIN DEL CAPÍTULO I',text:'La Primera Palabra ha vuelto, pero Arken aún no puede recordarlo todo. Regresa a la aldea, desciende a la Cripta de los Ecos y busca el Último Signo.'}]);}else{if(!evolution)this.toast(`${originalName.toUpperCase()} VENCIDO · +${amount} EXP${bonus?' · RASTRO +'+bonus+' EXP · REPOSO +25% PS':''}${gain.levelUp?' · ¡NIVEL!':''}${supporters.length?' · '+supporters.length+' ALIADOS +'+supporters[0]!.amount+' EXP':''}`);if(Math.random()<.25)this.save.inventory.seals++;this.economy.echoes=Math.min(999999,this.economy.echoes+4+Math.floor(b.enemy.level*.9));}if(evolution)this.beginEvolution(evolution.from,evolution.to);this.saveNow(false);this.updateUI();}
@@ -363,19 +369,39 @@ class AzurGame {
     const banner=byId('evolutionBanner');banner.innerHTML=`<small>REESCRITURA DEL NOMBRE</small><strong>${htmlEscape(SPECIES[from]!.name)} <span>→</span> ${htmlEscape(SPECIES[to]!.name)}</strong>`;
     banner.classList.remove('hidden');this.sound.evolve();this.sound.setScene('sanctuary');
   }
-  private capture(){const b=this.battle;if(!b||b.busy||b.type!=='wild'||this.save.inventory.seals<1)return;this.save.inventory.seals--;b.busy=true;this.setCombatCue('capture','ally',SPECIES[b.enemy.speciesId]!.element);const chance=capturePreview(this.getAlly()!,b.enemy,this.statuses(b.enemy)).chance;this.sound.select();b.log='El sello cruza la bruma...';this.refreshBattle();window.setTimeout(()=>{if(!this.battle)return;if(Math.random()<chance){const captured=b.enemy;let stored=false;if(this.save.team.length<6)this.save.team.push(captured);else{this.save.storage.push(captured);stored=true;}this.finishBattle();if(b.encounterId)this.addFlag('roamer-'+b.encounterId);this.sound.pick();if(this.save.dungeon?.active&&this.save.dungeon.pending!==null)this.finishDungeonEnemy();this.toast(`VÍNCULO ESTABLECIDO: ${SPECIES[captured.speciesId]!.name.toUpperCase()}${stored?' (RESERVA)':''}`);this.addFlag('first-capture');this.saveNow(false);this.updateUI();}else{b.log='¡EL SELLO SE ROMPE! LA CRIATURA RESISTE.';this.enemyTurn();}},750);}
-  private tonic(){const b=this.battle,ally=this.getAlly();if(!b||!ally||b.busy||this.save.inventory.tonics<1)return;this.save.inventory.tonics--;ally.hp=Math.min(maxHp(ally),ally.hp+28);this.setStatuses(ally,this.statuses(ally).filter(s=>s.kind!=='scorch'));b.busy=true;this.setCombatCue('heal','ally',SPECIES[ally.speciesId]!.element);b.log=`${SPECIES[ally.speciesId]!.name} recupera 28 puntos de salud y limpia el ARDOR.`;this.sound.pick();this.refreshBattle();window.setTimeout(()=>this.enemyTurn(),550);}
+  private capture(){const b=this.battle;if(!b||b.busy||b.type!=='wild'||this.save.inventory.seals<1)return;
+    // Debit and save a single attempt before rolling asynchronously.
+    this.save.inventory.seals--;b.busy=true;b.pending='capture';
+    this.setCombatCue('capture','ally',SPECIES[b.enemy.speciesId]!.element);this.sound.select();
+    b.log='El sello cruza la bruma...';this.refreshBattle();window.setTimeout(()=>this.resolveCapture(),750);
+  }
+  private resolveCapture(){const b=this.battle;if(!b||b.pending!=='capture')return;
+    const ally=this.getAlly();if(!ally)return;
+    const chance=capturePreview(ally,b.enemy,this.statuses(b.enemy)).chance;
+    if(Math.random()<chance){
+      const captured=b.enemy;let stored=false;
+      if(this.save.team.length<6)this.save.team.push(captured);else{this.save.storage.push(captured);stored=true;}
+      this.finishBattle();if(b.encounterId)this.addFlag('roamer-'+b.encounterId);this.sound.pick();
+      if(this.save.dungeon?.active&&this.save.dungeon.pending!==null)this.finishDungeonEnemy();
+      this.toast(`VÍNCULO ESTABLECIDO: ${SPECIES[captured.speciesId]!.name.toUpperCase()}${stored?' (RESERVA)':''}`);
+      this.addFlag('first-capture');this.saveNow(false);this.updateUI();
+    }else{
+      b.pending='enemy';b.log='¡EL SELLO SE ROMPE! LA CRIATURA RESISTE.';
+      this.refreshBattle();this.enemyTurn();
+    }
+  }
+  private tonic(){const b=this.battle,ally=this.getAlly();if(!b||!ally||b.busy||this.save.inventory.tonics<1)return;this.save.inventory.tonics--;ally.hp=Math.min(maxHp(ally),ally.hp+28);this.setStatuses(ally,this.statuses(ally).filter(s=>s.kind!=='scorch'));b.busy=true;b.pending='enemy';this.setCombatCue('heal','ally',SPECIES[ally.speciesId]!.element);b.log=`${SPECIES[ally.speciesId]!.name} recupera 28 puntos de salud y limpia el ARDOR.`;this.sound.pick();this.refreshBattle();window.setTimeout(()=>this.enemyTurn(),550);}
   private switchCreature(){const b=this.battle;if(!b||b.busy)return;
     if(!this.save.team.some((c,i)=>c.hp>0&&i!==b.ally)){this.toast('NO TIENES OTRA CRIATURA DISPONIBLE');return;}
     b.selecting=true;this.refreshBattle();
   }
   private switchTo(index:number){const b=this.battle;if(!b||b.busy||!b.selecting||index===b.ally)return;
     const selected=this.save.team[index];if(!selected||selected.hp<=0)return;
-    b.ally=index;b.selecting=false;b.guarding=false;b.busy=true;b.log=`¡${SPECIES[selected.speciesId]!.name} entra en combate!`;
+    b.ally=index;b.selecting=false;b.guarding=false;b.busy=true;b.pending='enemy';b.log=`¡${SPECIES[selected.speciesId]!.name} entra en combate!`;
     this.setCombatCue('switch','ally',SPECIES[selected.speciesId]!.element);this.sound.select();this.refreshBattle();
     window.setTimeout(()=>this.enemyTurn(),700);
   }
-  private escape(){if(!this.battle||this.battle.busy||this.battle.type==='boss')return;if(Math.random()<.86){this.finishBattle();this.toast('ESCAPAS ENTRE LA NIEBLA');}else{this.battle.busy=true;this.battle.log='¡NO PUEDES ESCAPAR!';this.refreshBattle();window.setTimeout(()=>this.enemyTurn(),400);}}
+  private escape(){if(!this.battle||this.battle.busy||this.battle.type==='boss')return;if(Math.random()<.86){this.finishBattle();this.toast('ESCAPAS ENTRE LA NIEBLA');}else{this.battle.busy=true;this.battle.pending='enemy';this.battle.log='¡NO PUEDES ESCAPAR!';this.refreshBattle();window.setTimeout(()=>this.enemyTurn(),400);}}
   private defeat(){if(this.save.dungeon?.active){this.save.dungeon.active=false;this.save.dungeon.pending=null;}if(this.save.expedition?.pending){const consolation=settleExpedition(this.save.expedition,false);this.addExpeditionReward(consolation);this.expeditionMessage=`La expedición terminó en derrota. Recuperaste ${consolation.echoes} Ecos.`;delete this.save.expedition;}this.finishBattle();this.save.zone='village';this.cameraZone='';this.sound.setScene('village');this.save.x=15;this.save.y=14;this.lastReveal=-1;this.revealPosition();this.save.team.forEach(c=>c.hp=maxHp(c));this.encounterCooldown=6;this.sound.portal();this.dialog([{title:'Regresas a la Lumbre',text:'La oscuridad te ha vencido, pero tus vínculos no se han roto. Descansas y recuperas fuerzas en Velo de Arken.'}]);this.saveNow(false);this.updateUI();}
   private finishBattle(){this.sound.setScene(themeForZone(this.save.zone as ZoneId));delete this.save.activeBattle;this.battle=null;this.combatCue=null;byId('battle').classList.add('hidden');byId('viewport').classList.remove('in-battle');this.encounterCooldown=7;}
   private interactNpc(id:NpcId){

@@ -9,8 +9,9 @@ const fakeContext={
  createLinearGradient(){return{addColorStop(){}}},createRadialGradient(){return{addColorStop(){}}},
  getImageData(){return{data:new Uint8ClampedArray(960*540*4)}}
 };
-function mount({virtualTime=false,seed=1}={}){
+function mount({virtualTime=false,seed=1,priorSave=null}={}){
  const dom=new Map(),store=new Map(),timers=[];
+ if(priorSave!==null)store.set('ascii-azur-save-v1',priorSave);
  let nextTimerId=0, clock=0, randomSeed=seed>>>0;
  const randomMath=Object.create(Math);
  randomMath.random=()=>{randomSeed=(Math.imul(randomSeed,1664525)+1013904223)>>>0;return randomSeed/4294967296;};
@@ -535,4 +536,36 @@ test('runtime: legacy altar flags block repeat rewards and a full bag does not g
  game.interactLandmark({kind:'altar',x:17,y:16,label:'Lumbre'});
  assert.equal(game.save.inventory.seals,2,'full-bag discovery cannot be exploited after spending');
  assert.equal(JSON.parse(storage.getItem('ascii-azur-save-v1')).flags.filter(f=>f==='altar-forest').length,1);
+});
+
+test('runtime: reloading a committed attack cannot skip the enemy response',()=>{
+ const a=mount({virtualTime:true,seed:17});a.game.startNew();a.game.pickStarter('cindrel');while(a.game.dialogOpen)a.game.nextDialog();
+ a.game.startBattle('thorne',4,'wild');a.game.useMove('ember');assert.equal(a.game.battle.pending,'enemy');
+ const raw=a.storage.getItem('ascii-azur-save-v1');assert.equal(JSON.parse(raw).activeBattle.pending,'enemy');
+ const b=mount({virtualTime:true,seed:17,priorSave:raw});b.game.continueGame();
+ assert.equal(b.game.battle.busy,true);assert.equal(b.game.battle.pending,'enemy');
+ const enemyHp=b.game.battle.enemy.hp;b.game.useMove('ember');
+ assert.equal(b.game.battle.enemy.hp,enemyHp,'cannot attack twice before retaliation');
+ b.flushTimers();assert.equal(b.game.battle?.pending,undefined);assert.equal(b.game.battle?.busy,false);
+ assert.match(b.game.battle.log,/usa /);
+ assert.equal(JSON.parse(b.storage.getItem('ascii-azur-save-v1')).activeBattle.pending,undefined);
+});
+test('runtime: reloading a paid capture resumes one attempt without charging twice',()=>{
+ const a=mount({virtualTime:true,seed:17});a.game.startNew();a.game.pickStarter('velaria');while(a.game.dialogOpen)a.game.nextDialog();
+ a.game.startBattle('thorne',4,'wild');const seals=a.game.save.inventory.seals;a.game.capture();
+ assert.equal(a.game.battle.pending,'capture');assert.equal(a.game.save.inventory.seals,seals-1);
+ const b=mount({virtualTime:true,seed:17,priorSave:a.storage.getItem('ascii-azur-save-v1')});b.game.continueGame();
+ assert.equal(b.game.battle.pending,'capture');assert.equal(b.game.battle.busy,true);
+ b.flushTimers();assert.equal(b.game.save.inventory.seals,seals-1);
+ assert.ok(!b.game.battle||b.game.battle.pending===undefined);
+});
+test('runtime: reloading a pending victory grants XP exactly once',()=>{
+ const a=mount({virtualTime:true,seed:31});a.game.startNew();a.game.pickStarter('cindrel');while(a.game.dialogOpen)a.game.nextDialog();
+ a.game.startBattle('thorne',4,'wild');a.game.battle.enemy.hp=1;a.game.useMove('ember');
+ assert.equal(a.game.battle.pending,'victory');
+ const b=mount({virtualTime:true,seed:31,priorSave:a.storage.getItem('ascii-azur-save-v1')});
+ b.game.continueGame();assert.equal(b.game.battle.busy,true);b.flushTimers();
+ assert.equal(b.game.battle,null);const exp=b.game.save.team[0].exp;
+ const c=mount({virtualTime:true,seed:31,priorSave:b.storage.getItem('ascii-azur-save-v1')});
+ c.game.continueGame();c.flushTimers();assert.equal(c.game.battle,null);assert.equal(c.game.save.team[0].exp,exp);
 });

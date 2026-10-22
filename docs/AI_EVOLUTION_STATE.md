@@ -126,3 +126,10 @@ The current game includes three regions, 12 species, an authored six-step Arken 
 - Quality scorecard: unchanged, **2.5/5** overall; **0/16** independently accepted at 4/5 or higher. No premium-quality gate claim.
 - This is a **documentation-only closure commit marked [skip ci]** to avoid re-running browser quality gates or unnecessarily redeploying identical binaries. Deployed gameplay provenance intentionally remains the earlier verified source commit above.
 - Highest-value next iteration: instrument or simulate legitimate combat paths and consumables across seeds and all three starters, then remediate confirmed Guardian/crypt bottlenecks.
+
+## 2026-10-22 — Durable combat turn checkpoints
+
+- Source diagnosis: player attacks, capture seals, tonics, swaps and guarding checkpoint HP/consumption, then schedule enemy retaliation with a timer; loading that checkpoint previously reset `busy=false` and discarded the promised enemy turn. Repeat reloads gave free attacks or lost capture rolls.
+- New optional `activeBattle.pending` turn phase ('enemy', 'capture', 'victory', 'defeat') fits existing v1 saves. Pending turns remain input-locked on reload, paid captures settle exactly once, victory/defeat transitions resume, and old v1 saves without a phase remain valid. No simulation rules, world geometry, renderer contracts, or economy formulas changed.
+- Tests added: saved retaliation, consumed capture and idempotent victory reload, plus invalid phase rejection. **Feature CI, main CI, deployed provenance and external HTTP smoke must still be verified.** Do not inflate scores on code-only evidence.
+- Quality baseline: unchanged 2.5/5. Next: multi-seed legitimate gameplay balancing of Guardian and crypt, complete global authored campaign, mobile-device QA.
