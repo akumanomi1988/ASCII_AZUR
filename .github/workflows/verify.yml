@@ -32,3 +32,65 @@ jobs:
           name: ascii-azur-build
           path: release/*
           retention-days: 14
+      - name: Store verified GitHub Pages distribution
+        uses: actions/upload-artifact@v4
+        with:
+          name: ascii-azur-pages
+          path: |
+            index.html
+            style.css
+            sw.js
+            manifest.webmanifest
+            assets/icon.svg
+            dist/**
+          retention-days: 3
+
+  publish-pages:
+    name: Publish validated game
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: ascii-azur-pages
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          name: ascii-azur-pages
+          path: pages-build
+      - name: Publish verified static build to gh-pages without force push
+        shell: bash
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch origin gh-pages
+          pages="$RUNNER_TEMP/ascii-azur-pages"
+          git worktree add --detach "$pages" origin/gh-pages
+          rm -rf "$pages/dist" "$pages/assets"
+          cp -R pages-build/dist "$pages/dist"
+          mkdir -p "$pages/assets"
+          cp -R pages-build/assets/. "$pages/assets/"
+          cp pages-build/index.html pages-build/style.css pages-build/sw.js pages-build/manifest.webmanifest "$pages/"
+          touch "$pages/.nojekyll"
+          python3 - "$pages/build-info.json" <<'PY'
+          import json, os, pathlib, sys
+          from datetime import datetime, timezone
+          pathlib.Path(sys.argv[1]).write_text(json.dumps({
+              "source_commit": os.environ["SOURCE_SHA"],
+              "build": "verified-github-actions",
+              "published_at": datetime.now(timezone.utc).isoformat()
+          }, indent=2) + "\n")
+          PY
+          git -C "$pages" config user.name "github-actions[bot]"
+          git -C "$pages" config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git -C "$pages" add -A
+          if ! git -C "$pages" diff --cached --quiet; then
+            git -C "$pages" commit -m "deploy: ASCII AZUR verified $SOURCE_SHA"
+            git -C "$pages" push origin HEAD:gh-pages
+          fi
