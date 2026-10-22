@@ -35,7 +35,8 @@ export function navigateMenuKey(root:HTMLElement,key:string,trapTab=false):boole
  else if(key==='End')next=nodes.length-1;
  else{
    const backwards=['ArrowUp','ArrowLeft','w','W','a','A'].includes(key);
-   next=(current+(backwards?-1:1)+nodes.length)%nodes.length;
+   // When focus starts outside this menu, enter at the nearest edge instead of skipping an item.
+   next=current<0?(backwards?nodes.length-1:0):(current+(backwards?-1:1)+nodes.length)%nodes.length;
  }
  nodes[next]?.focus();
  nodes[next]?.scrollIntoView?.({block:'nearest',inline:'nearest'});
