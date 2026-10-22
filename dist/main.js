@@ -4,7 +4,7 @@ import { visibleEncounters, nearbyEncounter } from './world/encounters.js';
 import { drawDungeon } from './dungeons/draw-dungeon.js';
 import { chamberAt, chamberProgress } from './dungeons/room-art.js';
 import { generateDungeon, nearbyDungeonEvent, completeDungeonEvent, dungeonGateOpen, revealDungeon, dungeonSweep } from './dungeons/labyrinth.js';
-import { SPECIES, MOVES, createCreature, gainExp, maxHp, validateSave } from './domain.js';
+import { SPECIES, MOVES, createCreature, maxHp, validateSave } from './domain.js';
 import { ZONES, sweepMove, isWild, nearbyLandmark, configureWorld, captureWorldSnapshot, freshWorldSeed, seedFromText, terrain, WORLD_W, WORLD_H } from './world.js';
 import { SHOP, QUESTS, buy, claimQuests, normalizeEconomy, newEconomy } from './rpg.js';
 import { Sound, themeForZone } from './audio.js';
@@ -13,7 +13,7 @@ import { AdaptiveGlyphs } from './core/adaptive-glyphs.js';
 import { storyGuidance } from './story-navigation.js';
 import { ARKEN_STORY, ARKEN_FINALE_REWARD, arkenStoryBeat, arkenStoryIndex, concludeArken, canConcludeArken, guardianPreparation } from './story-campaign.js';
 import { readSave, writeSave } from './core/save-store.js';
-import { transferStoredCreature, reserveCreature } from './party.js';
+import { transferStoredCreature, reserveCreature, grantPartyExperience } from './party.js';
 import { createCombatCue, sampleCombatCue, guardDamage } from './actors/combat-fx.js';
 import { MOVE_EFFECTS, STATUS_INFO, applyEffect, attackWithStatuses, chooseEnemyMove, endTurnEffects, statusLabel, skillUtility } from './combat/tactics.js';
 import { previewMove } from './combat/move-preview.js';
@@ -747,15 +747,15 @@ class AzurGame {
         this.refreshBattle();
     }
     winBattle() { const b = this.battle, ally = this.getAlly(); if (!b || !ally)
-        return; const amount = b.type === 'boss' ? 95 : 11 + b.enemy.level * 3; const beforeSpecies = ally.speciesId; const gain = gainExp(ally, amount); const originalName = SPECIES[b.enemy.speciesId].name; this.finishBattle(); if (b.encounterId)
+        return; const amount = b.type === 'boss' ? 95 : 11 + b.enemy.level * 3; const awards = grantPartyExperience(this.save.team, b.ally, amount); const gain = awards.find(a => a.active); const evolution = awards.find(a => a.evolved); const supporters = awards.filter(a => !a.active); const originalName = SPECIES[b.enemy.speciesId].name; this.finishBattle(); if (b.encounterId)
         this.addFlag('roamer-' + b.encounterId); this.sound.pick(); if (b.type === 'wild' && this.save.dungeon?.active && this.save.dungeon.pending !== null)
         this.finishDungeonEnemy(); if (b.type === 'expedition') {
         this.expeditionBattleWon();
-        if (gain.evolved)
-            this.beginEvolution(beforeSpecies, ally.speciesId);
+        if (evolution)
+            this.beginEvolution(evolution.from, evolution.to);
         this.saveNow(false);
         this.updateUI();
-        window.setTimeout(() => this.openExpedition(), gain.evolved ? 3500 : 620);
+        window.setTimeout(() => this.openExpedition(), evolution ? 3500 : 620);
         return;
     } if (b.type === 'boss') {
         this.save.defeatedBoss = true;
@@ -763,13 +763,13 @@ class AzurGame {
         this.dialog([{ title: 'El lenguaje se quiebra', text: 'Hollowhart cae de rodillas. Entre sus astas aparece una palabra que no puede pronunciarse.' }, { title: 'LA PRIMERA PALABRA', text: 'La primera sílaba del mundo es tuya. El bosque vuelve a respirar. Pero más allá del santuario alguien ha comenzado a borrar el cielo.' }, { title: 'FIN DEL CAPÍTULO I', text: 'La Primera Palabra ha vuelto, pero Arken aún no puede recordarlo todo. Regresa a la aldea, desciende a la Cripta de los Ecos y busca el Último Signo.' }]);
     }
     else {
-        if (!gain.evolved)
-            this.toast(`${originalName.toUpperCase()} VENCIDO · +${amount} EXP${gain.levelUp ? ' · ¡NIVEL!' : ''}`);
+        if (!evolution)
+            this.toast(`${originalName.toUpperCase()} VENCIDO · +${amount} EXP${gain.levelUp ? ' · ¡NIVEL!' : ''}${supporters.length ? ' · ' + supporters.length + ' ALIADOS +' + supporters[0].amount + ' EXP' : ''}`);
         if (Math.random() < .25)
             this.save.inventory.seals++;
         this.economy.echoes = Math.min(999999, this.economy.echoes + 4 + Math.floor(b.enemy.level * .9));
-    } if (gain.evolved)
-        this.beginEvolution(beforeSpecies, ally.speciesId); this.saveNow(false); this.updateUI(); }
+    } if (evolution)
+        this.beginEvolution(evolution.from, evolution.to); this.saveNow(false); this.updateUI(); }
     beginEvolution(from, to) {
         this.evolution = { from, to, startedAt: this.seconds, duration: this.reducedMotion ? .65 : 3.2 };
         this.resetJoystick();
