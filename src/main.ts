@@ -33,7 +33,7 @@ class AzurGame {
   private save:SaveGame={version:1,zone:'village',x:4,y:16,team:[],storage:[],inventory:{seals:5,tonics:3},defeatedBoss:false,flags:[],playSeconds:0,rpg:newEconomy()};
   private expeditionMessage='';private roamingCache=new Map<string,RoamingEncounter[]>();
   private started=false;private keys=new Set<string>();private battle:Battle|null=null;private dialogQueue:{title:string;text:string}[]=[];
-  private modalInvoking:HTMLElement|null=null;private drawerInvoking:HTMLElement|null=null;
+  private modalInvoking:HTMLElement|null=null;private modalBack:(()=>void)|null=null;private drawerInvoking:HTMLElement|null=null;
   private dialogOpen=false;private modalOpen=false;private flash=0;private last=0;private seconds=0;private stepCounter=0;
   private notifyTimer:number|undefined;private encounterCooldown=3;private timeSinceSave=0;
   private stick={x:0,y:0,pointerId:-1};private padStick={x:0,y:0};private padButtons=new Set<number>();private selectedBattleAction=0;private facing=2;private moving=false;
@@ -56,7 +56,7 @@ class AzurGame {
     byId('saveBtn').addEventListener('click',()=>this.saveNow(true));
     byId('teamBtn').addEventListener('click',()=>this.openTeam());
     byId('bagBtn').addEventListener('click',()=>this.openBag());
-    byId('closeModal').addEventListener('click',()=>this.hideModal());
+    byId('closeModal').addEventListener('click',()=>this.closeModalOrBack());
     byId('modal').addEventListener('click',e=>{if(e.target===byId('modal'))this.hideModal();});
     byId('closeDialogue').addEventListener('click',()=>this.nextDialog());
     byId('touchInteract').addEventListener('click',()=>this.interact());
@@ -71,11 +71,11 @@ class AzurGame {
     if(e.key==='F3'&&!e.repeat){e.preventDefault();this.debugPerformance=!this.debugPerformance;return;}
     const key=e.key.toLowerCase(),drawerOpen=byId('gameDrawer').classList.contains('open');
     if(isTypingTarget(e.target)){
-      if(e.key==='Escape'&&this.modalOpen){e.preventDefault();this.hideModal();}
+      if(e.key==='Escape'&&this.modalOpen){e.preventDefault();this.closeModalOrBack();}
       return;
     }
     if(e.key==='Escape'){
-      if(this.modalOpen)this.hideModal();
+      if(this.modalOpen)this.closeModalOrBack();
       else if(this.dialogOpen)this.nextDialog();
       else if(drawerOpen)this.toggleDrawer(false);
       else if(this.battle?.selecting){this.battle.selecting=false;this.refreshBattle();}
@@ -134,7 +134,7 @@ class AzurGame {
     const now=new Set<number>();pad.buttons.forEach((button,index)=>{if(button?.pressed)now.add(index);});
     const pressed=(index:number)=>now.has(index)&&!this.padButtons.has(index);
     if(pressed(9)&&this.started&&!this.battle&&!this.evolution)this.toggleDrawer();
-    if(pressed(1)){if(this.modalOpen)this.hideModal();else if(this.dialogOpen)this.nextDialog();else if(this.battle?.selecting){this.battle.selecting=false;this.refreshBattle();}}
+    if(pressed(1)){if(this.modalOpen)this.closeModalOrBack();else if(this.dialogOpen)this.nextDialog();else if(this.battle?.selecting){this.battle.selecting=false;this.refreshBattle();}}
     if((pressed(12)||pressed(14)||pressed(13)||pressed(15))&&(this.modalOpen||byId('gameDrawer').classList.contains('open'))){
       const root=this.modalOpen?byId('modal'):byId('gameDrawer');
       navigateMenuKey(root,pressed(12)||pressed(14)?'ArrowUp':'ArrowDown');
@@ -618,6 +618,7 @@ class AzurGame {
       `<div class="modal-content-block">Técnicas conocidas: ${unlocked.length}. Nuevas habilidades se desbloquean al ganar niveles.</div><div class="modal-option"><button id="skillBack">← EQUIPO</button></div>`);
     for(const button of byId('modalContent').querySelectorAll<HTMLButtonElement>('[data-skill-slot]'))button.onclick=()=>this.openSkillChoices(uid,Number(button.dataset.skillSlot));
     byId('skillBack').onclick=()=>{this.hideModal();this.openTeam();};
+    this.modalBack=()=>this.openTeam();
   }
   private openSkillChoices(uid:string,index:number){
     const creature=this.save.team.find(c=>c.uid===uid);if(!creature||!Number.isInteger(index)||index<0||index>=creature.moves.length)return;
@@ -630,6 +631,7 @@ class AzurGame {
       try{this.save.team[at]=equipMove(this.save.team[at]!,index,button.dataset.equipMove!);this.sound.select();this.saveNow(false);this.openSkills(uid);this.updateUI();}catch{this.toast('HABILIDAD NO DISPONIBLE');}
     };
     byId('skillChoicesBack').onclick=()=>this.openSkills(uid);
+    this.modalBack=()=>this.openSkills(uid);
   }
   private openRosterSwap(storedUid:string){
     const stored=this.save.storage.find(c=>c.uid===storedUid);if(!stored)return;
@@ -640,6 +642,7 @@ class AzurGame {
         this.sound.pick();this.saveNow(false);this.hideModal();this.openTeam();this.updateUI();}catch{this.toast('INTERCAMBIO NO DISPONIBLE');}
     };
     byId('rosterBack').onclick=()=>{this.hideModal();this.openTeam();};
+    this.modalBack=()=>this.openTeam();
   }
   private openBag(){if(!this.started||this.evolution||this.battle||this.dialogOpen||!byId('starterScreen').classList.contains('hidden'))return;this.showModal('MOCHILA DEL PORTADOR',`<div class="modal-content-block">Objetos recuperados entre las ruinas de Azur. · ✦ ${this.economy.echoes} ECOS</div><div class="modal-option"><div><strong>◇ Sellos de Vínculo</strong> × ${this.save.inventory.seals}<small>Permiten capturar criaturas debilitadas durante el combate.</small></div></div><div class="modal-option"><div><strong>✚ Tónicos</strong> × ${this.save.inventory.tonics}<small>Recuperan 28 HP de una criatura durante el combate.</small></div></div><div class="modal-content-block">Descansa en las Lumbres para curar al equipo y recuperar un sello. Los cofres contienen suministros limitados.</div>`);}
   private settings(){
@@ -701,12 +704,15 @@ class AzurGame {
   private showModal(title:string,body:string,allowIntro=false,allowBattle=false){
     if(this.evolution||(this.battle&&!allowBattle)||this.dialogOpen||(!allowIntro&&!byId('titleScreen').classList.contains('hidden'))||!byId('starterScreen').classList.contains('hidden'))return;
     const fromDrawer=byId('gameDrawer').classList.contains('open');
-    this.modalInvoking=fromDrawer?byId('drawerToggle'):document.activeElement as HTMLElement|null;
+    if(!this.modalOpen)this.modalInvoking=fromDrawer?byId('drawerToggle'):document.activeElement as HTMLElement|null;
+    this.modalBack=null;
     this.toggleDrawer(false);this.keys.clear();this.resetJoystick();this.modalOpen=true;
     byId('modalTitle').textContent=title;byId('modalContent').innerHTML=body;byId('modal').classList.remove('hidden');
     focusMenuFirst(byId('modal'));
   }
-  private hideModal(){this.modalOpen=false;byId('modal').classList.add('hidden');this.keys.clear();this.modalInvoking?.focus?.();this.modalInvoking=null;}
+  /** Escape and gamepad Back return to the parent panel before dismissing the overlay. */
+  private closeModalOrBack(){const back=this.modalBack;this.modalBack=null;if(back)back();else this.hideModal();}
+  private hideModal(){this.modalOpen=false;this.modalBack=null;byId('modal').classList.add('hidden');this.keys.clear();this.modalInvoking?.focus?.();this.modalInvoking=null;}
   private saveNow(notify:boolean){if(!this.started)return;try{writeSave(localStorage,this.save);byId('saveStatus').textContent='GUARDADO LOCAL · '+new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});if(notify)this.toast('EL RECUERDO HA SIDO CONSERVADO');}catch{if(notify)this.toast('NO SE PUDO GUARDAR · ALMACENAMIENTO LLENO');}}
   private updateStoryCompass(){
     const node=byId('storyCompass');

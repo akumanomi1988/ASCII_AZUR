@@ -74,3 +74,9 @@ The current game includes three regions, 12 species, an authored six-step Arken 
 - Settings: Immediate graphics-mode switch, per-mode controls, pixel detail presets and persistent legacy-compatible preferences. UI palette adapts to active graphics mode.
 - Distribution: New compiled modules in standalone bundle and service-worker cache; version updated to 0.27.0.
 - Acceptance status: Implementation committed to feature branch. CI build and 192/192 automated regression tests passed on feature branch (GitHub Actions run 39781584255; plus job 39782056285). Visual screenshots, actual device FPS and production Pages smoke remain to be verified; do not mark the art acceptance completed. The source-controlled Pages workflow now copies passing compiled output from CI to gh-pages on main pushes, records the exact source SHA, and never force-pushes.
+
+## 2026-10-22 — UI nested navigation hardening
+
+- Current confirmed baseline: `f062ead4a2893c490db4e35e2458e71eda0736c0`, quality-gates workflow `39785765299` SUCCESS, Pages workflow `39785839153` SUCCESS. `gh-pages/build-info.json` reports that exact source commit.
+- Fixed reverse-menu entry, added regression coverage; fixed parent-menu return with Escape/gamepad Back/close control for creature skill panels and roster swap; retained the original modal opener across nested navigation.
+- Acceptance still requires Chromium visual proof for both renderers, fullscreen/mobile layouts, external public smoke (public site inaccessible from the current reader), and physical Android performance. Do not claim artistic acceptance or a global game release based on CI alone.

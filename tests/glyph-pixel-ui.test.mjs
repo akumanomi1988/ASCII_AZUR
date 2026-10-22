@@ -88,3 +88,22 @@ test('menu navigation cycles and activates same click action',()=>{
    assert.equal(navigateMenuKey(root,' '),true);assert.equal(state.clicks,2);
  }finally{globalThis.document=oldDocument;}
 });
+
+
+test('reverse navigation enters at the last item and disabled options remain excluded',()=>{
+ const oldDocument=globalThis.document;
+ try{
+   let active=null;
+   const item=(id)=>({id,tagName:'BUTTON',hidden:false,getAttribute:()=>null,getClientRects:()=>[{}],focus(){active=this},scrollIntoView(){}});
+   const first=item('first'),last=item('last');
+   globalThis.document={get activeElement(){return active;}};
+   const root={querySelectorAll:()=>[first,last]};
+   assert.equal(navigateMenuKey(root,'ArrowUp'),true);
+   assert.equal(active.id,'last');
+   assert.equal(navigateMenuKey(root,'ArrowDown'),true);
+   assert.equal(active.id,'first');
+   active=null;
+   assert.equal(navigateMenuKey(root,'a'),true);
+   assert.equal(active.id,'last');
+ }finally{globalThis.document=oldDocument;}
+});
