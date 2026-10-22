@@ -142,3 +142,21 @@ test('three visible fights are guaranteed across 512 seeded worlds and survive s
   assert.deepEqual(['forest','sanctuary'].map(zone=>visibleEncounters(zone,seed)),before);
  }finally{configureWorld(0);}
 });
+
+test('forest trail guarantees one favourable matchup per starter while keeping deterministic species diversity',()=>{
+ try{
+  for(let seed=0;seed<512;seed++){
+   configureWorld(seed===0?0:(Math.imul(seed,2654435761))>>>0);
+   const monsters=visibleEncounters('forest',seed);
+   assert.equal(monsters.length,3);
+   // Type advantage is fixed: Ash -> Root, Mist -> Ether, Root -> Mist.
+   assert.ok(['mireling','velaria'].includes(monsters[0].speciesId));
+   assert.ok(['wispawn','gravemoth'].includes(monsters[1].speciesId));
+   assert.ok(['thorne','briarling'].includes(monsters[2].speciesId));
+   for(const player of ['cindrel','velaria','thorne']){
+    const favourable={cindrel:2,velaria:1,thorne:0}[player];
+    assert.ok(monsters[favourable],player+' has no trained matchup at seed '+seed);
+   }
+  }
+ }finally{configureWorld(0);}
+});
