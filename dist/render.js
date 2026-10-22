@@ -44,7 +44,8 @@ void main(){
    // Each pixel is *always* covered by its own RGB cell background.
    // Visible Unicode masks then supply independent foreground coloration.
    float detail=clamp(lum*.84+length(raw-smoothColor)*.65+edge*.06,0.,1.);
-   int index=detail>.82?26:detail>.62?25:detail>.40?24:detail>.17?23:(detail>.08?5:1);
+   // Low-information terrain is a continuous color field, not repeated 'i' glyphs.
+   int index=detail>.82?26:detail>.62?25:detail>.40?24:detail>.17?23:(detail>.11&&noise>.82?1:0);
    vec3 bg=clamp(mix(raw,smoothColor,.34)*(.67+u_brightness*.15),0.,1.);
    vec3 fg=clamp(raw*(1.3+(u_contrast-1.)*.16)+vec3(.09,.09,.085),0.,1.);
    // Saturated, interactive-looking colors retain legibility against dark stone.
@@ -238,7 +239,8 @@ export class AsciiRenderer {
                 const noise = Math.abs(Math.sin(cellX * 12.9898 + cellY * 78.233) * 43758.5453) % 1;
                 if (this.renderMode === 'glyph-pixel') {
                     const detail = Math.max(0, Math.min(1, level * .84 + edge * .06));
-                    const index = detail > .82 ? 26 : detail > .62 ? 25 : detail > .4 ? 24 : detail > .17 ? 23 : detail > .08 ? 5 : 1;
+                    // Preserve solid cell backgrounds while avoiding glyph-grid noise on dark materials.
+                    const index = detail > .82 ? 26 : detail > .62 ? 25 : detail > .4 ? 24 : detail > .17 ? 23 : detail > .11 && noise > .82 ? 1 : 0;
                     const background = [r * .67, g * .67, b * .67];
                     const foreground = [Math.min(255, r * 1.3 + 23), Math.min(255, g * 1.3 + 23), Math.min(255, b * 1.3 + 22)];
                     this.software.putCell(index, x, y, Math.min(cw, this.canvas.width - x), Math.min(ch, this.canvas.height - y), foreground, background);
