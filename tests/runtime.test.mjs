@@ -688,3 +688,152 @@ test('runtime: Keeper grants Sanctuary three-oath supplies once; v1 reload canno
  assert.equal(continuation.game.save.inventory.tonics,inventory.tonics+2);
  assert.equal(continuation.game.economy.echoes,echoes+40);
 });
+
+
+/** C3 reconnaissance: fixed bounded player-command policy, no forced XP, capture or victory.
+ * Travel is driven through the same portal/landmark handlers as existing runtime tests;
+ * dungeon coordinates use actual collision/movement and the saved deterministic topology.
+ * Every report is machine readable for comparing cohorts without cherry-picking seeds. */
+test('C3 measurement: three starters across twelve worlds with legitimate capture, Guardian and crypt', {timeout:180000},()=>{
+ const cohorts=[], starters=['cindrel','velaria','thorne'];
+ for(const starter of starters)for(let n=1;n<=12;n++){
+  const world=(Math.imul(n,2654435761))>>>0;
+  const session=mount({virtualTime:true,seed:n*7919+starter.length*59});
+  const {game,dom,storage,flushTimers}=session;
+  dom.set('worldSeedInput',{value:String(world)});
+  game.startNew();game.pickStarter(starter);
+  const dialogs=()=>{while(game.dialogOpen)game.nextDialog();if(game.evolution){game.seconds=game.evolution.startedAt+game.evolution.duration;game.loop(1000);}};
+  dialogs();game.interactNpc('archivist');dialogs();
+  let wins=0,failures=0,captures=0,tonics=0,actions=0,guardian=false,crypt=false,training=0;
+  const battle=(species,level,type='wild',encounterId=undefined,bind=false)=>{
+   dialogs();if(game.battle)throw Error('Prior encounter still active');
+   const originalSize=game.save.team.length, priorDefeated=game.save.defeatedBoss,oldEchoes=game.economy.echoes;
+   game.startBattle(species,level,type,encounterId);
+   let steps=0;
+   while(game.battle&&steps++<90){
+    const b=game.battle,ally=game.getAlly();
+    if(b.busy){flushTimers();continue;}
+    if(b.chargeStage===2){game.defend();flushTimers();actions++;continue;}
+    if(game.save.inventory.tonics>0&&ally.hp<maxHp(ally)*.34){
+     game.tonic();tonics++;actions++;flushTimers();continue;
+    }
+    if(bind&&game.save.inventory.seals>0&&b.enemy.hp/maxHp(b.enemy)<=.60){
+     game.capture();actions++;flushTimers();continue;
+    }
+    const available=ally.moves.filter(id=>MOVES[id]&&MOVES[id].power>0);
+    if(!available.length)throw Error('No offensive move for '+starter);
+    const rank=(id)=>damage(ally,b.enemy,MOVES[id]).value;
+    available.sort((a,c)=>(bind?rank(a)-rank(c):rank(c)-rank(a)));
+    game.useMove(available[0]);actions++;flushTimers();
+   }
+   assert.ok(steps<90,'combat softlock '+JSON.stringify({starter,world,species,level,type,encounterId}));
+   dialogs();
+   const caught=game.save.team.length>originalSize;
+   const won=type==='boss'?game.save.defeatedBoss&&!priorDefeated
+     :encounterId?game.save.flags.includes('roamer-'+encounterId):!caught&&game.economy.echoes>oldEchoes;
+   if(caught)captures++;
+   if(won)wins++;
+   if(!won&&!caught)failures++;
+   return{won,caught};
+  };
+  const heal=()=>{dialogs();game.interactLandmark({kind:'altar',x:15,y:12});};
+  const portal=()=>{dialogs();game.interactLandmark({kind:'portal',x:game.save.zone==='forest'&&game.save.x>30?43:43,y:16,label:'Paso'});};
+  // Recruit Ash counterplay for non-Ash starters and a secondary companion for Ash.
+  // Cindrel and briarling are selectable from real village direct challenges.
+  for(const id of starter==='cindrel'?['mireling','briarling']:['cindrel','briarling']){
+   let found=false;
+   for(let attempt=0;attempt<3&&!found&&game.save.inventory.seals>0;attempt++){
+    heal();found=battle(id,id==='mireling'?5:3,'wild',undefined,true).caught;
+   }
+  }
+  // Bounded village training under the existing economy; no free XP injections.
+  for(let i=0;i<8;i++){
+   heal();const result=battle(['briarling','mireling','cindrel'][i%3],3+i%2);
+   if(result.won)training++;
+  }
+  heal();portal(); // village -> forest
+  const forest=game.roamers();
+  for(const r of forest){heal();battle(r.speciesId,r.level,'wild',r.id);}
+  if(game.save.zone==='village')portal();
+  if(game.save.zone==='forest')portal(); // forest -> Sanctuary
+  if(game.save.zone==='sanctuary'){
+   const route=game.roamers();
+   for(const r of route){
+    if(game.save.zone!=='sanctuary'){if(game.save.zone==='village')portal();if(game.save.zone==='forest')portal();}
+    heal();battle(r.speciesId,r.level,'wild',r.id);
+   }
+   if(game.save.flags.filter(f=>f.startsWith('roamer-sanctuary-')).length===3){
+    game.interactNpc('keeper');dialogs();
+   }
+   heal();dialogs();
+   if(game.evolution){dialogs();}
+   game.interactLandmark({kind:'guardian',x:35,y:16,label:'Hollowhart'});
+   if(game.modalOpen){dom.get('guardianProceed').onclick();battle /* Guardian already started below */;}
+   if(game.battle){
+    // Resolve the prepared boss battle through ordinary player commands.
+    const b=game.battle;let turns=0;
+    while(game.battle&&turns++<90){
+      const state=game.battle,ally=game.getAlly();
+      if(state.busy){flushTimers();continue;}
+      if(state.chargeStage===2){game.defend();flushTimers();actions++;continue;}
+      if(game.save.inventory.tonics>0&&ally.hp<maxHp(ally)*.4){game.tonic();tonics++;flushTimers();actions++;continue;}
+      const ids=ally.moves.filter(id=>MOVES[id]&&MOVES[id].power>0).sort((x,y)=>damage(ally,state.enemy,MOVES[y]).value-damage(ally,state.enemy,MOVES[x]).value);
+      if(!ids.length)throw Error('No boss moves');
+      game.useMove(ids[0]);actions++;flushTimers();
+    }
+    assert.ok(turns<90,'boss softlock');
+    guardian=game.save.defeatedBoss;dialogs();
+   }
+  }
+  if(guardian){
+   if(game.save.zone==='sanctuary')game.interactLandmark({kind:'portal',x:2,y:16,label:'Bosque'});
+   if(game.save.zone==='forest')game.interactLandmark({kind:'portal',x:2,y:16,label:'Arken'});
+   if(game.save.zone==='village'){
+    heal();game.enterDungeon(false);
+    const visit=event=>{
+     const d=game.save.dungeon;
+     for(const next of dungeonTilePath(d,{x:d.x,y:d.y},event).slice(1)){
+      const current=game.save.dungeon,dx=next.x-current.x,dy=next.y-current.y;
+      game.stick.x=Math.abs(dx)<.05?0:Math.sign(dx);
+      game.stick.y=Math.abs(dy)<.05?0:Math.sign(dy);
+      for(let step=0;step<5;step++)game.move(1/(4.35*5));
+      assert.ok(Math.hypot(game.save.dungeon.x-next.x,game.save.dungeon.y-next.y)<.05,'Crypt path blocked '+starter+'/'+world);
+     }game.resetJoystick();
+    };
+    for(const id of [1,2,3,4,5,7]){
+     const d=game.save.dungeon;if(!d?.active)break;
+     visit(d.events[id]);game.dungeonInteract();
+     if(game.battle){
+      let steps=0;
+      while(game.battle&&steps++<90){
+       if(game.battle.busy){flushTimers();continue;}
+       const ally=game.getAlly();
+       if(game.save.inventory.tonics>0&&ally.hp<maxHp(ally)*.34){game.tonic();tonics++;flushTimers();actions++;continue;}
+       const ids=ally.moves.filter(mid=>MOVES[mid]&&MOVES[mid].power>0).sort((a,c)=>damage(ally,game.battle.enemy,MOVES[c]).value-damage(ally,game.battle.enemy,MOVES[a]).value);
+       game.useMove(ids[0]);actions++;flushTimers();
+      }
+      assert.ok(steps<90,'sentinel softlock');
+     }
+     dialogs();
+    }
+    crypt=!!game.save.dungeon?.finished;
+   }
+  }
+  const raw=storage.getItem('ascii-azur-save-v1');
+  assert.ok(raw,'player save not persisted');
+  const saved=JSON.parse(raw);
+  assert.equal(saved.version,1);
+  const reopened=mount({virtualTime:true,seed:n*42+starter.length,priorSave:raw});
+  reopened.game.continueGame();reopened.flushTimers();
+  assert.deepEqual(JSON.parse(JSON.stringify(reopened.game.save.flags)),JSON.parse(JSON.stringify(game.save.flags)),'no loss/duplication on reload');
+  cohorts.push({starter,world,training,captures,wins,failures,tonics,actions,guardian,crypt,level:game.save.team[0]?.level});
+ }
+ for(const starter of starters){
+  const cases=cohorts.filter(c=>c.starter===starter);
+  console.log('C3_COHORT '+JSON.stringify({starter,runs:cases.length,captures:cases.map(c=>c.captures),training:cases.map(c=>c.training),
+   bossWins:cases.filter(c=>c.guardian).length,cryptWins:cases.filter(c=>c.crypt).length,
+   tonics:cases.reduce((s,c)=>s+c.tonics,0),failures:cases.reduce((s,c)=>s+c.failures,0),
+   levels:cases.map(c=>c.level)}));
+ }
+ assert.equal(cohorts.length,36);
+});
