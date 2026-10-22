@@ -17,6 +17,7 @@ import { transferStoredCreature, reserveCreature } from './party.js';
 import { createCombatCue, sampleCombatCue, guardDamage } from './actors/combat-fx.js';
 import { MOVE_EFFECTS, STATUS_INFO, applyEffect, attackWithStatuses, chooseEnemyMove, endTurnEffects, statusLabel, skillUtility } from './combat/tactics.js';
 import { previewMove } from './combat/move-preview.js';
+import { capturePreview } from './combat/capture-odds.js';
 import { reveal, isDiscovered, discoveredPercent } from './world/discovery.js';
 import { RUNE_PUZZLES, RUNE_SYMBOLS, submitRune, claimRune } from './puzzles/runes.js';
 import { unlockedMoves, equipMove } from './creatures/loadout.js';
@@ -556,8 +557,11 @@ class AzurGame {
         const actions = byId('battleActions');
         actions.replaceChildren();
         const add = (name, func, special = false, disabled = false, detail = '', preview) => { const button = document.createElement('button'); button.textContent = name; button.disabled = b.busy || disabled; if (special)
-            button.classList.add('special'); if (detail)
-            button.title = detail; if (preview) {
+            button.classList.add('special'); if (detail) {
+            button.title = detail;
+            if (!preview)
+                button.setAttribute('aria-label', `${name}. ${detail}`);
+        } if (preview) {
             button.classList.add('battle-move');
             button.textContent = '';
             const label = document.createElement('span');
@@ -590,7 +594,9 @@ class AzurGame {
                 add(`✦ ${m.name} · ${m.element}`, () => this.useMove(id), false, (m.role === 'heal' && ally.hp === maxHp(ally)) || (m.role === 'cleanse' && !this.statuses(ally).length), `${m.description} · Potencia ${m.power}${MOVE_EFFECTS[id] ? ' · ' + STATUS_INFO[MOVE_EFFECTS[id].kind].description : ''}`, previewMove(ally, b.enemy, m, this.statuses(ally), this.statuses(b.enemy)));
         }
         add('⛨ GUARDIA · -55% DAÑO', () => this.defend());
-        add(`◇ VINCULAR (${this.save.inventory.seals})`, () => this.capture(), true, b.type !== 'wild' || this.save.inventory.seals === 0);
+        const captureChance = capturePreview(ally, b.enemy, this.statuses(b.enemy));
+        const bindingLabel = b.type === 'wild' ? `◇ VINCULAR ${captureChance.percent}% (${this.save.inventory.seals})` : `◇ VINCULAR (${this.save.inventory.seals})`;
+        add(bindingLabel, () => this.capture(), true, b.type !== 'wild' || this.save.inventory.seals === 0, b.type === 'wild' ? captureChance.accessible : 'El guardián no se puede capturar.');
         add(`✚ TÓNICO (${this.save.inventory.tonics})`, () => this.tonic(), false, this.save.inventory.tonics === 0 || ally.hp === maxHp(ally));
         add('↻ CAMBIAR', () => this.switchCreature(), false, !this.save.team.some((c, i) => c.hp > 0 && i !== b.ally));
         if (b.type === 'wild')
@@ -762,7 +768,7 @@ class AzurGame {
         this.sound.setScene('sanctuary');
     }
     capture() { const b = this.battle; if (!b || b.busy || b.type !== 'wild' || this.save.inventory.seals < 1)
-        return; this.save.inventory.seals--; b.busy = true; this.setCombatCue('capture', 'ally', SPECIES[b.enemy.speciesId].element); const chance = Math.min(.94, .26 + (1 - b.enemy.hp / maxHp(b.enemy)) * .65 + Math.max(0, this.getAlly().level - b.enemy.level) * .02); this.sound.select(); b.log = 'El sello cruza la bruma...'; this.refreshBattle(); window.setTimeout(() => { if (!this.battle)
+        return; this.save.inventory.seals--; b.busy = true; this.setCombatCue('capture', 'ally', SPECIES[b.enemy.speciesId].element); const chance = capturePreview(this.getAlly(), b.enemy, this.statuses(b.enemy)).chance; this.sound.select(); b.log = 'El sello cruza la bruma...'; this.refreshBattle(); window.setTimeout(() => { if (!this.battle)
         return; if (Math.random() < chance) {
         const captured = b.enemy;
         let stored = false;

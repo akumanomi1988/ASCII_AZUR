@@ -192,3 +192,15 @@ test('runtime: battle controls show real tactical information for touch and keyb
  assert.match(first.getAttribute('aria-label'),/daño estimado/);
  assert.equal(first.disabled,false);
 });
+
+test('runtime: capture action displays precise probability and updates with target status',()=>{
+ const {game,dom}=mount();game.startNew();game.pickStarter('cindrel');for(let i=0;i<3;i++)game.nextDialog();
+ game.startBattle('thorne',6,'wild');
+ const control=()=>dom.get('battleActions').children.find(b=>b.textContent.includes('VINCULAR'));
+ assert.match(control().textContent,/VINCULAR 26%/);
+ assert.match(control().title,/26 %/);assert.match(control().getAttribute('aria-label'),/Consume un sello/);
+ game.battle.enemy.hp=Math.floor(game.battle.enemy.hp/2);game.refreshBattle();
+ const before=control().textContent;game.battle.effects[game.battle.enemy.uid]=[{kind:'weaken',remaining:2}];game.refreshBattle();
+ assert.notEqual(control().textContent,before);assert.match(control().title,/8 puntos porcentuales/);
+ game.battle.type='boss';game.refreshBattle();assert.equal(control().disabled,true);
+});
