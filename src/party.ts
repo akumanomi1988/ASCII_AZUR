@@ -1,4 +1,4 @@
-import type {Creature} from './domain.js';
+import {gainExp,type Creature} from './domain.js';
 /** Pure party operations: data mutates only through an explicitly returned snapshot. */
 export interface PartyState {team:Creature[];storage:Creature[];}
 export const PARTY_LIMIT=6;
@@ -26,4 +26,22 @@ export function reserveCreature(state:PartyState,uid:string):PartyState{
  if(state.team.length<=1)throw Error('Cannot reserve last team member');
  const team=[...state.team],storage=[...state.storage];storage.push(team.splice(i,1)[0]!);
  return{team,storage};
+}
+
+/** Rewards the active combatant fully and conscious teammates at 50%.
+ * Reserve creatures do not gain XP; no save schema or global experience pool. */
+export interface ExperienceAward {uid:string;active:boolean;amount:number;levelUp:boolean;evolved:boolean;from:string;to:string;}
+export function grantPartyExperience(team:readonly Creature[],activeIndex:number,amount:number):ExperienceAward[]{
+ if(!Number.isInteger(activeIndex)||activeIndex<0||activeIndex>=team.length||!Number.isSafeInteger(amount)||amount<0)throw Error('Invalid combat experience');
+ const rewards:ExperienceAward[]=[];
+ for(let i=0;i<team.length;i++){
+  const creature=team[i]!;
+  if(i!==activeIndex&&creature.hp<=0)continue;
+  const awarded=i===activeIndex?amount:Math.floor(amount*.5);
+  if(awarded===0)continue;
+  const from=creature.speciesId;
+  const progress=gainExp(creature,awarded);
+  rewards.push({uid:creature.uid,active:i===activeIndex,amount:awarded,...progress,from,to:creature.speciesId});
+ }
+ return rewards;
 }

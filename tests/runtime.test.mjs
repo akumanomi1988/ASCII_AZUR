@@ -404,3 +404,16 @@ test('runtime: Guardian warning offers retreat and accessible consent without ba
  assert.equal(game.battle?.type,'boss');
  assert.equal(game.battle.enemy.level,12);
 });
+
+test('runtime: a normal victory gives half XP to a captured teammate without altering a reserve',()=>{
+ const {game}=mount();game.startNew();game.pickStarter('cindrel');
+ while(game.dialogOpen)game.nextDialog();
+ const bench={...game.save.team[0],uid:'bench-xp',speciesId:'velaria',level:5,exp:0,hp:40,moves:['fog','pulse']};
+ const reserve={...bench,uid:'stored-xp'};
+ game.save.team.push(bench);game.save.storage.push(reserve);
+ game.startBattle('briarling',3,'wild');game.winBattle();
+ assert.equal(game.save.team[0].exp,20);
+ assert.equal(game.save.team[1].exp,10);
+ assert.equal(game.save.storage[0].exp,0);
+ assert.equal(game.save.activeBattle,undefined);
+});

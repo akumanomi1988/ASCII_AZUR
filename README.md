@@ -1,4 +1,4 @@
-# ASCII AZUR v0.24 — The Unwritten
+# ASCII AZUR v0.25 — The Unwritten
 
 RPG de captura de criaturas y fantasía oscura, con mundo ASCII generado mediante WebGL2 (fallback Canvas2D), exploración procedural persistente y una cripta física de ocho cámaras. Android horizontal es la plataforma prioritaria; navegador web es el entorno de desarrollo y distribución actual.
 
@@ -36,3 +36,7 @@ Tras iniciar una partida aparece, bajo el nombre de la región, una guía compac
 ## v0.24 — Guardian combat readiness and genuine battle walkthrough
 
 Hollowhart now opens a non-blocking tactical preparation panel. It recommends a party of two or more creatures, at least one level 8 bond, healing at Lumbres, and guarding the charged strike. Players can ignore the guidance and fight immediately. An automated Arken walkthrough now trains and captures using standard gameplay, defeats Hollowhart and the two dungeon sentinels exclusively through real battle actions, traverses the crypt, and claims the finale. It tests a deterministic scenario rather than a human-quality judgement.
+
+## v0.25 — Experiencia compartida en el equipo
+
+Las victorias conceden el 100 % de experiencia al combatiente activo y el 50 % a cada compañero consciente del equipo (redondeo hacia abajo). Las criaturas debilitadas y las almacenadas no reciben experiencia. Las evoluciones de compañeros se aplican y se anuncian mediante la animación de evolución; el combate informa de cuántos aliados han progresado. No cambia la experiencia del combatiente ni los guardados v1. La mejora reduce la necesidad de entrenar por separado a cada criatura, sin asegurar que Hollowhart pueda derrotarse sin estrategia.
