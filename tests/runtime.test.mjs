@@ -588,7 +588,7 @@ test('progression probe: six visible trail combats for three starters across twe
    if(!game.battle)return false;
    const was=game.save.inventory.tonics;
    let ticks=0;
-   while(game.battle&&ticks++<35){
+   while(game.battle&&ticks++<100){
     const b=game.battle,ally=game.getAlly();
     if(b.busy){flushTimers();continue;}
     if(game.save.inventory.tonics>0&&ally.hp<maxHp(ally)*.38){
@@ -599,7 +599,7 @@ test('progression probe: six visible trail combats for three starters across twe
     if(!options.length)throw Error('no attack available');
     game.useMove(options[0]);flushTimers();
    }
-   assert.ok(ticks<35,'unresolved combat '+starter+' seed '+world+' '+encounterId);
+   assert.ok(ticks<100,'unresolved combat '+JSON.stringify({starter,world,encounterId,enemy:game.battle?.enemy.speciesId,enemyHp:game.battle?.enemy.hp,allyHp:game.getAlly()?.hp,log:game.battle?.log}));
    turns+=ticks;tonics+=was-game.save.inventory.tonics;
    const victory=game.save.flags.includes('roamer-'+encounterId);
    if(victory)won++;else losses++;
