@@ -41,9 +41,20 @@ window.addEventListener('load',()=>setTimeout(async()=>{
   document.querySelector('#starters button').click();
   for(let i=0;i<4;i++)$('closeDialogue').click();
   check($('dialogue').classList.contains('hidden'),'Intro dialogue not dismissed');
+  // Allow an actual animation frame after scene transition before capturing pixels.
+  await new Promise(resolve=>setTimeout(resolve,180));
   const saved=localStorage.getItem('ascii-azur-save-v1');
   check(!!saved,'No game save');
   const params=new URLSearchParams(location.search);
+  if(params.has('fallback')){
+   const ctx=$('game').getContext('2d'),width=$('game').width,height=$('game').height;
+   let painted=0;
+   for(const [cx,cy] of [[.2,.2],[.5,.5],[.8,.8]]){
+    const rgba=ctx.getImageData(Math.floor(width*cx),Math.floor(height*cy),1,1).data;
+    if(rgba[3]>0&&rgba[0]+rgba[1]+rgba[2]>0)painted++;
+   }
+   check(painted>0,'Renderer returned an empty/transparent Canvas2D frame');
+  }
   const capture=await fetch('/__qa_capture?mode='+encodeURIComponent(params.get('mode')||'ascii')+'&fallback='+(params.has('fallback')?'1':'0'),{method:'POST',body:$('game').toDataURL('image/png')});
   check(capture.ok,'Canvas screenshot could not be collected');
   $('drawerToggle').click();$('resumeBtn').focus();
@@ -80,7 +91,7 @@ window.addEventListener('load',()=>setTimeout(async()=>{
   check(window.__azurErrors.length===0,'JS errors: '+window.__azurErrors.join(' | '));
   document.body.dataset.azurQa='PASS';
  }catch(error){document.body.dataset.azurQa='FAIL: '+error.message;console.error(error)}
-},700));
+},90));
 </script>'''
 if '</head>' not in HTML: raise SystemExit('Missing HTML head')
 QA=ROOT/'.azur-browser-acceptance.html'

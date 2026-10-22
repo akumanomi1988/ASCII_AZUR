@@ -86,3 +86,9 @@ The current game includes three regions, 12 species, an authored six-step Arken 
 - CI run `39806225565` passed TypeScript, **193/193** Node regressions and four real Chromium combinations (Atmospheric ASCII / Glyph Pixel Art × WebGL2 / Canvas2D) after bounding synthetic CPU fallback frames. Both `verify` and `Publish validated game` succeeded; GitHub Pages run `39806372123` also succeeded.
 - Added deterministic browser canvas PNG capture artifacts for each of the four render combinations on the same seed. These are implementation evidence, **not** independent artistic approval or sustained-performance measurements. A failure to generate the PNG now fails the browser acceptance gate.
 - Outstanding: human inspection of screenshots across all required zones and mobile viewports, measured sustained desktop/mobile FPS, physical Android verification, and an external HTTP smoke test against the public Pages domain.
+
+## 2026-10-22 — Visual review correction
+
+- The four CI screenshots from run `39806697341` were retrieved and visually inspected. They exposed a completely transparent Atmospheric ASCII Canvas2D capture and excessively repeated `i` glyphs over low-detail Glyph Pixel Art terrain. Functional browser tests alone had missed both deficiencies.
+- Corrected dark-terrain glyph selection in WebGL2 and Canvas2D: low-information cells use solid cell backgrounds, with only sparse, deterministic punctuation. Added real Canvas2D rendered-pixel acceptance (alpha and nonzero RGB) plus a post-scene-transition frame delay before PNG capture. The previous capture must not be considered an accepted visual baseline.
+- Art acceptance remains open pending **new** screenshot review and human readability assessment; high-level story and physical-device acceptance are out of scope for this rendering fix.
