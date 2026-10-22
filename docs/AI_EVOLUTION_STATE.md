@@ -1,6 +1,6 @@
 # ASCII AZUR — Autonomous Evolution State
 
-Last audited: 2026-10-22, v0.22. Source of truth: `akumanomi1988/ASCII_AZUR` / `main` once promoted. One iteration per invocation; do not run scheduled or Work tasks without explicit consent.
+Last audited: 2026-10-22, v0.23. Source of truth: `akumanomi1988/ASCII_AZUR` / `main` once promoted. One iteration per invocation; do not run scheduled or Work tasks without explicit consent.
 
 ## Vision and invariant contracts
 
@@ -200,3 +200,15 @@ Source commit, GitHub Actions and Pages provenance are recorded below. Direct pu
 - **Public URL:** `https://akumanomi1988.github.io/ASCII_AZUR/`. The public-origin interactive smoke is **NOT VERIFIED**: external web access and a direct container HTTP request fail DNS resolution for github.io in this environment. GitHub Actions success is not independent client verification.
 - **Quality:** previous overall 16-domain mean **2.5/5**, current **2.5/5**. The gameplay/capture mechanic is more transparent, but player satisfaction, full global campaign, physical Android FPS and a complete natural end-to-end playthrough remain unverified. No score increased purely because the feature exists.
 - **Next priority:** full gameplay loop QA with a prolonged start-to-finale playthrough and external playtest/balance evidence; physical Android WebGL2 benchmarking; then expand the authored world and global campaign. The automatic `main`→Pages deployment remains a separate production improvement.
+
+## v0.23 verified delivery ledger — 2026-10-22
+
+- **Critical diagnosis:** Although the crypt generator created connected rooms, the swept collision footprint was calculated around tile *corners* rather than the integral coordinates representing tile centres. Some genuine one-tile passages could not be crossed, making objectives, sentinels and the final door potentially inaccessible. Confirmed reproduction on seed 1 before correction.
+- **Fix:** `src/dungeons/labyrinth.ts` shifts the 9-point swept footprint sampling by (+0.5,+0.5), in line with the overworld's `canOccupy`. This changes collision only: no rerolls, new seed version, save schema, game mechanics, density or existing crypt state migration.
+- **Regression coverage:** `tests/dungeon-traversal.test.mjs` physically walks the correct cardinal shortest route from crypt entrance to all seven authored events and back across **150 seeded crypts**; all PASS (before the fix seed 1 had a blocked route). `tests/runtime.test.mjs` now tests a fresh story from introduction, Archivist, portal transitions, boss result, 3 required crypt seals, physical swept corridor movement, exit, Archivist finale and reward idempotency. **Boss and sentinel victories are controlled via the existing battle victory handler**, and portals are invoked via landmark handlers; this is NOT a complete natural user end-to-end playthrough.
+- **Build/quality:** v0.23 `npm run release` PASS, strict TypeScript build, regenerated 339 KB self-contained HTML, **170/170 Node tests PASS**, offline dependency audit **31 reachable JS / 32 cached resources** and source ZIP assembled. Test concurrency set to two workers to prevent resource oversubscription during local execution.
+- **Source branch/commit:** `feature/walkable-crypt-v023`, merged via lease-protected `main` ref update at `b192859e9c81e25dcc5178a164fa93417d47d9b4`; feature CI run `39744865372` SUCCESS, main CI run `39744939971` SUCCESS.
+- **Pages:** `gh-pages` commit `5ed2cd29152fcec72b89bbfb70b6f4ac140d8458`; Pages run `39745035646` SUCCESS (build, deploy, report). `gh-pages/build-info.json` matches version 0.23.0 and source commit; published `dist/dungeons/labyrinth.js` blob `6c726ccb7610c3f9604f9f34945fa5ddacc72a8f` equals source compiled artifact.
+- **Public URL:** `https://akumanomi1988.github.io/ASCII_AZUR/`; independent external public-site HTTP and interactive smoke **NOT VERIFIED** because the available web tool cannot access the hostname. Chromium local screenshots in desktop and mobile landscape exist, but the browser QA process timed out during teardown; do not count it as a complete end-to-end smoke PASS.
+- **Quality baseline:** 16-domain mean **2.5/5 previous → 2.5/5 current**. This fixes a real crypt progression blocker without establishing premium quality. Still missing a full honest player-controlled beginning-to-ending journey, global campaign, physical-device GPU FPS validation, independent playtest/quality evidence, and public-origin HTTP browser verification.
+- **Next priority:** automate playable start-to-finale input path including real boss/sentinel combat and stable saves, then improve encounter balance/global campaign; benchmark mobile devices.
