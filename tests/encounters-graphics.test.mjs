@@ -151,10 +151,10 @@ test('forest trail guarantees one favourable matchup per starter while keeping d
    assert.equal(monsters.length,3);
    // Type advantage is fixed: Ash -> Root, Mist -> Ether, Root -> Mist.
    assert.ok(['mireling','velaria'].includes(monsters[0].speciesId));
-   assert.ok(['wispawn','gravemoth'].includes(monsters[1].speciesId));
-   assert.ok(['thorne','briarling'].includes(monsters[2].speciesId));
+   assert.ok(['thorne','briarling'].includes(monsters[1].speciesId));
+   assert.ok(['wispawn','gravemoth'].includes(monsters[2].speciesId));
    for(const player of ['cindrel','velaria','thorne']){
-    const favourable={cindrel:2,velaria:1,thorne:0}[player];
+    const favourable={cindrel:1,velaria:2,thorne:0}[player];
     assert.ok(monsters[favourable],player+' has no trained matchup at seed '+seed);
    }
   }

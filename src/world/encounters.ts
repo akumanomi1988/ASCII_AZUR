@@ -6,9 +6,9 @@ export interface RoamingEncounter {id:string;x:number;y:number;speciesId:string;
  * and Mist challenges Root. A random initial pick must never deny a starter its
  * first favourable elemental matchup. Variants preserve replay diversity. */
 const FOREST_TRAIL_POOLS:readonly (readonly string[])[]=[
- ['mireling','velaria'], // Mist: Root's favourable encounter
- ['wispawn','gravemoth'], // Ether: Mist's favourable encounter
- ['thorne','briarling']   // Root: Ash's favourable encounter
+ ['mireling','velaria'], // Mist: Root's opening advantage
+ ['thorne','briarling'], // Root: Ash's mid-trail advantage
+ ['wispawn','gravemoth'] // Ether: Mist's late-trail advantage
 ];
 const SANCTUARY_SPECIES:readonly string[]=['wispawn','gravemoth','runeowl','rillfin','velaria'];
 export function visibleEncounters(zone:ZoneId,seed:number):RoamingEncounter[]{
