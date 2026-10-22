@@ -152,7 +152,7 @@ class AzurGame {
   private updateMuteUi(){byId('mute').textContent=this.soundEnabled?'♫':'♪';byId('mute').setAttribute('aria-label',this.soundEnabled?'Silenciar audio':'Activar audio');}
   private restoreAudioSettings(){try{const v=JSON.parse(localStorage.getItem('ascii-azur-audio')||'null');if(v&&typeof v==='object'){this.soundEnabled=v.enabled!==false;if(Number.isFinite(v.music))this.sound.setMusicVolume(v.music);if(Number.isFinite(v.effects))this.sound.setEffectsVolume(v.effects);}}catch{/* preserve defaults */}if(!this.soundEnabled)this.sound.setEnabled(false);this.updateMuteUi();}
   private restoreGraphicSettings(){try{this.renderer.setGraphics(JSON.parse(localStorage.getItem('ascii-azur-graphics-v2')||'null'));}catch{this.renderer.setGraphics(DEFAULT_GRAPHICS);}this.updateGraphicsTheme();}
-  private updateGraphicsTheme(){document.documentElement.dataset.renderMode=this.renderer.renderMode;}
+  private updateGraphicsTheme(){if(document.documentElement)document.documentElement.dataset.renderMode=this.renderer.renderMode;}
   private storeGraphicSettings(){try{localStorage.setItem('ascii-azur-graphics-v2',JSON.stringify(this.renderer.getGraphics()));}catch{/* storage unavailable */}}
   private restoreAdaptiveGraphics(){try{this.adaptiveGlyphs.configure(localStorage.getItem('ascii-azur-adaptive-fps-v1')==='true');}catch{/* preserve manual mode */}this.renderer.setPerformanceScale(this.adaptiveGlyphs.scale);}
   private setAdaptiveGraphics(enabled:boolean){this.adaptiveGlyphs.configure(enabled);this.frameMetrics.reset();this.renderer.setPerformanceScale(this.adaptiveGlyphs.scale);try{localStorage.setItem('ascii-azur-adaptive-fps-v1',String(this.adaptiveGlyphs.active));}catch{/* storage disabled */}}
