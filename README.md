@@ -1,4 +1,4 @@
-# ASCII AZUR v0.26 — The Unwritten
+# ASCII AZUR v0.26.2 — The Unwritten
 
 RPG de captura de criaturas y fantasía oscura, con mundo ASCII generado mediante WebGL2 (fallback Canvas2D), exploración procedural persistente y una cripta física de ocho cámaras. Android horizontal es la plataforma prioritaria; navegador web es el entorno de desarrollo y distribución actual.
 
@@ -20,6 +20,10 @@ v0.22 muestra la probabilidad real de VÍNCULO durante el combate, con una bonif
 v0.21 añade previsiones tácticas visibles antes de atacar: daño estimado, afinidades, probabilidades de estado y curación, accesibles en móvil sin depender del cursor.
 
 v0.20 introduce un modo voluntario de FPS estables: reduce gradualmente el coste de dibujar glifos solo si el rendimiento sostenido cae, y recupera detalle cuando mejora; la densidad microscópica manual sigue intacta por defecto y la opción no altera partidas. v0.19 añade orientación con rutas transitables, en lugar de flechas que atraviesan obstáculos; v0.18 añade brújula contextual de misión —dirección, distancia y acción del siguiente hito incluso en móvil— sin alterar el guardado; v0.17 integra el arco narrativo de Arken con seis objetivos enlazados, desenlace con el Archivista y recompensa persistente única; v0.16 incorpora coreografías de combate por familia (9 gestos, impactos y siluetas), manteniendo intactas las reglas de daño y los guardados; v0.15 restaura la trama ASCII continua con glifos microscópicos, opciones visuales detalladas y un compositor Canvas2D acelerado; v0.14 agregó siluetas direccionales y v0.13 añadió encuentros visibles; v0.12 mejoró la dirección de arte de las ocho cámaras mediante materiales diferenciados, grabados, antorchas, iluminación y subtítulos de cámara; conserva topología y partidas antiguas. **No** constituye un juego AAA completo. Pendientes: arte final, campaña completa, rendimiento y batería real Android, música de producción, pruebas con jugadores, economía y balance extensivos. Documentación: `docs/ARCHITECTURE.md`, `RELEASE_v0.24.md`.
+
+## v0.26.2 — Economía de Lumbres
+
+Cada Lumbre cura al equipo tantas veces como sea necesario. Solo entrega **un Sello de Vínculo en la primera visita** a esa región (hasta 9 sellos en la mochila); las visitas posteriores siguen curando, pero no generan recursos. Los sellos siguen disponibles mediante la tienda de Mara, recompensas y combates. Las partidas `version:1` anteriores reutilizan la marca `altar-<zona>` sin migración.
 
 ## Combates y ajustes
 
