@@ -12,7 +12,7 @@ function mount(){
  const make=(id='')=>{
   const classes=new Set(['hidden']);
   return {id,style:{},dataset:{},hidden:false,innerHTML:'',textContent:'',classList:{add:(x)=>classes.add(x),remove:(x)=>classes.delete(x),contains:(x)=>classes.has(x),toggle:(x,on)=>{if(on===undefined? !classes.has(x):on){classes.add(x);return true;}classes.delete(x);return false;}},
-    addEventListener(){},setAttribute(){},getAttribute(){return''},replaceWith(){},replaceChildren(){},appendChild(){},append(){},after(){},closest(){return make('sidebar')},
+    addEventListener(){},attributes:{},children:[],setAttribute(k,v){this.attributes[k]=v},getAttribute(k){return this.attributes[k]||''},replaceWith(){},replaceChildren(...xs){this.children=xs},appendChild(x){this.children.push(x)},append(...xs){this.children.push(...xs)},after(){},closest(){return make('sidebar')},
     querySelector(){return null},querySelectorAll(){return[]},getBoundingClientRect(){return{left:0,top:0,width:960,height:540}},
     getContext:(mode)=>mode==='2d'?fakeContext:null,
     set width(x){this._w=x},get width(){return this._w||960},set height(x){this._h=x},get height(){return this._h||540}
@@ -177,4 +177,18 @@ test('runtime: story compass follows first objective, responds to portal and pre
  assert.match(dom.get('storyCompass').textContent,/PORTAL ESTE/);
  game.saveNow(false);const raw=JSON.parse(storage.getItem('ascii-azur-save-v1'));
  assert.equal(raw.version,1);assert.equal(Object.hasOwn(raw,'navigation'),false);
+});
+
+test('runtime: battle controls show real tactical information for touch and keyboard',()=>{
+ const {game,dom}=mount();game.startNew();game.pickStarter('cindrel');for(let i=0;i<3;i++)game.nextDialog();
+ game.startBattle('thorne',8,'wild');
+ const actions=dom.get('battleActions').children;
+ assert.ok(actions.length>=6);
+ const first=actions.find(b=>b.classList.contains('battle-move'));
+ assert.ok(first,'battle move card should exist');
+ assert.equal(first.children.length,3);
+ assert.match(first.children[1].textContent,/DAÑO/);
+ assert.match(first.children[2].textContent,/EFICAZ/);
+ assert.match(first.getAttribute('aria-label'),/daño estimado/);
+ assert.equal(first.disabled,false);
 });

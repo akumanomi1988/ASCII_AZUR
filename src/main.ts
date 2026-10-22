@@ -16,6 +16,7 @@ import {readSave,writeSave} from './core/save-store.js';
 import {transferStoredCreature,reserveCreature} from './party.js';
 import {createCombatCue,sampleCombatCue,guardDamage,type CombatCue,type FxKind,type CombatSide} from './actors/combat-fx.js';
 import {MOVE_EFFECTS,STATUS_INFO,applyEffect,attackWithStatuses,chooseEnemyMove,endTurnEffects,statusLabel,skillUtility,type StatusEffect} from './combat/tactics.js';
+import {previewMove} from './combat/move-preview.js';
 import {reveal,isDiscovered,discoveredPercent} from './world/discovery.js';
 import {RUNE_PUZZLES,RUNE_SYMBOLS,submitRune,claimRune,type RuneLocation} from './puzzles/runes.js';
 import {unlockedMoves,equipMove} from './creatures/loadout.js';
@@ -208,7 +209,7 @@ class AzurGame {
   private refreshBattle(){const b=this.battle;if(!b)return;const ally=this.getAlly();if(!ally)return;this.checkpointBattle();const es=SPECIES[b.enemy.speciesId]!,as=SPECIES[ally.speciesId]!;
     byId('enemyName').textContent=es.name;byId('enemyLv').textContent='NV. '+b.enemy.level+(b.type==='boss'&&b.bossPhase===2?' · II':'')+(this.statuses(b.enemy).length?' · '+statusLabel(this.statuses(b.enemy)):'');byId('enemyHpText').textContent=`${b.enemy.hp}/${maxHp(b.enemy)}`;byId('enemyHealth').style.width=Math.max(0,b.enemy.hp/maxHp(b.enemy)*100)+'%';
     byId('allyName').textContent=as.name;byId('allyLv').textContent='NV. '+ally.level+(this.statuses(ally).length?' · '+statusLabel(this.statuses(ally)):'');byId('allyHpText').textContent=`${ally.hp}/${maxHp(ally)}`;byId('allyHealth').style.width=Math.max(0,ally.hp/maxHp(ally)*100)+'%';byId('battleLog').textContent=b.log;
-    const actions=byId('battleActions');actions.replaceChildren();const add=(name:string,func:()=>void,special=false,disabled=false,detail='')=>{const button=document.createElement('button');button.textContent=name;button.disabled=b.busy||disabled;if(special)button.classList.add('special');if(detail)button.title=detail;button.onclick=func;actions.appendChild(button);};
+    const actions=byId('battleActions');actions.replaceChildren();const add=(name:string,func:()=>void,special=false,disabled=false,detail='',preview?:{summary:string;extra:string;accessible:string})=>{const button=document.createElement('button');button.textContent=name;button.disabled=b.busy||disabled;if(special)button.classList.add('special');if(detail)button.title=detail;if(preview){button.classList.add('battle-move');button.textContent='';const label=document.createElement('span');label.className='battle-move-name';label.textContent=name;const metrics=document.createElement('span');metrics.className='battle-move-estimate';metrics.textContent=preview.summary;const effects=document.createElement('span');effects.className='battle-move-extra';effects.textContent=preview.extra;button.append(label,metrics,effects);button.setAttribute('aria-label',preview.accessible);}button.onclick=func;actions.appendChild(button);};
     if(b.selecting){this.selectedBattleAction=0;
       for(const {c,i} of this.save.team.map((c,i)=>({c,i}))){if(i===b.ally)continue;const sp=SPECIES[c.speciesId]!;
         add(`↻ ${sp.name} · NV ${c.level} · ${c.hp}/${maxHp(c)}`,()=>this.switchTo(i),false,c.hp<=0,sp.desc);
@@ -216,7 +217,7 @@ class AzurGame {
       add('← VOLVER',()=>{b.selecting=false;this.refreshBattle();});return;
     }
     this.selectedBattleAction=Math.min(this.selectedBattleAction,Math.max(0,ally.moves.length+3));
-    for(const id of ally.moves){const m=MOVES[id];if(m)add(`✦ ${m.name} · ${m.element}`,()=>this.useMove(id),false,(m.role==='heal'&&ally.hp===maxHp(ally))||(m.role==='cleanse'&&!this.statuses(ally).length),`${m.description} · Potencia ${m.power}${MOVE_EFFECTS[id]?' · '+STATUS_INFO[MOVE_EFFECTS[id]!.kind].description:''}`);}
+    for(const id of ally.moves){const m=MOVES[id];if(m)add(`✦ ${m.name} · ${m.element}`,()=>this.useMove(id),false,(m.role==='heal'&&ally.hp===maxHp(ally))||(m.role==='cleanse'&&!this.statuses(ally).length),`${m.description} · Potencia ${m.power}${MOVE_EFFECTS[id]?' · '+STATUS_INFO[MOVE_EFFECTS[id]!.kind].description:''}`,previewMove(ally,b.enemy,m,this.statuses(ally),this.statuses(b.enemy)));}
     add('⛨ GUARDIA · -55% DAÑO',()=>this.defend());
     add(`◇ VINCULAR (${this.save.inventory.seals})`,()=>this.capture(),true,b.type!=='wild'||this.save.inventory.seals===0);
     add(`✚ TÓNICO (${this.save.inventory.tonics})`,()=>this.tonic(),false,this.save.inventory.tonics===0||ally.hp===maxHp(ally));
