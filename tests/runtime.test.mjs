@@ -659,3 +659,32 @@ test('runtime: optional Sanctuary route plan renders on desktop/mobile menu with
  game.openRoutePlan();
  assert.equal(game.modalOpen,false,'route plan cannot interrupt combat');
 });
+
+test('runtime: Keeper grants Sanctuary three-oath supplies once; v1 reload cannot duplicate rewards',()=>{
+ const {game,storage}=mount({virtualTime:true,seed:440});
+ game.startNew();game.pickStarter('velaria');while(game.dialogOpen)game.nextDialog();
+ const inventory={...game.save.inventory},echoes=game.economy.echoes;
+ game.interactNpc('keeper');
+ assert.equal(game.save.inventory.seals,inventory.seals,'no early oath payout');
+ assert.equal(game.save.inventory.tonics,inventory.tonics);
+ while(game.dialogOpen)game.nextDialog();
+ game.save.flags.push('roamer-sanctuary-0','roamer-sanctuary-1','roamer-sanctuary-2');
+ game.interactNpc('keeper');
+ assert.equal(game.save.inventory.seals,inventory.seals+2);
+ assert.equal(game.save.inventory.tonics,inventory.tonics+2);
+ assert.equal(game.economy.echoes,echoes+40);
+ assert.equal(game.save.flags.filter(x=>x==='sanctuary-three-vows').length,1);
+ while(game.dialogOpen)game.nextDialog();
+ game.interactNpc('keeper');
+ assert.equal(game.save.inventory.seals,inventory.seals+2);
+ assert.equal(game.economy.echoes,echoes+40);
+ while(game.dialogOpen)game.nextDialog();
+ const raw=storage.getItem('ascii-azur-save-v1');
+ const continuation=mount({virtualTime:true,seed:441,priorSave:raw});
+ continuation.game.continueGame();
+ while(continuation.game.dialogOpen)continuation.game.nextDialog();
+ continuation.game.interactNpc('keeper');
+ assert.equal(continuation.game.save.inventory.seals,inventory.seals+2);
+ assert.equal(continuation.game.save.inventory.tonics,inventory.tonics+2);
+ assert.equal(continuation.game.economy.echoes,echoes+40);
+});
