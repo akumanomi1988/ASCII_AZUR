@@ -578,7 +578,7 @@ test('progression probe: six visible trail combats for three starters across twe
  for(const starter of ['cindrel','velaria','thorne'])for(let n=1;n<=12;n++){
   const world=(Math.imul(n,2654435761))>>>0;
   const {game,dom,flushTimers}=mount({virtualTime:true,seed:n*701+starter.length*31});
-  dom.get('worldSeedInput').value=String(world);
+  dom.set('worldSeedInput',{value:String(world)});
   game.startNew();game.pickStarter(starter);while(game.dialogOpen)game.nextDialog();
   game.interactNpc('archivist');while(game.dialogOpen)game.nextDialog();
   game.interactLandmark({kind:'portal',x:43,y:16,label:'Bosque'});
