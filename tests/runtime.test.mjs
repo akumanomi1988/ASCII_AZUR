@@ -582,7 +582,7 @@ test('progression probe: six visible trail combats for three starters across twe
   game.startNew();game.pickStarter(starter);while(game.dialogOpen)game.nextDialog();
   game.interactNpc('archivist');while(game.dialogOpen)game.nextDialog();
   game.interactLandmark({kind:'portal',x:43,y:16,label:'Bosque'});
-  let won=0,losses=0,tonics=0,turns=0;
+  let won=0,losses=0,forestWins=0,sanctuaryWins=0,tonics=0,turns=0;
   const fight=(enemy,level,encounterId)=>{
    game.startBattle(enemy,level,'wild',encounterId);
    if(!game.battle)return false;
@@ -602,7 +602,7 @@ test('progression probe: six visible trail combats for three starters across twe
    assert.ok(ticks<100,'unresolved combat '+JSON.stringify({starter,world,encounterId,enemy:game.battle?.enemy.speciesId,enemyHp:game.battle?.enemy.hp,allyHp:game.getAlly()?.hp,log:game.battle?.log}));
    turns+=ticks;tonics+=was-game.save.inventory.tonics;
    const victory=game.save.flags.includes('roamer-'+encounterId);
-   if(victory)won++;else losses++;
+   if(victory){won++;if(encounterId.startsWith('forest-'))forestWins++;else sanctuaryWins++;}else losses++;
    if(game.evolution){game.seconds=game.evolution.startedAt+game.evolution.duration;game.loop(1000);}
    return victory;
   };
@@ -621,13 +621,14 @@ test('progression probe: six visible trail combats for three starters across twe
     fight(r.speciesId,r.level,r.id);
    }
   }
-  report.push({starter,world,won,losses,tonics,turns,level:game.save.team[0].level,
+  report.push({starter,world,won,losses,forestWins,sanctuaryWins,tonics,turns,level:game.save.team[0].level,
     hp:game.save.team[0].hp,alive:game.save.team.some(c=>c.hp>0)});
  }
  for(const starter of ['cindrel','velaria','thorne']){
   const group=report.filter(r=>r.starter===starter);
   console.log('BALANCE_PROBE '+JSON.stringify({starter,runs:group.length,rounds:group.reduce((a,b)=>a+b.won+b.losses,0),
     victories:group.reduce((a,b)=>a+b.won,0),defeats:group.reduce((a,b)=>a+b.losses,0),
+    forestWins:group.reduce((a,b)=>a+b.forestWins,0),sanctuaryWins:group.reduce((a,b)=>a+b.sanctuaryWins,0),
     tonics:group.reduce((a,b)=>a+b.tonics,0),levels:group.map(r=>r.level)}));
  }
  assert.equal(report.length,36);
