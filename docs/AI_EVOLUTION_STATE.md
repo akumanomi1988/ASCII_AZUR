@@ -1,6 +1,6 @@
 # ASCII AZUR — Autonomous Evolution State
 
-Last audited: 2026-10-22, v0.24. Source of truth: `akumanomi1988/ASCII_AZUR` / `main` once promoted. One iteration per invocation; do not run scheduled or Work tasks without explicit consent.
+Last audited: 2026-10-22, v0.25. Source of truth: `akumanomi1988/ASCII_AZUR` / `main` once promoted. One iteration per invocation; do not run scheduled or Work tasks without explicit consent.
 
 ## Vision and invariant contracts
 
@@ -224,3 +224,14 @@ Source commit, GitHub Actions and Pages provenance are recorded below. Direct pu
 - **Public URL:** `https://akumanomi1988.github.io/ASCII_AZUR/`. External end-user HTTP and interaction smoke **NOT VERIFIED**, because `github.io` does not resolve in the current execution environment. Pages workflow success cannot replace live browser validation.
 - **16-dimension quality:** previous overall **2.5/5**, current overall **2.5/5**. A credible scripted regional completion and pre-boss readability improve technical evidence, not prove player enjoyment, global campaign completeness or AAA quality.
 - **Next priority:** reduce excessive repetitive pre-boss grinding through authored progression and balanced encounters, increase procedural content quality, test more seeds and all three starter choices, and run a physical-device Android WebGL2 sustained performance test plus independent human playthrough. Automating `main`→Pages publication remains an optional separate CI/CD improvement; current deployment branch is `gh-pages`.
+
+## v0.25 verified delivery ledger — 2026-10-22
+
+- **Priority and player-facing problem:** the combat finisher alone received battle experience; preparing a second captured creature demanded repeated individual training. The v0.24 full scripted Arken journey required 18 wild training encounters before the guardian route. This identifies grind pressure, not an independently validated optimal balance.
+- **Vertical slice:** `grantPartyExperience()` awards 100% of the existing battle XP to the active creature and floor(50%) to each other conscious party companion. Fainted companions and stored reserves gain none. Existing per-creature level thresholds, learned moves, evolution rules and single-creature XP are retained. Non-active evolution is shown by the existing animation; battle toast identifies the number of teammates and their shared reward. No v1 schema changes or content/world seed changes.
+- **New QA:** three party tests exercise full/half/zero XP, bench evolution, solo compatibility and invalid input; one runtime test verifies actual normal victory, captured-party XP and reserve exclusion. No fake boss wins or XP injection in the new test.
+- **GitHub verification:** source change `64eadcb3d212e8c7194bb918ee6c44c7c0dc95f6` developed on `feature/party-shared-experience-v025` then promoted to `main` without force. Feature CI `39753741140` SUCCESS and main CI `39753962969` SUCCESS: TypeScript strict build, generated standalone (342456 bytes), **178/178 Node tests PASS**, offline audit **31 reachable JS / 32 cached** and release packaging. No independent Chromium visual pass was executed for this iteration.
+- **Pages:** `gh-pages` commit `3b275d10a02920e74397f57a5bd93c547e0a3c15` contains the source commit's compiled `dist/main.js` and `dist/party.js`, updated index and versioned service worker. Pages deployment run `39754095131` SUCCESS. `gh-pages/build-info.json` records version `0.25.0`, the exact source commit above and main CI `39753962969`; module blobs match that source commit.
+- **Public origin:** `https://akumanomi1988.github.io/ASCII_AZUR/`. Independent live HTTP/browser interaction smoke **NOT VERIFIED**: the external inspection tool cannot access this origin. A green Pages deployment proves successful publication workflow, not independent game operation for real players.
+- **Quality model:** 16-dimension aggregate **2.5/5 previous → 2.5/5 current**. New progression behavior is technically verified; grind reduction, combat balance, Android hardware FPS and perceived player enjoyment are unverified. Premium-complete gate is NOT passed.
+- **Next highest priority:** compare start-to-Guardian balance across all three starters and many deterministic world/encounter seeds using legitimate gameplay commands; reduce unnecessary grind based on the measured distribution, without making tactical encounters trivial. Then expand the global multi-region campaign and independently test on physical Android devices with sustained WebGL2 frame timing.
