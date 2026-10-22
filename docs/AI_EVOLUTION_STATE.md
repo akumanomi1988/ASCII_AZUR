@@ -1,6 +1,6 @@
 # ASCII AZUR — Autonomous Evolution State
 
-Updated: 2026-10-22. Active change: **v0.26.2 finite altar discovery reward**. Source: `akumanomi1988/ASCII_AZUR`, release branch `main`. Do not infer deployment from a push or green CI.
+Updated: 2026-10-22. Active change: **v0.27.1 legacy route encounter compatibility (verification pending)**. Source: `akumanomi1988/ASCII_AZUR`, release branch `main`. Do not infer deployment from a push or green CI.
 
 ## Product vision and non-negotiables
 
@@ -108,3 +108,11 @@ The current game includes three regions, 12 species, an authored six-step Arken 
 
 - The reviewed same-seed Chromium montage reveals a disproportionate ground area and an easily lost main-player silhouette. Added a restrained, localized teal ambient halo and small ground contact ring beneath the player, consistently in both renderer modes. The visual cue is scene-space, camera-following, uses existing Canvas2D compositing, and changes no collision, save or animation logic.
 - Screenshot comparison and release verification must pass for this change; real-device visual inspection remains mandatory for artistic acceptance.
+
+## 2026-10-22 — Legacy routes and guaranteed trail challenges (v0.27.1)
+
+- Diagnosis (source-confirmed): `visibleEncounters` required `terrain === 'path'` but legacy `worldSeed=0` returns only `ground` and `grass` along the central walkable trail, yielding zero visible route encounters in pre-generator saves. These players miss the three finite first-win XP/recovery opportunities per hostile region.
+- Change: for the actual legacy world only, select reachable ground/grass tiles within two rows of the established central road; retain path-only placement for generated worlds, minimum landmark clearance and six-tile roamer separation. For generated paths obstructed near preferred x bands, try another valid reachable path before omitting a first-win fight. No terrain, NPC, economy rules, or save schema changed.
+- Acceptance: new runtime tests check three deterministic encounters in both legacy regions, physical reachable tiles, terrain preservation, landmark clearance, separation, 512 generated seeds, and world-snapshot reloading. **CI, browser matrix, Pages publication and public smoke are pending at time of this source commit.** Do not infer acceptance from this entry alone.
+- Domain quality scorecard remains **2.5/5** (no subjective uplift without player evidence). Source baseline immediately before this change: `fee09adb6362cc90896b16c533a1867af914cf88`. Pages metadata before this change points to `fee09adb6362cc90896b16c533a1867af914cf88` (Pages head `cce943412c960bc198ab8a5d8a4daf756b0fb313`; workflow last reported successful). Public `github.io` smoke is unavailable from this reader.
+- Next: inspect CI for this change and verify Pages provenance; then quantify multi-seed win/loss and resource pacing for all three starters from forest through guardian/crypt. Subjective artwork and complete campaign gates remain open.

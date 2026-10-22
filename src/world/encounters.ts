@@ -1,5 +1,5 @@
 /** Stable, visible overworld encounters, placed on reachable paths (not hidden RNG). */
-import {getReachableTiles,hash,terrain,WORLD_W,ZONES,type ZoneId} from '../world.js';
+import {getReachableTiles,getWorldSeed,hash,terrain,WORLD_W,ZONES,type ZoneId} from '../world.js';
 import {maxHp,type Creature} from '../domain.js';
 export interface RoamingEncounter {id:string;x:number;y:number;speciesId:string;level:number;}
 const SPECIES_BY_ZONE:Record<'forest'|'sanctuary',readonly string[]>={
@@ -12,11 +12,19 @@ export function visibleEncounters(zone:ZoneId,seed:number):RoamingEncounter[]{
  // One guaranteed early encounter, one midpoint, one later encounter, each by a route.
  for(let slot=0;slot<3;slot++){
    const target=slot===0?12:slot===1?24:36;
-   const candidates=[...accessible].map(index=>({x:index%WORLD_W,y:Math.floor(index/WORLD_W)}))
-     .filter(p=>Math.abs(p.x-target)<=5 && p.x>=6 &&p.x<=40
-       &&terrain(zone,p.x,p.y)==='path'
-       &&ZONES[zone].landmarks.every(l=>Math.hypot(l.x-p.x,l.y-p.y)>=3)
-       &&out.every(e=>Math.hypot(e.x-p.x,e.y-p.y)>=6));
+   // v1 legacy saves (seed 0) predate the 'path' tile: their central
+   // ground/grass road is equally traversable and must keep the core encounters.
+   const isLegacyWorld=getWorldSeed()===0;
+   const trail=[...accessible].map(index=>({x:index%WORLD_W,y:Math.floor(index/WORLD_W)}))
+     .filter(p=>p.x>=6&&p.x<=40
+       &&(terrain(zone,p.x,p.y)==='path'
+         ||(isLegacyWorld&&Math.abs(p.y-16)<=2&&['ground','grass'].includes(terrain(zone,p.x,p.y))))
+       &&ZONES[zone].landmarks.every(l=>Math.hypot(l.x-p.x,l.y-p.y)>=3));
+   const available=trail.filter(p=>out.every(e=>Math.hypot(e.x-p.x,e.y-p.y)>=6));
+   // If a displaced landmark consumes the preferred stretch, use another
+   // reachable trail cell instead of silently dropping an encounter/XP source.
+   const preferred=available.filter(p=>Math.abs(p.x-target)<=5);
+   const candidates=preferred.length?preferred:available;
    candidates.sort((a,b)=>{
      const score=(p:{x:number;y:number})=>Math.abs(p.x-target)*10+hash(p.x,p.y,seed+slot*17)*8;
      return score(a)-score(b);

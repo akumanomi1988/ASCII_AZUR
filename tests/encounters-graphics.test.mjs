@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {configureWorld,ZONES,isBlocked} from '../dist/world.js';
+import {configureWorld,ZONES,isBlocked,getReachableTiles,captureWorldSnapshot,WORLD_W,terrain} from '../dist/world.js';
 import {visibleEncounters,nearbyEncounter,ROAMER_FIRST_VICTORY_XP,firstRoamerVictoryBonus,recoverTrailParty} from '../dist/world/encounters.js';
 import {DEFAULT_GRAPHICS,boundGraphic,glyphCell,canvasGlyphCell,glyphCount,readGraphics} from '../dist/render/graphics-profile.js';
 import {validateBattleCheckpoint,createCreature,gainExp,maxHp} from '../dist/domain.js';
@@ -95,4 +95,50 @@ test('first-trail respite restores 25% maximum HP to conscious companions withou
  assert.equal(recovered[0].uid,a.uid);
  assert.equal(recovered[0].exp,a.exp);
  assert.equal(recoverTrailParty([]).length,0);
+});
+
+test('legacy world v1 supplies three reachable trail encounters without changing its terrain',()=>{
+ configureWorld(0);
+ for(const zone of ['forest','sanctuary']){
+  const before=Array.from({length:WORLD_W*32},(_,i)=>terrain(zone,i%WORLD_W,Math.floor(i/WORLD_W))).join(',');
+  const monsters=visibleEncounters(zone,0);
+  assert.deepEqual(monsters.map(m=>m.id),[zone+'-0',zone+'-1',zone+'-2'],zone+' lost its first-win training route');
+  const reachable=getReachableTiles(zone);
+  for(const m of monsters){
+   assert.ok(reachable.has(m.y*WORLD_W+m.x),zone+': unreachable encounter '+m.id);
+   assert.ok(['ground','grass'].includes(terrain(zone,m.x,m.y)),zone+': encounter not on legacy road');
+   assert.ok(Math.abs(m.y-16)<=2,'legacy roamer must stay on the central road');
+   assert.ok(ZONES[zone].landmarks.every(l=>Math.hypot(l.x-m.x,l.y-m.y)>=3));
+   assert.ok(monsters.every(n=>n.id===m.id||Math.hypot(n.x-m.x,n.y-m.y)>=6),'encounters must remain separated');
+  }
+  assert.deepEqual(visibleEncounters(zone,0),monsters,'legacy encounters should be deterministic');
+  const after=Array.from({length:WORLD_W*32},(_,i)=>terrain(zone,i%WORLD_W,Math.floor(i/WORLD_W))).join(',');
+  assert.equal(after,before,'legacy layout must not be regenerated or mutated');
+ }
+});
+test('three visible fights are guaranteed across 512 seeded worlds and survive snapshot reload',()=>{
+ try{
+  for(let n=1;n<=512;n++){
+   const seed=(Math.imul(n,2654435761))>>>0;
+   configureWorld(seed);
+   for(const zone of ['forest','sanctuary']){
+    const monsters=visibleEncounters(zone,seed);
+    assert.equal(monsters.length,3,zone+' seed '+seed+' must have three first-win encounters');
+    const accessible=getReachableTiles(zone);
+    for(const m of monsters){
+     assert.ok(accessible.has(m.y*WORLD_W+m.x),m.id+' is unreachable');
+     assert.equal(terrain(zone,m.x,m.y),'path',m.id+' is not on its generated road');
+     assert.ok(monsters.every(other=>other.id===m.id||Math.hypot(m.x-other.x,m.y-other.y)>=6));
+     assert.ok(ZONES[zone].landmarks.every(l=>Math.hypot(l.x-m.x,l.y-m.y)>=3));
+    }
+   }
+  }
+  const seed=91234567;configureWorld(seed);
+  const snapshot=captureWorldSnapshot();
+  assert.ok(snapshot);
+  const before=['forest','sanctuary'].map(zone=>visibleEncounters(zone,seed));
+  configureWorld(123);
+  configureWorld(seed,snapshot);
+  assert.deepEqual(['forest','sanctuary'].map(zone=>visibleEncounters(zone,seed)),before);
+ }finally{configureWorld(0);}
 });
