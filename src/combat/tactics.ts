@@ -67,3 +67,13 @@ export function chooseEnemyMove(enemy:Creature,ally:Creature,enemyStatuses:Statu
   if(ranked.length>1&&rng>.8){const close=ranked.filter(c=>ranked[0]!.score-c.score<7);return close[Math.floor(((rng-.8)/.2)*close.length)%close.length]?.id??ranked[0]!.id;}
   return ranked[0]!.id;
 }
+
+/** Hollowhart's Ether signature is reserved for the fully telegraphed charged attack.
+ * Normal turns use its Root/Ether basic skills; phase I no longer contains
+ * an unannounced super-effective Eclipse against the Ash starter.
+ * This is a boss-specific decision, not a global AI or species-stat change. */
+export function chooseGuardianMove(enemy:Creature,ally:Creature,enemyStatuses:StatusEffect[],allyStatuses:StatusEffect[],chargeStage:0|1|2,rng=0):string{
+ if(chargeStage===2&&enemy.moves.includes('eclipse'))return'eclipse';
+ const regular=enemy.moves.filter(id=>id!=='eclipse');
+ return chooseEnemyMove({...enemy,moves:regular},ally,enemyStatuses,allyStatuses,rng);
+}

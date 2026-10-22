@@ -85,6 +85,12 @@ window.addEventListener('load',()=>setTimeout(async()=>{
   document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true}));
   check($('modalTitle').textContent==='VÍNCULOS Y RESERVA','Escape did not return to Team');
   $('closeModal').click();
+  // Player-facing Arken mastery circuit must be actionable inside the real game.
+  $('drawerToggle').click();$('duelBtn').click();
+  check(!$('modal').classList.contains('hidden'),'Arken training menu did not open');
+  check($('modalContent').textContent.includes('CIRCUITO DE IRIA'),'Three-lesson training circuit missing');
+  check(document.querySelectorAll('[data-duel]').length===3,'Village training challenges missing');
+  $('closeModal').click();
   $('quickSettings').click();
   check(!$('modal').classList.contains('hidden'),'Graphics options did not open');
   const mode=new URLSearchParams(location.search).get('mode')||'ascii';

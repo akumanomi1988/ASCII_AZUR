@@ -1,4 +1,4 @@
-import {MOVES,SPECIES,TYPE_ADV,maxHp,type Creature} from './domain.js';
+import {MOVES,SPECIES,TYPE_ADV,maxHp,createCreature,damage,type Creature} from './domain.js';
 /** A self-contained, saved-with-flags narrative arc built on existing exploration and dungeon systems. */
 export const ARKEN_FINALE_FLAG='arken-vow-restored';
 export const ARKEN_FINALE_REWARD={echoes:200,seals:4} as const;
@@ -83,4 +83,21 @@ export function sanctuaryOathProgress(flags:readonly string[]):{resolved:number;
  const resolved=[0,1,2].filter(i=>flags.includes('roamer-sanctuary-'+i)).length;
  const claimed=flags.includes(SANCTUARY_OATHS_FLAG);
  return{resolved,ready:resolved===3&&!claimed,claimed};
+}
+
+/** Propose (never force) the highest immediate-damage healthy opening combatant
+ * against the real level-12 Guardian, using equipped attacks and current HP.
+ * The player may deliberately choose any conscious teammate instead. */
+export function guardianRecommendedLead(team:readonly Creature[]):number{
+ const boss=createCreature('hollowhart',12,()=>0);
+ let choice=-1,best=-Infinity;
+ for(let i=0;i<team.length;i++){
+  const creature=team[i]!;
+  if(creature.hp<=0)continue;
+  const strongest=Math.max(0,...creature.moves.filter(id=>!!MOVES[id]&&MOVES[id]!.power>0).map(id=>damage(creature,boss,MOVES[id]!).value));
+  const safety=0.75+0.25*creature.hp/maxHp(creature);
+  const score=strongest*safety;
+  if(score>best){best=score;choice=i;}
+ }
+ return choice;
 }

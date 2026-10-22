@@ -325,8 +325,10 @@ test('runtime: full Arken battles resolve using player moves, guard and tonics (
   assert.equal(game.battle,null);
  }
  assert.ok(game.save.team.length>=3,'party building via capture must succeed');
+ // Captures may trigger a legitimate defeat/recovery dialogue on this seed.
+ while(game.dialogOpen)game.nextDialog();
  game.interactLandmark({kind:'altar',x:10,y:10});
- if(game.evolution){game.seconds=game.evolution.startedAt+game.evolution.duration;game.loop(1000)}
+ if(game.evolution){game.seconds=game.evolution.startedAt+game.evolution.duration+.25;game.loop(1000)}
  assert.equal(game.evolution,null,'evolution animation must finish before guardian interaction');
  game.interactLandmark({kind:'guardian',x:25,y:10,label:'Hollowhart'});
  assert.equal(game.battle,null,'guardian encounter should offer preparation before combat');
@@ -412,7 +414,7 @@ test('runtime: a normal victory gives half XP to a captured teammate without alt
  const bench={...game.save.team[0],uid:'bench-xp',speciesId:'velaria',level:5,exp:0,hp:40,moves:['fog','pulse']};
  const reserve={...bench,uid:'stored-xp'};
  game.save.team.push(bench);game.save.storage.push(reserve);
- game.startBattle('briarling',3,'wild');game.winBattle();
+ game.startBattle('wispawn',3,'wild');game.winBattle();
  assert.equal(game.save.team[0].exp,20);
  assert.equal(game.save.team[1].exp,10);
  assert.equal(game.save.storage[0].exp,0);
@@ -463,7 +465,7 @@ test('runtime: first trail victory restores party and persists recovery exactly 
  game.save.team[0].hp=2;
  game.startBattle('briarling',5,'wild','forest-0');game.winBattle();
  assert.equal(game.save.team[0].hp,2,'repeated encounters cannot restore HP');
- game.startBattle('briarling',5,'wild');game.winBattle();
+ game.startBattle('wispawn',5,'wild');game.winBattle();
  assert.equal(game.save.team[0].hp,2,'random encounters cannot restore HP');
 });
 test('runtime: three starters can defeat a first forest trail encounter using real move commands',()=>{
@@ -603,7 +605,7 @@ test('progression probe: six visible trail combats for three starters across twe
    turns+=ticks;tonics+=was-game.save.inventory.tonics;
    const victory=game.save.flags.includes('roamer-'+encounterId);
    if(victory){won++;if(encounterId.startsWith('forest-'))forestWins++;else sanctuaryWins++;}else losses++;
-   if(game.evolution){game.seconds=game.evolution.startedAt+game.evolution.duration;game.loop(1000);}
+   if(game.evolution){game.seconds=game.evolution.startedAt+game.evolution.duration+.25;game.loop(1000);}
    return victory;
   };
   for(const zone of ['forest','sanctuary']){
@@ -687,4 +689,218 @@ test('runtime: Keeper grants Sanctuary three-oath supplies once; v1 reload canno
  assert.equal(continuation.game.save.inventory.seals,inventory.seals+2);
  assert.equal(continuation.game.save.inventory.tonics,inventory.tonics+2);
  assert.equal(continuation.game.economy.echoes,echoes+40);
+});
+
+
+/** C3 reconnaissance: fixed bounded player-command policy, no forced XP, capture or victory.
+ * Travel is driven through the same portal/landmark handlers as existing runtime tests;
+ * dungeon coordinates use actual collision/movement and the saved deterministic topology.
+ * Every report is machine readable for comparing cohorts without cherry-picking seeds. */
+test('C3 measurement: three starters across twelve worlds with legitimate capture, Guardian and crypt', {timeout:180000},()=>{
+ const cohorts=[], starters=['cindrel','velaria','thorne'];
+ for(const starter of starters)for(let n=1;n<=12;n++){
+  const world=(Math.imul(n,2654435761))>>>0;
+  const session=mount({virtualTime:true,seed:n*7919+starter.length*59});
+  const {game,dom,storage,flushTimers}=session;
+  dom.set('worldSeedInput',{value:String(world)});
+  game.startNew();game.pickStarter(starter);
+  const dialogs=()=>{while(game.dialogOpen)game.nextDialog();if(game.evolution){game.seconds=game.evolution.startedAt+game.evolution.duration+.25;game.loop(1000);}};
+  dialogs();game.interactNpc('archivist');dialogs();
+  let wins=0,failures=0,captures=0,tonics=0,actions=0,guardian=false,crypt=false,training=0,bossStarted=false,bossTurns=0,lastBossHp=-1,preGuardianZone='',preGuardianEvolution=false,preGuardianDialog=false,guardianModal=false;
+  const battle=(species,level,type='wild',encounterId=undefined,bind=false)=>{
+   dialogs();if(game.battle)throw Error('Prior encounter still active');
+   const originalSize=game.save.team.length, priorDefeated=game.save.defeatedBoss,oldEchoes=game.economy.echoes;
+   game.startBattle(species,level,type,encounterId);
+   let steps=0;
+   while(game.battle&&steps++<90){
+    const b=game.battle,ally=game.getAlly();
+    if(b.busy){flushTimers();continue;}
+    if(b.chargeStage===2){game.defend();flushTimers();actions++;continue;}
+    if(bind&&game.save.inventory.tonics>0&&ally.hp<maxHp(ally)*.28){
+     game.tonic();tonics++;actions++;flushTimers();continue;
+    }
+    if(bind&&game.save.inventory.seals>0&&b.enemy.hp/maxHp(b.enemy)<=.60){
+     game.capture();actions++;flushTimers();continue;
+    }
+    const available=ally.moves.filter(id=>MOVES[id]&&MOVES[id].power>0);
+    if(!available.length)throw Error('No offensive move for '+starter);
+    const rank=(id)=>damage(ally,b.enemy,MOVES[id]).value;
+    available.sort((a,c)=>(bind?rank(a)-rank(c):rank(c)-rank(a)));
+    game.useMove(available[0]);actions++;flushTimers();
+   }
+   assert.ok(steps<90,'combat softlock '+JSON.stringify({starter,world,species,level,type,encounterId}));
+   dialogs();
+   const caught=game.save.team.length>originalSize;
+   const won=type==='boss'?game.save.defeatedBoss&&!priorDefeated
+     :encounterId?game.save.flags.includes('roamer-'+encounterId):!caught&&game.economy.echoes>oldEchoes;
+   if(caught)captures++;
+   if(won)wins++;
+   if(!won&&!caught)failures++;
+   return{won,caught};
+  };
+  const heal=()=>{dialogs();game.interactLandmark({kind:'altar',x:15,y:12});};
+  const portal=()=>{dialogs();game.interactLandmark({kind:'portal',x:game.save.zone==='forest'&&game.save.x>30?43:43,y:16,label:'Paso'});};
+  // Recruit Ash counterplay for non-Ash starters and a secondary companion for Ash.
+  // Cindrel and briarling are selectable from real village direct challenges.
+  for(const id of starter==='cindrel'?['mireling','briarling']:['cindrel','briarling']){
+   let found=false;
+   for(let attempt=0;attempt<3&&!found&&game.save.inventory.seals>0;attempt++){
+    heal();found=battle(id,id==='mireling'?5:3,'wild',undefined,true).caught;
+   }
+  }
+  // Three authored first-victory lessons replace repeated grind, with earned XP.
+  for(const [species,level] of [['cindrel',3],['briarling',4],['mireling',5]]){
+   heal();const result=battle(species,level);
+   if(result.won)training++;
+  }
+  dialogs();game.interactNpc('scout');dialogs();
+  heal();portal(); // village -> forest
+  const forest=game.roamers();
+  for(const r of forest){heal();battle(r.speciesId,r.level,'wild',r.id);}
+  if(game.save.zone==='village')portal();
+  if(game.save.zone==='forest')portal(); // forest -> Sanctuary
+  if(game.save.zone==='sanctuary'){
+   const route=game.roamers();
+   for(const r of route){
+    if(game.save.zone!=='sanctuary'){if(game.save.zone==='village')portal();if(game.save.zone==='forest')portal();}
+    heal();battle(r.speciesId,r.level,'wild',r.id);
+   }
+   if(game.save.flags.filter(f=>f.startsWith('roamer-sanctuary-')).length===3){
+    game.interactNpc('keeper');dialogs();
+   }
+   if(game.save.zone==='village')portal();
+   if(game.save.zone==='forest')portal();
+   heal();dialogs();
+   preGuardianZone=game.save.zone;preGuardianEvolution=!!game.evolution;preGuardianDialog=game.dialogOpen;
+   game.interactLandmark({kind:'guardian',x:35,y:16,label:'Hollowhart'});
+   guardianModal=game.modalOpen;
+   if(game.modalOpen){dom.get('guardianProceed').onclick();}
+   if(game.battle){
+    // Resolve the prepared boss battle through ordinary player commands.
+    bossStarted=true;let turns=0;
+    while(game.battle&&turns++<90){
+      const state=game.battle,ally=game.getAlly();lastBossHp=state.enemy.hp;
+      if(state.busy){flushTimers();continue;}
+      if(state.chargeStage===2){game.defend();flushTimers();actions++;continue;}
+      if(game.save.inventory.tonics>0&&ally.hp<maxHp(ally)*.4){game.tonic();tonics++;flushTimers();actions++;continue;}
+      const ids=ally.moves.filter(id=>MOVES[id]&&MOVES[id].power>0).sort((x,y)=>damage(ally,state.enemy,MOVES[y]).value-damage(ally,state.enemy,MOVES[x]).value);
+      if(!ids.length)throw Error('No boss moves');
+      game.useMove(ids[0]);actions++;flushTimers();
+    }
+    assert.ok(turns<90,'boss softlock');bossTurns=turns;
+    guardian=game.save.defeatedBoss;dialogs();
+   }
+  }
+  if(guardian){
+   if(game.save.zone==='sanctuary')game.interactLandmark({kind:'portal',x:2,y:16,label:'Bosque'});
+   if(game.save.zone==='forest')game.interactLandmark({kind:'portal',x:2,y:16,label:'Arken'});
+   if(game.save.zone==='village'){
+    heal();game.enterDungeon(false);
+    const visit=event=>{
+     const d=game.save.dungeon;
+     for(const next of dungeonTilePath(d,{x:d.x,y:d.y},event).slice(1)){
+      const current=game.save.dungeon,dx=next.x-current.x,dy=next.y-current.y;
+      game.stick.x=Math.abs(dx)<.05?0:Math.sign(dx);
+      game.stick.y=Math.abs(dy)<.05?0:Math.sign(dy);
+      for(let step=0;step<5;step++)game.move(1/(4.35*5));
+      assert.ok(Math.hypot(game.save.dungeon.x-next.x,game.save.dungeon.y-next.y)<.05,'Crypt path blocked '+starter+'/'+world);
+     }game.resetJoystick();
+    };
+    for(const id of [1,2,3,4,5,7]){
+     const d=game.save.dungeon;if(!d?.active)break;
+     visit(d.events[id]);game.dungeonInteract();
+     if(game.battle){
+      let steps=0;
+      while(game.battle&&steps++<90){
+       if(game.battle.busy){flushTimers();continue;}
+       const ally=game.getAlly();
+       if(game.save.inventory.tonics>0&&ally.hp<maxHp(ally)*.34){game.tonic();tonics++;flushTimers();actions++;continue;}
+       const ids=ally.moves.filter(mid=>MOVES[mid]&&MOVES[mid].power>0).sort((a,c)=>damage(ally,game.battle.enemy,MOVES[c]).value-damage(ally,game.battle.enemy,MOVES[a]).value);
+       game.useMove(ids[0]);actions++;flushTimers();
+      }
+      assert.ok(steps<90,'sentinel softlock');
+     }
+     dialogs();
+    }
+    crypt=!!game.save.dungeon?.finished;
+   }
+  }
+  const raw=storage.getItem('ascii-azur-save-v1');
+  assert.ok(raw,'player save not persisted');
+  const saved=JSON.parse(raw);
+  assert.equal(saved.version,1);
+  const reopened=mount({virtualTime:true,seed:n*42+starter.length,priorSave:raw});
+  reopened.game.continueGame();reopened.flushTimers();
+  assert.deepEqual(JSON.parse(JSON.stringify(reopened.game.save.flags)),JSON.parse(JSON.stringify(game.save.flags)),'no loss/duplication on reload');
+  cohorts.push({starter,world,training,captures,wins,failures,tonics,actions,bossStarted,bossTurns,lastBossHp,preGuardianZone,preGuardianEvolution,preGuardianDialog,guardianModal,guardian,crypt,level:game.save.team[0]?.level});
+ }
+ for(const starter of starters){
+  const cases=cohorts.filter(c=>c.starter===starter);
+  console.log('C3_COHORT '+JSON.stringify({starter,runs:cases.length,captures:cases.map(c=>c.captures),training:cases.map(c=>c.training),
+   bossWins:cases.filter(c=>c.guardian).length,cryptWins:cases.filter(c=>c.crypt).length,
+   bossStarted:cases.filter(c=>c.bossStarted).length,preGuardian:cases.map(c=>[c.preGuardianZone,c.preGuardianEvolution,c.preGuardianDialog,c.guardianModal]),bossTurns:cases.map(c=>c.bossTurns),bossFinalHP:cases.map(c=>c.lastBossHp),
+   tonics:cases.reduce((s,c)=>s+c.tonics,0),failures:cases.reduce((s,c)=>s+c.failures,0),
+   levels:cases.map(c=>c.level)}));
+  assert.ok(cases.every(c=>c.captures>=1),starter+' missing player-earned captured ally');
+  assert.ok(cases.every(c=>c.training===3),starter+' did not finish three unique lessons');
+  assert.ok(cases.filter(c=>c.bossStarted).length>=11,starter+' failed to reach the Guardian');
+  assert.ok(cases.filter(c=>c.guardian).length>=11,starter+' below 90% Guardian gate');
+  assert.ok(cases.filter(c=>c.crypt).length>=11,starter+' below 90% crypt gate');
+ }
+ assert.equal(cohorts.length,36);
+});
+
+test('runtime: Hollowhart cannot use untelegraphed Eclipse; charged blow has actionable cue and GUARDIA counterplay',()=>{
+ const {game,flushTimers,dom}=mount({virtualTime:true,seed:779});
+ game.startNew();game.pickStarter('thorne');while(game.dialogOpen)game.nextDialog();
+ game.startBattle('hollowhart',12,'boss');
+ game.enemyTurn();
+ assert.doesNotMatch(game.battle.log,/usa Eclipse/,'early Eclipse undermines preparation');
+ game.battle.bossPhase=2;game.battle.chargeStage=1;
+ game.enemyTurn();assert.equal(game.battle.chargeStage,2);
+ assert.match(game.battle.log,/ECLIPSE/);
+ game.defend();flushTimers();
+ assert.match(dom.get('battleLog').textContent,/RUPTURA DEL SILENCIO/);
+ assert.match(dom.get('battleLog').textContent,/guardia/);
+});
+
+test('runtime: Guardian selection starts with chosen conscious ally and persists active battle slot',()=>{
+ const {game,dom,storage}=mount({virtualTime:true,seed:98});
+ game.startNew();game.pickStarter('velaria');while(game.dialogOpen)game.nextDialog();
+ // Isolated UI fixture: multi-seed progression test independently recruits with actual capture.
+ game.save.team.push({uid:'formation-ash',speciesId:'cinderwulf',level:10,exp:0,hp:75,moves:['smolder','ember']});
+ game.interactLandmark({kind:'guardian',x:35,y:16,label:'Hollowhart'});
+ assert.equal(game.modalOpen,true);
+ assert.match(dom.get('modalContent').innerHTML,/guardianLeadSelect/);
+ dom.set('guardianLeadSelect',{value:'1'});
+ dom.get('guardianProceed').onclick();
+ assert.equal(game.battle.ally,1);
+ assert.equal(JSON.parse(storage.getItem('ascii-azur-save-v1')).activeBattle.ally,1);
+});
+
+test('runtime: Arken lessons give one-time earned party XP and Iria tonics; replay and reload are idempotent',()=>{
+ const {game,storage}=mount({virtualTime:true,seed:306});
+ game.startNew();game.pickStarter('thorne');while(game.dialogOpen)game.nextDialog();
+ const initialTonics=game.save.inventory.tonics;
+ // Unit-level reward checkpoint: C3 cohort independently uses real turn commands.
+ for(const [species,level] of [['cindrel',3],['briarling',4],['mireling',5]]){
+  game.startBattle(species,level,'wild');game.winBattle();
+  assert.ok(game.save.flags.includes('training-'+species));
+ }
+ assert.equal(game.save.flags.filter(f=>f.startsWith('training-')).length,3);
+ game.interactNpc('scout');while(game.dialogOpen)game.nextDialog();
+ assert.equal(game.save.inventory.tonics,initialTonics+2);
+ assert.equal(game.save.flags.filter(f=>f==='arken-three-lessons-reward').length,1);
+ game.interactNpc('scout');while(game.dialogOpen)game.nextDialog();
+ assert.equal(game.save.inventory.tonics,initialTonics+2);
+ const raw=storage.getItem('ascii-azur-save-v1');
+ const restored=mount({virtualTime:true,seed:307,priorSave:raw});
+ restored.game.continueGame();while(restored.game.dialogOpen)restored.game.nextDialog();
+ restored.game.interactNpc('scout');
+ assert.equal(restored.game.save.inventory.tonics,initialTonics+2);
+ const exp=restored.game.save.team[0].exp,level=restored.game.save.team[0].level;
+ restored.game.startBattle('cindrel',3,'wild');restored.game.winBattle();
+ assert.ok(restored.game.save.team[0].level>=level);
+ assert.equal(restored.game.save.flags.filter(f=>f==='training-cindrel').length,1);
+ assert.ok(restored.game.save.team[0].exp!==exp||restored.game.save.team[0].level>level,'normal repeat experience still works');
 });
