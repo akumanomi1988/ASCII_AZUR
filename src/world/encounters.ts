@@ -1,5 +1,6 @@
 /** Stable, visible overworld encounters, placed on reachable paths (not hidden RNG). */
 import {getReachableTiles,hash,terrain,WORLD_W,ZONES,type ZoneId} from '../world.js';
+import {maxHp,type Creature} from '../domain.js';
 export interface RoamingEncounter {id:string;x:number;y:number;speciesId:string;level:number;}
 const SPECIES_BY_ZONE:Record<'forest'|'sanctuary',readonly string[]>={
  forest:['cindrel','mireling','thorne','briarling','ashboar'],
@@ -37,4 +38,12 @@ export const ROAMER_FIRST_VICTORY_XP=48;
 export function firstRoamerVictoryBonus(type:'wild'|'boss'|'expedition',encounterId:string|undefined,flags:readonly string[]):number{
  return type==='wild'&&typeof encounterId==='string'&&/^(forest|sanctuary)-[0-2]$/.test(encounterId)&&!flags.includes('roamer-'+encounterId)
   ?ROAMER_FIRST_VICTORY_XP:0;
+}
+
+/** First trail victories provide a finite, post-combat respite so exploration
+ * does not force an altar detour after every encounter. Never revive fainted
+ * companions; health recovery follows the existing maximum-HP formula.
+ * Caller must gate this against firstRoamerVictoryBonus > 0. */
+export function recoverTrailParty(team:readonly Creature[]):Creature[]{
+ return team.map(creature=>creature.hp<=0?{...creature}:{...creature,hp:Math.min(maxHp(creature),creature.hp+Math.ceil(maxHp(creature)*.25))});
 }

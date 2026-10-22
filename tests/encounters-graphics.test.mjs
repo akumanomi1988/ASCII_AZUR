@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {configureWorld,ZONES,isBlocked} from '../dist/world.js';
-import {visibleEncounters,nearbyEncounter,ROAMER_FIRST_VICTORY_XP,firstRoamerVictoryBonus} from '../dist/world/encounters.js';
+import {visibleEncounters,nearbyEncounter,ROAMER_FIRST_VICTORY_XP,firstRoamerVictoryBonus,recoverTrailParty} from '../dist/world/encounters.js';
 import {DEFAULT_GRAPHICS,boundGraphic,glyphCell,canvasGlyphCell,glyphCount,readGraphics} from '../dist/render/graphics-profile.js';
-import {validateBattleCheckpoint,createCreature,gainExp} from '../dist/domain.js';
+import {validateBattleCheckpoint,createCreature,gainExp,maxHp} from '../dist/domain.js';
 
 test('visible encounters are reproducible, reachable, interactive, and not in the village for 200 seeds',()=>{
  let count=0;
@@ -81,4 +81,18 @@ test('visible trail rewards are first-win only, never repeat or apply to capture
   for(const level of [5,6,7])gainExp(c,11+level*3+ROAMER_FIRST_VICTORY_XP);
   assert.ok(c.level>=8,id+' did not reach level 8 from three first victories');
  }
+});
+
+test('first-trail respite restores 25% maximum HP to conscious companions without mutating input or reviving fainted allies',()=>{
+ const a=createCreature('cindrel',5),b=createCreature('velaria',5),fainted=createCreature('thorne',5);
+ a.hp=2;b.hp=maxHp(b)-1;fainted.hp=0;
+ const originals=[a.hp,b.hp,fainted.hp];
+ const recovered=recoverTrailParty([a,b,fainted]);
+ assert.deepEqual([a.hp,b.hp,fainted.hp],originals,'recovery must not mutate battle checkpoint references');
+ assert.equal(recovered[0].hp,2+Math.ceil(maxHp(a)*.25));
+ assert.equal(recovered[1].hp,maxHp(b),'cannot overheal');
+ assert.equal(recovered[2].hp,0,'do not revive unconscious companions');
+ assert.equal(recovered[0].uid,a.uid);
+ assert.equal(recovered[0].exp,a.exp);
+ assert.equal(recoverTrailParty([]).length,0);
 });
