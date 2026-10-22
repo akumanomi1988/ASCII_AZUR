@@ -569,3 +569,69 @@ test('runtime: reloading a pending victory grants XP exactly once',()=>{
  const c=mount({virtualTime:true,seed:31,priorSave:b.storage.getItem('ascii-azur-save-v1')});
  c.game.continueGame();c.flushTimers();assert.equal(c.game.battle,null);assert.equal(c.game.save.team[0].exp,exp);
 });
+
+/** Multi-seed first-route acceptance probe: real combat commands and enemy turns,
+ * no direct winBattle, no injected XP, no artificial party stats or forced captures.
+ * Portal transition is used to isolate combat pacing from navigation for this probe. */
+test('progression probe: six visible trail combats for three starters across twelve world seeds',()=>{
+ const report=[];
+ for(const starter of ['cindrel','velaria','thorne'])for(let n=1;n<=12;n++){
+  const world=(Math.imul(n,2654435761))>>>0;
+  const {game,dom,flushTimers}=mount({virtualTime:true,seed:n*701+starter.length*31});
+  dom.set('worldSeedInput',{value:String(world)});
+  game.startNew();game.pickStarter(starter);while(game.dialogOpen)game.nextDialog();
+  game.interactNpc('archivist');while(game.dialogOpen)game.nextDialog();
+  game.interactLandmark({kind:'portal',x:43,y:16,label:'Bosque'});
+  let won=0,losses=0,forestWins=0,sanctuaryWins=0,tonics=0,turns=0;
+  const fight=(enemy,level,encounterId)=>{
+   game.startBattle(enemy,level,'wild',encounterId);
+   if(!game.battle)return false;
+   const was=game.save.inventory.tonics;
+   let ticks=0;
+   while(game.battle&&ticks++<100){
+    const b=game.battle,ally=game.getAlly();
+    if(b.busy){flushTimers();continue;}
+    if(game.save.inventory.tonics>0&&ally.hp<maxHp(ally)*.38){
+      game.tonic();flushTimers();continue;
+    }
+    const options=ally.moves.filter(mid=>MOVES[mid]&&MOVES[mid].power>0);
+    options.sort((a,c)=>damage(ally,b.enemy,MOVES[c]).value-damage(ally,b.enemy,MOVES[a]).value);
+    if(!options.length)throw Error('no attack available');
+    game.useMove(options[0]);flushTimers();
+   }
+   assert.ok(ticks<100,'unresolved combat '+JSON.stringify({starter,world,encounterId,enemy:game.battle?.enemy.speciesId,enemyHp:game.battle?.enemy.hp,allyHp:game.getAlly()?.hp,log:game.battle?.log}));
+   turns+=ticks;tonics+=was-game.save.inventory.tonics;
+   const victory=game.save.flags.includes('roamer-'+encounterId);
+   if(victory){won++;if(encounterId.startsWith('forest-'))forestWins++;else sanctuaryWins++;}else losses++;
+   if(game.evolution){game.seconds=game.evolution.startedAt+game.evolution.duration;game.loop(1000);}
+   return victory;
+  };
+  for(const zone of ['forest','sanctuary']){
+   if(zone==='sanctuary'){
+    if(game.save.zone==='village')game.interactLandmark({kind:'portal',x:43,y:16,label:'Bosque'});
+    game.interactLandmark({kind:'portal',x:43,y:16,label:'Santuario'});
+   }
+   const roamers=game.roamers();
+   assert.equal(roamers.length,3,zone+' seed '+world);
+   for(const r of roamers){
+    if(game.save.zone==='village'){
+     game.interactLandmark({kind:'portal',x:43,y:16,label:'Bosque'});
+     if(zone==='sanctuary')game.interactLandmark({kind:'portal',x:43,y:16,label:'Santuario'});
+    }
+    fight(r.speciesId,r.level,r.id);
+   }
+  }
+  report.push({starter,world,won,losses,forestWins,sanctuaryWins,tonics,turns,level:game.save.team[0].level,
+    hp:game.save.team[0].hp,alive:game.save.team.some(c=>c.hp>0)});
+ }
+ for(const starter of ['cindrel','velaria','thorne']){
+  const group=report.filter(r=>r.starter===starter);
+  const forestVictories=group.reduce((a,b)=>a+b.forestWins,0);
+  assert.ok(forestVictories>=22,starter+' early-route survival below calibrated 22/36 floor: '+forestVictories);
+  console.log('BALANCE_PROBE '+JSON.stringify({starter,runs:group.length,rounds:group.reduce((a,b)=>a+b.won+b.losses,0),
+    victories:group.reduce((a,b)=>a+b.won,0),defeats:group.reduce((a,b)=>a+b.losses,0),
+    forestWins:group.reduce((a,b)=>a+b.forestWins,0),sanctuaryWins:group.reduce((a,b)=>a+b.sanctuaryWins,0),
+    tonics:group.reduce((a,b)=>a+b.tonics,0),levels:group.map(r=>r.level)}));
+ }
+ assert.equal(report.length,36);
+});

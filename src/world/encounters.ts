@@ -2,10 +2,15 @@
 import {getReachableTiles,getWorldSeed,hash,terrain,WORLD_W,ZONES,type ZoneId} from '../world.js';
 import {maxHp,type Creature} from '../domain.js';
 export interface RoamingEncounter {id:string;x:number;y:number;speciesId:string;level:number;}
-const SPECIES_BY_ZONE:Record<'forest'|'sanctuary',readonly string[]>={
- forest:['cindrel','mireling','thorne','briarling','ashboar'],
- sanctuary:['wispawn','gravemoth','runeowl','rillfin','velaria']
-};
+/** Three distinct forest trail lessons: Root challenges Ash, Ether challenges Mist,
+ * and Mist challenges Root. A random initial pick must never deny a starter its
+ * first favourable elemental matchup. Variants preserve replay diversity. */
+const FOREST_TRAIL_POOLS:readonly (readonly string[])[]=[
+ ['mireling','velaria'], // Mist: Root's opening advantage
+ ['thorne','briarling'], // Root: Ash's mid-trail advantage
+ ['wispawn','gravemoth'] // Ether: Mist's late-trail advantage
+];
+const SANCTUARY_SPECIES:readonly string[]=['wispawn','gravemoth','runeowl','rillfin','velaria'];
 export function visibleEncounters(zone:ZoneId,seed:number):RoamingEncounter[]{
  if(zone==='village')return[];
  const accessible=getReachableTiles(zone),out:RoamingEncounter[]=[];
@@ -30,7 +35,7 @@ export function visibleEncounters(zone:ZoneId,seed:number):RoamingEncounter[]{
      return score(a)-score(b);
    });
    const pick=candidates[0];if(!pick)continue;
-   const creatures=SPECIES_BY_ZONE[zone];const variant=Math.floor(hash(slot+1,seed&255,seed+45)*creatures.length);
+   const creatures=zone==='forest'?FOREST_TRAIL_POOLS[slot]!:SANCTUARY_SPECIES;const variant=Math.floor(hash(slot+1,seed&255,seed+45)*creatures.length);
    out.push({id:`${zone}-${slot}`,x:pick.x,y:pick.y,speciesId:creatures[variant]!,level:zone==='forest'?5+slot:8+slot});
  }
  return out;

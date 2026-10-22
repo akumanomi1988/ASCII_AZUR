@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {configureWorld,ZONES,isBlocked,getReachableTiles,captureWorldSnapshot,WORLD_W,terrain} from '../dist/world.js';
 import {visibleEncounters,nearbyEncounter,ROAMER_FIRST_VICTORY_XP,firstRoamerVictoryBonus,recoverTrailParty} from '../dist/world/encounters.js';
 import {DEFAULT_GRAPHICS,boundGraphic,glyphCell,canvasGlyphCell,glyphCount,readGraphics} from '../dist/render/graphics-profile.js';
-import {validateBattleCheckpoint,createCreature,gainExp,maxHp} from '../dist/domain.js';
+import {validateBattleCheckpoint,createCreature,gainExp,maxHp,SPECIES,TYPE_ADV} from '../dist/domain.js';
 
 test('visible encounters are reproducible, reachable, interactive, and not in the village for 200 seeds',()=>{
  let count=0;
@@ -140,5 +140,23 @@ test('three visible fights are guaranteed across 512 seeded worlds and survive s
   configureWorld(123);
   configureWorld(seed,snapshot);
   assert.deepEqual(['forest','sanctuary'].map(zone=>visibleEncounters(zone,seed)),before);
+ }finally{configureWorld(0);}
+});
+
+test('forest trail guarantees one favourable matchup per starter while keeping deterministic species diversity',()=>{
+ try{
+  for(let seed=0;seed<512;seed++){
+   configureWorld(seed===0?0:(Math.imul(seed,2654435761))>>>0);
+   const monsters=visibleEncounters('forest',seed);
+   assert.equal(monsters.length,3);
+   // Type advantage is fixed: Ash -> Root, Mist -> Ether, Root -> Mist.
+   assert.ok(['mireling','velaria'].includes(monsters[0].speciesId));
+   assert.ok(['thorne','briarling'].includes(monsters[1].speciesId));
+   assert.ok(['wispawn','gravemoth'].includes(monsters[2].speciesId));
+   for(const player of ['cindrel','velaria','thorne']){
+    const favourable={cindrel:1,velaria:2,thorne:0}[player];
+    assert.equal(SPECIES[monsters[favourable].speciesId].element,TYPE_ADV[SPECIES[player].element],player+' is denied a favourable forest encounter at seed '+seed);
+   }
+  }
  }finally{configureWorld(0);}
 });
