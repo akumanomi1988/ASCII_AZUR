@@ -468,7 +468,7 @@ test('runtime: first trail victory restores party and persists recovery exactly 
 test('runtime: three starters can defeat a first forest trail encounter using real move commands',()=>{
  for(const [i,starter] of ['cindrel','velaria','thorne'].entries()){
   const {game,dom,flushTimers}=mount({virtualTime:true,seed:17+i*13});
-  game.startNew();game.pickStarter(starter);while(game.dialogOpen)game.nextDialog();
+  game.startNew();dom.get('worldSeedInput').value=String(1000+i);game.startNew();game.pickStarter(starter);while(game.dialogOpen)game.nextDialog();
   game.interactLandmark({x:43,y:16,kind:'portal',label:'Bosque'});
   assert.equal(game.save.zone,'forest');
   const trail=game.roamers().find(e=>e.id==='forest-0');assert.ok(trail,starter+' must have an accessible first trail');
