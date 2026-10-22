@@ -184,3 +184,21 @@ test('Sanctuary provides three ordered elemental lessons for all starters across
   assert.deepEqual(diversity.map(s=>s.size),[2,3,3],'keep authored species variation in each stage');
  }finally{configureWorld(0);}
 });
+
+test('first Arken elemental lessons grant finite and distinct XP only for real village wild victories',async()=>{
+ const {villageTrainingBonus,villageTrainingProgress,VILLAGE_TRAINING_XP,VILLAGE_TRAINING_REWARD_FLAG,VILLAGE_TRAINING_SPECIES}=await import('../dist/world/encounters.js');
+ assert.equal(VILLAGE_TRAINING_XP,55);
+ assert.deepEqual(VILLAGE_TRAINING_SPECIES,['cindrel','briarling','mireling']);
+ for(const id of VILLAGE_TRAINING_SPECIES){
+  assert.equal(villageTrainingBonus('wild','village',id,[]),55);
+  assert.equal(villageTrainingBonus('wild','village',id,['training-'+id]),0);
+  assert.equal(villageTrainingBonus('wild','forest',id,[]),0);
+  assert.equal(villageTrainingBonus('boss','village',id,[]),0);
+  assert.equal(villageTrainingBonus('expedition','village',id,[]),0);
+ }
+ assert.equal(villageTrainingBonus('wild','village','runeowl',[]),0);
+ assert.deepEqual(villageTrainingProgress(['training-cindrel','training-cindrel','training-mireling']),{completed:2,ready:false,claimed:false});
+ const flags=VILLAGE_TRAINING_SPECIES.map(id=>'training-'+id);
+ assert.deepEqual(villageTrainingProgress(flags),{completed:3,ready:true,claimed:false});
+ assert.deepEqual(villageTrainingProgress([...flags,VILLAGE_TRAINING_REWARD_FLAG]),{completed:3,ready:false,claimed:true});
+});

@@ -746,11 +746,12 @@ test('C3 measurement: three starters across twelve worlds with legitimate captur
     heal();found=battle(id,id==='mireling'?5:3,'wild',undefined,true).caught;
    }
   }
-  // Bounded village training under the existing economy; no free XP injections.
-  for(let i=0;i<8;i++){
-   heal();const result=battle(['briarling','mireling','cindrel'][i%3],3+i%2);
+  // Three authored first-victory lessons replace repeated grind, with earned XP.
+  for(const [species,level] of [['cindrel',3],['briarling',4],['mireling',5]]){
+   heal();const result=battle(species,level);
    if(result.won)training++;
   }
+  dialogs();game.interactNpc('scout');dialogs();
   heal();portal(); // village -> forest
   const forest=game.roamers();
   for(const r of forest){heal();battle(r.speciesId,r.level,'wild',r.id);}
@@ -865,4 +866,31 @@ test('runtime: Guardian selection starts with chosen conscious ally and persists
  dom.get('guardianProceed').onclick();
  assert.equal(game.battle.ally,1);
  assert.equal(JSON.parse(storage.getItem('ascii-azur-save-v1')).activeBattle.ally,1);
+});
+
+test('runtime: Arken lessons give one-time earned party XP and Iria tonics; replay and reload are idempotent',()=>{
+ const {game,storage}=mount({virtualTime:true,seed:306});
+ game.startNew();game.pickStarter('thorne');while(game.dialogOpen)game.nextDialog();
+ const initialTonics=game.save.inventory.tonics;
+ // Unit-level reward checkpoint: C3 cohort independently uses real turn commands.
+ for(const [species,level] of [['cindrel',3],['briarling',4],['mireling',5]]){
+  game.startBattle(species,level,'wild');game.winBattle();
+  assert.ok(game.save.flags.includes('training-'+species));
+ }
+ assert.equal(game.save.flags.filter(f=>f.startsWith('training-')).length,3);
+ game.interactNpc('scout');while(game.dialogOpen)game.nextDialog();
+ assert.equal(game.save.inventory.tonics,initialTonics+2);
+ assert.equal(game.save.flags.filter(f=>f==='arken-three-lessons-reward').length,1);
+ game.interactNpc('scout');while(game.dialogOpen)game.nextDialog();
+ assert.equal(game.save.inventory.tonics,initialTonics+2);
+ const raw=storage.getItem('ascii-azur-save-v1');
+ const restored=mount({virtualTime:true,seed:307,priorSave:raw});
+ restored.game.continueGame();while(restored.game.dialogOpen)restored.game.nextDialog();
+ restored.game.interactNpc('scout');
+ assert.equal(restored.game.save.inventory.tonics,initialTonics+2);
+ const exp=restored.game.save.team[0].exp,level=restored.game.save.team[0].level;
+ restored.game.startBattle('cindrel',3,'wild');restored.game.winBattle();
+ assert.ok(restored.game.save.team[0].level>=level);
+ assert.equal(restored.game.save.flags.filter(f=>f==='training-cindrel').length,1);
+ assert.ok(restored.game.save.team[0].exp!==exp||restored.game.save.team[0].level>level,'normal repeat experience still works');
 });
