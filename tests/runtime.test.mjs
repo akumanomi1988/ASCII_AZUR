@@ -488,3 +488,51 @@ test('runtime: three starters can defeat a first forest trail encounter using re
   assert.ok(game.save.team[0].hp>0,starter+' must remain conscious');
  }
 });
+
+
+test('runtime: each regional altar grants one seal, heals repeatedly and persists its gift',()=>{
+ const {game,storage}=mount();
+ game.startNew();game.pickStarter('cindrel');while(game.dialogOpen)game.nextDialog();
+ const altar={kind:'altar',x:15,y:12,label:'Lumbre'};
+ const initial=game.save.inventory.seals;
+ game.save.team[0].hp=1;
+ game.interactLandmark(altar);
+ assert.equal(game.save.inventory.seals,initial+1);
+ assert.equal(game.save.team[0].hp,maxHp(game.save.team[0]));
+ assert.equal(game.save.flags.filter(f=>f==='altar-village').length,1);
+ game.save.team[0].hp=2;
+ game.interactLandmark(altar);
+ assert.equal(game.save.inventory.seals,initial+1,'repeat rest must not mint unlimited capture currency');
+ assert.equal(game.save.team[0].hp,maxHp(game.save.team[0]),'repeat rest still heals fully');
+ const checkpoint=JSON.parse(storage.getItem('ascii-azur-save-v1'));
+ assert.equal(checkpoint.inventory.seals,initial+1);
+ assert.equal(checkpoint.flags.filter(f=>f==='altar-village').length,1);
+ game.interactLandmark({kind:'portal',x:43,y:16,label:'Bosque'});
+ game.interactLandmark(altar);
+ assert.equal(game.save.inventory.seals,initial+2,'first forest fire is a separate discovery');
+ game.interactLandmark(altar);
+ assert.equal(game.save.inventory.seals,initial+2,'forest fire cannot be farmed');
+ const echoes=game.economy.echoes;
+ assert.equal(game.purchaseItem('seals'),true,'Mara still sells renewable seals');
+ assert.equal(game.save.inventory.seals,initial+3);
+ assert.equal(game.economy.echoes,echoes-18,'renewable supply has an economy cost');
+});
+
+test('runtime: legacy altar flags block repeat rewards and a full bag does not generate false gifts',()=>{
+ const {game,storage}=mount();
+ game.startNew();game.pickStarter('velaria');while(game.dialogOpen)game.nextDialog();
+ game.save.flags.push('altar-village');
+ game.save.inventory.seals=3;game.save.team[0].hp=1;
+ game.interactLandmark({kind:'altar',x:15,y:12,label:'Lumbre'});
+ assert.equal(game.save.inventory.seals,3);
+ assert.equal(game.save.team[0].hp,maxHp(game.save.team[0]));
+ game.interactLandmark({kind:'portal',x:43,y:16,label:'Bosque'});
+ game.save.inventory.seals=9;
+ game.interactLandmark({kind:'altar',x:17,y:16,label:'Lumbre'});
+ assert.equal(game.save.inventory.seals,9,'seal capacity applies to first rewards');
+ assert.ok(game.save.flags.includes('altar-forest'),'first discovery must be recorded even when full');
+ game.save.inventory.seals=2;
+ game.interactLandmark({kind:'altar',x:17,y:16,label:'Lumbre'});
+ assert.equal(game.save.inventory.seals,2,'full-bag discovery cannot be exploited after spending');
+ assert.equal(JSON.parse(storage.getItem('ascii-azur-save-v1')).flags.filter(f=>f==='altar-forest').length,1);
+});
