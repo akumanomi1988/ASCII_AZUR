@@ -602,7 +602,7 @@ class AzurGame {
         const b = this.battle;
         if (!b || !this.started)
             return;
-        const record = { enemy: { ...b.enemy, moves: [...b.enemy.moves] }, type: b.type, ally: b.ally, guarding: b.guarding, bossPhase: b.bossPhase, chargeStage: b.chargeStage, encounterId: b.encounterId, effects: Object.fromEntries(Object.entries(b.effects).map(([uid, arr]) => [uid, arr.map(a => ({ ...a }))])) };
+        const record = { enemy: { ...b.enemy, moves: [...b.enemy.moves] }, type: b.type, ally: b.ally, guarding: b.guarding, bossPhase: b.bossPhase, chargeStage: b.chargeStage, encounterId: b.encounterId, pending: b.pending, effects: Object.fromEntries(Object.entries(b.effects).map(([uid, arr]) => [uid, arr.map(a => ({ ...a }))])) };
         this.save.activeBattle = record;
         this.saveNow(false);
     }
@@ -610,7 +610,7 @@ class AzurGame {
         const b = this.save.activeBattle;
         if (!b || !this.started)
             return;
-        this.battle = { enemy: { ...b.enemy, moves: [...b.enemy.moves] }, type: b.type, ally: b.ally, guarding: b.guarding, bossPhase: b.bossPhase, chargeStage: b.chargeStage, encounterId: b.encounterId, effects: Object.fromEntries(Object.entries(b.effects).map(([id, arr]) => [id, arr.map(s => ({ ...s }))])), busy: false, selecting: false, log: 'El combate continúa donde lo dejaste. El silencio no ha ganado.' };
+        this.battle = { enemy: { ...b.enemy, moves: [...b.enemy.moves] }, type: b.type, ally: b.ally, guarding: b.guarding, bossPhase: b.bossPhase, chargeStage: b.chargeStage, encounterId: b.encounterId, pending: b.pending, effects: Object.fromEntries(Object.entries(b.effects).map(([id, arr]) => [id, arr.map(s => ({ ...s }))])), busy: !!b.pending, selecting: false, log: b.pending ? 'La acción anterior sigue resolviéndose. El turno no puede repetirse.' : 'El combate continúa donde lo dejaste. El silencio no ha ganado.' };
         const available = this.save.team.findIndex(c => c.hp > 0);
         if (available < 0) {
             this.defeat();
@@ -623,9 +623,17 @@ class AzurGame {
         byId('battle').classList.remove('hidden');
         byId('viewport').classList.add('in-battle');
         this.refreshBattle();
-        if (b.enemy.hp <= 0) {
+        if (b.pending === 'enemy')
+            window.setTimeout(() => this.enemyTurn(), 250);
+        else if (b.pending === 'capture')
+            window.setTimeout(() => this.resolveCapture(), 250);
+        else if (b.pending === 'victory' || (b.pending === undefined && b.enemy.hp <= 0)) {
             this.battle.busy = true;
             window.setTimeout(() => this.winBattle(), 250);
+        }
+        else if (b.pending === 'defeat') {
+            this.battle.busy = true;
+            window.setTimeout(() => this.defeat(), 250);
         }
     }
     startBattle(id, level, type, encounterId) { if (this.battle)
@@ -763,12 +771,14 @@ class AzurGame {
             if (next >= 0)
                 b.ally = next;
         }
+        // Commit the action before a delayed response so reload cannot grant an extra turn.
+        b.pending = b.enemy.hp <= 0 ? 'victory' : !this.save.team.some(c => c.hp > 0) ? 'defeat' : 'enemy';
         this.refreshBattle();
-        if (b.enemy.hp <= 0) {
+        if (b.pending === 'victory') {
             window.setTimeout(() => this.winBattle(), 960);
             return;
         }
-        if (!this.save.team.some(c => c.hp > 0)) {
+        if (b.pending === 'defeat') {
             window.setTimeout(() => this.defeat(), 960);
             return;
         }
@@ -795,6 +805,7 @@ class AzurGame {
                 return;
             }
         }
+        b.pending = 'enemy';
         this.refreshBattle();
         window.setTimeout(() => this.enemyTurn(), 680);
     }
@@ -802,6 +813,7 @@ class AzurGame {
         const b = this.battle, ally = this.getAlly();
         if (!b || !ally)
             return;
+        b.pending = undefined; // A checkpoint after this turn records the next player decision.
         if (b.chargeStage === 1) {
             b.chargeStage = 2;
             b.guarding = false;
@@ -838,6 +850,7 @@ class AzurGame {
         if (ally.hp <= 0) {
             const next = this.save.team.findIndex(c => c.hp > 0);
             if (next < 0) {
+                b.pending = 'defeat';
                 this.refreshBattle();
                 window.setTimeout(() => this.defeat(), 1050);
                 return;
@@ -846,6 +859,7 @@ class AzurGame {
             b.log += ` ${SPECIES[this.save.team[next].speciesId].name} acude a tu llamada.`;
         }
         if (b.enemy.hp <= 0) {
+            b.pending = 'victory';
             this.refreshBattle();
             window.setTimeout(() => this.winBattle(), 760);
             return;
@@ -890,34 +904,57 @@ class AzurGame {
         this.sound.evolve();
         this.sound.setScene('sanctuary');
     }
-    capture() { const b = this.battle; if (!b || b.busy || b.type !== 'wild' || this.save.inventory.seals < 1)
-        return; this.save.inventory.seals--; b.busy = true; this.setCombatCue('capture', 'ally', SPECIES[b.enemy.speciesId].element); const chance = capturePreview(this.getAlly(), b.enemy, this.statuses(b.enemy)).chance; this.sound.select(); b.log = 'El sello cruza la bruma...'; this.refreshBattle(); window.setTimeout(() => { if (!this.battle)
-        return; if (Math.random() < chance) {
-        const captured = b.enemy;
-        let stored = false;
-        if (this.save.team.length < 6)
-            this.save.team.push(captured);
-        else {
-            this.save.storage.push(captured);
-            stored = true;
-        }
-        this.finishBattle();
-        if (b.encounterId)
-            this.addFlag('roamer-' + b.encounterId);
-        this.sound.pick();
-        if (this.save.dungeon?.active && this.save.dungeon.pending !== null)
-            this.finishDungeonEnemy();
-        this.toast(`VÍNCULO ESTABLECIDO: ${SPECIES[captured.speciesId].name.toUpperCase()}${stored ? ' (RESERVA)' : ''}`);
-        this.addFlag('first-capture');
-        this.saveNow(false);
-        this.updateUI();
+    capture() {
+        const b = this.battle;
+        if (!b || b.busy || b.type !== 'wild' || this.save.inventory.seals < 1)
+            return;
+        // Debit and save a single attempt before rolling asynchronously.
+        this.save.inventory.seals--;
+        b.busy = true;
+        b.pending = 'capture';
+        this.setCombatCue('capture', 'ally', SPECIES[b.enemy.speciesId].element);
+        this.sound.select();
+        b.log = 'El sello cruza la bruma...';
+        this.refreshBattle();
+        window.setTimeout(() => this.resolveCapture(), 750);
     }
-    else {
-        b.log = '¡EL SELLO SE ROMPE! LA CRIATURA RESISTE.';
-        this.enemyTurn();
-    } }, 750); }
+    resolveCapture() {
+        const b = this.battle;
+        if (!b || b.pending !== 'capture')
+            return;
+        const ally = this.getAlly();
+        if (!ally)
+            return;
+        const chance = capturePreview(ally, b.enemy, this.statuses(b.enemy)).chance;
+        if (Math.random() < chance) {
+            const captured = b.enemy;
+            let stored = false;
+            if (this.save.team.length < 6)
+                this.save.team.push(captured);
+            else {
+                this.save.storage.push(captured);
+                stored = true;
+            }
+            this.finishBattle();
+            if (b.encounterId)
+                this.addFlag('roamer-' + b.encounterId);
+            this.sound.pick();
+            if (this.save.dungeon?.active && this.save.dungeon.pending !== null)
+                this.finishDungeonEnemy();
+            this.toast(`VÍNCULO ESTABLECIDO: ${SPECIES[captured.speciesId].name.toUpperCase()}${stored ? ' (RESERVA)' : ''}`);
+            this.addFlag('first-capture');
+            this.saveNow(false);
+            this.updateUI();
+        }
+        else {
+            b.pending = 'enemy';
+            b.log = '¡EL SELLO SE ROMPE! LA CRIATURA RESISTE.';
+            this.refreshBattle();
+            this.enemyTurn();
+        }
+    }
     tonic() { const b = this.battle, ally = this.getAlly(); if (!b || !ally || b.busy || this.save.inventory.tonics < 1)
-        return; this.save.inventory.tonics--; ally.hp = Math.min(maxHp(ally), ally.hp + 28); this.setStatuses(ally, this.statuses(ally).filter(s => s.kind !== 'scorch')); b.busy = true; this.setCombatCue('heal', 'ally', SPECIES[ally.speciesId].element); b.log = `${SPECIES[ally.speciesId].name} recupera 28 puntos de salud y limpia el ARDOR.`; this.sound.pick(); this.refreshBattle(); window.setTimeout(() => this.enemyTurn(), 550); }
+        return; this.save.inventory.tonics--; ally.hp = Math.min(maxHp(ally), ally.hp + 28); this.setStatuses(ally, this.statuses(ally).filter(s => s.kind !== 'scorch')); b.busy = true; b.pending = 'enemy'; this.setCombatCue('heal', 'ally', SPECIES[ally.speciesId].element); b.log = `${SPECIES[ally.speciesId].name} recupera 28 puntos de salud y limpia el ARDOR.`; this.sound.pick(); this.refreshBattle(); window.setTimeout(() => this.enemyTurn(), 550); }
     switchCreature() {
         const b = this.battle;
         if (!b || b.busy)
@@ -940,6 +977,7 @@ class AzurGame {
         b.selecting = false;
         b.guarding = false;
         b.busy = true;
+        b.pending = 'enemy';
         b.log = `¡${SPECIES[selected.speciesId].name} entra en combate!`;
         this.setCombatCue('switch', 'ally', SPECIES[selected.speciesId].element);
         this.sound.select();
@@ -953,6 +991,7 @@ class AzurGame {
     }
     else {
         this.battle.busy = true;
+        this.battle.pending = 'enemy';
         this.battle.log = '¡NO PUEDES ESCAPAR!';
         this.refreshBattle();
         window.setTimeout(() => this.enemyTurn(), 400);
