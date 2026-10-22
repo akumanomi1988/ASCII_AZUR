@@ -325,6 +325,8 @@ test('runtime: full Arken battles resolve using player moves, guard and tonics (
   assert.equal(game.battle,null);
  }
  assert.ok(game.save.team.length>=3,'party building via capture must succeed');
+ // Captures may trigger a legitimate defeat/recovery dialogue on this seed.
+ while(game.dialogOpen)game.nextDialog();
  game.interactLandmark({kind:'altar',x:10,y:10});
  if(game.evolution){game.seconds=game.evolution.startedAt+game.evolution.duration+.25;game.loop(1000)}
  assert.equal(game.evolution,null,'evolution animation must finish before guardian interaction');
@@ -839,6 +841,11 @@ test('C3 measurement: three starters across twelve worlds with legitimate captur
    bossStarted:cases.filter(c=>c.bossStarted).length,preGuardian:cases.map(c=>[c.preGuardianZone,c.preGuardianEvolution,c.preGuardianDialog,c.guardianModal]),bossTurns:cases.map(c=>c.bossTurns),bossFinalHP:cases.map(c=>c.lastBossHp),
    tonics:cases.reduce((s,c)=>s+c.tonics,0),failures:cases.reduce((s,c)=>s+c.failures,0),
    levels:cases.map(c=>c.level)}));
+  assert.ok(cases.every(c=>c.captures>=1),starter+' missing player-earned captured ally');
+  assert.ok(cases.every(c=>c.training===3),starter+' did not finish three unique lessons');
+  assert.ok(cases.filter(c=>c.bossStarted).length>=11,starter+' failed to reach the Guardian');
+  assert.ok(cases.filter(c=>c.guardian).length>=11,starter+' below 90% Guardian gate');
+  assert.ok(cases.filter(c=>c.crypt).length>=11,starter+' below 90% crypt gate');
  }
  assert.equal(cohorts.length,36);
 });
