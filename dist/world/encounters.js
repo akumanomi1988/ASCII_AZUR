@@ -68,3 +68,17 @@ export function firstRoamerVictoryBonus(type, encounterId, flags) {
 export function recoverTrailParty(team) {
     return team.map(creature => creature.hp <= 0 ? { ...creature } : { ...creature, hp: Math.min(maxHp(creature), creature.hp + Math.ceil(maxHp(creature) * .25)) });
 }
+/** Arken's finite three-creature training circuit. The first win over each
+ * original trial species grants a mastery bonus to the real winning party;
+ * repeat battles remain legal but cannot generate infinite mastery XP. */
+export const VILLAGE_TRAINING_SPECIES = ['cindrel', 'briarling', 'mireling'];
+export const VILLAGE_TRAINING_XP = 55;
+export const VILLAGE_TRAINING_REWARD_FLAG = 'arken-three-lessons-reward';
+export function villageTrainingBonus(type, zone, speciesId, flags, encounterId) {
+    return type === 'wild' && zone === 'village' && encounterId === undefined && VILLAGE_TRAINING_SPECIES.some(s => s === speciesId) && !flags.includes('training-' + speciesId) ? VILLAGE_TRAINING_XP : 0;
+}
+export function villageTrainingProgress(flags) {
+    const completed = VILLAGE_TRAINING_SPECIES.filter(s => flags.includes('training-' + s)).length;
+    const claimed = flags.includes(VILLAGE_TRAINING_REWARD_FLAG);
+    return { completed, ready: completed === 3 && !claimed, claimed };
+}

@@ -1,7 +1,7 @@
 import { AsciiRenderer, drawWorld, drawBattle, drawEvolution } from './render.js';
 import { navigateMenuKey, focusMenuFirst, isTypingTarget, menuButtons } from './ui/menu-navigation.js';
 import { DEFAULT_GRAPHICS, glyphCell, canvasGlyphCell, glyphCount } from './render/graphics-profile.js';
-import { visibleEncounters, nearbyEncounter, firstRoamerVictoryBonus, recoverTrailParty } from './world/encounters.js';
+import { visibleEncounters, nearbyEncounter, firstRoamerVictoryBonus, recoverTrailParty, VILLAGE_TRAINING_XP, VILLAGE_TRAINING_REWARD_FLAG, villageTrainingBonus, villageTrainingProgress } from './world/encounters.js';
 import { drawDungeon } from './dungeons/draw-dungeon.js';
 import { chamberAt, chamberProgress } from './dungeons/room-art.js';
 import { generateDungeon, nearbyDungeonEvent, completeDungeonEvent, dungeonGateOpen, revealDungeon, dungeonSweep } from './dungeons/labyrinth.js';
@@ -12,11 +12,11 @@ import { Sound, themeForZone } from './audio.js';
 import { FrameMetrics } from './core/frame-metrics.js';
 import { AdaptiveGlyphs } from './core/adaptive-glyphs.js';
 import { storyGuidance } from './story-navigation.js';
-import { ARKEN_STORY, ARKEN_FINALE_REWARD, arkenStoryBeat, arkenStoryIndex, concludeArken, canConcludeArken, guardianPreparation, sanctuaryRoutePlan, sanctuaryOathProgress, SANCTUARY_OATHS_FLAG, SANCTUARY_OATHS_REWARD } from './story-campaign.js';
+import { ARKEN_STORY, ARKEN_FINALE_REWARD, arkenStoryBeat, arkenStoryIndex, concludeArken, canConcludeArken, guardianPreparation, guardianRecommendedLead, sanctuaryRoutePlan, sanctuaryOathProgress, SANCTUARY_OATHS_FLAG, SANCTUARY_OATHS_REWARD } from './story-campaign.js';
 import { readSave, writeSave } from './core/save-store.js';
 import { transferStoredCreature, reserveCreature, grantPartyExperience } from './party.js';
 import { createCombatCue, sampleCombatCue, guardDamage } from './actors/combat-fx.js';
-import { MOVE_EFFECTS, STATUS_INFO, applyEffect, attackWithStatuses, chooseEnemyMove, endTurnEffects, statusLabel, skillUtility } from './combat/tactics.js';
+import { MOVE_EFFECTS, STATUS_INFO, applyEffect, attackWithStatuses, chooseEnemyMove, chooseGuardianMove, endTurnEffects, statusLabel, skillUtility } from './combat/tactics.js';
 import { previewMove } from './combat/move-preview.js';
 import { capturePreview } from './combat/capture-odds.js';
 import { reveal, isDiscovered, discoveredPercent } from './world/discovery.js';
@@ -637,8 +637,9 @@ class AzurGame {
             window.setTimeout(() => this.defeat(), 250);
         }
     }
-    startBattle(id, level, type, encounterId) { if (this.battle)
-        return; this.toggleDrawer(false); this.resetJoystick(); let ally = this.save.team.findIndex(c => c.hp > 0); if (ally < 0) {
+    startBattle(id, level, type, encounterId, leadIndex) { if (this.battle)
+        return; this.toggleDrawer(false); this.resetJoystick(); let ally = this.save.team.findIndex(c => c.hp > 0); if (Number.isInteger(leadIndex) && (this.save.team[leadIndex]?.hp ?? 0) > 0)
+        ally = leadIndex; if (ally < 0) {
         this.defeat();
         return;
     } this.sound.setScene(type === 'boss' ? 'boss' : 'battle'); this.battle = { enemy: createCreature(id, level), type, encounterId, busy: false, ally, guarding: false, selecting: false, bossPhase: 1, chargeStage: 0, effects: {}, log: type === 'boss' ? 'HOLLOWHART, EL ÚLTIMO GUARDIÁN, DESPIERTA.' : type === 'expedition' ? `LA GRIETA SE ABRE: ${SPECIES[id].name.toUpperCase()} TE DESAFÍA.` : `¡UN ${SPECIES[id].name.toUpperCase()} SALVAJE APARECE!` }; this.combatCue = null; this.encounterCooldown = 9; byId('battle').classList.remove('hidden'); byId('viewport').classList.add('in-battle'); byId('prompt').classList.add('hidden'); this.sound.portal(); this.refreshBattle(); }
@@ -651,10 +652,12 @@ class AzurGame {
         const intro = result.ready ? 'Equipo preparado. Hollowhart conserva un ataque cargado peligroso.' :
             'Hollowhart puede derrotarte. Puedes combatir o prepararte.';
         const advice = result.advice.map(line => `<p>${htmlEscape(line)}</p>`).join('');
-        this.showModal('HOLLOWHART · EL DESAFÍO', `<div class="guardian-prep"><p>${htmlEscape(intro)}</p>${advice}<p>¡ATAQUE CARGADO! Usa GUARDIA; conserva tónicos.</p><div class="guardian-options"><button id="guardianProceed" aria-label="Iniciar combate contra Hollowhart">COMBATIR</button><button id="guardianRetreat">PREPARARSE</button></div></div>`);
+        const suggested = guardianRecommendedLead(this.save.team);
+        const options = this.save.team.map((c, i) => c.hp <= 0 ? '' : `<option value="${i}" ${i === suggested ? 'selected' : ''}>${htmlEscape(SPECIES[c.speciesId].name)} · NV ${c.level} · ${c.hp}/${maxHp(c)} HP${i === suggested ? ' · RECOMENDADO' : ''}</option>`).join('');
+        this.showModal('HOLLOWHART · EL DESAFÍO', `<div class="guardian-prep"><p>${htmlEscape(intro)}</p>${advice}<p>Hollowhart combate con Raíz. Solo libera su poderoso ECLIPSE de Éter después de acumular el silencio: usa GUARDIA durante el aviso, incluso con un aliado de Ceniza. Conserva tónicos.</p><label for="guardianLeadSelect">CRIATURA QUE ABRE EL COMBATE</label><select id="guardianLeadSelect" aria-label="Elegir criatura inicial contra Hollowhart">${options}</select><div class="guardian-options"><button id="guardianProceed" aria-label="Iniciar combate contra Hollowhart con la criatura elegida">COMBATIR</button><button id="guardianRetreat">PREPARARSE</button></div></div>`);
         if (!this.modalOpen)
             return;
-        byId('guardianProceed').onclick = () => { this.hideModal(); this.startBattle('hollowhart', 12, 'boss'); };
+        byId('guardianProceed').onclick = () => { const raw = Number(byId('guardianLeadSelect').value); const selected = Number.isSafeInteger(raw) && (this.save.team[raw]?.hp ?? 0) > 0 ? raw : suggested; this.hideModal(); this.startBattle('hollowhart', 12, 'boss', undefined, selected); };
         byId('guardianRetreat').onclick = () => this.hideModal();
     }
     getAlly() { return this.battle ? this.save.team[this.battle.ally] : null; }
@@ -819,14 +822,16 @@ class AzurGame {
             b.chargeStage = 2;
             b.guarding = false;
             b.busy = false;
-            b.log = `¡${SPECIES[b.enemy.speciesId].name.toUpperCase()} ACUMULA EL SILENCIO! Su próximo ataque será devastador. Usa GUARDIA.`;
+            b.log = `¡${SPECIES[b.enemy.speciesId].name.toUpperCase()} ACUMULA EL SILENCIO! Su próximo ECLIPSE de Éter será devastador. Usa GUARDIA.`;
             this.setCombatCue('guard', 'enemy', 'Éter');
             this.refreshBattle();
             return;
         }
         const charged = b.chargeStage === 2;
         b.chargeStage = 0;
-        const moveId = chooseEnemyMove(b.enemy, ally, this.statuses(b.enemy), this.statuses(ally), Math.random());
+        const moveId = b.type === 'boss' && b.enemy.speciesId === 'hollowhart'
+            ? chooseGuardianMove(b.enemy, ally, this.statuses(b.enemy), this.statuses(ally), charged ? 2 : 0, Math.random())
+            : chooseEnemyMove(b.enemy, ally, this.statuses(b.enemy), this.statuses(ally), Math.random());
         const m = MOVES[moveId] || MOVES.pulse;
         const enemyUtility = skillUtility(b.enemy, m, this.statuses(b.enemy));
         const result = attackWithStatuses(b.enemy, ally, m, this.statuses(b.enemy), this.statuses(ally), .86 + Math.random() * .21);
@@ -869,9 +874,10 @@ class AzurGame {
         this.refreshBattle();
     }
     winBattle() { const b = this.battle, ally = this.getAlly(); if (!b || !ally)
-        return; const bonus = firstRoamerVictoryBonus(b.type, b.encounterId, this.save.flags); const amount = (b.type === 'boss' ? 95 : 11 + b.enemy.level * 3) + bonus; const awards = grantPartyExperience(this.save.team, b.ally, amount); if (bonus > 0)
+        return; const bonus = firstRoamerVictoryBonus(b.type, b.encounterId, this.save.flags); const mastery = villageTrainingBonus(b.type, this.save.zone, b.enemy.speciesId, this.save.flags, b.encounterId); const amount = (b.type === 'boss' ? 95 : 11 + b.enemy.level * 3) + bonus + mastery; const awards = grantPartyExperience(this.save.team, b.ally, amount); if (bonus > 0)
         this.save.team = recoverTrailParty(this.save.team); const gain = awards.find(a => a.active); const evolution = awards.find(a => a.evolved); const supporters = awards.filter(a => !a.active); const originalName = SPECIES[b.enemy.speciesId].name; this.finishBattle(); if (b.encounterId)
-        this.addFlag('roamer-' + b.encounterId); this.sound.pick(); if (b.type === 'wild' && this.save.dungeon?.active && this.save.dungeon.pending !== null)
+        this.addFlag('roamer-' + b.encounterId); if (mastery > 0)
+        this.addFlag('training-' + b.enemy.speciesId); this.sound.pick(); if (b.type === 'wild' && this.save.dungeon?.active && this.save.dungeon.pending !== null)
         this.finishDungeonEnemy(); if (b.type === 'expedition') {
         this.expeditionBattleWon();
         if (evolution)
@@ -887,7 +893,7 @@ class AzurGame {
     }
     else {
         if (!evolution)
-            this.toast(`${originalName.toUpperCase()} VENCIDO · +${amount} EXP${bonus ? ' · RASTRO +' + bonus + ' EXP · REPOSO +25% PS' : ''}${gain.levelUp ? ' · ¡NIVEL!' : ''}${supporters.length ? ' · ' + supporters.length + ' ALIADOS +' + supporters[0].amount + ' EXP' : ''}`);
+            this.toast(`${originalName.toUpperCase()} VENCIDO · +${amount} EXP${bonus ? ' · RASTRO +' + bonus + ' EXP · REPOSO +25% PS' : ''}${mastery ? ' · LECCIÓN +' + mastery + ' EXP' : ''}${gain.levelUp ? ' · ¡NIVEL!' : ''}${supporters.length ? ' · ' + supporters.length + ' ALIADOS +' + supporters[0].amount + ' EXP' : ''}`);
         if (Math.random() < .25)
             this.save.inventory.seals++;
         this.economy.echoes = Math.min(999999, this.economy.echoes + 4 + Math.floor(b.enemy.level * .9));
@@ -1030,12 +1036,20 @@ class AzurGame {
             this.addFlag('merchant-met');
         }
         else if (id === 'scout') {
-            if (this.flag('pilgrim-met')) {
+            const lessons = villageTrainingProgress(this.save.flags);
+            if (lessons.ready) {
+                this.addFlag(VILLAGE_TRAINING_REWARD_FLAG);
+                this.save.inventory.tonics = Math.min(9999, this.save.inventory.tonics + 2);
+                this.sound.pick();
+                this.saveNow(false);
+                this.dialog([{ title: 'IRIA · TRES LECCIONES', text: 'Has dominado los tres desafíos elementales de Arken. Recibes dos Tónicos de Lumbre para cuando las Lumbres queden atrás. La preparación debe servir para algo más que ganar batallas repetidas.' }]);
+            }
+            else if (this.flag('pilgrim-met')) {
                 this.addFlag('pilgrim-rescued');
                 this.dialog([{ title: 'Iria, la Vigía', text: '¿Has encontrado al peregrino? El consejo de Arken te lo agradece. Has ganado Ecos para el viaje.' }]);
             }
             else
-                this.dialog([{ title: 'Iria, la Vigía', text: 'Un peregrino no ha vuelto del bosque. Lo vieron cerca del viejo sendero al este. ¿Podrías encontrarlo?' }]);
+                this.dialog([{ title: 'Iria, la Vigía', text: `Un peregrino no ha vuelto del bosque. Antes de irte, domina los tres adversarios de COMBATE DIRECTO en Arken: Ceniza, Raíz y Bruma. Lecciones: ${lessons.completed}/3.${lessons.claimed ? ' Ya recibiste los Tónicos.' : ''}` }]);
         }
         else if (id === 'pilgrim') {
             this.addFlag('pilgrim-met');
@@ -1227,7 +1241,8 @@ class AzurGame {
             return;
         const region = this.save.zone;
         const group = region === 'village' ? ['cindrel', 'briarling', 'mireling'] : region === 'forest' ? ['cindrel', 'thorne', 'mireling'] : ['runeowl', 'wispawn', 'gravemoth'];
-        this.showModal('COMBATE DIRECTO', `<div class="modal-content-block">Desafía a una criatura salvaje. Puedes combatir, capturarla o huir. Los retos directos no alteran los guardianes ni la historia.</div>${group.map((speciesId, i) => `<div class="modal-option"><div><strong>${htmlEscape(SPECIES[speciesId].name)}</strong><small>NIVEL ${region === 'village' ? 3 + i : region === 'forest' ? 5 + i : 8 + i} · ${htmlEscape(SPECIES[speciesId].element)}</small></div><button data-duel="${speciesId}">COMBATIR</button></div>`).join('')}`);
+        const lessons = villageTrainingProgress(this.save.flags);
+        this.showModal('COMBATE DIRECTO', `<div class="modal-content-block">Desafía a una criatura salvaje. Puedes combatir, capturarla o huir. Los retos directos no alteran los guardianes ni la historia.${region === 'village' ? ` CIRCUITO DE IRIA: ${lessons.completed}/3 lecciones; la primera victoria por especie concede +${VILLAGE_TRAINING_XP} EXP adicional y, al completar las tres, Iria entrega dos Tónicos.` : ''}</div>${group.map((speciesId, i) => `<div class="modal-option"><div><strong>${htmlEscape(SPECIES[speciesId].name)}</strong><small>NIVEL ${region === 'village' ? 3 + i : region === 'forest' ? 5 + i : 8 + i} · ${htmlEscape(SPECIES[speciesId].element)}</small>${region === 'village' ? `<small>${this.flag('training-' + speciesId) ? '✓ LECCIÓN APRENDIDA' : `PRIMERA VICTORIA +${VILLAGE_TRAINING_XP} EXP`}</small>` : ''}</div><button data-duel="${speciesId}">COMBATIR</button></div>`).join('')}`);
         for (const button of byId('modalContent').querySelectorAll('[data-duel]'))
             button.onclick = () => { const id = button.dataset.duel; const level = (region === 'village' ? 3 : region === 'forest' ? 5 : 8) + group.indexOf(id); this.hideModal(); this.startBattle(id, level, 'wild'); };
     }
