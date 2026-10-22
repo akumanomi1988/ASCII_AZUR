@@ -92,3 +92,9 @@ The current game includes three regions, 12 species, an authored six-step Arken 
 - The four CI screenshots from run `39806697341` were retrieved and visually inspected. They exposed a completely transparent Atmospheric ASCII Canvas2D capture and excessively repeated `i` glyphs over low-detail Glyph Pixel Art terrain. Functional browser tests alone had missed both deficiencies.
 - Corrected dark-terrain glyph selection in WebGL2 and Canvas2D: low-information cells use solid cell backgrounds, with only sparse, deterministic punctuation. Added real Canvas2D rendered-pixel acceptance (alpha and nonzero RGB) plus a post-scene-transition frame delay before PNG capture. The previous capture must not be considered an accepted visual baseline.
 - Art acceptance remains open pending **new** screenshot review and human readability assessment; high-level story and physical-device acceptance are out of scope for this rendering fix.
+
+## 2026-10-22 — Glyph Pixel Art geometry-aware compositing and GPU upload
+
+- Visually reviewed the four deterministic captures from CI `39807555358`. All four are now opaque, including previously blank ASCII/Canvas2D; however, pixel-mode bright surfaces still showed regular vertical glyph bands.
+- Replaced pixel glyph selection driven by raw luminance with structure-driven selection (local color deviation and edge contrast) on both WebGL2 and Canvas2D. Uniform colored cell backgrounds should now read as continuous surfaces, while real boundaries receive glyph detail.
+- Preallocated the fixed source-scene GPU texture and replaced per-frame texture-storage redefinition with `texSubImage2D`; preserves scene size and game state while reducing GL texture-allocation work. Browser validation and visual acceptance of this revision must run again before closing.
