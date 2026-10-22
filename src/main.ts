@@ -12,7 +12,7 @@ import {Sound,themeForZone} from './audio.js';
 import {FrameMetrics} from './core/frame-metrics.js';
 import {AdaptiveGlyphs} from './core/adaptive-glyphs.js';
 import {storyGuidance} from './story-navigation.js';
-import {ARKEN_STORY, ARKEN_FINALE_REWARD, arkenStoryBeat, arkenStoryIndex, concludeArken, canConcludeArken, guardianPreparation, sanctuaryRoutePlan, type ArkenStoryState} from './story-campaign.js';
+import {ARKEN_STORY, ARKEN_FINALE_REWARD, arkenStoryBeat, arkenStoryIndex, concludeArken, canConcludeArken, guardianPreparation, sanctuaryRoutePlan, sanctuaryOathProgress, SANCTUARY_OATHS_FLAG, SANCTUARY_OATHS_REWARD, type ArkenStoryState} from './story-campaign.js';
 import {readSave,writeSave} from './core/save-store.js';
 import {transferStoredCreature,reserveCreature,grantPartyExperience} from './party.js';
 import {createCombatCue,sampleCombatCue,guardDamage,type CombatCue,type FxKind,type CombatSide} from './actors/combat-fx.js';
@@ -422,7 +422,19 @@ class AzurGame {
       if(this.flag('pilgrim-met')){this.addFlag('pilgrim-rescued');this.dialog([{title:'Iria, la Vigía',text:'¿Has encontrado al peregrino? El consejo de Arken te lo agradece. Has ganado Ecos para el viaje.'}]);}
       else this.dialog([{title:'Iria, la Vigía',text:'Un peregrino no ha vuelto del bosque. Lo vieron cerca del viejo sendero al este. ¿Podrías encontrarlo?'}]);
     }else if(id==='pilgrim'){this.addFlag('pilgrim-met');this.dialog([{title:'El Peregrino',text:'El bosque me robó el camino, pero sigo recordando mi nombre. Di a Iria que sigo vivo. Gracias, Portador.'}]);}
-    else this.dialog([{title:'Custodia del Umbral',text:this.save.defeatedBoss?'Has devuelto una sílaba a la realidad. Quedan otras por recuperar.':'La bestia del silencio no puede ser atrapada. Observa su ritmo y combate con tus vínculos más fuertes.'}]);
+    else if(id==='keeper'){
+      const vows=sanctuaryOathProgress(this.save.flags);
+      if(vows.ready){
+        this.addFlag(SANCTUARY_OATHS_FLAG);
+        this.save.inventory.seals=Math.min(9999,this.save.inventory.seals+SANCTUARY_OATHS_REWARD.seals);
+        this.save.inventory.tonics=Math.min(9999,this.save.inventory.tonics+SANCTUARY_OATHS_REWARD.tonics);
+        e.echoes=Math.min(999999,e.echoes+SANCTUARY_OATHS_REWARD.echoes);
+        this.sound.pick();this.saveNow(false);
+        this.dialog([{title:'LOS TRES JURAMENTOS',text:'Has escuchado la Raíz, la Bruma y el Éter sin huir de sus recuerdos. Ninguna voz puede devolver lo que la oscuridad devoró, pero tus vínculos conservan su historia.'},
+          {title:'OFRENDA DEL UMBRAL',text:'Recibes 2 Sellos de Vínculo, 2 Tónicos y 40 Ecos. Esta ofrenda solo se concede una vez por partida. Hollowhart te espera tras el sendero.'}]);
+      }else if(vows.claimed)this.dialog([{title:'Custodia del Umbral',text:'Los tres juramentos perduran en ti. No hay otra ofrenda, pero las Lumbres seguirán ardiendo.'}]);
+      else this.dialog([{title:'Custodia del Umbral',text:`Tres voces guardan la senda: Raíz, Bruma y Éter. Enfréntalas o forma vínculos con ellas y vuelve. Juramentos escuchados: ${vows.resolved}/3. La ofrenda te ayudará a resistir al Guardián.`}]);
+    }
     if(id==='merchant'&&this.flag('merchant-met')&&e.visitedNpcs.includes('merchant')){
       // First conversation introduces the merchant; subsequent interactions open her shop.
       const encounters=this.save.flags.filter(x=>x==='merchant-introduced').length;
@@ -584,6 +596,7 @@ class AzurGame {
     const route=visibleEncounters('sanctuary',this.save.worldSeed??0);
     const plan=sanctuaryRoutePlan(this.save.team,route,this.save.flags);
     const finished=plan.filter(entry=>entry.cleared).length;
+    const vows=sanctuaryOathProgress(this.save.flags);
     const entries=plan.map((entry,i)=>{
       const tip=entry.counter
         ?'CONTRAATAQUE: '+entry.counter
@@ -591,8 +604,9 @@ class AzurGame {
       return `<div class="modal-option"><div><strong>${i+1}. ${htmlEscape(entry.name)} · NV ${entry.level}</strong><small>${htmlEscape(entry.element)} · ${htmlEscape(tip)}</small></div><span class="quest-state ${entry.cleared?'done':''}">${entry.cleared?'✓ SUPERADO':'PENDIENTE'}</span></div>`;
     }).join('');
     this.showModal('SANTUARIO · PLAN DE RUTA',
-      `<div class="modal-content-block">RUTA ELEMENTAL · ${finished}/${plan.length} RETOS. Los encuentros y sus posiciones son persistentes según la semilla de tu partida. Vencerlos da experiencia única y reposo; capturarlos añade un vínculo en lugar de esa recompensa.</div>`+
+      `<div class="modal-content-block">RUTA ELEMENTAL · ${finished}/${plan.length} RETOS. Los encuentros y sus posiciones son persistentes según la semilla de tu partida. Vencerlos da experiencia única y reposo; capturarlos añade un vínculo. Supera o vincula los tres retos y habla con la Custodia del Umbral para recibir una sola vez 2 Sellos, 2 Tónicos y 40 Ecos.</div>`+
       entries+
+      `<div class="modal-content-block">TRES JURAMENTOS · ${vows.claimed?'RECOMPENSA RECLAMADA':vows.ready?'REGRESA A LA CUSTODIA PARA RECLAMAR':vows.resolved+'/3 RETOS RESUELTOS'}</div>`+
       `<div class="modal-content-block">Equipo consciente: ${this.save.team.filter(c=>c.hp>0).length}/${this.save.team.length} · Tónicos: ${this.save.inventory.tonics} · Sellos: ${this.save.inventory.seals}. Cura en las Lumbres y prepara ataques de Ceniza para Hollowhart (Raíz). Este mapa táctico no inicia combates ni altera tu partida.</div>`);
   }
   private openQuests(){if(!this.started)return;
