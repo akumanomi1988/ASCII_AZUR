@@ -74,8 +74,8 @@ export function recoverTrailParty(team:readonly Creature[]):Creature[]{
 export const VILLAGE_TRAINING_SPECIES=['cindrel','briarling','mireling'] as const;
 export const VILLAGE_TRAINING_XP=55;
 export const VILLAGE_TRAINING_REWARD_FLAG='arken-three-lessons-reward';
-export function villageTrainingBonus(type:'wild'|'boss'|'expedition',zone:string,speciesId:string,flags:readonly string[]):number{
- return type==='wild'&&zone==='village'&&VILLAGE_TRAINING_SPECIES.some(s=>s===speciesId)&&!flags.includes('training-'+speciesId)?VILLAGE_TRAINING_XP:0;
+export function villageTrainingBonus(type:'wild'|'boss'|'expedition',zone:string,speciesId:string,flags:readonly string[],encounterId?:string):number{
+ return type==='wild'&&zone==='village'&&encounterId===undefined&&VILLAGE_TRAINING_SPECIES.some(s=>s===speciesId)&&!flags.includes('training-'+speciesId)?VILLAGE_TRAINING_XP:0;
 }
 export function villageTrainingProgress(flags:readonly string[]):{completed:number;ready:boolean;claimed:boolean}{
  const completed=VILLAGE_TRAINING_SPECIES.filter(s=>flags.includes('training-'+s)).length;

@@ -193,6 +193,7 @@ test('first Arken elemental lessons grant finite and distinct XP only for real v
   assert.equal(villageTrainingBonus('wild','village',id,[]),55);
   assert.equal(villageTrainingBonus('wild','village',id,['training-'+id]),0);
   assert.equal(villageTrainingBonus('wild','forest',id,[]),0);
+  assert.equal(villageTrainingBonus('wild','village',id,[],'forest-0'),0);
   assert.equal(villageTrainingBonus('boss','village',id,[]),0);
   assert.equal(villageTrainingBonus('expedition','village',id,[]),0);
  }
