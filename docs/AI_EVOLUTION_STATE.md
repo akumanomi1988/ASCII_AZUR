@@ -178,3 +178,15 @@ The current game includes three regions, 12 species, an authored six-step Arken 
 - This is a meaningful **onboarding clarity** slice, not boss-difficulty balancing. No measured improvement to Guardian win rate or full-crypt pass rate yet. Scorecard remains **2.5/5; 0/16 domains with independent >=4/5 acceptance**. World/persistence, creative direction and other 16 dimensions retain previous ratings.
 - Next: actual multi-seed Hollowhart + crypt command-driven completion across all three starters with captured creatures, spells, altar recovery, consumables and difficulty gates. Avoid simulated `winBattle()` success for balance acceptance. High residual risks: unbalanced Thorne vs Cindrel solo sanctuary, short global campaign, physical Android quality, browser CI occasional timeouts, independent external live-site smoke.
 - This release-verification closeout is a docs-only `[skip ci]` commit and intentionally does not change the validated Pages gameplay source hash.
+
+
+## 2026-10-22 — Macroiteration 001: Sanctuary elemental route and scouting (feature development)
+
+- Baseline: source `93a254cb53b9cdaa374e318a004cd46880061c53`; previous playable Pages provenance points to gameplay source `a9924db292fdc602f195f2985dd59e442d426bfb`, main CI `39836396417` SUCCESS and Pages workflow `39836526324` SUCCESS. Public HTTP smoke not validated.
+- Deterministic Sanctuary encounter slots are now Root (level 8), Mist (level 9), Ether (level 10), with authored variants and unchanged encounter IDs/positions, save schema, first-victory recovery/XP, combat rules and persistent flags. Each original starter has one favourable matchup. This is a content and tactical pacing change, not a guarantee that all three can clear the Guardian.
+- Added optional Sanctuary route scouting from the existing drawer (mouse, touch and keyboard). It shows species/level, real equipped-move counters, completed flags and resource/health advice without starting battles or mutating saved data. The plan remains advisory, never blocks entry.
+- Scope includes 512-seed placement/species regression, counter selection and v1 flag regression, and playable runtime modal regression. Verification, feature CI, main deployment and public smoke: **PENDING** at time of feature authoring.
+- Roadmap is now defined in `docs/AAA_ROADMAP.md` using fixed phase weights and four binary milestones per phase; previous evidence anchors 9/32 weighted milestones = **30.00%** baseline. W2 remains open pending verified acceptance. All sixteen quality scores **unchanged at 2.5/5 mean**; no unmeasured improvement is claimed.
+- Next release gate: measured multi-seed captured-party → Hollowhart → crypt E2E under legitimate commands, saves and resource policy; C3 must not be awarded from route content alone.
+
+- Integrated authored Keeper quest: resolving the three Sanctuary roamer flags (victory **or** capture) unlocks a one-time Keeper dialogue and supply grant (2 seals, 2 tonics, 40 echoes), using a new optional flag in the unchanged v1 save. Existing saves with all three roamers finished can claim it retroactively. Tested pending feature CI and Pages.

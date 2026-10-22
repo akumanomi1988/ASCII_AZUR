@@ -160,3 +160,27 @@ test('forest trail guarantees one favourable matchup per starter while keeping d
   }
  }finally{configureWorld(0);}
 });
+
+test('Sanctuary provides three ordered elemental lessons for all starters across 512 world seeds',()=>{
+ try{
+  const expected=['Raíz','Bruma','Éter'];
+  const diversity=[new Set(),new Set(),new Set()];
+  for(let i=0;i<512;i++){
+   const seed=i===0?0:(Math.imul(i,2654435761))>>>0;
+   configureWorld(seed);
+   const a=visibleEncounters('sanctuary',seed);
+   assert.equal(a.length,3,'all Sanctuary encounters must remain available');
+   assert.deepEqual(a.map(x=>SPECIES[x.speciesId].element),expected);
+   assert.deepEqual(a.map(x=>x.id),['sanctuary-0','sanctuary-1','sanctuary-2']);
+   assert.deepEqual(a.map(x=>x.level),[8,9,10]);
+   assert.deepEqual(visibleEncounters('sanctuary',seed),a,'same seed, same opponents');
+   for(let slot=0;slot<3;slot++)diversity[slot].add(a[slot].speciesId);
+   for(const starter of ['cindrel','velaria','thorne']){
+    const element=SPECIES[starter].element;
+    assert.equal(a.filter(monster=>SPECIES[monster.speciesId].element===TYPE_ADV[element]).length,1,
+      'starter '+starter+' lacks exactly one favourable Sanctuary encounter');
+   }
+  }
+  assert.deepEqual(diversity.map(s=>s.size),[2,3,3],'keep authored species variation in each stage');
+ }finally{configureWorld(0);}
+});

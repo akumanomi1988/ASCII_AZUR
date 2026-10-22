@@ -54,3 +54,33 @@ export function guardianPreparation(team:readonly Creature[]):{ready:boolean;adv
  if(conscious.some(c=>c.hp<maxHp(c)*.6))advice.push('Recupera salud en una Lumbre; reserva tónicos.');
  return{ready:advice.length===0,advice};
 }
+
+/** Read-only tactical scouting for the three persistent Sanctuary trail encounters.
+ * Recommendations use equipped damaging moves, not a creature's nominal element.
+ * A wounded/fainted team can still inspect the route; it never blocks entry. */
+export interface SanctuaryRouteEntry {
+ id:string;speciesId:string;name:string;element:string;level:number;
+ cleared:boolean;counter:string|null;
+}
+export function sanctuaryRoutePlan(team:readonly Creature[],route:readonly {id:string;speciesId:string;level:number}[],flags:readonly string[]):SanctuaryRouteEntry[]{
+ return route.map(encounter=>{
+  const enemy=SPECIES[encounter.speciesId];
+  if(!enemy)throw Error('Unknown Sanctuary encounter species');
+  const candidates=team.filter(c=>c.hp>0&&c.moves.some(id=>{
+   const move=MOVES[id];return !!move&&move.power>0&&TYPE_ADV[move.element]===enemy.element;
+  })).sort((a,b)=>b.level-a.level||b.hp-a.hp||a.uid.localeCompare(b.uid));
+  return {id:encounter.id,speciesId:encounter.speciesId,name:enemy.name,element:enemy.element,level:encounter.level,
+   cleared:flags.includes('roamer-'+encounter.id),
+   counter:candidates.length?SPECIES[candidates[0]!.speciesId]!.name:null};
+ });
+}
+
+/** Three finite Sanctuary oaths, accepted by the Keeper after first defeat OR capture
+ * of each seeded roamer. Existing save v1 roamer flags remain authoritative. */
+export const SANCTUARY_OATHS_FLAG='sanctuary-three-vows';
+export const SANCTUARY_OATHS_REWARD={echoes:40,seals:2,tonics:2} as const;
+export function sanctuaryOathProgress(flags:readonly string[]):{resolved:number;ready:boolean;claimed:boolean}{
+ const resolved=[0,1,2].filter(i=>flags.includes('roamer-sanctuary-'+i)).length;
+ const claimed=flags.includes(SANCTUARY_OATHS_FLAG);
+ return{resolved,ready:resolved===3&&!claimed,claimed};
+}
