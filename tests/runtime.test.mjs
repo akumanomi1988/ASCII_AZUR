@@ -326,7 +326,7 @@ test('runtime: full Arken battles resolve using player moves, guard and tonics (
  }
  assert.ok(game.save.team.length>=3,'party building via capture must succeed');
  game.interactLandmark({kind:'altar',x:10,y:10});
- if(game.evolution){game.seconds=game.evolution.startedAt+game.evolution.duration;game.loop(1000)}
+ if(game.evolution){game.seconds=game.evolution.startedAt+game.evolution.duration+.25;game.loop(1000)}
  assert.equal(game.evolution,null,'evolution animation must finish before guardian interaction');
  game.interactLandmark({kind:'guardian',x:25,y:10,label:'Hollowhart'});
  assert.equal(game.battle,null,'guardian encounter should offer preparation before combat');
@@ -603,7 +603,7 @@ test('progression probe: six visible trail combats for three starters across twe
    turns+=ticks;tonics+=was-game.save.inventory.tonics;
    const victory=game.save.flags.includes('roamer-'+encounterId);
    if(victory){won++;if(encounterId.startsWith('forest-'))forestWins++;else sanctuaryWins++;}else losses++;
-   if(game.evolution){game.seconds=game.evolution.startedAt+game.evolution.duration;game.loop(1000);}
+   if(game.evolution){game.seconds=game.evolution.startedAt+game.evolution.duration+.25;game.loop(1000);}
    return victory;
   };
   for(const zone of ['forest','sanctuary']){
@@ -702,7 +702,7 @@ test('C3 measurement: three starters across twelve worlds with legitimate captur
   const {game,dom,storage,flushTimers}=session;
   dom.set('worldSeedInput',{value:String(world)});
   game.startNew();game.pickStarter(starter);
-  const dialogs=()=>{while(game.dialogOpen)game.nextDialog();if(game.evolution){game.seconds=game.evolution.startedAt+game.evolution.duration;game.loop(1000);}};
+  const dialogs=()=>{while(game.dialogOpen)game.nextDialog();if(game.evolution){game.seconds=game.evolution.startedAt+game.evolution.duration+.25;game.loop(1000);}};
   dialogs();game.interactNpc('archivist');dialogs();
   let wins=0,failures=0,captures=0,tonics=0,actions=0,guardian=false,crypt=false,training=0,bossStarted=false,bossTurns=0,lastBossHp=-1,preGuardianZone='',preGuardianEvolution=false,preGuardianDialog=false,guardianModal=false;
   const battle=(species,level,type='wild',encounterId=undefined,bind=false)=>{
