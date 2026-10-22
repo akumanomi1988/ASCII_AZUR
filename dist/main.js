@@ -436,15 +436,19 @@ class AzurGame {
             case 'rune':
                 this.openRune(this.save.zone);
                 break;
-            case 'altar':
+            case 'altar': {
+                const firstVisit = !this.flag('altar-' + this.save.zone);
+                const awarded = firstVisit && this.save.inventory.seals < 9;
                 this.save.team.forEach(c => c.hp = maxHp(c));
-                this.save.inventory.seals = Math.min(9, this.save.inventory.seals + 1);
+                if (awarded)
+                    this.save.inventory.seals++;
                 this.encounterCooldown = 4;
                 this.addFlag('altar-' + this.save.zone);
                 this.sound.pick();
-                this.toast('VÍNCULOS SANADOS · +1 SELLO');
+                this.toast(awarded ? 'VÍNCULOS SANADOS · +1 SELLO POR DESCUBRIR LA LUMBRE' : 'VÍNCULOS SANADOS · SIN NUEVO SELLO');
                 this.saveNow(false);
                 break;
+            }
             case 'chest': {
                 const id = `chest-${this.save.zone}-${l.x}`;
                 if (this.flag(id)) {
