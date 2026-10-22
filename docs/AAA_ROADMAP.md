@@ -10,7 +10,7 @@ A checkbox means the evidence stated below exists. A completed automated gate me
 | Phase | Weight | Completed | Progress | Remaining milestone gate |
 |---|---:|---:|---:|---|
 | 1. Core gameplay and balance | 20% | 2/4 | 50% | C3 balanced multi-starter Guardian/crypt; C4 human combat balance |
-| 2. World and exploration | 15% | 1/4 | 25% | W2 staged Sanctuary counterplay + route scouting (this iteration); W3 authored new regions; W4 exploratory QA |
+| 2. World and exploration | 15% | 2/4 | 50% | W3 authored new regions; W4 exploratory QA |
 | 3. Complete story and narrative | 20% | 1/4 | 25% | N2 authored second chapter; N3 global climax/ending; N4 human narrative QA |
 | 4. Creatures and progression | 10% | 1/4 | 25% | P2 broader roles/collection; P3 sidequests/evolution identity; P4 player-tested balance |
 | 5. Graphics and animation | 10% | 1/4 | 25% | G2 expressive biome/character polish; G3 animation breadth; G4 verified minimum-device FPS |
@@ -25,7 +25,7 @@ A checkbox means the evidence stated below exists. A completed automated gate me
 - **C3 [ ]** Across >=12 deterministic world seeds × 3 starters: route capture through player commands, >=90% Guardian win and crypt completion under a documented fixed resource policy, no forced wins/XP, all saves reload without duplication.
 - **C4 [ ]** At least 20 externally observed complete combat sessions, no dominant starter, no critical progression traps, signoff of tuning.
 - **W1 [x]** Deterministic procedural topology, reachable visible routes and v1 snapshot/reload regression on 512 seeds in `tests/encounters-graphics.test.mjs`.
-- **W2 [ ]** Every starter has exactly one advantageous Sanctuary encounter across >=512 seeds; three reachable seeded encounters/levels 8–10; two/three/three species variants; in-game optional scouting uses actual equipped moves and cleared flags; Keeper awards a single 2-seal/2-tonic/40-echo oath completion on defeating or capturing each distinct roamer (including old saves), without a save schema bump; TS/Node/runtime and published build pass.
+- **W2 [x]** Every starter has exactly one advantageous Sanctuary encounter across >=512 seeds; three reachable seeded encounters/levels 8–10; two/three/three species variants; in-game optional scouting uses actual equipped moves and cleared flags; Keeper awards a single 2-seal/2-tonic/40-echo oath completion on defeating or capturing each distinct roamer (including old saves), without a save schema bump; TS/Node/runtime and published build pass.
 - **W3 [ ]** Add at least two original meaningful world regions with distinct NPCs, creatures, exploration loops, authored quests and persistent terrain.
 - **W4 [ ]** Across >=200 saved seeds, end-to-end traversal, discovery and route QA including human mobile navigation.
 - **N1 [x]** Original six-objective Arken arc, Guardian/crypt outro, one-time reward and idempotent save-backed conclusion.
@@ -54,7 +54,9 @@ A checkbox means the evidence stated below exists. A completed automated gate me
 - **Q4 [ ]** Main/Pages exact-source release success, publicly verified HTTP smoke, real-device QA, no high/critical defects, external testers and 16/16 quality >=4/5 averaging >=4.5.
 
 ## Baseline and current macroiteration
-Baseline completed=9 milestones of 32. Phase sequence=2/4, 1/4, 1/4, 1/4, 1/4, 1/4, 1/4, 1/4. **Global 30.00%**. W2 is being implemented and is **not closed** until CI, browser and Pages provenance evidence are recorded. After W2 verified, phase 2 would be 50%; global would be 33.75%.
+Baseline before macroiteration 001: completed=9/32 milestones. Phase sequence=2/4, 1/4, 1/4, 1/4, 1/4, 1/4, 1/4, 1/4. **Baseline global 30.00%**.
+
+**Verified after macroiteration 001 (2026-10-22): 10/32 milestones.** Phase sequence=2/4, 2/4, 1/4, 1/4, 1/4, 1/4, 1/4, 1/4. **World 25% → 50%; global 30.00% → 33.75% (+3.75 pp).** W2 is closed by 512-seed regressions, real-move scouting + Keeper one-time reward/runtime save tests, main CI [39846519978](https://github.com/akumanomi1988/ASCII_AZUR/actions/runs/39846519978) SUCCESS (207/207 Node tests; 4 Chromium render/backend integrations), `gh-pages` commit `b3a089b19ba2055323892f68a4ebeda11bbc0842`, Pages workflow [39846691519](https://github.com/akumanomi1988/ASCII_AZUR/actions/runs/39846691519) SUCCESS, and `gh-pages/build-info.json.source_commit=748b86f855b130fe535eb18813d5e477b3ec701b`. Public external `github.io` HTTP smoke could not be performed and remains UNVERIFIED; this is not a required W2 gate and remains Q4 blocked.
 
 ## Premium blockers
 Global authored campaign absent; captured-party multi-seed Guardian/crypt tuning not proven; physical Android performance and human playtests missing; full public-site independent smoke unverified. Automated green does not qualify as commercial release acceptance.
