@@ -12,7 +12,7 @@ import {Sound,themeForZone} from './audio.js';
 import {FrameMetrics} from './core/frame-metrics.js';
 import {AdaptiveGlyphs} from './core/adaptive-glyphs.js';
 import {storyGuidance} from './story-navigation.js';
-import {ARKEN_STORY, ARKEN_FINALE_REWARD, arkenStoryBeat, arkenStoryIndex, concludeArken, canConcludeArken, guardianPreparation, type ArkenStoryState} from './story-campaign.js';
+import {ARKEN_STORY, ARKEN_FINALE_REWARD, arkenStoryBeat, arkenStoryIndex, concludeArken, canConcludeArken, guardianPreparation, sanctuaryRoutePlan, type ArkenStoryState} from './story-campaign.js';
 import {readSave,writeSave} from './core/save-store.js';
 import {transferStoredCreature,reserveCreature,grantPartyExperience} from './party.js';
 import {createCombatCue,sampleCombatCue,guardDamage,type CombatCue,type FxKind,type CombatSide} from './actors/combat-fx.js';
@@ -172,11 +172,12 @@ class AzurGame {
   private mountDrawer(){
     // Reparent existing controls; same DOM nodes and event listeners, including in fullscreen.
     byId('drawerActions').append(byId('teamBtn'),byId('bagBtn'),byId('saveBtn'));
-    const extra=document.createElement('div');extra.className='drawer-actions extended';extra.innerHTML='<button id="questsBtn">✧ MISIONES</button><button id="codexBtn">❖ BESTIARIO</button><button id="mapBtn">◇ MAPA</button><button id="expeditionsBtn">✦ EXPEDICIONES</button><button id="dungeonBtn">♜ CRIPTA EXPLORABLE</button><button id="duelBtn">⚔ COMBATE DIRECTO</button><button id="graphicsBtn">⚙ OPCIONES GRÁFICAS</button>';
+    const extra=document.createElement('div');extra.className='drawer-actions extended';extra.innerHTML='<button id="questsBtn">✧ MISIONES</button><button id="codexBtn">❖ BESTIARIO</button><button id="mapBtn">◇ MAPA</button><button id="routeBtn">♧ RUTA ELEMENTAL</button><button id="expeditionsBtn">✦ EXPEDICIONES</button><button id="dungeonBtn">♜ CRIPTA EXPLORABLE</button><button id="duelBtn">⚔ COMBATE DIRECTO</button><button id="graphicsBtn">⚙ OPCIONES GRÁFICAS</button>';
     byId('drawerActions').after(extra);
     extra.querySelector('#questsBtn')?.addEventListener('click',()=>this.openQuests());
     extra.querySelector('#codexBtn')?.addEventListener('click',()=>this.openCodex());
     extra.querySelector('#mapBtn')?.addEventListener('click',()=>this.openMap());
+    extra.querySelector('#routeBtn')?.addEventListener('click',()=>this.openRoutePlan());
     extra.querySelector('#expeditionsBtn')?.addEventListener('click',()=>this.openExpedition());
     extra.querySelector('#dungeonBtn')?.addEventListener('click',()=>this.openDungeonMenu());
     extra.querySelector('#duelBtn')?.addEventListener('click',()=>this.openDuel());
@@ -576,6 +577,23 @@ class AzurGame {
     const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='ascii-azur-partida.json';
     document.body.appendChild(a);a.click();a.remove();window.setTimeout(()=>URL.revokeObjectURL(url),3000);
     this.toast('COPIA DE LA PARTIDA PREPARADA');
+  }
+  /** Optional, inspectable Sanctuary scout report; visible on mobile/keyboard menus. */
+  private openRoutePlan(){
+    if(!this.started||this.battle||this.evolution||this.dialogOpen)return;
+    const route=visibleEncounters('sanctuary',this.save.worldSeed??0);
+    const plan=sanctuaryRoutePlan(this.save.team,route,this.save.flags);
+    const finished=plan.filter(entry=>entry.cleared).length;
+    const entries=plan.map((entry,i)=>{
+      const tip=entry.counter
+        ?'CONTRAATAQUE: '+entry.counter
+        :'SIN CONTRAATAQUE EN EL EQUIPO ACTIVO: busca afinidad favorable o cambia las técnicas';
+      return `<div class="modal-option"><div><strong>${i+1}. ${htmlEscape(entry.name)} · NV ${entry.level}</strong><small>${htmlEscape(entry.element)} · ${htmlEscape(tip)}</small></div><span class="quest-state ${entry.cleared?'done':''}">${entry.cleared?'✓ SUPERADO':'PENDIENTE'}</span></div>`;
+    }).join('');
+    this.showModal('SANTUARIO · PLAN DE RUTA',
+      `<div class="modal-content-block">RUTA ELEMENTAL · ${finished}/${plan.length} RETOS. Los encuentros y sus posiciones son persistentes según la semilla de tu partida. Vencerlos da experiencia única y reposo; capturarlos añade un vínculo en lugar de esa recompensa.</div>`+
+      entries+
+      `<div class="modal-content-block">Equipo consciente: ${this.save.team.filter(c=>c.hp>0).length}/${this.save.team.length} · Tónicos: ${this.save.inventory.tonics} · Sellos: ${this.save.inventory.seals}. Cura en las Lumbres y prepara ataques de Ceniza para Hollowhart (Raíz). Este mapa táctico no inicia combates ni altera tu partida.</div>`);
   }
   private openQuests(){if(!this.started)return;
     const step=arkenStoryIndex(this.storyState),beat=this.storyBeat();

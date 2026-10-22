@@ -635,3 +635,27 @@ test('progression probe: six visible trail combats for three starters across twe
  }
  assert.equal(report.length,36);
 });
+
+test('runtime: optional Sanctuary route plan renders on desktop/mobile menu without changing saves',()=>{
+ const {game,dom,storage}=mount({virtualTime:true,seed:313});
+ dom.set('worldSeedInput',{value:'3234567'});
+ game.startNew();game.pickStarter('cindrel');while(game.dialogOpen)game.nextDialog();
+ const saved=storage.getItem('ascii-azur-save-v1');
+ game.openRoutePlan();
+ assert.equal(game.modalOpen,true);
+ const first=dom.get('modalContent').innerHTML;
+ assert.match(first,/SANTUARIO · PLAN DE RUTA|RUTA ELEMENTAL/);
+ assert.match(first,/1\. /);assert.match(first,/2\. /);assert.match(first,/3\. /);
+ assert.match(first,/CONTRAATAQUE: Cindrel/,'starting Ash knows an actual Root counter');
+ assert.match(first,/0\/3 RETOS/);
+ assert.equal(storage.getItem('ascii-azur-save-v1'),saved,'opening route plan must not mutate saves');
+ game.hideModal();
+ game.save.flags.push('roamer-sanctuary-0');
+ game.openRoutePlan();
+ assert.match(dom.get('modalContent').innerHTML,/1\/3 RETOS/);
+ assert.match(dom.get('modalContent').innerHTML,/SUPERADO/);
+ game.hideModal();
+ game.startBattle('briarling',8,'wild');
+ game.openRoutePlan();
+ assert.equal(game.modalOpen,false,'route plan cannot interrupt combat');
+});

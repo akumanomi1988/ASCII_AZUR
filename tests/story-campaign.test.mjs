@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {ARKEN_FINALE_FLAG,ARKEN_STORY,arkenStoryIndex,arkenStoryBeat,canConcludeArken,concludeArken,guardianPreparation} from '../dist/story-campaign.js';
+import {ARKEN_FINALE_FLAG,ARKEN_STORY,arkenStoryIndex,arkenStoryBeat,canConcludeArken,concludeArken,guardianPreparation,sanctuaryRoutePlan} from '../dist/story-campaign.js';
 const state=(flags=[],defeatedBoss=false,dungeonFinished=false)=>({flags,defeatedBoss,dungeonFinished});
 test('seven authored story beats have actionable, unique Spanish objectives',()=>{
  assert.equal(ARKEN_STORY.length,7);
@@ -69,4 +69,25 @@ test('guardian preparation accepts actual counter move, not just ash creature na
  assert.equal(guardianPreparation([mist,fire]).ready,true);
  assert.equal(guardianPreparation([mist,{...fire,moves:['pulse']}]).ready,false);
  assert.ok(guardianPreparation([mist,{...fire,hp:1}]).advice.some(x=>x.includes('Lumbre')));
+});
+
+test('Sanctuary scouting uses only equipped offensive counters and persists cleared stages',()=>{
+ const route=[
+  {id:'sanctuary-0',speciesId:'briarling',level:8},
+  {id:'sanctuary-1',speciesId:'rillfin',level:9},
+  {id:'sanctuary-2',speciesId:'runeowl',level:10}
+ ];
+ const ash={uid:'a',speciesId:'cindrel',level:8,exp:0,hp:52,moves:['ember','pulse']};
+ const root={uid:'b',speciesId:'thorne',level:9,exp:0,hp:62,moves:['thorn','roots']};
+ const mist={uid:'c',speciesId:'velaria',level:8,exp:0,hp:56,moves:['fog','tide']};
+ const before=JSON.stringify([ash,root,mist,route]);
+ const report=sanctuaryRoutePlan([ash,root,mist],route,['roamer-sanctuary-1']);
+ assert.deepEqual(report.map(x=>x.counter),['Cindrel','Thorne','Velaria']);
+ assert.deepEqual(report.map(x=>x.cleared),[false,true,false]);
+ assert.deepEqual(report.map(x=>x.level),[8,9,10]);
+ assert.equal(JSON.stringify([ash,root,mist,route]),before,'scouting must be read-only');
+ assert.deepEqual(sanctuaryRoutePlan([{...ash,hp:0},root,{...mist,moves:['pulse']}],route,[]).map(x=>x.counter),
+  [null,'Thorne',null],'fainted or unequipped moves may not falsely promise a counter');
+ assert.equal(sanctuaryRoutePlan([{...root,moves:['verdancy']}],route,[]).every(x=>x.counter===null),true,
+  'non-damaging skills do not count as offensive counters');
 });
