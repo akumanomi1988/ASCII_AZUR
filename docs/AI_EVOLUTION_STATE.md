@@ -1,6 +1,6 @@
 # ASCII AZUR — Autonomous Evolution State
 
-Updated: 2026-10-22. Active change: **v0.26.1 trail respite**. Source: `akumanomi1988/ASCII_AZUR`, release branch `main`. Do not infer deployment from a push or green CI.
+Updated: 2026-10-22. Active change: **v0.26.2 finite altar discovery reward**. Source: `akumanomi1988/ASCII_AZUR`, release branch `main`. Do not infer deployment from a push or green CI.
 
 ## Product vision and non-negotiables
 
@@ -12,7 +12,7 @@ The current game includes three regions, 12 species, an authored six-step Arken 
 
 ## Sixteen-domain quality scorecard (0–5; conservative evidence)
 
-| Domain | v0.26 | v0.26.1 | Evidence and unclosed acceptance |
+| Domain | v0.26.1 | v0.26.2 | Evidence and unclosed acceptance |
 |---|---:|---:|---|
 | Artistic direction | 3 | 3 | Four actor facings; compare readability across biomes with users |
 | ASCII rendering | 3 | 3 | Dense glyph compositor; physical GPU/low-end FPS pending |
@@ -31,7 +31,7 @@ The current game includes three regions, 12 species, an authored six-step Arken 
 | Technical | 3 | 3 | TS build, 183 unit/runtime tests, static PWA checks; stress pending |
 | Production readiness | 1 | 1 | Global content, hardware QA, complete playthrough still missing |
 
-**Average: 2.5/5 → 2.5/5.** These domain scores remain unchanged because feature tests are not player-experience evidence. No critical/high-severity defect resolution is claimed beyond the tested slice.
+**Average: 2.5/5 → 2.5/5.** (v0.26.1 → v0.26.2; no subjective score inflation.) These domain scores remain unchanged because feature tests are not player-experience evidence. No critical/high-severity defect resolution is claimed beyond the tested slice.
 
 ## Verified work and release baseline
 
@@ -40,6 +40,10 @@ The current game includes three regions, 12 species, an authored six-step Arken 
 - v0.26.1 diagnosis: despite better first-win XP, route battles exhaust health and lead to repeated return journeys. Change: pure `recoverTrailParty` restores `ceil(maxHp*0.25)` to each conscious ally only on first-win roamer payout; cap at max HP, never revive fainted allies. No new save fields and no economy inflation. Capture, random combat, repeat roamer, boss, sentinel and expedition do not grant this respite. Battle toast communicates the recovery.
 - v0.26.1 acceptance: feature head `b7b9909244e11a87c524a2ef1ccc9136c1f66e72`, GitHub Actions run `39765446134` SUCCESS, **183/183** Node tests PASS, TypeScript build PASS, 31 JS modules/32 cached PWA assets release audit PASS, generated standalone bundle PASS. Tests include no-repeat recovery, persistence, health caps, no revive, and a scripted first-forest combat using real move commands for all three starters. This is virtual-environment combat, **not** a full physical Android or human playthrough.
 - v0.26.1 main merge commit `2724c2579c2316f456ea4697d40bf851415f952a` verified. GitHub Pages provenance and public smoke: **PENDING** until separately verified. Current source changes are not considered released merely because feature CI succeeded.
+
+- v0.26.2 diagnosis: repeated altar interactions awarded +1 capture seal indefinitely, making the core creature-binding economy trivial to bypass. Each altar still heals freely, but its existing `altar-<zone>` flag now permits only one discovery seal (subject to the nine-seal bag cap). Shop purchases and combat income remain renewable; saves `version:1` need no migration. Two new runtime regressions cover regional first visits, repeated healing, old flags, persistence, cap and Mara's paid replenishment.
+- v0.26.2 source release: gameplay commit `8e3c67e543354a558b643898541bcf4e2e528291` on `main`; GitHub Actions `39768946735` SUCCESS: TypeScript build PASS, **185/185** tests PASS, standalone playable bundle PASS, audit PASS (31 compiled JS dependencies, 32 cached static assets).
+- v0.26.2 Pages branch head `d0dcb2c09d3345fbda61e7c2bf054b52466f2caa` includes matching `dist/main.js`, cache key `ascii-azur-v026-q03`, and `build-info.json.source_commit=8e3c67e…`. GitHub Pages workflow `39769087123` was **PENDING** at last inspection. Public `github.io` playthrough/smoke remains **UNVERIFIED** because the external browser could not access the site. Do not equate GitHub content with a verified public deployment.
 
 ## Architecture and operational invariants
 
@@ -51,11 +55,11 @@ The current game includes three regions, 12 species, an authored six-step Arken 
 
 ## Prioritized backlog
 
-1. Finish the current branch/main/Pages release with exact commit provenance, smoke-test the public URL when available.
+1. Verify GitHub Pages workflow `39769087123` and perform a public interactive smoke test for v0.26.2 when public site access is available.
 2. Measure forest→guardian→crypt completion, consumable usage, captures and time for all three starters over many seeds; adjust real encounters based on observed failures rather than arbitrary rewards.
 3. Expand the global authored campaign and supporting unique biomes/encounters to a genuine beginning, climax and ending.
 4. Measure sustained physical Android WebGL2 FPS, GPU/CPU load, heat, battery, joystick and portrait/landscape usability. Target at least 30 stable FPS on a defined minimum device.
 5. Complete creature identity and authored animations, audio mastering, accessibility and external user playtests.
 6. Execute a full gameplay end-to-end acceptance campaign; remove all high/critical defects and verify all 16 quality dimensions at least 4/5, average at least 4.5/5 before any premium-complete claim.
 
-**Next iteration priority:** cross-seed progression balance through the Guardian and crypt, then the first integrated global-campaign expansion. Score gain requires measurable player evidence.
+**Next iteration priority:** multi-seed, three-starter progression balance through the Guardian and crypt; remove observed difficulty/dead-end problems before expanding the global campaign. Score gain requires measurable player evidence.
