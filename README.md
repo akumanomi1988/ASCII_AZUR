@@ -1,4 +1,4 @@
-# ASCII AZUR v0.26.2 — The Unwritten
+# ASCII AZUR v0.28.0 — The Unwritten
 
 RPG de captura de criaturas y fantasía oscura, con mundo ASCII generado mediante WebGL2 (fallback Canvas2D), exploración procedural persistente y una cripta física de ocho cámaras. Android horizontal es la plataforma prioritaria; navegador web es el entorno de desarrollo y distribución actual.
 
@@ -12,6 +12,14 @@ RPG de captura de criaturas y fantasía oscura, con mundo ASCII generado mediant
 - `npm run serve`: servidor HTTP en puerto 8080; abre `http://localhost:8080` para probar guardados y PWA.
 
 `play.html` es un **artefacto generado, no versionado**. No debes editarlo manualmente. GitHub Pages publica los módulos compilados directamente y CI genera el HTML autónomo descargable. Los archivos fuente de verdad están en `src/`. Los tests usan `node:test` sin frameworks innecesarios.
+
+## v0.28.0 — Las tres lecciones y el Eclipse
+
+La preparación de Hollowhart ya no depende de combates idénticos repetidos. En Arken, **Menú → Combate directo** ofrece tres lecciones elementales distintas: vencer por primera vez a Cindrel, Briarling y Mireling concede 55 EXP adicional por especie (con experiencia compartida normal). Cuando completes las tres, habla con Iria para reclamar **2 Tónicos una sola vez**; repetir rivales no repite las recompensas. La experiencia de entrenamiento no sustituye los premios únicos de los encuentros visibles del Bosque y Santuario.
+
+Hollowhart ahora reserva su ataque de Éter **Eclipse** para la carga claramente anunciada: la **GUARDIA** responde al peligro telegráfico. En la preparación previa puedes elegir qué miembro consciente inicia el combate; por defecto se recomienda quien tenga mayor daño estimado con sus técnicas reales, sin reordenar el equipo guardado. Los guardados v1 mantienen compatibilidad.
+
+La batería de QA de esta versión cubre 12 semillas deterministas × 3 iniciales, con capturas reales, lecciones, encuentros visibles, guardado/reanudación, Guardián y recorrido físico de la Cripta. Este recorrido automatizado no sustituye el playtesting humano, ni prueba la navegación exterior completa, ni permite declarar el juego premium.
 
 ## Estado de calidad
 
