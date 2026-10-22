@@ -1,6 +1,6 @@
 # ASCII AZUR — Autonomous Evolution State
 
-Last audited: 2026-10-22, v0.21. Source of truth: `akumanomi1988/ASCII_AZUR` / `main` once promoted. One iteration per invocation; do not run scheduled or Work tasks without explicit consent.
+Last audited: 2026-10-22, v0.22. Source of truth: `akumanomi1988/ASCII_AZUR` / `main` once promoted. One iteration per invocation; do not run scheduled or Work tasks without explicit consent.
 
 ## Vision and invariant contracts
 
@@ -189,3 +189,14 @@ Source commit, GitHub Actions and Pages provenance are recorded below. Direct pu
 - **Website:** `https://akumanomi1988.github.io/ASCII_AZUR/`. External HTTP browser/tool cannot reach `github.io`, so independent public-origin gameplay smoke **NOT VERIFIED**. Pages workflow success does not certify end-user access.
 - **Quality:** previous 16-domain average **2.5/5**; current **2.5/5**. Combat/UX tactical clarity increased technically, but commercial acceptance requires player feedback. The premium gate remains unpassed due to incomplete global campaign, untested physical Android/WebGL2 sustained FPS, independent player testing, and missing full natural playthrough.
 - **Next highest impact:** physical-device sustained FPS and touch UX, followed by a full extended campaign and a reproducible end-to-end playthrough with no progression blockers. Automated deployment from `main` remains a desired CD improvement; current Pages requires a separate `gh-pages` update.
+
+## v0.22 verified release ledger — 2026-10-22
+
+- **Diagnosis:** creature capture displayed no odds, leaving players to spend scarce seals without knowing how HP, level advantage and statuses affect binding. This is a gap in the exploration→battle→capture→collection core loop.
+- **Implemented:** deterministic pure `src/combat/capture-odds.ts` reused by the capture action and the battle button. The previous formula remains byte-equivalent without status ailments. Each distinct active adverse state on the target grants +8 percentage points (capped at +16 points) while the global chance remains capped at 94%; expired/repeated statuses never stack. Statuses on the ally do not count. The action displays the rounded percentage and carries an accessible description of the odds, cost and failure counterattack. Bosses remain uncapturable; no save schema, graphics or combat damage modifications.
+- **Verification:** local `npm run release` PASS (TypeScript strict compile, generated standalone HTML, **167/167 Node tests**, offline dependency audit **31 imported JS / 32 cached assets**, ZIP); `git diff --check` PASS. Six new tests cover unchanged baseline, status bonus, duplicate/expired effects, zero-HP and 94%-cap behavior, determinism and battle button. Chromium self-contained HTML smoke on desktop 1180×740, simulated touch landscape 844×390 and touch portrait 390×844: direct encounter, capture button visible and accessible, no clipping or uncaught JavaScript exceptions.
+- **Source:** `feature/transparent-capture-v022`, promoted into `main` at `b9db6c35c4126fddc345deefceb167bf640c5c48`. Feature quality run `39728016877` SUCCESS; main quality run `39728099698` SUCCESS.
+- **GitHub Pages:** `gh-pages` distribution commit `7bbab9c742d7227a1d63548333fa1a26de7d6336`; Pages workflow `39728174003` SUCCESS for build, deploy and report. `gh-pages/build-info.json` says `0.22.0` and names the exact above source commit. Published `dist/combat/capture-odds.js` blob `4e18ced295c0b32d950b6f094501a5795322deb1` matches compiled source.
+- **Public URL:** `https://akumanomi1988.github.io/ASCII_AZUR/`. The public-origin interactive smoke is **NOT VERIFIED**: external web access and a direct container HTTP request fail DNS resolution for github.io in this environment. GitHub Actions success is not independent client verification.
+- **Quality:** previous overall 16-domain mean **2.5/5**, current **2.5/5**. The gameplay/capture mechanic is more transparent, but player satisfaction, full global campaign, physical Android FPS and a complete natural end-to-end playthrough remain unverified. No score increased purely because the feature exists.
+- **Next priority:** full gameplay loop QA with a prolonged start-to-finale playthrough and external playtest/balance evidence; physical Android WebGL2 benchmarking; then expand the authored world and global campaign. The automatic `main`→Pages deployment remains a separate production improvement.
