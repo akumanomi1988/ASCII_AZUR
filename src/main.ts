@@ -46,6 +46,7 @@ class AzurGame {
     byId('mute').addEventListener('click',()=>{this.soundEnabled=!this.soundEnabled;this.sound.setEnabled(this.soundEnabled);this.updateMuteUi();this.storeAudioSettings();});
     byId('fullscreen').addEventListener('click',()=>this.toggleFullscreen());
     byId('quickFullscreen').addEventListener('click',()=>this.toggleFullscreen());
+    byId('quickSettings').addEventListener('click',()=>this.settings());
     document.addEventListener('fullscreenchange',()=>{byId('fullscreen').textContent=document.fullscreenElement?'⤢':'⛶';requestAnimationFrame(()=>this.renderer.resize());});
     byId('drawerToggle').addEventListener('click',()=>this.toggleDrawer());
     byId('resumeBtn').addEventListener('click',()=>this.toggleDrawer(false));

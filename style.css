@@ -262,3 +262,13 @@
  #viewport .game-drawer{transition:none}
  #viewport .intro-glyph{animation:none}
 }
+
+/* Dedicated in-viewport settings shortcut remains available during combat. */
+#viewport .quick-settings{position:absolute;right:9px;top:55px;z-index:12;width:35px;height:35px;display:grid;place-items:center;background:#172a35e6;border:1px solid #75959a;border-radius:6px;color:#f1d19e;font-size:19px}
+#viewport .quick-settings:hover,#viewport .quick-settings:focus-visible{background:#345463;color:#fff3cf}
+#viewport .drawer-toggle{top:99px}
+#viewport.in-evolution .quick-settings{display:none}
+@media (orientation:portrait) and (max-width:550px){
+ #viewport .quick-settings{top:53px}
+ #viewport .drawer-toggle{top:101px}
+}
