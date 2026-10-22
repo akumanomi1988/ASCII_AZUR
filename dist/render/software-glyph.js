@@ -77,4 +77,18 @@ export class SoftwareGlyphFrame {
                 buf[p + 2] = Math.round(buf[p + 2] * (1 - coverage) + B * coverage);
             }
     }
+    /** Per-cell RGB foreground/background composition, including the entire cell boundary. */
+    putCell(index, x, y, w, h, foreground, background, opacity = 1) {
+        const mask = this.mask(index, w, h), buf = this.data.data;
+        for (let sy = 0; sy < h && y + sy < this.height; sy++)
+            for (let sx = 0; sx < w && x + sx < this.width; sx++) {
+                const coverage = (mask[sy * w + sx] ?? 0) / 255 * opacity;
+                const p = ((y + sy) * this.width + x + sx) * 4;
+                for (let channel = 0; channel < 3; channel++) {
+                    const bg = background[channel] ?? 0, fg = foreground[channel] ?? 0;
+                    buf[p + channel] = Math.max(0, Math.min(255, Math.round(bg + (fg - bg) * coverage)));
+                }
+                buf[p + 3] = 255;
+            }
+    }
 }

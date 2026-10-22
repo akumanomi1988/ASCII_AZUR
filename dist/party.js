@@ -37,9 +37,6 @@ export function reserveCreature(state, uid) {
     storage.push(team.splice(i, 1)[0]);
     return { team, storage };
 }
-
-/** Rewards the active combatant fully and conscious teammates at 50%.
- * Reserve creatures do not gain XP; no save schema or global experience pool. */
 export function grantPartyExperience(team, activeIndex, amount) {
     if (!Number.isInteger(activeIndex) || activeIndex < 0 || activeIndex >= team.length || !Number.isSafeInteger(amount) || amount < 0)
         throw Error('Invalid combat experience');

@@ -1,4 +1,5 @@
 import { AsciiRenderer, drawWorld, drawBattle, drawEvolution } from './render.js';
+import { navigateMenuKey, focusMenuFirst, isTypingTarget, menuButtons } from './ui/menu-navigation.js';
 import { DEFAULT_GRAPHICS, glyphCell, canvasGlyphCell, glyphCount } from './render/graphics-profile.js';
 import { visibleEncounters, nearbyEncounter, firstRoamerVictoryBonus, recoverTrailParty } from './world/encounters.js';
 import { drawDungeon } from './dungeons/draw-dungeon.js';
@@ -44,6 +45,8 @@ class AzurGame {
     keys = new Set();
     battle = null;
     dialogQueue = [];
+    modalInvoking = null;
+    drawerInvoking = null;
     dialogOpen = false;
     modalOpen = false;
     flash = 0;
@@ -73,8 +76,10 @@ class AzurGame {
         byId('mute').addEventListener('click', () => { this.soundEnabled = !this.soundEnabled; this.sound.setEnabled(this.soundEnabled); this.updateMuteUi(); this.storeAudioSettings(); });
         byId('fullscreen').addEventListener('click', () => this.toggleFullscreen());
         byId('quickFullscreen').addEventListener('click', () => this.toggleFullscreen());
+        byId('quickSettings').addEventListener('click', () => this.settings());
         document.addEventListener('fullscreenchange', () => { byId('fullscreen').textContent = document.fullscreenElement ? '⤢' : '⛶'; requestAnimationFrame(() => this.renderer.resize()); });
         byId('drawerToggle').addEventListener('click', () => this.toggleDrawer());
+        byId('resumeBtn').addEventListener('click', () => this.toggleDrawer(false));
         byId('drawerClose').addEventListener('click', () => this.toggleDrawer(false));
         byId('drawerScrim').addEventListener('click', () => this.toggleDrawer(false));
         this.wireJoystick();
@@ -86,25 +91,7 @@ class AzurGame {
             this.hideModal(); });
         byId('closeDialogue').addEventListener('click', () => this.nextDialog());
         byId('touchInteract').addEventListener('click', () => this.interact());
-        document.addEventListener('keydown', e => { if (e.key === 'F3' && !e.repeat) {
-            e.preventDefault();
-            this.debugPerformance = !this.debugPerformance;
-        } if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' ', 'Enter'].includes(e.key))
-            e.preventDefault(); if (e.repeat && ['e', 'E', 't', 'T', 'b', 'B', ' ', 'Enter'].includes(e.key))
-            return; this.keys.add(e.key.toLowerCase()); if (e.key.toLowerCase() === 'e' || e.key === ' ' || e.key === 'Enter')
-            this.interact(); if (e.key === 'Escape') {
-            if (this.modalOpen)
-                this.hideModal();
-            else
-                this.toggleDrawer(false);
-        } if (e.key.toLowerCase() === 't')
-            this.openTeam(); if (e.key.toLowerCase() === 'b')
-            this.openBag(); if (e.key === 'Escape') {
-            if (this.modalOpen)
-                this.hideModal();
-            else if (this.dialogOpen)
-                this.nextDialog();
-        } });
+        document.addEventListener('keydown', e => this.handleKeyDown(e));
         document.addEventListener('keyup', e => this.keys.delete(e.key.toLowerCase()));
         window.addEventListener('blur', () => { this.keys.clear(); this.resetJoystick(); this.padStick = { x: 0, y: 0 }; this.padButtons.clear(); });
         document.addEventListener('visibilitychange', () => { if (document.hidden) {
@@ -116,6 +103,102 @@ class AzurGame {
         }
         else
             this.sound.resume(); });
+    }
+    /** Only the active interaction layer owns keyboard input. Native form editing is never intercepted. */
+    handleKeyDown(e) {
+        if (e.key === 'F3' && !e.repeat) {
+            e.preventDefault();
+            this.debugPerformance = !this.debugPerformance;
+            return;
+        }
+        const key = e.key.toLowerCase(), drawerOpen = byId('gameDrawer').classList.contains('open');
+        if (isTypingTarget(e.target)) {
+            if (e.key === 'Escape' && this.modalOpen) {
+                e.preventDefault();
+                this.hideModal();
+            }
+            return;
+        }
+        if (e.key === 'Escape') {
+            if (this.modalOpen)
+                this.hideModal();
+            else if (this.dialogOpen)
+                this.nextDialog();
+            else if (drawerOpen)
+                this.toggleDrawer(false);
+            else if (this.battle?.selecting) {
+                this.battle.selecting = false;
+                this.refreshBattle();
+            }
+            else if (this.started && !this.battle && !this.evolution)
+                this.toggleDrawer(true);
+            else
+                return;
+            this.keys.clear();
+            e.preventDefault();
+            return;
+        }
+        if (this.modalOpen) {
+            if (this.trapModalTab(e))
+                return;
+            if (navigateMenuKey(byId('modal'), e.key))
+                e.preventDefault();
+            return;
+        }
+        if (!byId('starterScreen').classList.contains('hidden')) {
+            if (navigateMenuKey(byId('starterScreen'), e.key))
+                e.preventDefault();
+            return;
+        }
+        if (!byId('titleScreen').classList.contains('hidden')) {
+            if (navigateMenuKey(byId('titleScreen'), e.key))
+                e.preventDefault();
+            return;
+        }
+        if (this.dialogOpen) {
+            if (['Enter', ' ', 'e', 'E'].includes(e.key) && !e.repeat) {
+                this.nextDialog();
+                e.preventDefault();
+            }
+            return;
+        }
+        if (drawerOpen) {
+            if (navigateMenuKey(byId('gameDrawer'), e.key))
+                e.preventDefault();
+            return;
+        }
+        if (this.battle) {
+            if (!this.battle.busy && navigateMenuKey(byId('battleActions'), e.key))
+                e.preventDefault();
+            return;
+        }
+        if (e.repeat && ['e', 't', 'b', ' ', 'enter'].includes(key))
+            return;
+        if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(e.key))
+            e.preventDefault();
+        if (['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(key))
+            this.keys.add(key);
+        if (key === 'e' || e.key === ' ' || e.key === 'Enter')
+            this.interact();
+        if (key === 't')
+            this.openTeam();
+        if (key === 'b')
+            this.openBag();
+    }
+    /** Trapping Tab in a real modal prevents focus escaping behind an overlay. */
+    trapModalTab(e) {
+        if (e.key !== 'Tab')
+            return false;
+        const nodes = menuButtons(byId('modal'));
+        if (!nodes.length)
+            return false;
+        const index = nodes.indexOf(document.activeElement);
+        if ((e.shiftKey && index <= 0) || (!e.shiftKey && index === nodes.length - 1)) {
+            e.preventDefault();
+            (e.shiftKey ? nodes[nodes.length - 1] : nodes[0])?.focus();
+            return true;
+        }
+        return false;
     }
     /** Standard Gamepad API: USB/Bluetooth controllers work without changing mobile controls. */
     pollGamepad() {
@@ -143,6 +226,10 @@ class AzurGame {
                 this.refreshBattle();
             }
         }
+        if ((pressed(12) || pressed(14) || pressed(13) || pressed(15)) && (this.modalOpen || byId('gameDrawer').classList.contains('open'))) {
+            const root = this.modalOpen ? byId('modal') : byId('gameDrawer');
+            navigateMenuKey(root, pressed(12) || pressed(14) ? 'ArrowUp' : 'ArrowDown');
+        }
         if (pressed(12) || pressed(14) || pressed(13) || pressed(15)) {
             if (this.battle && !this.battle.busy) {
                 const buttons = Array.from(byId('battleActions').querySelectorAll('button')).filter(b => !b.disabled);
@@ -158,7 +245,13 @@ class AzurGame {
                 const buttons = Array.from(byId('battleActions').querySelectorAll('button')).filter(b => !b.disabled);
                 buttons[Math.min(this.selectedBattleAction, buttons.length - 1)]?.click();
             }
-            else if (!this.modalOpen)
+            else if (this.modalOpen || byId('gameDrawer').classList.contains('open')) {
+                const root = this.modalOpen ? byId('modal') : byId('gameDrawer');
+                const buttons = menuButtons(root);
+                const active = document.activeElement;
+                (buttons.includes(active) ? active : buttons[0])?.click?.();
+            }
+            else
                 this.interact();
         }
         this.padButtons = now;
@@ -185,7 +278,9 @@ class AzurGame {
     }
     catch {
         this.renderer.setGraphics(DEFAULT_GRAPHICS);
-    } }
+    } this.updateGraphicsTheme(); }
+    updateGraphicsTheme() { if (document.documentElement)
+        document.documentElement.dataset.renderMode = this.renderer.renderMode; }
     storeGraphicSettings() { try {
         localStorage.setItem('ascii-azur-graphics-v2', JSON.stringify(this.renderer.getGraphics()));
     }
@@ -291,12 +386,19 @@ class AzurGame {
     toggleDrawer(force) {
         const drawer = byId('gameDrawer');
         const open = force ?? !drawer.classList.contains('open');
+        if (open)
+            this.drawerInvoking = document.activeElement;
         drawer.classList.toggle('open', open);
         drawer.setAttribute('aria-hidden', String(!open));
         byId('drawerScrim').classList.toggle('hidden', !open);
         byId('drawerToggle').setAttribute('aria-expanded', String(open));
-        if (open)
+        if (open) {
             this.resetJoystick();
+            this.keys.clear();
+            focusMenuFirst(drawer);
+        }
+        else if (!this.modalOpen)
+            this.drawerInvoking?.focus?.();
     }
     resetJoystick() { this.stick.x = 0; this.stick.y = 0; this.stick.pointerId = -1; byId('joystickKnob').style.transform = 'translate(-50%, -50%)'; }
     wireJoystick() {
@@ -1381,36 +1483,49 @@ class AzurGame {
     openBag() { if (!this.started || this.evolution || this.battle || this.dialogOpen || !byId('starterScreen').classList.contains('hidden'))
         return; this.showModal('MOCHILA DEL PORTADOR', `<div class="modal-content-block">Objetos recuperados entre las ruinas de Azur. · ✦ ${this.economy.echoes} ECOS</div><div class="modal-option"><div><strong>◇ Sellos de Vínculo</strong> × ${this.save.inventory.seals}<small>Permiten capturar criaturas debilitadas durante el combate.</small></div></div><div class="modal-option"><div><strong>✚ Tónicos</strong> × ${this.save.inventory.tonics}<small>Recuperan 28 HP de una criatura durante el combate.</small></div></div><div class="modal-content-block">Descansa en las Lumbres para curar al equipo y recuperar un sello. Los cofres contienen suministros limitados.</div>`); }
     settings() {
-        this.toggleDrawer(false);
+        if (this.dialogOpen || this.evolution || !byId('starterScreen').classList.contains('hidden'))
+            return;
         this.sound.unlock();
-        this.showModal('AJUSTES · ARTE ASCII', `<div class="modal-content-block">Mundo de caracteres diminutos y muy densos. La densidad y el tamaño del glifo son independientes. Los ajustes se aplican en tiempo real al renderizador ${this.renderer.mode === 'gpu' ? 'WebGL2' : 'Canvas2D'} y permanecen guardados.</div>
-      <div class="settings-row"><label for="densitySelect">Densidad de caracteres</label><select id="densitySelect"><option value="0.18">Microscópica · máxima</option><option value="0.24">Ultra fina</option><option value="0.32">Muy alta · recomendada</option><option value="0.42">Alta</option><option value="0.56">Equilibrada</option><option value="0.85">Rendimiento</option><option value="1.2">Muy rápida</option></select></div>
-      <div class="settings-row"><label for="glyphScale">Tamaño de caracteres <output id="glyphScaleValue"></output></label><input id="glyphScale" type="range" min=".5" max="1.85" step=".05"></div>
+        this.showModal('OPCIONES · GRÁFICOS Y ACCESIBILIDAD', `<div class="modal-content-block">Representación de glifos en tiempo real. La densidad y el tamaño del glifo son independientes. Los ajustes se aplican en tiempo real al renderizador ${this.renderer.mode === 'gpu' ? 'WebGL2' : 'Canvas2D'} y permanecen guardados.</div>
+      <div class="settings-row"><label for="renderModeSelect">Modo de representación</label><select id="renderModeSelect"><option value="ascii">ASCII ATMOSFÉRICO</option><option value="glyph-pixel">GLYPH PIXEL ART</option></select></div>
+      <div class="settings-row" data-render-mode="glyph-pixel"><label for="pixelDetailSelect">Detalle Glyph Pixel Art</label><select id="pixelDetailSelect"><option value="fine">Fino</option><option value="balanced">Equilibrado</option><option value="chunky">Chunky</option></select></div>
+      <div class="settings-row" data-render-mode="ascii"><label for="densitySelect">Densidad de caracteres</label><select id="densitySelect"><option value="0.18">Microscópica · máxima</option><option value="0.24">Ultra fina</option><option value="0.32">Muy alta · recomendada</option><option value="0.42">Alta</option><option value="0.56">Equilibrada</option><option value="0.85">Rendimiento</option><option value="1.2">Muy rápida</option></select></div>
+      <div class="settings-row" data-render-mode="ascii"><label for="glyphScale">Tamaño de caracteres <output id="glyphScaleValue"></output></label><input id="glyphScale" type="range" min=".5" max="1.85" step=".05"></div>
       <div class="settings-row"><label for="glyphContrast">Contraste <output id="glyphContrastValue"></output></label><input id="glyphContrast" type="range" min=".65" max="1.8" step=".05"></div>
-      <div class="settings-row"><label for="glyphEdges">Definición de contornos <output id="glyphEdgesValue"></output></label><input id="glyphEdges" type="range" min=".5" max="2.4" step=".1"></div>
+      <div class="settings-row" data-render-mode="ascii"><label for="glyphEdges">Definición de contornos <output id="glyphEdgesValue"></output></label><input id="glyphEdges" type="range" min=".5" max="2.4" step=".1"></div>
       <div class="settings-row"><label for="glyphBrightness">Luminosidad <output id="glyphBrightnessValue"></output></label><input id="glyphBrightness" type="range" min="-.25" max=".25" step=".05"></div>
-      <div class="settings-row"><label for="qualitySelect">Paleta cromática</label><select id="qualitySelect"><option value="1">Color atmosférico</option><option value="0.4">Color limitado</option></select></div>
+      <div class="settings-row" data-render-mode="ascii"><label for="qualitySelect">Paleta cromática</label><select id="qualitySelect"><option value="1">Color atmosférico</option><option value="0.4">Color limitado</option></select></div>
       <div class="modal-content-block" id="glyphStats" aria-live="polite"></div>
       <div class="settings-row"><label for="adaptiveFps">FPS estables · ajustar detalle automáticamente</label><input id="adaptiveFps" type="checkbox"></div>
       <div class="modal-content-block" id="adaptiveFpsStats" aria-live="polite"></div>
       <div class="settings-row"><button id="resetGraphics" class="settings-reset">Restablecer gráficos</button></div>
-      <div class="modal-content-block">Los tonos oscuros también se dibujan con caracteres, sin huecos artificiales. WebGL2 ofrece la trama más fina; Canvas2D limita el trabajo para mantener la partida fluida.</div>
-      <div class="settings-row"><label for="musicVolume">Música</label><input id="musicVolume" type="range" min="0" max="100" step="1"></div>
+      <div class="modal-content-block">En GLYPH PIXEL ART cada celda pinta un fondo continuo y un glifo con color propio. El modo atmosférico reduce trazos direccionales repetitivos. WebGL2 ofrece la trama más fina; Canvas2D limita el trabajo para mantener la partida fluida.</div>
+      <div class="settings-row"><label for="audioEnabled">Audio activado</label><input id="audioEnabled" type="checkbox"></div>
+       <div class="settings-row"><label for="musicVolume">Música</label><input id="musicVolume" type="range" min="0" max="100" step="1"></div>
       <div class="settings-row"><label for="effectsVolume">Efectos</label><input id="effectsVolume" type="range" min="0" max="100" step="1"></div>
       <div class="settings-row"><label for="motionReduced">Reducir movimiento</label><input id="motionReduced" type="checkbox"></div>
       <div class="settings-row"><label for="largeText">Texto ampliado</label><input id="largeText" type="checkbox"></div>
-      <div class="settings-row"><label for="leftHanded">Joystick a la derecha</label><input id="leftHanded" type="checkbox"></div>`, true);
+      <div class="settings-row"><label for="leftHanded">Joystick a la derecha</label><input id="leftHanded" type="checkbox"></div>`, true, true);
         const mus = byId('musicVolume'), fx = byId('effectsVolume');
+        const audio = byId('audioEnabled');
+        audio.checked = this.soundEnabled;
+        audio.onchange = () => { this.soundEnabled = audio.checked; this.sound.setEnabled(this.soundEnabled); this.updateMuteUi(); this.storeAudioSettings(); };
         mus.value = String(Math.round(this.sound.getMusicVolume() * 100));
         fx.value = String(Math.round(this.sound.getEffectsVolume() * 100));
         mus.oninput = () => { this.sound.setMusicVolume(Number(mus.value) / 100); this.storeAudioSettings(); };
         fx.oninput = () => { this.sound.setEffectsVolume(Number(fx.value) / 100); this.storeAudioSettings(); };
         const den = byId('densitySelect'), qual = byId('qualitySelect');
+        const renderMode = byId('renderModeSelect'), pixelDetail = byId('pixelDetailSelect');
         const sliders = [['glyphScale', 'glyphScale'], ['glyphContrast', 'contrast'], ['glyphEdges', 'edgeStrength'], ['glyphBrightness', 'brightness']];
         const sync = () => {
             const g = this.renderer.getGraphics();
             den.value = String(g.density);
             qual.value = String(g.quality);
+            renderMode.value = g.renderMode;
+            pixelDetail.value = g.pixelDetail;
+            for (const el of byId('modalContent').querySelectorAll('[data-render-mode]'))
+                el.hidden = el.dataset.renderMode !== g.renderMode;
+            this.updateGraphicsTheme();
             for (const [id, key] of sliders) {
                 byId(id).value = String(g[key]);
                 byId(id + 'Value').textContent = key === 'brightness' ? g[key].toFixed(2) : g[key].toFixed(2) + '×';
@@ -1423,6 +1538,8 @@ class AzurGame {
             byId('adaptiveFpsStats').textContent = this.adaptiveGlyphs.active ? `Objetivo 30 FPS · escala temporal ×${this.renderer.performanceScale.toFixed(2)} · ajustes artísticos originales conservados` : 'Máxima fidelidad manual. Activa FPS estables solo si el dispositivo pierde fluidez.';
         };
         const change = (patch) => { this.renderer.setGraphics({ ...this.renderer.getGraphics(), ...patch }); this.storeGraphicSettings(); sync(); };
+        renderMode.onchange = () => change({ renderMode: renderMode.value === 'glyph-pixel' ? 'glyph-pixel' : 'ascii' });
+        pixelDetail.onchange = () => change({ pixelDetail: pixelDetail.value === 'fine' ? 'fine' : pixelDetail.value === 'chunky' ? 'chunky' : 'balanced' });
         den.onchange = () => change({ density: Number(den.value) });
         qual.onchange = () => change({ quality: Number(qual.value) });
         for (const [id, key] of sliders)
@@ -1444,9 +1561,21 @@ class AzurGame {
         textSize.onchange = () => { document.documentElement.classList.toggle('azur-large-text', textSize.checked); this.persistAccessibility(); };
         handed.onchange = () => { document.documentElement.classList.toggle('azur-left-handed', handed.checked); this.persistAccessibility(); };
     }
-    showModal(title, body, allowIntro = false) { if (this.evolution || this.battle || this.dialogOpen || (!allowIntro && !byId('titleScreen').classList.contains('hidden')) || !byId('starterScreen').classList.contains('hidden'))
-        return; this.toggleDrawer(false); this.modalOpen = true; byId('modalTitle').textContent = title; byId('modalContent').innerHTML = body; byId('modal').classList.remove('hidden'); }
-    hideModal() { this.modalOpen = false; byId('modal').classList.add('hidden'); }
+    showModal(title, body, allowIntro = false, allowBattle = false) {
+        if (this.evolution || (this.battle && !allowBattle) || this.dialogOpen || (!allowIntro && !byId('titleScreen').classList.contains('hidden')) || !byId('starterScreen').classList.contains('hidden'))
+            return;
+        const fromDrawer = byId('gameDrawer').classList.contains('open');
+        this.modalInvoking = fromDrawer ? byId('drawerToggle') : document.activeElement;
+        this.toggleDrawer(false);
+        this.keys.clear();
+        this.resetJoystick();
+        this.modalOpen = true;
+        byId('modalTitle').textContent = title;
+        byId('modalContent').innerHTML = body;
+        byId('modal').classList.remove('hidden');
+        focusMenuFirst(byId('modal'));
+    }
+    hideModal() { this.modalOpen = false; byId('modal').classList.add('hidden'); this.keys.clear(); this.modalInvoking?.focus?.(); this.modalInvoking = null; }
     saveNow(notify) { if (!this.started)
         return; try {
         writeSave(localStorage, this.save);

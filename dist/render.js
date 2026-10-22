@@ -3,44 +3,69 @@ import { SPECIES } from './domain.js';
 import { sampleBattleSignature } from './actors/battle-direction.js';
 import { sampleCreaturePerformance, rigFor } from './actors/creature-performance.js';
 import { SoftwareGlyphFrame } from './render/software-glyph.js';
+import { VISUAL_ASSETS } from './render/semantic-assets.js';
 import { sampleHeroPose } from './actors/hero-performance.js';
 import { glyphVisible } from './render/legibility.js';
 import { readGraphics, glyphCell, canvasGlyphCell } from './render/graphics-profile.js';
 export const W = 960, H = 540;
-const GLYPHS = ' .,:;irsXA253hMHGS#9B&@/-\\|*+o%';
+const GLYPHS = ' .,:;irsXA253hMHGS#9B&@░▒▓█*+o%';
 const VS = `#version 300 es
 in vec2 a_pos;out vec2 v_uv;
 void main(){v_uv=a_pos*.5+.5;gl_Position=vec4(a_pos,0.,1.);}`;
 const FS = `#version 300 es
 precision highp float;
-uniform sampler2D u_scene;uniform sampler2D u_atlas;uniform vec2 u_resolution;uniform vec2 u_cell;uniform float u_time;uniform float u_quality;uniform float u_contrast;uniform float u_edges;uniform float u_brightness;uniform vec4 u_crop;
+uniform sampler2D u_scene;uniform sampler2D u_atlas;
+uniform vec2 u_resolution;uniform vec2 u_cell;
+uniform float u_time;uniform float u_quality;uniform float u_contrast;uniform float u_edges;uniform float u_brightness;uniform float u_pixelMode;
+uniform vec4 u_crop;
 in vec2 v_uv;out vec4 outColor;
-vec3 at(vec2 p){vec2 uv=u_crop.xy+p*u_crop.zw;return texture(u_scene,vec2(clamp(uv.x,0.,1.),1.-clamp(uv.y,0.,1.))).rgb;}
+vec3 at(vec2 p){
+ vec2 uv=u_crop.xy+p*u_crop.zw;
+ return texture(u_scene,vec2(clamp(uv.x,0.,1.),1.-clamp(uv.y,0.,1.))).rgb;
+}
+float glyphCoverage(vec2 pos,int index){
+ // Sampling within a tile interior prevents bleed at adjacent atlas borders.
+ vec2 xy=clamp(fract(pos/u_cell),vec2(.07),vec2(.93));
+ vec2 uv=(vec2(float(index%8),float(index/8))+xy)/vec2(8.,4.);
+ return texture(u_atlas,uv).a;
+}
 void main(){
  vec2 pos=vec2(gl_FragCoord.x,u_resolution.y-gl_FragCoord.y);
- vec2 cell=floor(pos/u_cell);vec2 center=(cell+.5)*u_cell/u_resolution;
- vec3 raw=at(center);vec2 d=max(u_cell/u_resolution,vec2(.001))*0.45;vec3 n=at(center+vec2(0.,-d.y));vec3 s=at(center+vec2(0.,d.y));vec3 e=at(center+vec2(d.x,0.));vec3 w=at(center-vec2(d.x,0.));
- float lum=clamp((dot(raw,vec3(.2126,.7152,.0722))-.5)*u_contrast+.5+u_brightness,0.,1.);
+ vec2 cell=floor(pos/u_cell), center=(cell+.5)*u_cell/u_resolution;
+ vec2 stepPx=max(u_cell/u_resolution,vec2(.001))*.45;
+ vec3 raw=at(center), n=at(center+vec2(0.,-stepPx.y)), s=at(center+vec2(0.,stepPx.y));
+ vec3 e=at(center+vec2(stepPx.x,0.)), w=at(center-vec2(stepPx.x,0.));
+ vec3 smoothColor=(raw+n+s+e+w)*.2;
  float edge=(length(n-s)+length(e-w))*u_edges;
- float v=clamp(pow(lum*1.55,.68)+edge*.27,0.,1.);
+ float saturation=max(max(raw.r,raw.g),raw.b)-min(min(raw.r,raw.g),raw.b);
+ float lum=clamp((dot(raw,vec3(.2126,.7152,.0722))-.5)*u_contrast+.5+u_brightness,0.,1.);
  float noise=fract(sin(dot(cell,vec2(12.9898,78.233)))*43758.5453);
- // Every nonblack tonal cell receives at least a point. Subtle dither avoids banding.
- int index=int(floor(clamp(v*22.+(noise-.5)*1.25,1.,22.)));
- // Reserve explicit directional strokes for silhouette boundaries; preserve color for identity.
- if(edge>.30&&v>.12){float horiz=length(e-w),vert=length(n-s);index=horiz>vert*1.25?26:vert>horiz*1.25?24:(dot(e-w,n-s)>0.?25:23);}
- vec2 glyphUV=fract(pos/u_cell);int atlasX=index%8;int atlasY=index/8;
- vec2 sampleUV=(vec2(float(atlasX),float(atlasY))+vec2(glyphUV.x,glyphUV.y))/vec2(8.,4.);
- float ink=texture(u_atlas,sampleUV).a;
- vec3 bg=vec3(.007,.012,.020)+raw*.14;
- float glow=clamp(max(max(raw.r,raw.g),raw.b)-.48,0.,1.);
- vec3 glyphCol=raw*2.55+vec3(.07,.10,.12)+glow*vec3(.1,.13,.15);
- glyphCol*=.95+sin(u_time*.7+noise*4.)*.025;
- glyphCol=mix(glyphCol,vec3(dot(glyphCol,vec3(.299,.587,.114))),1.-u_quality);
- // Full-coverage tonal dithering: dark midtones get fine strokes, not missing cells.
- float visibility=clamp(.22+lum*2.2+edge*.35,0.,1.);
+ if(u_pixelMode>.5){
+   // Each pixel is *always* covered by its own RGB cell background.
+   // Visible Unicode masks then supply independent foreground coloration.
+   float detail=clamp(lum*.84+length(raw-smoothColor)*.65+edge*.06,0.,1.);
+   int index=detail>.82?26:detail>.62?25:detail>.40?24:detail>.17?23:(detail>.08?5:1);
+   vec3 bg=clamp(mix(raw,smoothColor,.34)*(.67+u_brightness*.15),0.,1.);
+   vec3 fg=clamp(raw*(1.3+(u_contrast-1.)*.16)+vec3(.09,.09,.085),0.,1.);
+   // Saturated, interactive-looking colors retain legibility against dark stone.
+   fg+=saturation*vec3(.07,.08,.09);
+   float coverage=glyphCoverage(pos,index);
+   outColor=vec4(mix(bg,clamp(fg,0.,1.),coverage),1.);
+   return;
+ }
+ // Atmospheric mode: gentle punctuation on low-detail surfaces, strong glyphs at actual silhouettes.
+ float detail=clamp(pow(lum*1.43,.79)+edge*.16+saturation*.13,0.,1.);
+ int index=int(floor(clamp(detail*22.+(noise-.5)*.7,1.,22.)));
+ if(edge>.43&&detail>.14)index=min(22,index+3);
+ vec3 bg=vec3(.006,.011,.019)+raw*.20;
+ vec3 fg=clamp(raw*(2.4+saturation*.35)+vec3(.12,.14,.14),0.,1.);
+ fg=mix(fg,vec3(dot(fg,vec3(.299,.587,.114))),1.-u_quality);
+ float ink=glyphCoverage(pos,index);
+ float visibility=clamp(.14+lum*2.25+edge*.27,0.,1.);
  if(lum+edge*.3<.012)visibility=0.;
- outColor=vec4(mix(bg,glyphCol,ink*.95*visibility),1.);
-}`;
+ outColor=vec4(mix(bg,fg,ink*visibility),1.);
+}
+`;
 function shader(gl, type, src) { const s = gl.createShader(type); if (!s)
     throw Error('shader'); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS))
     throw Error('Shader: ' + gl.getShaderInfoLog(s)); return s; }
@@ -55,6 +80,8 @@ export class AsciiRenderer {
     tex = null;
     atlas = null;
     uniforms = {};
+    renderMode = 'ascii';
+    pixelDetail = 'balanced';
     quality = 1;
     density = .32;
     glyphScale = .8;
@@ -107,7 +134,7 @@ export class AsciiRenderer {
         }
         gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, atlas);
-        for (const k of ['u_resolution', 'u_cell', 'u_time', 'u_quality', 'u_contrast', 'u_edges', 'u_brightness', 'u_crop'])
+        for (const k of ['u_resolution', 'u_cell', 'u_time', 'u_quality', 'u_contrast', 'u_edges', 'u_brightness', 'u_pixelMode', 'u_crop'])
             this.uniforms[k] = gl.getUniformLocation(p, k);
         gl.uniform1i(gl.getUniformLocation(p, 'u_scene'), 0);
         gl.uniform1i(gl.getUniformLocation(p, 'u_atlas'), 1);
@@ -137,8 +164,8 @@ export class AsciiRenderer {
             throw Error('Sin motor gráfico soportado');
         this.resize();
     }
-    getGraphics() { return readGraphics({ quality: this.quality, density: this.density, glyphScale: this.glyphScale, contrast: this.contrast, edgeStrength: this.edgeStrength, brightness: this.brightness }); }
-    setGraphics(input) { const x = readGraphics(input); this.density = x.density; this.glyphScale = x.glyphScale; this.contrast = x.contrast; this.edgeStrength = x.edgeStrength; this.brightness = x.brightness; this.quality = x.quality; }
+    getGraphics() { return readGraphics({ renderMode: this.renderMode, pixelDetail: this.pixelDetail, quality: this.quality, density: this.density, glyphScale: this.glyphScale, contrast: this.contrast, edgeStrength: this.edgeStrength, brightness: this.brightness }); }
+    setGraphics(input) { const x = readGraphics(input); this.renderMode = x.renderMode; this.pixelDetail = x.pixelDetail; this.density = x.density; this.glyphScale = x.glyphScale; this.contrast = x.contrast; this.edgeStrength = x.edgeStrength; this.brightness = x.brightness; this.quality = x.quality; }
     /** Runtime-only cell scale; never included in graphics preferences or save games. */
     setPerformanceScale(scale) { this.performanceScale = Number.isFinite(scale) ? Math.max(1, Math.min(2.4, scale)) : 1; }
     resize() { const rect = this.canvas.getBoundingClientRect(); const dpr = Math.min(window.devicePixelRatio || 1, 2); this.canvas.width = Math.min(1920, Math.max(320, Math.round((rect.width || W) * dpr))); this.canvas.height = Math.min(1080, Math.max(180, Math.round((rect.height || H) * dpr))); if (this.gl)
@@ -179,6 +206,7 @@ export class AsciiRenderer {
             gl.uniform1f(this.uniforms.u_contrast, this.contrast);
             gl.uniform1f(this.uniforms.u_edges, this.edgeStrength);
             gl.uniform1f(this.uniforms.u_brightness, this.brightness);
+            gl.uniform1f(this.uniforms.u_pixelMode, this.renderMode === 'glyph-pixel' ? 1 : 0);
             gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
             return;
         }
@@ -208,12 +236,20 @@ export class AsciiRenderer {
                 const edge = (Math.abs(gx) + Math.abs(gy)) * this.edgeStrength;
                 const cellX = Math.floor(x / cw), cellY = Math.floor(y / ch);
                 const noise = Math.abs(Math.sin(cellX * 12.9898 + cellY * 78.233) * 43758.5453) % 1;
+                if (this.renderMode === 'glyph-pixel') {
+                    const detail = Math.max(0, Math.min(1, level * .84 + edge * .06));
+                    const index = detail > .82 ? 26 : detail > .62 ? 25 : detail > .4 ? 24 : detail > .17 ? 23 : detail > .08 ? 5 : 1;
+                    const background = [r * .67, g * .67, b * .67];
+                    const foreground = [Math.min(255, r * 1.3 + 23), Math.min(255, g * 1.3 + 23), Math.min(255, b * 1.3 + 22)];
+                    this.software.putCell(index, x, y, Math.min(cw, this.canvas.width - x), Math.min(ch, this.canvas.height - y), foreground, background);
+                    continue;
+                }
                 if (!glyphVisible(level, edge, noise))
                     continue;
                 const v = Math.max(0, Math.min(1, Math.pow(level * 1.55, .68) + edge * .30));
                 let index = Math.max(1, Math.min(22, Math.floor(v * 22 + (noise - .5) * 1.25)));
-                if (edge > .29 && v > .12)
-                    index = Math.abs(gx) > Math.abs(gy) * 1.25 ? 26 : Math.abs(gy) > Math.abs(gx) * 1.25 ? 24 : gx * gy > 0 ? 25 : 23;
+                if (edge > .43 && v > .14)
+                    index = Math.min(22, index + 3);
                 const alpha = Math.min(1, Math.max(.22, (level + edge * .28 + .09) * 3.15));
                 this.software.put(index, x, y, cw, ch, r, g, b, alpha);
             }
@@ -893,13 +929,14 @@ function drawNPC(ctx, x, y, t, id) {
     }
     ctx.restore();
 }
-function drawTree(ctx, x, y, k, t) { const sw = Math.sin(t * .5 + k * 6) * 1.5; ctx.save(); ctx.translate(x, y); ctx.fillStyle = '#253439'; ctx.fillRect(-5, -46, 11, 54); ctx.fillStyle = '#263f3c'; for (let j = 0; j < 3; j++)
-    poly(ctx, [[-30 + j * 5 + sw, -17 - j * 20], [sw, -92 - j * 6], [28 - j * 5 + sw, -17 - j * 20]], j === 0 ? '#2b4744' : j === 1 ? '#31544c' : '#3a6055'); ctx.fillStyle = '#63938a'; ctx.fillRect(-2, -84, 3, 11); ctx.restore(); }
+function drawTree(ctx, x, y, k, t) { const material = VISUAL_ASSETS.tree.materials; const sw = Math.sin(t * .5 + k * 6) * 1.5; ctx.save(); ctx.translate(x, y); ctx.fillStyle = material.trunk; ctx.fillRect(-5, -46, 11, 54); ctx.fillStyle = material.middle; for (let j = 0; j < 3; j++)
+    poly(ctx, [[-30 + j * 5 + sw, -17 - j * 20], [sw, -92 - j * 6], [28 - j * 5 + sw, -17 - j * 20]], j === 0 ? material.low : j === 1 ? material.middle : material.high); ctx.fillStyle = material.rim; ctx.fillRect(-2, -84, 3, 11); ctx.restore(); }
 /** A single blocked tile can carry a readable landmark without changing the collision grid. */
 function drawCottage(ctx, x, y, k, t) {
     ctx.save();
     ctx.translate(x, y);
-    const stone = k > .5 ? '#5c544b' : '#665b50', timber = '#392c2c';
+    const materials = VISUAL_ASSETS.cottage.materials;
+    const stone = k > .5 ? '#5c544b' : materials.wall, timber = materials.timber;
     ctx.fillStyle = stone;
     ctx.fillRect(-20, -37, 40, 35);
     ctx.fillStyle = timber;
@@ -948,7 +985,7 @@ function drawMasonry(ctx, x, y, k) {
     }
     ctx.restore();
 }
-function drawRuin(ctx, x, y, k) { ctx.save(); ctx.translate(x, y); ctx.fillStyle = '#39434c'; ctx.fillRect(-16, -54, 11, 59); ctx.fillRect(7, -54, 11, 59); ctx.fillRect(-23, -56, 47, 9); ctx.fillStyle = '#64717c'; ctx.fillRect(-17, -59, 14, 6); ctx.fillRect(6, -59, 14, 6); ctx.fillStyle = '#66727b'; for (let i = 0; i < 5; i++)
+function drawRuin(ctx, x, y, k) { const material = VISUAL_ASSETS.ruin.materials; ctx.save(); ctx.translate(x, y); ctx.fillStyle = material.shadow; ctx.fillRect(-16, -54, 11, 59); ctx.fillRect(7, -54, 11, 59); ctx.fillRect(-23, -56, 47, 9); ctx.fillStyle = material.rim; ctx.fillRect(-17, -59, 14, 6); ctx.fillRect(6, -59, 14, 6); ctx.fillStyle = '#66727b'; for (let i = 0; i < 5; i++)
     ctx.fillRect(-12 + i * 6, -45 + i % 3 * 11, 2, 4); ctx.restore(); }
 function drawGround(ctx, zone, camX, camY, t) {
     const z = ZONES[zone];

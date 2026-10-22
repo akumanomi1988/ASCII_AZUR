@@ -51,6 +51,7 @@ const SECRET_CACHE = { forest: { x: 20, y: 6, kind: 'chest', label: 'Alijo entre
 const ORIGINAL_LANDMARKS = Object.fromEntries(IDS.map(z => [z, ZONES[z].landmarks.map(l => ({ ...l }))]));
 let activeSeed = 0;
 let azurWorldRevision = 0;
+/** Changes on every world restore, even with an identical seed and a different snapshot. */
 export function getWorldRevision() { return azurWorldRevision; }
 let generated = null;
 export function getWorldSeed() { return activeSeed; }
