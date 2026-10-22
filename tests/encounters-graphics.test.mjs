@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {configureWorld,ZONES,isBlocked,getReachableTiles,captureWorldSnapshot,WORLD_W,terrain} from '../dist/world.js';
 import {visibleEncounters,nearbyEncounter,ROAMER_FIRST_VICTORY_XP,firstRoamerVictoryBonus,recoverTrailParty} from '../dist/world/encounters.js';
 import {DEFAULT_GRAPHICS,boundGraphic,glyphCell,canvasGlyphCell,glyphCount,readGraphics} from '../dist/render/graphics-profile.js';
-import {validateBattleCheckpoint,createCreature,gainExp,maxHp} from '../dist/domain.js';
+import {validateBattleCheckpoint,createCreature,gainExp,maxHp,SPECIES,TYPE_ADV} from '../dist/domain.js';
 
 test('visible encounters are reproducible, reachable, interactive, and not in the village for 200 seeds',()=>{
  let count=0;
@@ -155,7 +155,7 @@ test('forest trail guarantees one favourable matchup per starter while keeping d
    assert.ok(['wispawn','gravemoth'].includes(monsters[2].speciesId));
    for(const player of ['cindrel','velaria','thorne']){
     const favourable={cindrel:1,velaria:2,thorne:0}[player];
-    assert.ok(monsters[favourable],player+' has no trained matchup at seed '+seed);
+    assert.equal(SPECIES[monsters[favourable].speciesId].element,TYPE_ADV[SPECIES[player].element],player+' is denied a favourable forest encounter at seed '+seed);
    }
   }
  }finally{configureWorld(0);}

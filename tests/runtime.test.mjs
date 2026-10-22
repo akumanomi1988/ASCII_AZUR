@@ -626,6 +626,8 @@ test('progression probe: six visible trail combats for three starters across twe
  }
  for(const starter of ['cindrel','velaria','thorne']){
   const group=report.filter(r=>r.starter===starter);
+  const forestVictories=group.reduce((a,b)=>a+b.forestWins,0);
+  assert.ok(forestVictories>=22,starter+' early-route survival below calibrated 22/36 floor: '+forestVictories);
   console.log('BALANCE_PROBE '+JSON.stringify({starter,runs:group.length,rounds:group.reduce((a,b)=>a+b.won+b.losses,0),
     victories:group.reduce((a,b)=>a+b.won,0),defeats:group.reduce((a,b)=>a+b.losses,0),
     forestWins:group.reduce((a,b)=>a+b.forestWins,0),sanctuaryWins:group.reduce((a,b)=>a+b.sanctuaryWins,0),
