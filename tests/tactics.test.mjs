@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createCreature,MOVES} from '../dist/domain.js';
-import {applyEffect,attackWithStatuses,afterAttack,chooseEnemyMove,endTurnEffects,statusLabel} from '../dist/combat/tactics.js';
+import {applyEffect,attackWithStatuses,afterAttack,chooseEnemyMove,chooseGuardianMove,endTurnEffects,statusLabel} from '../dist/combat/tactics.js';
 
 test('tactical debuffs do not mutate input status arrays',()=>{
  const old=[{kind:'fracture',remaining:1}];
@@ -35,4 +35,19 @@ test('AI prioritizes lethal move against vulnerable creature',()=>{
 test('status label renders remaining turns without unsafe markup',()=>{
  assert.equal(statusLabel([{kind:'scorch',remaining:2},{kind:'weaken',remaining:1}]),'ARDOR 2 · DEBILIDAD 1');
  assert.deepEqual(afterAttack([{kind:'weaken',remaining:1},{kind:'scorch',remaining:3}],'weaken'),[{kind:'scorch',remaining:3}]);
+});
+
+test('Hollowhart reserves Ether Eclipse for an explicitly charged strike',()=>{
+ const boss=createCreature('hollowhart',12,()=>.25);
+ for(const foe of ['cindrel','velaria','thorne']){
+  const target=createCreature(foe,10,()=>.2);
+  for(const rng of [0,.05,.49,.79,.9,.999]){
+   const basic=chooseGuardianMove(boss,target,[],[],0,rng);
+   const mid=chooseGuardianMove(boss,target,[],[],1,rng);
+   assert.ok(boss.moves.includes(basic)&&basic!=='eclipse','untelegraphed Eclipse: '+foe);
+   assert.ok(boss.moves.includes(mid)&&mid!=='eclipse','Eclipse while charging: '+foe);
+   assert.equal(chooseGuardianMove(boss,target,[],[],2,rng),'eclipse');
+  }
+ }
+ assert.ok(boss.moves.includes('eclipse'),'boss retains its signature move for saves');
 });

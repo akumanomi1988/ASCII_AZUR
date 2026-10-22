@@ -16,7 +16,7 @@ import {ARKEN_STORY, ARKEN_FINALE_REWARD, arkenStoryBeat, arkenStoryIndex, concl
 import {readSave,writeSave} from './core/save-store.js';
 import {transferStoredCreature,reserveCreature,grantPartyExperience} from './party.js';
 import {createCombatCue,sampleCombatCue,guardDamage,type CombatCue,type FxKind,type CombatSide} from './actors/combat-fx.js';
-import {MOVE_EFFECTS,STATUS_INFO,applyEffect,attackWithStatuses,chooseEnemyMove,endTurnEffects,statusLabel,skillUtility,type StatusEffect} from './combat/tactics.js';
+import {MOVE_EFFECTS,STATUS_INFO,applyEffect,attackWithStatuses,chooseEnemyMove,chooseGuardianMove,endTurnEffects,statusLabel,skillUtility,type StatusEffect} from './combat/tactics.js';
 import {previewMove} from './combat/move-preview.js';
 import {capturePreview} from './combat/capture-odds.js';
 import {reveal,isDiscovered,discoveredPercent} from './world/discovery.js';
@@ -282,7 +282,7 @@ class AzurGame {
     const intro=result.ready?'Equipo preparado. Hollowhart conserva un ataque cargado peligroso.':
       'Hollowhart puede derrotarte. Puedes combatir o prepararte.';
     const advice=result.advice.map(line=>`<p>${htmlEscape(line)}</p>`).join('');
-    this.showModal('HOLLOWHART · EL DESAFÍO',`<div class="guardian-prep"><p>${htmlEscape(intro)}</p>${advice}<p>¡ATAQUE CARGADO! Usa GUARDIA; conserva tónicos.</p><div class="guardian-options"><button id="guardianProceed" aria-label="Iniciar combate contra Hollowhart">COMBATIR</button><button id="guardianRetreat">PREPARARSE</button></div></div>`);
+    this.showModal('HOLLOWHART · EL DESAFÍO',`<div class="guardian-prep"><p>${htmlEscape(intro)}</p>${advice}<p>Hollowhart combate con Raíz. Solo libera su poderoso ECLIPSE de Éter después de acumular el silencio: usa GUARDIA durante el aviso, incluso con un aliado de Ceniza. Conserva tónicos.</p><div class="guardian-options"><button id="guardianProceed" aria-label="Iniciar combate contra Hollowhart">COMBATIR</button><button id="guardianRetreat">PREPARARSE</button></div></div>`);
     if(!this.modalOpen)return;
     byId<HTMLButtonElement>('guardianProceed').onclick=()=>{this.hideModal();this.startBattle('hollowhart',12,'boss');};
     byId<HTMLButtonElement>('guardianRetreat').onclick=()=>this.hideModal();
@@ -343,10 +343,12 @@ class AzurGame {
   }
   private enemyTurn(){const b=this.battle,ally=this.getAlly();if(!b||!ally)return;
     b.pending=undefined; // A checkpoint after this turn records the next player decision.
-    if(b.chargeStage===1){b.chargeStage=2;b.guarding=false;b.busy=false;b.log=`¡${SPECIES[b.enemy.speciesId]!.name.toUpperCase()} ACUMULA EL SILENCIO! Su próximo ataque será devastador. Usa GUARDIA.`;
+    if(b.chargeStage===1){b.chargeStage=2;b.guarding=false;b.busy=false;b.log=`¡${SPECIES[b.enemy.speciesId]!.name.toUpperCase()} ACUMULA EL SILENCIO! Su próximo ECLIPSE de Éter será devastador. Usa GUARDIA.`;
       this.setCombatCue('guard','enemy','Éter');this.refreshBattle();return;}
     const charged=b.chargeStage===2;b.chargeStage=0;
-    const moveId=chooseEnemyMove(b.enemy,ally,this.statuses(b.enemy),this.statuses(ally),Math.random());const m=MOVES[moveId]||MOVES.pulse!;
+    const moveId=b.type==='boss'&&b.enemy.speciesId==='hollowhart'
+      ?chooseGuardianMove(b.enemy,ally,this.statuses(b.enemy),this.statuses(ally),charged?2:0,Math.random())
+      :chooseEnemyMove(b.enemy,ally,this.statuses(b.enemy),this.statuses(ally),Math.random());const m=MOVES[moveId]||MOVES.pulse!;
     const enemyUtility=skillUtility(b.enemy,m,this.statuses(b.enemy));
     const result=attackWithStatuses(b.enemy,ally,m,this.statuses(b.enemy),this.statuses(ally),.86+Math.random()*.21);
     this.setStatuses(b.enemy,result.attackerStatuses);this.setStatuses(ally,result.defenderStatuses);

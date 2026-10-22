@@ -837,3 +837,17 @@ test('C3 measurement: three starters across twelve worlds with legitimate captur
  }
  assert.equal(cohorts.length,36);
 });
+
+test('runtime: Hollowhart cannot use untelegraphed Eclipse; charged blow has actionable cue and GUARDIA counterplay',()=>{
+ const {game,flushTimers}=mount({virtualTime:true,seed:779});
+ game.startNew();game.pickStarter('cindrel');while(game.dialogOpen)game.nextDialog();
+ game.startBattle('hollowhart',12,'boss');
+ game.enemyTurn();
+ assert.doesNotMatch(game.battle.log,/usa Eclipse/,'early Eclipse undermines preparation');
+ game.battle.bossPhase=2;game.battle.chargeStage=1;
+ game.enemyTurn();assert.equal(game.battle.chargeStage,2);
+ assert.match(game.battle.log,/ECLIPSE/);
+ game.defend();flushTimers();
+ assert.match(game.battle?.log||'',/RUPTURA DEL SILENCIO/);
+ assert.match(game.battle?.log||'',/guardia/);
+});
