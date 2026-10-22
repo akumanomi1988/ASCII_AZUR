@@ -1,8 +1,8 @@
 {
   "project": "ASCII AZUR",
-  "version": "0.23.0",
-  "source_commit": "b192859e9c81e25dcc5178a164fa93417d47d9b4",
+  "version": "0.24.0",
+  "source_commit": "8b959aad98ec138d1eaeeacfe127867118bd8f13",
   "distribution": "modular-static",
   "entry": "index.html",
-  "verified_ci_run": 39744865372
+  "verified_ci_run": 39749721164
 }
