@@ -52,3 +52,21 @@ test('guardian advice recognizes a healthy captured team and never promises vict
  assert.equal(result.ready,true);
  assert.deepEqual(result.advice,[]);
 });
+ 
+test('guardian preparation identifies missing actionable elemental counter in a healthy team',()=>{
+ const mist={uid:'a',speciesId:'velaria',level:9,exp:0,hp:72,moves:['fog','tide']};
+ const root={uid:'b',speciesId:'thorne',level:9,exp:0,hp:79,moves:['thorn','roots']};
+ const result=guardianPreparation([mist,root]);
+ assert.equal(result.ready,false);
+ assert.equal(result.advice.length,1);
+ assert.match(result.advice[0],/Hollowhart es de Raíz/);
+ assert.match(result.advice[0],/Ceniza/);
+ assert.match(result.advice[0],/Bosque de Ceniza/);
+});
+test('guardian preparation accepts actual counter move, not just ash creature name',()=>{
+ const mist={uid:'a',speciesId:'velaria',level:9,exp:0,hp:72,moves:['fog','tide']};
+ const fire={uid:'b',speciesId:'cindrel',level:9,exp:0,hp:69,moves:['ember','pulse']};
+ assert.equal(guardianPreparation([mist,fire]).ready,true);
+ assert.equal(guardianPreparation([mist,{...fire,moves:['pulse']}]).ready,false);
+ assert.ok(guardianPreparation([mist,{...fire,hp:1}]).advice.some(x=>x.includes('Lumbre')));
+});
