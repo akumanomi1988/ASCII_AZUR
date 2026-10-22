@@ -1,6 +1,6 @@
 # ASCII AZUR — Autonomous Evolution State
 
-Updated: 2026-10-22. Active change: **v0.26.1 trail respite**. Source: `akumanomi1988/ASCII_AZUR`, development branch `feature/trail-respite-v027`. Do not infer deployment from a push or green CI.
+Updated: 2026-10-22. Active change: **v0.26.1 trail respite**. Source: `akumanomi1988/ASCII_AZUR`, release branch `main`. Do not infer deployment from a push or green CI.
 
 ## Product vision and non-negotiables
 
@@ -39,14 +39,14 @@ The current game includes three regions, 12 species, an authored six-step Arken 
 - Previous source baseline on `main`: `ff579e739a309e571b3fdc39dbd9fa4130ceb371` (documentation-only; code v0.26 in `ce9d0e2d2ec43107531dbdf3877ba595b063ced7`). Previous `gh-pages` commit `fdcf992a5a582f37aa4043a7e5ea80b5fb34cf9f`, Pages run `39763347819` SUCCESS. Public `github.io` browser smoke was **not verified**.
 - v0.26.1 diagnosis: despite better first-win XP, route battles exhaust health and lead to repeated return journeys. Change: pure `recoverTrailParty` restores `ceil(maxHp*0.25)` to each conscious ally only on first-win roamer payout; cap at max HP, never revive fainted allies. No new save fields and no economy inflation. Capture, random combat, repeat roamer, boss, sentinel and expedition do not grant this respite. Battle toast communicates the recovery.
 - v0.26.1 acceptance: feature head `b7b9909244e11a87c524a2ef1ccc9136c1f66e72`, GitHub Actions run `39765446134` SUCCESS, **183/183** Node tests PASS, TypeScript build PASS, 31 JS modules/32 cached PWA assets release audit PASS, generated standalone bundle PASS. Tests include no-repeat recovery, persistence, health caps, no revive, and a scripted first-forest combat using real move commands for all three starters. This is virtual-environment combat, **not** a full physical Android or human playthrough.
-- v0.26.1 main merge, Pages provenance and public smoke: **PENDING** until separately verified. Current source changes are not considered released merely because feature CI succeeded.
+- v0.26.1 main merge commit `2724c2579c2316f456ea4697d40bf851415f952a` verified. GitHub Pages provenance and public smoke: **PENDING** until separately verified. Current source changes are not considered released merely because feature CI succeeded.
 
 ## Architecture and operational invariants
 
 - `src/**/*.ts` is the source of truth; `dist/` compiled, `play.html` generated only (never committed).
 - GitHub Pages serves `gh-pages` static modules with `build-info.json.source_commit`. Updating `main` does not automatically mean the public game is updated.
 - `src/main.ts` is large. Refactor incrementally around existing stable contracts, never rewrite the entire engine merely for style.
-- Maintain seeded world map snapshots, idempotent quest flags, stable v1 saves, responsive joystick and dense glpyh aesthetics.
+- Maintain seeded world map snapshots, idempotent quest flags, stable v1 saves, responsive joystick and dense glyph aesthetics.
 - GitHub writes only through `akumanomi1988`; no force pushes, unrelated file overwrites, secrets or automatic schedules.
 
 ## Prioritized backlog
