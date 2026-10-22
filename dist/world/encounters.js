@@ -1,10 +1,15 @@
 /** Stable, visible overworld encounters, placed on reachable paths (not hidden RNG). */
 import { getReachableTiles, getWorldSeed, hash, terrain, WORLD_W, ZONES } from '../world.js';
 import { maxHp } from '../domain.js';
-const SPECIES_BY_ZONE = {
-    forest: ['cindrel', 'mireling', 'thorne', 'briarling', 'ashboar'],
-    sanctuary: ['wispawn', 'gravemoth', 'runeowl', 'rillfin', 'velaria']
-};
+/** Three distinct forest trail lessons: Root challenges Ash, Ether challenges Mist,
+ * and Mist challenges Root. A random initial pick must never deny a starter its
+ * first favourable elemental matchup. Variants preserve replay diversity. */
+const FOREST_TRAIL_POOLS = [
+    ['mireling', 'velaria'], // Mist: Root's opening advantage
+    ['thorne', 'briarling'], // Root: Ash's mid-trail advantage
+    ['wispawn', 'gravemoth'] // Ether: Mist's late-trail advantage
+];
+const SANCTUARY_SPECIES = ['wispawn', 'gravemoth', 'runeowl', 'rillfin', 'velaria'];
 export function visibleEncounters(zone, seed) {
     if (zone === 'village')
         return [];
@@ -32,7 +37,7 @@ export function visibleEncounters(zone, seed) {
         const pick = candidates[0];
         if (!pick)
             continue;
-        const creatures = SPECIES_BY_ZONE[zone];
+        const creatures = zone === 'forest' ? FOREST_TRAIL_POOLS[slot] : SANCTUARY_SPECIES;
         const variant = Math.floor(hash(slot + 1, seed & 255, seed + 45) * creatures.length);
         out.push({ id: `${zone}-${slot}`, x: pick.x, y: pick.y, speciesId: creatures[variant], level: zone === 'forest' ? 5 + slot : 8 + slot });
     }
