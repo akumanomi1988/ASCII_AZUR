@@ -22,6 +22,9 @@ jobs:
         run: npm install --ignore-scripts --no-audit --no-fund
       - name: Compile and test source and offline dependencies
         run: npm run verify
+      - name: Browser integration acceptance — both modes and backends
+        if: github.ref == 'refs/heads/main'
+        run: python3 tools/browser-acceptance.py
       - name: Bundle standalone playable game
         run: python3 tools/build-standalone.py
       - name: Package release assets
