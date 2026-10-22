@@ -74,3 +74,13 @@ export function sanctuaryRoutePlan(team:readonly Creature[],route:readonly {id:s
    counter:candidates.length?SPECIES[candidates[0]!.speciesId]!.name:null};
  });
 }
+
+/** Three finite Sanctuary oaths, accepted by the Keeper after first defeat OR capture
+ * of each seeded roamer. Existing save v1 roamer flags remain authoritative. */
+export const SANCTUARY_OATHS_FLAG='sanctuary-three-vows';
+export const SANCTUARY_OATHS_REWARD={echoes:40,seals:2,tonics:2} as const;
+export function sanctuaryOathProgress(flags:readonly string[]):{resolved:number;ready:boolean;claimed:boolean}{
+ const resolved=[0,1,2].filter(i=>flags.includes('roamer-sanctuary-'+i)).length;
+ const claimed=flags.includes(SANCTUARY_OATHS_FLAG);
+ return{resolved,ready:resolved===3&&!claimed,claimed};
+}
