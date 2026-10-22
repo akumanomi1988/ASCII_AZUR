@@ -65,6 +65,18 @@ window.addEventListener('load',()=>setTimeout(async()=>{
   check(document.activeElement===$('teamBtn'),'Menu ArrowDown did not focus Team');
   document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true}));
   check(!$('gameDrawer').classList.contains('open'),'Escape did not close drawer');
+  // Actual Chromium DOM integration for the newly shipped optional Sanctuary route.
+  // This must be visible from the same touch/mouse/keyboard drawer in both render modes.
+  $('drawerToggle').click();
+  check(!!$('routeBtn'),'Missing Sanctuary route menu button');
+  $('routeBtn').click();
+  check(!$('modal').classList.contains('hidden'),'Sanctuary scouting modal did not open');
+  check($('modalTitle').textContent.includes('SANTUARIO'),'Wrong Sanctuary scouting modal');
+  const routeText=$('modalContent').textContent;
+  check((routeText.match(/CONTRAATAQUE|SIN CONTRAATAQUE/g)||[]).length===3,'Scouting did not render all three stages');
+  $('closeModal').click();
+  check($('modal').classList.contains('hidden'),'Scouting modal did not close');
+  check(localStorage.getItem('ascii-azur-save-v1')===saved,'Scouting mutated saved gameplay');
   $('teamBtn').click();
   check(!$('modal').classList.contains('hidden'),'Team did not open');
   const skills=document.querySelector('[data-skills]');
