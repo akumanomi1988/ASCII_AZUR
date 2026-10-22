@@ -208,3 +208,11 @@
 .battle-move-extra{font:500 9px/1.3 'DM Mono',monospace;color:#d8b985;letter-spacing:.2px}
 @media(orientation:landscape) and (max-height:600px){.battle-interface .battle-actions button.battle-move{min-height:53px;gap:2px;padding:3px}.battle-move-estimate{font-size:9px}.battle-move-extra{font-size:8px}}
 @media(orientation:portrait) and (max-width:550px){.battle-interface .battle-actions button.battle-move{min-height:63px}}
+
+/* v0.24: mobile-first Guardian preparation; controls stay visible on short viewports. */
+.guardian-prep{font:12px/1.42 Inter,system-ui,sans-serif;color:#d1dddd}
+.guardian-prep p{margin:7px 0}
+.guardian-prep .guardian-options{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:10px}
+.guardian-options button{min-width:0;min-height:38px;padding:8px 5px;border:1px solid #9d805d;border-radius:3px;background:#283644;color:#f0d2a6;font:600 10px 'DM Mono',monospace}
+.guardian-options button:last-child{background:#15232e;color:#c4d7da;border-color:#62818b}
+@media (orientation:landscape) and (max-height:430px){.guardian-prep{font-size:11px;line-height:1.3}.guardian-prep p{margin:5px 0}.guardian-options button{min-height:34px}}

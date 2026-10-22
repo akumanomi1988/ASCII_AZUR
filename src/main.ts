@@ -11,7 +11,7 @@ import {Sound,themeForZone} from './audio.js';
 import {FrameMetrics} from './core/frame-metrics.js';
 import {AdaptiveGlyphs} from './core/adaptive-glyphs.js';
 import {storyGuidance} from './story-navigation.js';
-import {ARKEN_STORY, ARKEN_FINALE_REWARD, arkenStoryBeat, arkenStoryIndex, concludeArken, canConcludeArken, type ArkenStoryState} from './story-campaign.js';
+import {ARKEN_STORY, ARKEN_FINALE_REWARD, arkenStoryBeat, arkenStoryIndex, concludeArken, canConcludeArken, guardianPreparation, type ArkenStoryState} from './story-campaign.js';
 import {readSave,writeSave} from './core/save-store.js';
 import {transferStoredCreature,reserveCreature} from './party.js';
 import {createCombatCue,sampleCombatCue,guardDamage,type CombatCue,type FxKind,type CombatSide} from './actors/combat-fx.js';
@@ -184,7 +184,7 @@ class AzurGame {
     case 'altar':this.save.team.forEach(c=>c.hp=maxHp(c));this.save.inventory.seals=Math.min(9,this.save.inventory.seals+1);this.encounterCooldown=4;this.addFlag('altar-'+this.save.zone);this.sound.pick();this.toast('VÍNCULOS SANADOS · +1 SELLO');this.saveNow(false);break;
     case 'chest':{const id=`chest-${this.save.zone}-${l.x}`;if(this.flag(id)){this.toast('EL COFRE ESTÁ VACÍO');break;}this.addFlag(id);this.save.inventory.seals+=3;this.save.inventory.tonics+=2;this.economy.echoes+=25;this.sound.pick();this.dialog([{title:'Un juramento olvidado',text:'Encuentras 3 Sellos de Vínculo, 2 Tónicos y 25 Ecos. El metal conserva una inscripción: «Nadie desaparece mientras alguien lo recuerde».'}]);break;}
     case 'portal':{let next:ZoneId;if(this.save.zone==='village')next='forest';else if(this.save.zone==='forest')next=l.x<10?'village':'sanctuary';else next='forest';this.save.zone=next;this.cameraZone='';this.sound.setScene(themeForZone(next));this.save.x=l.x>20?4:40;this.save.y=16;this.encounterCooldown=5;this.lastReveal=-1;this.revealPosition();this.addFlag('zone-'+next);this.sound.portal();this.toast('ENTRAS EN '+ZONES[next].name.toUpperCase());this.saveNow(false);this.updateUI();break;}
-    case 'guardian':if(this.save.defeatedBoss){this.toast('EL GUARDIÁN DESCANSA');return;}this.startBattle('hollowhart',12,'boss');break;}}
+    case 'guardian':if(this.save.defeatedBoss){this.toast('EL GUARDIÁN DESCANSA');return;}this.prepareGuardianBattle();break;}}
   private checkpointBattle(){
     const b=this.battle;if(!b||!this.started)return;
     const record:BattleCheckpoint={enemy:{...b.enemy,moves:[...b.enemy.moves]},type:b.type,ally:b.ally,guarding:b.guarding,bossPhase:b.bossPhase,chargeStage:b.chargeStage,encounterId:b.encounterId,effects:Object.fromEntries(Object.entries(b.effects).map(([uid,arr])=>[uid,arr.map(a=>({...a}))]))};
@@ -198,6 +198,19 @@ class AzurGame {
     if(b.enemy.hp<=0){this.battle!.busy=true;window.setTimeout(()=>this.winBattle(),250);}
   }
   private startBattle(id:string,level:number,type:'wild'|'boss'|'expedition',encounterId?:string){if(this.battle)return;this.toggleDrawer(false);this.resetJoystick();let ally=this.save.team.findIndex(c=>c.hp>0);if(ally<0){this.defeat();return;}this.sound.setScene(type==='boss'?'boss':'battle');this.battle={enemy:createCreature(id,level),type,encounterId,busy:false,ally,guarding:false,selecting:false,bossPhase:1,chargeStage:0,effects:{},log:type==='boss'?'HOLLOWHART, EL ÚLTIMO GUARDIÁN, DESPIERTA.':type==='expedition'?`LA GRIETA SE ABRE: ${SPECIES[id]!.name.toUpperCase()} TE DESAFÍA.`:`¡UN ${SPECIES[id]!.name.toUpperCase()} SALVAJE APARECE!`};this.combatCue=null;this.encounterCooldown=9;byId('battle').classList.remove('hidden');byId('viewport').classList.add('in-battle');byId('prompt').classList.add('hidden');this.sound.portal();this.refreshBattle();}
+  /** Explicit warning and tactical plan before the point-of-no-return boss encounter.
+   * Players may still challenge the boss underlevelled; this never gates progression. */
+  private prepareGuardianBattle(){
+    if(!this.started||this.battle||this.dialogOpen)return;
+    const result=guardianPreparation(this.save.team);
+    const intro=result.ready?'Equipo preparado. Hollowhart conserva un ataque cargado peligroso.':
+      'Hollowhart puede derrotarte. Puedes combatir o prepararte.';
+    const advice=result.advice.map(line=>`<p>${htmlEscape(line)}</p>`).join('');
+    this.showModal('HOLLOWHART · EL DESAFÍO',`<div class="guardian-prep"><p>${htmlEscape(intro)}</p>${advice}<p>¡ATAQUE CARGADO! Usa GUARDIA; conserva tónicos.</p><div class="guardian-options"><button id="guardianProceed" aria-label="Iniciar combate contra Hollowhart">COMBATIR</button><button id="guardianRetreat">PREPARARSE</button></div></div>`);
+    if(!this.modalOpen)return;
+    byId<HTMLButtonElement>('guardianProceed').onclick=()=>{this.hideModal();this.startBattle('hollowhart',12,'boss');};
+    byId<HTMLButtonElement>('guardianRetreat').onclick=()=>this.hideModal();
+  }
   private getAlly(){return this.battle?this.save.team[this.battle.ally]:null;}
   private statuses(c:Creature):StatusEffect[]{return this.battle?.effects[c.uid]??[];}
   private setStatuses(c:Creature,list:StatusEffect[]){if(this.battle)this.battle.effects[c.uid]=list;}

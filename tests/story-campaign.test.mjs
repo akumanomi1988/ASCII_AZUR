@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {ARKEN_FINALE_FLAG,ARKEN_STORY,arkenStoryIndex,arkenStoryBeat,canConcludeArken,concludeArken} from '../dist/story-campaign.js';
+import {ARKEN_FINALE_FLAG,ARKEN_STORY,arkenStoryIndex,arkenStoryBeat,canConcludeArken,concludeArken,guardianPreparation} from '../dist/story-campaign.js';
 const state=(flags=[],defeatedBoss=false,dungeonFinished=false)=>({flags,defeatedBoss,dungeonFinished});
 test('seven authored story beats have actionable, unique Spanish objectives',()=>{
  assert.equal(ARKEN_STORY.length,7);
@@ -33,4 +33,22 @@ test('unknown save flags and reordered arrays cannot bypass prerequisites',()=>{
  const s=state([ARKEN_FINALE_FLAG,'zone-sanctuary','zone-forest'],true,true);
  assert.equal(arkenStoryIndex(s),0);
  assert.equal(canConcludeArken(s),false);
+});
+
+test('guardian preparation warns the underprepared but does not gate battle',()=>{
+ const newbie={uid:'first',speciesId:'cindrel',level:5,exp:0,hp:12,moves:['ember']};
+ const result=guardianPreparation([newbie]);
+ assert.equal(result.ready,false);
+ assert.equal(result.advice.length,3);
+ assert.match(result.advice.join(' '),/dos criaturas/);
+ assert.match(result.advice.join(' '),/nivel 8/);
+});
+test('guardian advice recognizes a healthy captured team and never promises victory',()=>{
+ const group=[
+  {uid:'a',speciesId:'cinderwulf',level:9,exp:0,hp:84,moves:['ember']},
+  {uid:'b',speciesId:'runeowl',level:8,exp:0,hp:70,moves:['astral']}
+ ];
+ const result=guardianPreparation(group);
+ assert.equal(result.ready,true);
+ assert.deepEqual(result.advice,[]);
 });
