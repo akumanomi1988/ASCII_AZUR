@@ -1,6 +1,6 @@
 # ASCII AZUR — Autonomous Evolution State
 
-Updated: 2026-10-22. Active change: **v0.27.1 legacy route encounter compatibility (verification pending)**. Source: `akumanomi1988/ASCII_AZUR`, release branch `main`. Do not infer deployment from a push or green CI.
+Updated: 2026-10-22. Latest shipped gameplay change: **v0.27.1 legacy route encounter compatibility; automated release verified, external HTTP smoke pending**. Source: `akumanomi1988/ASCII_AZUR`, release branch `main`. Do not infer deployment from a push or green CI.
 
 ## Product vision and non-negotiables
 
@@ -116,3 +116,13 @@ The current game includes three regions, 12 species, an authored six-step Arken 
 - Acceptance: new runtime tests check three deterministic encounters in both legacy regions, physical reachable tiles, terrain preservation, landmark clearance, separation, 512 generated seeds, and world-snapshot reloading. **CI, browser matrix, Pages publication and public smoke are pending at time of this source commit.** Do not infer acceptance from this entry alone.
 - Domain quality scorecard remains **2.5/5** (no subjective uplift without player evidence). Source baseline immediately before this change: `fee09adb6362cc90896b16c533a1867af914cf88`. Pages metadata before this change points to `fee09adb6362cc90896b16c533a1867af914cf88` (Pages head `cce943412c960bc198ab8a5d8a4daf756b0fb313`; workflow last reported successful). Public `github.io` smoke is unavailable from this reader.
 - Next: inspect CI for this change and verify Pages provenance; then quantify multi-seed win/loss and resource pacing for all three starters from forest through guardian/crypt. Subjective artwork and complete campaign gates remain open.
+
+## 2026-10-22 — v0.27.1 release verification (documentation-only closure)
+
+- Gameplay source commit on `main`: `053d201a8b90a082e55a4fbed015380daffefb3f`. Exactly three source changes: `src/world/encounters.ts`, `tests/encounters-graphics.test.mjs`, and this evolution log. Code release diff: 1 fast-forward commit, no unrelated files.
+- GitHub Actions quality-gates run [39827806102](https://github.com/akumanomi1988/ASCII_AZUR/actions/runs/39827806102): **SUCCESS**. `verify` and `Publish validated game` jobs both succeeded, including TypeScript compilation, Node regressions, standalone/release audit and four Chromium graphics/backend combinations.
+- GitHub Pages source artifact: `gh-pages` commit `db28b87d9149deca33873e5902c585c257b2bc41`. `build-info.json.source_commit` is the above gameplay source commit, and `dist/world/encounters.js` contains the legacy-world and fallback placement code. Pages deployment workflow [39827992120](https://github.com/akumanomi1988/ASCII_AZUR/actions/runs/39827992120): **SUCCESS**.
+- External public-site navigation/interactive HTTP smoke: **UNVERIFIED**; this environment cannot directly access `https://akumanomi1988.github.io/ASCII_AZUR/`. Successful Actions and GitHub branch content do not prove an external user's page loads. Hardware Android QA, independent art judgment, multi-seed player balance and full commercial campaign are still open.
+- Quality scorecard: unchanged, **2.5/5** overall; **0/16** independently accepted at 4/5 or higher. No premium-quality gate claim.
+- This is a **documentation-only closure commit marked [skip ci]** to avoid re-running browser quality gates or unnecessarily redeploying identical binaries. Deployed gameplay provenance intentionally remains the earlier verified source commit above.
+- Highest-value next iteration: instrument or simulate legitimate combat paths and consumables across seeds and all three starters, then remediate confirmed Guardian/crypt bottlenecks.
