@@ -80,3 +80,9 @@ The current game includes three regions, 12 species, an authored six-step Arken 
 - Current confirmed baseline: `f062ead4a2893c490db4e35e2458e71eda0736c0`, quality-gates workflow `39785765299` SUCCESS, Pages workflow `39785839153` SUCCESS. `gh-pages/build-info.json` reports that exact source commit.
 - Fixed reverse-menu entry, added regression coverage; fixed parent-menu return with Escape/gamepad Back/close control for creature skill panels and roster swap; retained the original modal opener across nested navigation.
 - Acceptance still requires Chromium visual proof for both renderers, fullscreen/mobile layouts, external public smoke (public site inaccessible from the current reader), and physical Android performance. Do not claim artistic acceptance or a global game release based on CI alone.
+
+## 2026-10-22 — Real Chromium acceptance evidence
+
+- CI run `39806225565` passed TypeScript, **193/193** Node regressions and four real Chromium combinations (Atmospheric ASCII / Glyph Pixel Art × WebGL2 / Canvas2D) after bounding synthetic CPU fallback frames. Both `verify` and `Publish validated game` succeeded; GitHub Pages run `39806372123` also succeeded.
+- Added deterministic browser canvas PNG capture artifacts for each of the four render combinations on the same seed. These are implementation evidence, **not** independent artistic approval or sustained-performance measurements. A failure to generate the PNG now fails the browser acceptance gate.
+- Outstanding: human inspection of screenshots across all required zones and mobile viewports, measured sustained desktop/mobile FPS, physical Android verification, and an external HTTP smoke test against the public Pages domain.

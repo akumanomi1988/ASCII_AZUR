@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Dependency-free Chromium acceptance for glyph renderer and nested in-game menus."""
 import http.server
+import base64
+import struct
 import pathlib
 import shutil
 import subprocess
@@ -9,6 +11,8 @@ import threading
 import urllib.parse
 
 ROOT=pathlib.Path.cwd()
+OUT=ROOT/'artifacts'/'browser-acceptance'
+OUT.mkdir(parents=True,exist_ok=True)
 CHROME=next((p for p in (shutil.which('google-chrome'),shutil.which('chromium'),shutil.which('chromium-browser')) if p),None)
 if not CHROME: raise SystemExit('Chromium is required for browser acceptance')
 HTML=(ROOT/'index.html').read_text(encoding='utf-8')
@@ -26,7 +30,7 @@ if(params.has('fallback')){
  const nativeFrame=window.requestAnimationFrame.bind(window);let frames=0;
  window.requestAnimationFrame=callback=>frames++<12?nativeFrame(callback):0;
 }
-window.addEventListener('load',()=>setTimeout(()=>{
+window.addEventListener('load',()=>setTimeout(async()=>{
  const check=(ok,msg)=>{if(!ok)throw Error(msg)};
  try{
   const $=id=>document.getElementById(id);
@@ -39,6 +43,9 @@ window.addEventListener('load',()=>setTimeout(()=>{
   check($('dialogue').classList.contains('hidden'),'Intro dialogue not dismissed');
   const saved=localStorage.getItem('ascii-azur-save-v1');
   check(!!saved,'No game save');
+  const params=new URLSearchParams(location.search);
+  const capture=await fetch('/__qa_capture?mode='+encodeURIComponent(params.get('mode')||'ascii')+'&fallback='+(params.has('fallback')?'1':'0'),{method:'POST',body:$('game').toDataURL('image/png')});
+  check(capture.ok,'Canvas screenshot could not be collected');
   $('drawerToggle').click();$('resumeBtn').focus();
   document.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowDown',bubbles:true,cancelable:true}));
   check(document.activeElement===$('teamBtn'),'Menu ArrowDown did not focus Team');
@@ -81,6 +88,21 @@ QA.write_text(HTML.replace('</head>',INJECTION+'</head>',1),encoding='utf-8')
 class Handler(http.server.SimpleHTTPRequestHandler):
  def __init__(self,*args,**kwargs): super().__init__(*args,directory=str(ROOT),**kwargs)
  def log_message(self,*args): pass
+ def do_POST(self):
+  request=urllib.parse.urlparse(self.path)
+  if request.path!='/__qa_capture': self.send_error(404);return
+  query=urllib.parse.parse_qs(request.query)
+  mode=query.get('mode',[''])[0];fallback=query.get('fallback',[''])[0]
+  if mode not in ('ascii','glyph-pixel') or fallback not in ('0','1'):self.send_error(400);return
+  body=self.rfile.read(int(self.headers.get('Content-Length','0'))).decode('ascii')
+  if not body.startswith('data:image/png;base64,'):self.send_error(415);return
+  png=base64.b64decode(body.split(',',1)[1],validate=True)
+  if not png.startswith(b'\x89PNG\r\n\x1a\n') or len(png)<24:self.send_error(422);return
+  width,height=struct.unpack('>II',png[16:24])
+  if width<300 or height<180:self.send_error(422);return
+  name=mode+('-canvas2d' if fallback=='1' else '-webgl2')+'.png'
+  (OUT/name).write_bytes(png)
+  self.send_response(204);self.end_headers()
 server=http.server.ThreadingHTTPServer(('127.0.0.1',0),Handler)
 threading.Thread(target=server.serve_forever,daemon=True).start()
 try:

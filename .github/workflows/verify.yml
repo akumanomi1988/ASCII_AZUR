@@ -25,6 +25,14 @@ jobs:
       - name: Browser integration acceptance — both modes and backends
         if: github.ref == 'refs/heads/main'
         run: python3 tools/browser-acceptance.py
+      - name: Retain browser-rendered screenshots
+        if: always() && github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ascii-azur-renderer-evidence
+          path: artifacts/browser-acceptance/*.png
+          retention-days: 14
+          if-no-files-found: warn
       - name: Bundle standalone playable game
         run: python3 tools/build-standalone.py
       - name: Package release assets
