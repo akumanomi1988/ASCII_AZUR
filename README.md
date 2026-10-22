@@ -1,4 +1,4 @@
-# ASCII AZUR v0.25 — The Unwritten
+# ASCII AZUR v0.26 — The Unwritten
 
 RPG de captura de criaturas y fantasía oscura, con mundo ASCII generado mediante WebGL2 (fallback Canvas2D), exploración procedural persistente y una cripta física de ocho cámaras. Android horizontal es la plataforma prioritaria; navegador web es el entorno de desarrollo y distribución actual.
 
@@ -40,3 +40,7 @@ Hollowhart now opens a non-blocking tactical preparation panel. It recommends a 
 ## v0.25 — Experiencia compartida en el equipo
 
 Las victorias conceden el 100 % de experiencia al combatiente activo y el 50 % a cada compañero consciente del equipo (redondeo hacia abajo). Las criaturas debilitadas y las almacenadas no reciben experiencia. Las evoluciones de compañeros se aplican y se anuncian mediante la animación de evolución; el combate informa de cuántos aliados han progresado. No cambia la experiencia del combatiente ni los guardados v1. La mejora reduce la necesidad de entrenar por separado a cada criatura, sin asegurar que Hollowhart pueda derrotarse sin estrategia.
+
+## v0.26 — Las sendas recuerdan
+
+La primera victoria sobre cada criatura visible de los senderos en Bosque de Ceniza o Santuario otorga **+48 EXP** además de la experiencia normal, distribuida con la misma regla de equipo (titular al 100 %, acompañantes conscientes al 50 %). Los rastros derrotados desaparecen persistentemente, así que esta recompensa no se puede repetir al recargar; capturarlos concede la criatura, no el bonus de victoria. Los combates aleatorios, guardianes y expediciones no cambian. Los tres rastros del bosque aportan suficiente EXP teórica para pasar de nivel inicial 5 a nivel 8 si el titular vence los tres sin cambiarlo; esto **no demuestra** que todas las configuraciones puedan superar los combates sin más preparación.

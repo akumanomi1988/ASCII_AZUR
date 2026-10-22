@@ -29,3 +29,12 @@ export function visibleEncounters(zone:ZoneId,seed:number):RoamingEncounter[]{
 export function nearbyEncounter(encounters:readonly RoamingEncounter[],flags:readonly string[],x:number,y:number,radius=1.65):RoamingEncounter|undefined{
  return encounters.find(e=>!flags.includes('roamer-'+e.id)&&Math.hypot(e.x-x,e.y-y)<=radius);
 }
+
+/** One-time reward for defeating a visible, persistent trail encounter.
+ * The existing roamer flag is set by battle resolution; captures choose a new ally over XP.
+ * No additional save field is required. Never award for randomly generated battles. */
+export const ROAMER_FIRST_VICTORY_XP=48;
+export function firstRoamerVictoryBonus(type:'wild'|'boss'|'expedition',encounterId:string|undefined,flags:readonly string[]):number{
+ return type==='wild'&&typeof encounterId==='string'&&/^(forest|sanctuary)-[0-2]$/.test(encounterId)&&!flags.includes('roamer-'+encounterId)
+  ?ROAMER_FIRST_VICTORY_XP:0;
+}

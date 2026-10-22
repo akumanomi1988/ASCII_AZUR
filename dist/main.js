@@ -1,6 +1,6 @@
 import { AsciiRenderer, drawWorld, drawBattle, drawEvolution } from './render.js';
 import { DEFAULT_GRAPHICS, glyphCell, canvasGlyphCell, glyphCount } from './render/graphics-profile.js';
-import { visibleEncounters, nearbyEncounter } from './world/encounters.js';
+import { visibleEncounters, nearbyEncounter, firstRoamerVictoryBonus } from './world/encounters.js';
 import { drawDungeon } from './dungeons/draw-dungeon.js';
 import { chamberAt, chamberProgress } from './dungeons/room-art.js';
 import { generateDungeon, nearbyDungeonEvent, completeDungeonEvent, dungeonGateOpen, revealDungeon, dungeonSweep } from './dungeons/labyrinth.js';
@@ -747,7 +747,7 @@ class AzurGame {
         this.refreshBattle();
     }
     winBattle() { const b = this.battle, ally = this.getAlly(); if (!b || !ally)
-        return; const amount = b.type === 'boss' ? 95 : 11 + b.enemy.level * 3; const awards = grantPartyExperience(this.save.team, b.ally, amount); const gain = awards.find(a => a.active); const evolution = awards.find(a => a.evolved); const supporters = awards.filter(a => !a.active); const originalName = SPECIES[b.enemy.speciesId].name; this.finishBattle(); if (b.encounterId)
+        return; const bonus = firstRoamerVictoryBonus(b.type, b.encounterId, this.save.flags); const amount = (b.type === 'boss' ? 95 : 11 + b.enemy.level * 3) + bonus; const awards = grantPartyExperience(this.save.team, b.ally, amount); const gain = awards.find(a => a.active); const evolution = awards.find(a => a.evolved); const supporters = awards.filter(a => !a.active); const originalName = SPECIES[b.enemy.speciesId].name; this.finishBattle(); if (b.encounterId)
         this.addFlag('roamer-' + b.encounterId); this.sound.pick(); if (b.type === 'wild' && this.save.dungeon?.active && this.save.dungeon.pending !== null)
         this.finishDungeonEnemy(); if (b.type === 'expedition') {
         this.expeditionBattleWon();
@@ -764,7 +764,7 @@ class AzurGame {
     }
     else {
         if (!evolution)
-            this.toast(`${originalName.toUpperCase()} VENCIDO · +${amount} EXP${gain.levelUp ? ' · ¡NIVEL!' : ''}${supporters.length ? ' · ' + supporters.length + ' ALIADOS +' + supporters[0].amount + ' EXP' : ''}`);
+            this.toast(`${originalName.toUpperCase()} VENCIDO · +${amount} EXP${bonus ? ' · RASTRO +' + bonus + ' EXP' : ''}${gain.levelUp ? ' · ¡NIVEL!' : ''}${supporters.length ? ' · ' + supporters.length + ' ALIADOS +' + supporters[0].amount + ' EXP' : ''}`);
         if (Math.random() < .25)
             this.save.inventory.seals++;
         this.economy.echoes = Math.min(999999, this.economy.echoes + 4 + Math.floor(b.enemy.level * .9));

@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {configureWorld,ZONES,isBlocked} from '../dist/world.js';
-import {visibleEncounters,nearbyEncounter} from '../dist/world/encounters.js';
+import {visibleEncounters,nearbyEncounter,ROAMER_FIRST_VICTORY_XP,firstRoamerVictoryBonus} from '../dist/world/encounters.js';
 import {DEFAULT_GRAPHICS,boundGraphic,glyphCell,canvasGlyphCell,glyphCount,readGraphics} from '../dist/render/graphics-profile.js';
-import {validateBattleCheckpoint,createCreature} from '../dist/domain.js';
+import {validateBattleCheckpoint,createCreature,gainExp} from '../dist/domain.js';
 
 test('visible encounters are reproducible, reachable, interactive, and not in the village for 200 seeds',()=>{
  let count=0;
@@ -63,4 +63,22 @@ test('Canvas2D density cap preserves aspect ratio and never constrains WebGL2',(
  assert.ok(glyphCount(1920,1080,fallback)<=102000);
  assert.ok(fallback.width>glyphCell(10,preset).width);
  assert.ok(canvasGlyphCell(10,DEFAULT_GRAPHICS,320,180).width>=glyphCell(10,DEFAULT_GRAPHICS).width);
+});
+
+test('visible trail rewards are first-win only, never repeat or apply to captures, random battles or bosses',()=>{
+ assert.equal(ROAMER_FIRST_VICTORY_XP,48);
+ assert.equal(firstRoamerVictoryBonus('wild','forest-0',[]),48);
+ assert.equal(firstRoamerVictoryBonus('wild','sanctuary-2',[]),48);
+ assert.equal(firstRoamerVictoryBonus('wild','forest-0',['roamer-forest-0']),0);
+ assert.equal(firstRoamerVictoryBonus('wild',undefined,[]),0);
+ assert.equal(firstRoamerVictoryBonus('boss','forest-0',[]),0);
+ assert.equal(firstRoamerVictoryBonus('expedition','forest-0',[]),0);
+ assert.equal(firstRoamerVictoryBonus('wild','forest-4',[]),0);
+ // Forest routes are level 5/6/7. Three legitimate first victories can lift
+ // each level-five starter to the Guardian's recommended level without 18 repeats.
+ for(const id of ['cindrel','velaria','thorne']){
+  const c=createCreature(id,5,()=>.1);
+  for(const level of [5,6,7])gainExp(c,11+level*3+ROAMER_FIRST_VICTORY_XP);
+  assert.ok(c.level>=8,id+' did not reach level 8 from three first victories');
+ }
 });

@@ -45,7 +45,7 @@ export function guardianPreparation(team) {
     if (conscious.length < 2)
         advice.push('Equipo corto: lleva al menos dos criaturas con vida.');
     if (highest < 8)
-        advice.push('Nivel recomendado: al menos una criatura de nivel 8.');
+        advice.push('Nivel 8 recomendado. Los rastros visibles dan +48 EXP una vez.');
     if (conscious.some(c => c.hp < maxHp(c) * .6))
         advice.push('Recupera salud en una Lumbre; reserva tónicos.');
     return { ready: advice.length === 0, advice };

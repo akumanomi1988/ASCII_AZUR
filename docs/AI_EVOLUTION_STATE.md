@@ -1,6 +1,6 @@
 # ASCII AZUR — Autonomous Evolution State
 
-Last audited: 2026-10-22, v0.25. Source of truth: `akumanomi1988/ASCII_AZUR` / `main` once promoted. One iteration per invocation; do not run scheduled or Work tasks without explicit consent.
+Last audited: 2026-10-22, v0.26 candidate. Source of truth: `akumanomi1988/ASCII_AZUR` / `main` once promoted. One iteration per invocation; do not run scheduled or Work tasks without explicit consent.
 
 ## Vision and invariant contracts
 
@@ -12,7 +12,7 @@ Three regions, 12 species, a playable closed Arken narrative arc, seeded rogueli
 
 ## Evidence-based quality scorecard (0–5)
 
-| Domain | v0.18 | v0.19 | Evidence and measurable next acceptance |
+| Domain | v0.25 | v0.26 | Evidence and measurable next acceptance |
 |---|---:|---:|---|
 | Art direction | 3 | 3 | Four hero directions; need consistent designs/biome art, validated by independent players |
 | ASCII rendering | 3 | 3 | v0.15 continuous tiny glyphs + faster software buffer; GPU Android timings still unverified |
@@ -235,3 +235,11 @@ Source commit, GitHub Actions and Pages provenance are recorded below. Direct pu
 - **Public origin:** `https://akumanomi1988.github.io/ASCII_AZUR/`. Independent live HTTP/browser interaction smoke **NOT VERIFIED**: the external inspection tool cannot access this origin. A green Pages deployment proves successful publication workflow, not independent game operation for real players.
 - **Quality model:** 16-dimension aggregate **2.5/5 previous → 2.5/5 current**. New progression behavior is technically verified; grind reduction, combat balance, Android hardware FPS and perceived player enjoyment are unverified. Premium-complete gate is NOT passed.
 - **Next highest priority:** compare start-to-Guardian balance across all three starters and many deterministic world/encounter seeds using legitimate gameplay commands; reduce unnecessary grind based on the measured distribution, without making tactical encounters trivial. Then expand the global multi-region campaign and independently test on physical Android devices with sustained WebGL2 frame timing.
+
+## Iteration v0.26 — Persistent first-trail XP (candidate; CI/deployment pending)
+
+- **Diagnosis:** v0.24 scripted first playthrough used 18 repeated wild battles to prepare for the guardian. The three persistent forest trail enemies gave only the same XP as random battles; initial exploration did not accelerate progression.
+- **Implementation:** an extra 48 XP on each first victory over a canonical visible trail encounter (forest/sanctuary slots 0–2), computed before marking the persistent `roamer-*` flag. The normal party XP payout applies; defeated and reserve creatures receive nothing. Captures remove that encounter without the victory bonus. No save, world generation, combat strength or graphics format changes.
+- **Acceptance target:** deterministic three-starter experience threshold at forest levels 5–7; real combat victory via player attack commands, idempotent payout and persistent encounter flag; strict build, full tests, offline PWA audit, main CI, exact Pages provenance.
+- **Score:** previous **2.5/5**, current **2.5/5** pending independent balance/playtesting. Cannot claim a human-validated 18-fight reduction; repeated fight counts depend on survival, captures and routing.
+- **Outstanding:** global campaign, real Android WebGL2 and performance, external testers, complete user-input playthrough, direct public-origin gameplay smoke. Next: multi-seed three-starter natural Guardian balance testing, then authored progression expansion.

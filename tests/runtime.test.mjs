@@ -417,3 +417,33 @@ test('runtime: a normal victory gives half XP to a captured teammate without alt
  assert.equal(game.save.storage[0].exp,0);
  assert.equal(game.save.activeBattle,undefined);
 });
+
+test('runtime: actual attack commands award first-roamer XP once and persist the victory flag',()=>{
+ const {game,flushTimers}=mount({virtualTime:true,seed:41});
+ game.startNew();game.pickStarter('cindrel');while(game.dialogOpen)game.nextDialog();
+ const lifetimeXP=c=>c.exp+6*c.level*(c.level-1);
+ const fight=()=>{
+  game.startBattle('briarling',5,'wild','forest-0');
+  let turns=0;
+  while(game.battle&&turns++<30){
+   if(game.battle.busy){flushTimers();continue;}
+   if(game.getAlly().hp<maxHp(game.getAlly())*.33&&game.save.inventory.tonics){
+    game.tonic();flushTimers();continue;
+   }
+   game.useMove('ember');flushTimers();
+  }
+  assert.ok(turns<30,'encounter did not resolve');
+  assert.equal(game.battle,null);
+  assert.ok(game.save.team[0].hp>0,'starter must win through actual moves');
+ };
+ const before=lifetimeXP(game.save.team[0]);
+ fight();
+ assert.equal(lifetimeXP(game.save.team[0])-before,74,'26 base + 48 first-trail XP');
+ assert.ok(game.save.flags.includes('roamer-forest-0'),'first victory must be persistent');
+ game.interactLandmark({kind:'altar',x:10,y:10});
+ const after=lifetimeXP(game.save.team[0]);
+ // Re-enter via internal test harness to verify duplicate rewards are impossible.
+ fight();
+ assert.equal(lifetimeXP(game.save.team[0])-after,26,'no second trail bonus');
+ assert.equal(game.save.flags.filter(x=>x==='roamer-forest-0').length,1);
+});
