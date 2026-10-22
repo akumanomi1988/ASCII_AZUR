@@ -48,6 +48,7 @@ class AzurGame {
     byId('quickFullscreen').addEventListener('click',()=>this.toggleFullscreen());
     document.addEventListener('fullscreenchange',()=>{byId('fullscreen').textContent=document.fullscreenElement?'⤢':'⛶';requestAnimationFrame(()=>this.renderer.resize());});
     byId('drawerToggle').addEventListener('click',()=>this.toggleDrawer());
+    byId('resumeBtn').addEventListener('click',()=>this.toggleDrawer(false));
     byId('drawerClose').addEventListener('click',()=>this.toggleDrawer(false));
     byId('drawerScrim').addEventListener('click',()=>this.toggleDrawer(false));
     this.wireJoystick();
@@ -657,12 +658,15 @@ class AzurGame {
       <div class="modal-content-block" id="adaptiveFpsStats" aria-live="polite"></div>
       <div class="settings-row"><button id="resetGraphics" class="settings-reset">Restablecer gráficos</button></div>
       <div class="modal-content-block">En GLYPH PIXEL ART cada celda pinta un fondo continuo y un glifo con color propio. El modo atmosférico reduce trazos direccionales repetitivos. WebGL2 ofrece la trama más fina; Canvas2D limita el trabajo para mantener la partida fluida.</div>
-      <div class="settings-row"><label for="musicVolume">Música</label><input id="musicVolume" type="range" min="0" max="100" step="1"></div>
+      <div class="settings-row"><label for="audioEnabled">Audio activado</label><input id="audioEnabled" type="checkbox"></div>
+       <div class="settings-row"><label for="musicVolume">Música</label><input id="musicVolume" type="range" min="0" max="100" step="1"></div>
       <div class="settings-row"><label for="effectsVolume">Efectos</label><input id="effectsVolume" type="range" min="0" max="100" step="1"></div>
       <div class="settings-row"><label for="motionReduced">Reducir movimiento</label><input id="motionReduced" type="checkbox"></div>
       <div class="settings-row"><label for="largeText">Texto ampliado</label><input id="largeText" type="checkbox"></div>
       <div class="settings-row"><label for="leftHanded">Joystick a la derecha</label><input id="leftHanded" type="checkbox"></div>`,true,true);
     const mus=byId<HTMLInputElement>('musicVolume'),fx=byId<HTMLInputElement>('effectsVolume');
+    const audio=byId<HTMLInputElement>('audioEnabled');audio.checked=this.soundEnabled;
+    audio.onchange=()=>{this.soundEnabled=audio.checked;this.sound.setEnabled(this.soundEnabled);this.updateMuteUi();this.storeAudioSettings();};
     mus.value=String(Math.round(this.sound.getMusicVolume()*100));fx.value=String(Math.round(this.sound.getEffectsVolume()*100));
     mus.oninput=()=>{this.sound.setMusicVolume(Number(mus.value)/100);this.storeAudioSettings();};
     fx.oninput=()=>{this.sound.setEffectsVolume(Number(fx.value)/100);this.storeAudioSettings();};
