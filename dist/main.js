@@ -1,7 +1,7 @@
 import { AsciiRenderer, drawWorld, drawBattle, drawEvolution } from './render.js';
 import { navigateMenuKey, focusMenuFirst, isTypingTarget, menuButtons } from './ui/menu-navigation.js';
 import { DEFAULT_GRAPHICS, glyphCell, canvasGlyphCell, glyphCount } from './render/graphics-profile.js';
-import { visibleEncounters, nearbyEncounter, firstRoamerVictoryBonus, recoverTrailParty, VILLAGE_TRAINING_XP, VILLAGE_TRAINING_REWARD_FLAG, villageTrainingBonus, villageTrainingProgress } from './world/encounters.js';
+import { visibleEncounters, nearbyEncounter, firstRoamerVictoryBonus, recoverTrailParty, BIOME_DUEL_SPECIES, activeWildBiome, drawBiomeWild, biomeDuelLevel, biomeWildLevel, VILLAGE_TRAINING_XP, VILLAGE_TRAINING_REWARD_FLAG, villageTrainingBonus, villageTrainingProgress } from './world/encounters.js';
 import { drawDungeon } from './dungeons/draw-dungeon.js';
 import { chamberAt, chamberProgress } from './dungeons/room-art.js';
 import { generateDungeon, nearbyDungeonEvent, completeDungeonEvent, dungeonGateOpen, revealDungeon, dungeonSweep } from './dungeons/labyrinth.js';
@@ -1383,11 +1383,11 @@ class AzurGame {
         if (!this.started || this.battle || this.dialogOpen || this.save.dungeon?.active)
             return;
         const region = this.save.zone;
-        const group = region === 'village' ? ['cindrel', 'briarling', 'mireling'] : region === 'forest' ? ['cindrel', 'thorne', 'mireling'] : ['runeowl', 'wispawn', 'gravemoth'];
+        const group = [...BIOME_DUEL_SPECIES[region]];
         const lessons = villageTrainingProgress(this.save.flags);
-        this.showModal('COMBATE DIRECTO', `<div class="modal-content-block">Desafía a una criatura salvaje. Puedes combatir, capturarla o huir. Los retos directos no alteran los guardianes ni la historia.${region === 'village' ? ` CIRCUITO DE IRIA: ${lessons.completed}/3 lecciones; la primera victoria por especie concede +${VILLAGE_TRAINING_XP} EXP adicional y, al completar las tres, Iria entrega dos Tónicos.` : ''}</div>${group.map((speciesId, i) => `<div class="modal-option"><div><strong>${htmlEscape(SPECIES[speciesId].name)}</strong><small>NIVEL ${region === 'village' ? 3 + i : region === 'forest' ? 5 + i : 8 + i} · ${htmlEscape(SPECIES[speciesId].element)}</small>${region === 'village' ? `<small>${this.flag('training-' + speciesId) ? '✓ LECCIÓN APRENDIDA' : `PRIMERA VICTORIA +${VILLAGE_TRAINING_XP} EXP`}</small>` : ''}</div><button data-duel="${speciesId}">COMBATIR</button></div>`).join('')}`);
+        this.showModal('COMBATE DIRECTO', `<div class="modal-content-block">Desafía a una criatura salvaje. Puedes combatir, capturarla o huir. Los retos directos no alteran los guardianes ni la historia.${region === 'village' ? ` CIRCUITO DE IRIA: ${lessons.completed}/3 lecciones; la primera victoria por especie concede +${VILLAGE_TRAINING_XP} EXP adicional y, al completar las tres, Iria entrega dos Tónicos.` : ''}</div>${group.map((speciesId, i) => `<div class="modal-option"><div><strong>${htmlEscape(SPECIES[speciesId].name)}</strong><small>NIVEL ${biomeDuelLevel(region, i)} · ${htmlEscape(SPECIES[speciesId].element)}</small>${region === 'village' ? `<small>${this.flag('training-' + speciesId) ? '✓ LECCIÓN APRENDIDA' : `PRIMERA VICTORIA +${VILLAGE_TRAINING_XP} EXP`}</small>` : ''}</div><button data-duel="${speciesId}">COMBATIR</button></div>`).join('')}`);
         for (const button of byId('modalContent').querySelectorAll('[data-duel]'))
-            button.onclick = () => { const id = button.dataset.duel; const level = (region === 'village' ? 3 : region === 'forest' ? 5 : 8) + group.indexOf(id); this.hideModal(); this.startBattle(id, level, 'wild'); };
+            button.onclick = () => { const id = button.dataset.duel; const level = biomeDuelLevel(region, group.indexOf(id)); this.hideModal(); this.startBattle(id, level, 'wild'); };
     }
     openDungeonMenu() {
         if (!this.started || this.battle || this.evolution || this.dialogOpen)
@@ -1619,8 +1619,15 @@ class AzurGame {
         const progressPanel = `<div class="modal-content-block"><strong>ATLAS DEL VIAJE · ${travel.completed}/${travel.total} HITOS · ${travel.percentage}%</strong><p>${travel.chapters.map(c => `${htmlEscape(c.name)}: ${c.done}/${c.total} ${c.status === 'done' ? '✓' : c.status === 'active' ? '◆' : '○'}`).join(' · ')}</p><p>OBJETIVO · ${htmlEscape(travel.objective)}</p><p>Equipo: ${this.save.team.filter(c => c.hp > 0).length}/${this.save.team.length} conscientes · ${this.save.inventory.tonics} Tónicos · ${this.save.inventory.seals} Sellos${travel.counter ? ' · Contraataque: ' + htmlEscape(travel.counter) : ''}.</p>${travel.advice.map(t => `<p>✦ ${htmlEscape(t)}</p>`).join('')}<p>Este atlas no cambia el guardado ni concede recursos.</p></div>`;
         this.showModal('DIARIO · MISIONES', progressPanel + mainQuest + chapter + finale + `<div class="shop-balance">${this.economy.echoes} ECOS · ${this.economy.completed.length}/${QUESTS.length} ENCARGOS SECUNDARIOS</div>` + QUESTS.map(q => `<div class="modal-option"><div><strong>${htmlEscape(q.name)}</strong><small>${htmlEscape(q.description)}</small><small>RECOMPENSA · ${q.reward} ECOS</small></div><span class="quest-state ${this.economy.completed.includes(q.id) ? 'done' : ''}">${this.economy.completed.includes(q.id) ? '✓ HECHA' : 'PENDIENTE'}</span></div>`).join(''));
     }
-    openCodex() { if (!this.started)
-        return; const known = new Set([...this.save.team, ...this.save.storage].map(c => c.speciesId)); this.showModal('CÓDICE · VÍNCULOS', `<div class="modal-content-block">${known.size} / ${Object.keys(SPECIES).length} especies vinculadas.</div>` + Object.values(SPECIES).map(sp => `<div class="modal-option"><div><strong style="color:${sp.color}">${known.has(sp.id) ? htmlEscape(sp.name) : '??????'}</strong><small>${known.has(sp.id) ? htmlEscape(sp.title + ' · ' + sp.element + ' · ' + sp.desc) : 'Esta criatura aún no ha compartido su nombre.'}</small></div></div>`).join('')); }
+    openCodex() {
+        if (!this.started)
+            return;
+        const known = new Set([...this.save.team, ...this.save.storage].map(c => c.speciesId));
+        const capturable = Object.values(SPECIES).filter(sp => sp.id !== 'hollowhart' && sp.id !== 'nullscribe');
+        const collected = capturable.filter(sp => known.has(sp.id)).length;
+        this.showModal('CÓDICE · VÍNCULOS', `<div class="modal-content-block">${collected} / ${capturable.length} especies vinculables. Hollowhart y Nullscribe son guardianes únicos, no capturables.</div>` +
+            capturable.map(sp => `<div class="modal-option"><div><strong style="color:${sp.color}">${known.has(sp.id) ? htmlEscape(sp.name) : '??????'}</strong><small>${known.has(sp.id) ? htmlEscape(sp.title + ' · ' + sp.element + ' · ' + sp.desc) : 'Esta criatura aún no ha compartido su nombre.'}</small>${known.has(sp.id) && sp.role ? `<small>ROL TÁCTICO · ${htmlEscape(sp.role)}</small>` : ''}</div></div>`).join(''));
+    }
     revealPosition() { if (!this.save.worldSeed)
         return; const x = Math.floor(this.save.x), y = Math.floor(this.save.y); const mark = x + y * WORLD_W + (['village', 'forest', 'sanctuary', 'marsh', 'spire'].indexOf(this.save.zone) * WORLD_W * WORLD_H); if (this.lastReveal === mark)
         return; this.lastReveal = mark; this.save.discovered = reveal(this.save.discovered, this.save.zone, x, y, 4.8); }
@@ -2079,10 +2086,11 @@ class AzurGame {
                     if (this.encounterCooldown <= 0 && isWild(this.save.zone, Math.floor(this.save.x), Math.floor(this.save.y))) {
                         const chance = this.save.zone === 'forest' ? .22 : .12;
                         if (Math.random() < chance) {
-                            const wild = this.save.zone === 'forest' ? ['velaria', 'thorne', 'wispawn', 'mireling', 'gravemoth', 'cindrel', 'runeowl', 'ashboar', 'briarling', 'rillfin'] : ['gravemoth', 'wispawn', 'mireling', 'thorne', 'runeowl', 'rillfin'];
-                            const id = wild[Math.floor(Math.random() * wild.length)];
-                            const level = this.save.zone === 'forest' ? 4 + Math.floor(Math.random() * 4) : 6 + Math.floor(Math.random() * 4);
-                            this.startBattle(id, level, 'wild');
+                            const zone = activeWildBiome(this.save.zone, this.save.flags);
+                            const id = drawBiomeWild(zone, Math.random());
+                            const level = biomeWildLevel(zone, Math.random());
+                            if (id)
+                                this.startBattle(id, level, 'wild');
                         }
                     }
                 }

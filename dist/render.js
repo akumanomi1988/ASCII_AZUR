@@ -479,6 +479,41 @@ function creatureDetails(ctx, id, perf, t, reduced) {
         ctx.quadraticCurveTo(0, 5, 12, -4);
         ctx.stroke();
     }
+    else if (id === 'mourveil') {
+        ctx.strokeStyle = '#e7fffa';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(0, -35, 18, 3.25, 6.18);
+        ctx.stroke();
+        ctx.fillStyle = '#c1f5ed';
+        for (let i = 0; i < 5; i++)
+            ctx.fillRect(-22 + i * 11, 9 + (i % 2) * 5, 2, 8);
+    }
+    else if (id === 'mnemoshade') {
+        ctx.strokeStyle = '#f0d9ff';
+        ctx.lineWidth = 2;
+        for (let i = 0; i < 4; i++) {
+            const xx = -27 + i * 18;
+            ctx.strokeRect(xx, -45 + (i % 2) * 8, 8, 11);
+        }
+    }
+    else if (id === 'bellroot') {
+        ctx.strokeStyle = '#e8dda5';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(0, -19, 11, 0, Math.PI);
+        ctx.stroke();
+    }
+    else if (id === 'ashglass') {
+        ctx.strokeStyle = '#fff4d1';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(-21, -25);
+        ctx.lineTo(-31, -40 + perf.wing * 3);
+        ctx.moveTo(21, -25);
+        ctx.lineTo(31, -40 - perf.wing * 3);
+        ctx.stroke();
+    }
     if (perf.expression === 'feral' || perf.expression === 'transcendent') {
         ctx.globalAlpha = .7;
         ctx.strokeStyle = col;
@@ -640,6 +675,92 @@ export function drawCreature(ctx, speciesId, x, y, scale = 1, t = 0, action = 'i
         ctx.fillRect(4, -27, 5, 4);
         ctx.fillStyle = '#d3a6f2';
         ctx.fillRect(-2, -16, 4, 10);
+    }
+    else if (sp.shape === 12) { // Mourveil: rain-veil and lunar ribbons
+        ctx.beginPath();
+        ctx.moveTo(-15, 9);
+        ctx.quadraticCurveTo(-23, -10, -12, -30);
+        ctx.quadraticCurveTo(0, -45, 12, -30);
+        ctx.quadraticCurveTo(23, -10, 15, 9);
+        ctx.lineTo(8, 3 + perf.tail * 2);
+        ctx.lineTo(0, 15);
+        ctx.lineTo(-8, 4 - perf.tail * 2);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = '#e6fff8';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(0, -29, 15, Math.PI, Math.PI * 2);
+        ctx.stroke();
+        ctx.fillStyle = '#2c5362';
+        ctx.fillRect(-10, -20, 6, 5);
+        ctx.fillRect(4, -20, 6, 5);
+        poly(ctx, [[-15, -15], [-31, 10], [-22, 22], [-9, 4]], '#6cbbc7');
+        poly(ctx, [[15, -15], [31, 10], [22, 22], [9, 4]], '#6cbbc7');
+    }
+    else if (sp.shape === 13) { // Mnemoshade: broken name shards
+        poly(ctx, [[-15, -25], [0, -38], [16, -25], [21, -5], [0, 11], [-21, -5]], col);
+        ctx.fillStyle = '#241d42';
+        poly(ctx, [[-8, -21], [0, -29], [8, -21], [10, -7], [0, 1], [-10, -7]], '#241d42');
+        ctx.fillStyle = '#f5e2ff';
+        ctx.fillRect(-9, -18, 5, 4);
+        ctx.fillRect(5, -18, 5, 4);
+        for (const dir of [-1, 1]) {
+            ctx.strokeStyle = '#d6b5ff';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(dir * 17, -26);
+            ctx.lineTo(dir * (29 + perf.tail * 2), -39);
+            ctx.lineTo(dir * 35, -23);
+            ctx.stroke();
+        }
+        ctx.fillStyle = '#e3c5ff';
+        ctx.fillRect(-2, -9, 4, 12);
+    }
+    else if (sp.shape === 14) { // Bellroot: rooted bronze bell
+        ctx.beginPath();
+        ctx.moveTo(-16, -31);
+        ctx.lineTo(16, -31);
+        ctx.lineTo(23, 4);
+        ctx.lineTo(-23, 4);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = '#667f64';
+        ctx.fillRect(-25, 3, 50, 6);
+        ctx.fillStyle = '#d7eab7';
+        ctx.fillRect(-5, 8, 10, 7);
+        ctx.strokeStyle = '#5d9a6a';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(-10, 9);
+        ctx.lineTo(-21, 23);
+        ctx.moveTo(10, 9);
+        ctx.lineTo(21, 23);
+        ctx.moveTo(0, -30);
+        ctx.lineTo(0, -48);
+        ctx.stroke();
+        poly(ctx, [[0, -47], [-16, -55], [-10, -37]], '#8fd1a0');
+        poly(ctx, [[0, -46], [15, -57], [11, -36]], '#b6d88d');
+        ctx.fillStyle = '#22362f';
+        ctx.fillRect(-10, -16, 5, 4);
+        ctx.fillRect(6, -16, 5, 4);
+    }
+    else if (sp.shape === 15) { // Ashglass: razor-winged glass bird
+        const sweep = perf.wing * 5;
+        poly(ctx, [[-8, -14], [-37, -42 + sweep], [-29, -4], [-8, 3]], '#e78d68');
+        poly(ctx, [[8, -14], [37, -42 - sweep], [29, -4], [8, 3]], '#f9c686');
+        poly(ctx, [[-11, -23], [0, -36], [12, -23], [10, 4], [0, 12], [-10, 4]], col);
+        poly(ctx, [[-2, -18], [17, -15], [1, -8]], '#fff0bd');
+        ctx.fillStyle = '#51393b';
+        ctx.fillRect(-5, -23, 4, 4);
+        ctx.strokeStyle = '#ffe1ae';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(-22, -18);
+        ctx.lineTo(-32, -29 + sweep);
+        ctx.moveTo(22, -18);
+        ctx.lineTo(32, -29 - sweep);
+        ctx.stroke();
     }
     else if (sp.shape === 6) { // deer
         ctx.beginPath();

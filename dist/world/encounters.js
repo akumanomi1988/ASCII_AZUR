@@ -56,6 +56,45 @@ export function visibleEncounters(zone, seed) {
     }
     return out;
 }
+/** Each biome has a distinct ecology. Random wilds are independent of the saved
+ * world layout; visible one-time witnesses remain seed-deterministic above. */
+export const BIOME_WILD_SPECIES = {
+    village: [],
+    forest: ['velaria', 'thorne', 'wispawn', 'mireling', 'gravemoth', 'cindrel', 'runeowl', 'ashboar', 'briarling', 'rillfin'],
+    sanctuary: ['gravemoth', 'wispawn', 'mireling', 'thorne', 'runeowl', 'rillfin'],
+    marsh: ['bellroot', 'mourveil', 'mireling', 'rillfin', 'gravemoth', 'runeowl'],
+    spire: ['ashglass', 'mnemoshade', 'cinderwulf', 'ashboar', 'wispawn', 'bellroot']
+};
+export const BIOME_DUEL_SPECIES = {
+    village: ['cindrel', 'briarling', 'mireling'],
+    forest: ['cindrel', 'thorne', 'mireling'],
+    sanctuary: ['runeowl', 'wispawn', 'gravemoth'],
+    marsh: ['bellroot', 'mourveil', 'rillfin'],
+    spire: ['ashglass', 'mnemoshade', 'cinderwulf']
+};
+/** Higher-level rare ecology joins random travel after its chapter, avoiding
+ * difficulty spikes while players are still resolving compulsory witnesses. */
+export function activeWildBiome(zone, flags) {
+    if (zone === 'marsh' && !flags.includes('marsh-chapter-complete'))
+        return 'sanctuary';
+    if (zone === 'spire' && !flags.includes('crown-trilogy-complete'))
+        return 'sanctuary';
+    return zone;
+}
+export function drawBiomeWild(zone, roll) {
+    const pool = BIOME_WILD_SPECIES[zone];
+    if (!pool.length || !Number.isFinite(roll))
+        return undefined;
+    return pool[Math.max(0, Math.min(pool.length - 1, Math.floor(roll * pool.length)))];
+}
+export function biomeDuelLevel(zone, index) {
+    const start = { village: 3, forest: 5, sanctuary: 8, marsh: 11, spire: 13 }[zone];
+    return start + Math.max(0, Math.floor(index));
+}
+export function biomeWildLevel(zone, roll) {
+    const start = { village: 1, forest: 4, sanctuary: 6, marsh: 11, spire: 13 }[zone];
+    return start + Math.max(0, Math.min(3, Math.floor(roll * 4)));
+}
 export function nearbyEncounter(encounters, flags, x, y, radius = 1.65) {
     return encounters.find(e => !flags.includes('roamer-' + e.id) && Math.hypot(e.x - x, e.y - y) <= radius);
 }

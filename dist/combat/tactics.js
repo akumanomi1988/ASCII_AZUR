@@ -9,7 +9,8 @@ export const MOVE_EFFECTS = {
     ember: { kind: 'scorch', chance: .22, turns: 3 }, smolder: { kind: 'scorch', chance: .65, turns: 3 },
     fog: { kind: 'weaken', chance: .50, turns: 2 }, tide: { kind: 'weaken', chance: .78, turns: 2 },
     thorn: { kind: 'fracture', chance: .28, turns: 2 }, roots: { kind: 'fracture', chance: .62, turns: 2 },
-    astral: { kind: 'fracture', chance: .24, turns: 2 }, void: { kind: 'fracture', chance: .65, turns: 2 }
+    astral: { kind: 'fracture', chance: .24, turns: 2 }, void: { kind: 'fracture', chance: .65, turns: 2 },
+    sigilbite: { kind: 'fracture', chance: .45, turns: 2 }, bellguard: { kind: 'fracture', chance: .3, turns: 2 }, glassflare: { kind: 'scorch', chance: .48, turns: 3 }
 };
 export function applyEffect(statuses, effect, roll) {
     if (!effect || !Number.isFinite(roll) || roll < 0 || roll >= 1 || roll >= effect.chance)
