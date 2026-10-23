@@ -7,7 +7,7 @@ import { VISUAL_ASSETS } from './render/semantic-assets.js';
 import { biomePalette } from './render/biome-art.js';
 import { sampleHeroPose } from './actors/hero-performance.js';
 import { materialGlyphIndex, materialColors } from './render/glyph-material.js';
-import { GroundMaterialCache } from './render/ground-material.js';
+import { GroundMaterialCache, isFocalGroundTile } from './render/ground-material.js';
 import { readGraphics, glyphCell, canvasGlyphCell } from './render/graphics-profile.js';
 export const W = 960, H = 540;
 /** World-only camera magnification; battle composition and DOM controls are unaffected. */
@@ -49,12 +49,14 @@ void main(){
  int index=0;
  vec3 bg,fg;
  if(u_pixelMode>.5){
-   index=detail>.57?26:detail>.40?25:detail>.24?24:detail>.12?23:(detail>.065&&noise>.72?1:0);
-   bg=clamp(raw*.72+vec3(.019,.023,.031)+vec3(u_brightness*.085),0.,1.);
-   fg=clamp(raw*1.47+vec3(.094),0.,1.);
+   index=detail>.58?26:detail>.42?25:detail>.28?24:detail>.16?23:0;
+   // Five-bit color and stronger filled backgrounds preserve contiguous pixel-art forms.
+   vec3 base=floor(raw*31.+.5)/31.;
+   bg=clamp(base*.86+vec3(.019,.023,.031)+vec3(u_brightness*.085),0.,1.);
+   fg=clamp(base*1.27+vec3(.063),0.,1.);
  }else{
-   if(detail<.085)index=noise>.91?1:0;
-   else if(detail<.16)index=noise>.37?2:1;
+   if(detail<.12)index=0;
+   else if(detail<.21)index=noise>.75?2:1;
    else index=clamp(int(floor(detail*17.+3.+noise*2.)),3,22);
    // Colored negative space prevents uniform text noise from swallowing silhouettes.
    bg=clamp(raw*.49+vec3(.020,.024,.031)+vec3(u_brightness*.085),0.,1.);
@@ -1441,18 +1443,25 @@ function drawGround(ctx, zone, camX, camY, t) {
     for (let y = top; y <= bottom; y++)
         for (let x = left; x <= right; x++) {
             const k = hash(x, y, z.seed), xx = x * TILE - camX, yy = y * TILE - camY, tile = terrain(zone, x, y);
-            ctx.fillStyle = k > .48 ? a.soil[0] : a.soil[1];
+            ctx.fillStyle = a.soil[0];
             ctx.fillRect(xx, yy, TILE + 1, TILE + 1);
+            if (k > .77) {
+                ctx.fillStyle = a.soil[1];
+                ctx.globalAlpha = .24;
+                ctx.fillRect(xx, yy, TILE + 1, TILE + 1);
+                ctx.globalAlpha = 1;
+            }
             if (tile === 'path') {
                 ctx.fillStyle = a.path;
                 ctx.fillRect(xx, yy, TILE + 1, TILE + 1);
-                ctx.fillStyle = a.pathMark;
-                ctx.globalAlpha = .5;
-                for (let i = 0; i < 3; i++) {
-                    const px = xx + 6 + hash(x * 7 + i, y, z.seed + 211) * 34, py = yy + 6 + hash(x, y * 7 + i, z.seed + 213) * 33;
-                    ctx.fillRect(px, py, 4 + i % 2, 2);
+                // Sparse authored markings; flat route color must carry navigation.
+                if (k > .90 && !isFocalGroundTile(zone, x, y)) {
+                    const px = xx + 8 + hash(x * 7, y, z.seed + 211) * 30, py = yy + 8 + hash(x, y * 7, z.seed + 213) * 30;
+                    ctx.fillStyle = a.pathMark;
+                    ctx.globalAlpha = .25;
+                    ctx.fillRect(px, py, 5, 2);
+                    ctx.globalAlpha = 1;
                 }
-                ctx.globalAlpha = 1;
                 ctx.fillStyle = a.pathRim;
                 ctx.globalAlpha = .32;
                 if (terrain(zone, x, y - 1) !== 'path')
@@ -1469,41 +1478,40 @@ function drawGround(ctx, zone, camX, camY, t) {
                 ctx.fillStyle = a.water;
                 ctx.fillRect(xx, yy, TILE + 1, TILE + 1);
                 ctx.strokeStyle = a.waterRim;
-                ctx.globalAlpha = .56;
+                ctx.globalAlpha = .33;
                 ctx.lineWidth = 2;
-                for (let i = 0; i < 2; i++) {
-                    const wave = yy + 14 + i * 19 + Math.sin(t * 1.1 + k + i) * 2;
-                    ctx.beginPath();
-                    ctx.moveTo(xx + 8 + i * 4, wave);
-                    ctx.quadraticCurveTo(xx + 22, wave - 4, xx + 36 + i * 2, wave);
-                    ctx.stroke();
-                }
+                const wave = yy + 22 + Math.sin(t * 1.1 + k) * 2;
+                ctx.beginPath();
+                ctx.moveTo(xx + 10, wave);
+                ctx.quadraticCurveTo(xx + 22, wave - 3, xx + 35, wave);
+                ctx.stroke();
                 ctx.globalAlpha = 1;
             }
             else if (tile === 'grass') {
                 ctx.fillStyle = a.grass;
-                ctx.globalAlpha = .22;
+                ctx.globalAlpha = .18;
                 ctx.fillRect(xx + 2, yy + 3, 43, 41);
                 ctx.globalAlpha = 1;
-                ctx.strokeStyle = a.grassLight;
-                ctx.lineWidth = 2;
-                ctx.globalAlpha = .65;
-                for (let i = 0; i < 2; i++) {
-                    const gx = xx + 12 + hash(x + i, y, z.seed + 23) * 26, gy = yy + 17 + hash(x, y + i, z.seed + 25) * 20;
+                if (k > .52 && !isFocalGroundTile(zone, x, y)) {
+                    ctx.strokeStyle = a.grassLight;
+                    ctx.lineWidth = 2;
+                    ctx.globalAlpha = .34;
+                    const gx = xx + 12 + hash(x, y, z.seed + 23) * 26, gy = yy + 17 + hash(x, y, z.seed + 25) * 20;
                     ctx.beginPath();
                     ctx.moveTo(gx, gy + 6);
                     ctx.lineTo(gx - 4, gy - 2);
                     ctx.moveTo(gx, gy + 6);
                     ctx.lineTo(gx + 4, gy - 4);
                     ctx.stroke();
+                    ctx.globalAlpha = 1;
                 }
-                ctx.globalAlpha = 1;
             }
             else if (tile === 'ground' || tile === 'stone') {
-                if (k > .78) {
+                if (k > .93 && !isFocalGroundTile(zone, x, y)) {
                     ctx.fillStyle = a.soilMark;
-                    ctx.fillRect(xx + 9, yy + 16, 4, 2);
-                    ctx.fillRect(xx + 29, yy + 33, 3, 2);
+                    ctx.globalAlpha = .32;
+                    ctx.fillRect(xx + 19, yy + 22, 4, 2);
+                    ctx.globalAlpha = 1;
                 }
                 if (zone === 'sanctuary' && k > .91) {
                     ctx.fillStyle = a.stoneMid;
@@ -1595,7 +1603,7 @@ export function drawWorld(ctx, zone, hero, t, flash = 0, defeated = false, camer
                 const cottage = zone === 'village' && nearPath && hash(x, y, z.seed + 771) > .72;
                 objects.push({ x: xx, y: yy, draw: () => cottage ? drawCottage(ctx, xx, yy, k, t) : drawTree(ctx, xx, yy, k, t, zone) });
             }
-            if ((typ === 'ground' || typ === 'grass') && hash(x, y, z.seed + 491) > .82 &&
+            if ((typ === 'ground' || typ === 'grass') && hash(x, y, z.seed + 491) > .92 && !isFocalGroundTile(zone, x, y) &&
                 (terrain(zone, x + 1, y) === 'path' || terrain(zone, x - 1, y) === 'path' || terrain(zone, x, y + 1) === 'path' || terrain(zone, x, y - 1) === 'path')) {
                 objects.push({ x: xx, y: yy, draw: () => drawWayside(ctx, xx, yy, k, t, zone) });
             }

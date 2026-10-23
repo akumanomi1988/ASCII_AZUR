@@ -1,10 +1,22 @@
+import { ZONES } from '../world.js';
 import { stableVisualVariant } from './biome-art.js';
 const PATH_MOTIFS = {
     village: 'cobble', forest: 'leaf', sanctuary: 'sigil', marsh: 'reed', spire: 'shard', ossuary: 'shell', garden: 'frost'
 };
+const MOTIF_RATE = { path: .46, grass: .56, water: .40, stone: .28, ground: 0 };
 export function pathMotif(zone) { return PATH_MOTIFS[zone]; }
+/** Landmarks get a clear visual apron; interaction silhouettes outrank texture. */
+export function isFocalGroundTile(zone, x, y) {
+    return ZONES[zone].landmarks.some(l => Math.abs(l.x - x) <= 2 && Math.abs(l.y - y) <= 2);
+}
+/** At most one authored accent per tile. Empty space is intentional. */
+export function groundMotifBudget(zone, surface, x, y, seed) {
+    if (surface === 'ground' || isFocalGroundTile(zone, x, y))
+        return 0;
+    return stableVisualVariant(x, y, seed + 719) < MOTIF_RATE[surface] ? 1 : 0;
+}
 export function groundMotifs(zone, surface, x, y, seed) {
-    const count = surface === 'path' ? 8 : surface === 'grass' ? 4 : surface === 'water' ? 2 : surface === 'stone' ? 3 : 3;
+    const count = groundMotifBudget(zone, surface, x, y, seed);
     const result = [];
     for (let i = 0; i < count; i++) {
         const a = stableVisualVariant(x * 37 + i * 19, y * 41 + i * 13, seed + 101);
@@ -34,7 +46,7 @@ export function paintGroundMotifs(ctx, zone, surface, tileX, tileY, seed, screen
         ctx.translate(m.x, m.y);
         ctx.rotate(m.turn);
         const s = m.scale;
-        ctx.globalAlpha = .38 + m.shade * .40;
+        ctx.globalAlpha = .22 + m.shade * .27;
         switch (m.kind) {
             case 'cobble':
                 ctx.fillStyle = m.shade > .5 ? palette.pathMark : palette.pathRim;
@@ -134,6 +146,8 @@ export class GroundMaterialCache {
     }
     get size() { return this.tiles.size; }
     draw(ctx, zone, surface, tileX, tileY, seed, screenX, screenY, palette, tileSize = 48) {
+        if (groundMotifBudget(zone, surface, tileX, tileY, seed) === 0)
+            return;
         const key = zone + '/' + surface + '/' + seed + '/' + tileX + '/' + tileY;
         let canvas = this.tiles.get(key);
         if (!canvas) {

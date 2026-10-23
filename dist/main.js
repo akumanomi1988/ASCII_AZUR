@@ -308,7 +308,9 @@ class AzurGame {
     }
     catch { /* storage unavailable */ } }
     restoreAdaptiveGraphics() { try {
-        this.adaptiveGlyphs.configure(localStorage.getItem('ascii-azur-adaptive-fps-v1') === 'true');
+        const saved = localStorage.getItem('ascii-azur-adaptive-fps-v1');
+        const enabled = saved === null ? this.renderer.mode === 'fallback' : saved === 'true';
+        this.adaptiveGlyphs.configure(enabled, enabled && this.renderer.mode === 'fallback' ? 1.6 : 1);
     }
     catch { /* preserve manual mode */ } this.renderer.setPerformanceScale(this.adaptiveGlyphs.scale); }
     setAdaptiveGraphics(enabled) { this.adaptiveGlyphs.configure(enabled); this.frameMetrics.reset(); this.renderer.setPerformanceScale(this.adaptiveGlyphs.scale); try {
