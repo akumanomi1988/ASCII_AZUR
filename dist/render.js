@@ -3,6 +3,7 @@ import { SPECIES } from './domain.js';
 import { sampleBattleSignature } from './actors/battle-direction.js';
 import { sampleCreaturePerformance, rigFor } from './actors/creature-performance.js';
 import { SoftwareGlyphFrame } from './render/software-glyph.js';
+import { GlyphPixelPresentation } from './render/glyph-pixel-presentation.js';
 import { VISUAL_ASSETS } from './render/semantic-assets.js';
 import { biomePalette } from './render/biome-art.js';
 import { sampleHeroPose } from './actors/hero-performance.js';
@@ -94,6 +95,7 @@ export class AsciiRenderer {
     brightness = .02;
     performanceScale = 1;
     software = null;
+    pixelPresentation = null;
     frame = 0;
     fpsStart = performance.now();
     fps = 0;
@@ -217,6 +219,11 @@ export class AsciiRenderer {
         const c = this.canvas.getContext('2d');
         if (!c)
             return;
+        if (this.renderMode === 'glyph-pixel') {
+            this.pixelPresentation ??= new GlyphPixelPresentation();
+            this.pixelPresentation.present(this.source, this.canvas, c, this.crop(), this.pixelDetail, this.performanceScale);
+            return;
+        }
         const rect = this.canvas.getBoundingClientRect(), dpr = this.canvas.width / (rect.width || W);
         const cell = canvasGlyphCell(Math.max(5, Math.min(10, (rect.width || W) / 130)) * dpr, this.getGraphics(), this.canvas.width, this.canvas.height);
         const cw = Math.ceil(cell.width * this.performanceScale), ch = Math.ceil(cell.height * this.performanceScale);
