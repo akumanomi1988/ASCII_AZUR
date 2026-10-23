@@ -1183,7 +1183,7 @@ test('Q3 journey: new-game to all four finale branches with earned captures, bat
    approach(item);return item;
   };
   const visitNpc=id=>{game.interactLandmark(site('npc',id));settle();};
-  const heal=()=>{settle();game.interactLandmark(site('altar'));heals++;};
+  const heal=()=>{settle();game.interactLandmark(site('altar'));heals++;if(game.modalOpen&&typeof dom.get('bondWard').onclick==='function'){dom.get('bondWard').onclick();settle();}};
   const portal=x=>{settle();const p=world.ZONES[game.save.zone].landmarks.find(l=>l.kind==='portal'&&(x<10?l.x<10:l.x>20));assert.ok(p);approach(p);game.interactLandmark(p);settle();};
   const witness=e=>{approach({...e,label:e.id});game.interact();assert.equal(game.battle?.enemy.speciesId,e.speciesId,'visible roaming encounter skipped');doBattle();assert.ok(game.save.flags.includes('roamer-'+e.id),'witness not resolved');};
   settle();visitNpc('archivist');

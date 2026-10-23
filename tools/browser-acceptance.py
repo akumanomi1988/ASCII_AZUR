@@ -164,6 +164,28 @@ window.addEventListener('load',()=>setTimeout(async()=>{
   check($('zoneSubtitle').textContent.includes('última palabra'),'The authored Crown region subtitle is missing');
   check($('titleScreen').classList.contains('hidden'),'Crown resume unexpectedly reopened title');
   await captureZone('spire');
+  // P3 complete optional creature-bond loop: saved evolution + memory + altar
+  // -> irreversible choice -> combat trait persistence -> no duplicate claim.
+  const bondSave=JSON.parse(saved);
+  bondSave.zone='forest';
+  const altar=bondSave.worldSnapshot?.poi?.forest?.[1]||[17,16];
+  bondSave.x=altar[0];bondSave.y=altar[1];
+  bondSave.team[0].speciesId='cinderwulf';bondSave.team[0].level=9;bondSave.team[0].hp=1;
+  bondSave.flags=[...new Set([...bondSave.flags,'pilgrim-met','roamer-forest-0','roamer-forest-1','roamer-forest-2'])];
+  localStorage.setItem('ascii-azur-save-v1',JSON.stringify(bondSave));
+  $('continue').click();
+  $('touchInteract').click();
+  check(!$('modal').classList.contains('hidden'),'Eligible Forest bond altar did not open a choice');
+  check($('modalTitle').textContent.includes('JURAMENTO'),'Bond trial was not named');
+  check(!!$('bondFang')&&!!$('bondWard'),'Two bond outcomes not selectable');
+  $('bondFang').click();
+  const bound=JSON.parse(localStorage.getItem('ascii-azur-save-v1'));
+  check(bound.flags.includes('bond-ember-fang'),'Bond choice not persisted immediately');
+  check(!bound.flags.includes('bond-ember-ward'),'Opposing bond choice was also granted');
+  for(let i=0;i<3;i++)$('closeDialogue').click();
+  $('touchInteract').click();
+  check($('modal').classList.contains('hidden'),'Claimed bond can be repeated at altar');
+  check(JSON.parse(localStorage.getItem('ascii-azur-save-v1')).flags.filter(f=>f==='bond-ember-fang').length===1,'Duplicated bond reward');
   check(window.__azurErrors.length===0,'JS errors: '+window.__azurErrors.join(' | '));
   document.body.dataset.azurQa='PASS';
  }catch(error){document.body.dataset.azurQa='FAIL: '+error.message;console.error(error)}
