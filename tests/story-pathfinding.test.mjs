@@ -56,6 +56,6 @@ test('route cache invalidates when the same seed loads an altered snapshot',()=>
 });
 test('non-navigable story states do not invent waypoints',()=>{
  const s=story(['archivist','zone-forest','zone-sanctuary','arken-vow-restored'],true,true);
- assert.ok(!storyGuidance(s,pose('village',4,16)).waypoint);
+ assert.ok(storyGuidance(s,pose('village',4,16)).waypoint,'Arken finale should unlock Marsh compass');
  assert.ok(!storyGuidance(story(),{...pose('village',4,16),inDungeon:true}).waypoint);
 });

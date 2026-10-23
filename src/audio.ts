@@ -1,5 +1,5 @@
 /** ASCII AZUR procedural score: all sounds are synthesized locally with Web Audio. */
-export type MusicScene = 'title' | 'village' | 'forest' | 'sanctuary' | 'battle' | 'boss';
+export type MusicScene = 'title' | 'village' | 'forest' | 'sanctuary' | 'marsh' | 'battle' | 'boss';
 type Note = number | null;
 type Theme = {
   bpm: number; root: number; mode: readonly number[];
@@ -11,6 +11,7 @@ const themes:Record<MusicScene,Theme> = {
   village:{bpm:78,root:48,mode:[0,2,3,5,7,8,10],melody:[0,null,2,3,4,null,3,null,2,null,0,null,-2,0,null,null],bass:[0,null,null,null,-2,null,null,null,-4,null,null,null,-2,null,null,null],chords:[[0,2,4],[-2,0,2],[-4,-2,0],[-2,0,3]],texture:'warm'},
   forest:{bpm:66,root:45,mode:[0,2,3,5,7,8,10],melody:[0,null,null,2,3,null,null,2,4,null,3,null,1,null,-2,null],bass:[0,null,null,null,-2,null,null,null,-4,null,null,null,-2,null,null,null],chords:[[0,2,4],[-2,0,2],[-4,-2,0],[-2,0,3]],texture:'mist'},
   sanctuary:{bpm:56,root:45,mode:[0,1,3,5,7,8,10],melody:[0,null,null,null,3,null,2,null,5,null,null,3,1,null,-1,null],bass:[0,null,null,null,-3,null,null,null,-4,null,null,null,-1,null,null,null],chords:[[0,2,4],[-3,-1,1],[-4,-2,0],[-1,1,3]],texture:'void'},
+  marsh:{bpm:62,root:43,mode:[0,2,3,5,7,8,10],melody:[0,null,3,null,2,1,null,-2,0,null,4,3,1,null,-2,null],bass:[0,null,null,null,-4,null,null,null,-2,null,null,null,-5,null,null,null],chords:[[0,2,4],[-4,-2,0],[-2,0,2],[-5,-2,1]],texture:'mist'},
   battle:{bpm:126,root:45,mode:[0,2,3,5,7,8,10],melody:[0,0,4,null,3,2,4,null,5,4,3,2,0,null,-2,0],bass:[0,null,0,null,-2,null,-2,null,-4,null,-4,null,-2,null,-2,null],chords:[[0,2,4],[-2,0,2],[-4,-2,0],[-2,0,3]],texture:'percussion'},
   boss:{bpm:144,root:43,mode:[0,1,3,5,7,8,10],melody:[0,null,3,2,1,0,-2,null,4,3,5,null,3,1,0,-2],bass:[0,null,0,null,-1,null,-1,null,-4,null,-4,null,-2,null,-2,null],chords:[[0,2,4],[-1,1,3],[-4,-2,0],[-2,0,2]],texture:'percussion'}
 };
@@ -18,13 +19,14 @@ export type AmbienceProfile={gain:number;lowpassHz:number;modulation:number};
 /** Ambient soundbed uses one looping seeded-noise buffer, no samples or streaming. */
 export function ambienceForScene(scene:MusicScene):AmbienceProfile{
  switch(scene){case 'forest':return{gain:.14,lowpassHz:450,modulation:.35};
+ case 'marsh':return{gain:.20,lowpassHz:340,modulation:.48};
  case 'sanctuary':return{gain:.17,lowpassHz:240,modulation:.18};
  case 'village':return{gain:.06,lowpassHz:650,modulation:.12};
  case 'battle':return{gain:.045,lowpassHz:1100,modulation:.1};
  case 'boss':return{gain:.085,lowpassHz:310,modulation:.2};
  default:return{gain:.035,lowpassHz:600,modulation:.15};}
 }
-export function themeForZone(zone:'village'|'forest'|'sanctuary'):MusicScene{return zone;}
+export function themeForZone(zone:'village'|'forest'|'sanctuary'|'marsh'):MusicScene{return zone;}
 export function midiFrequency(midi:number):number{return 440*Math.pow(2,(midi-69)/12);}
 /** Scaled degree -> chromatic offset, supporting degrees below zero. */
 export function degreeSemitone(degree:number,mode:readonly number[]):number {

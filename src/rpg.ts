@@ -9,6 +9,7 @@ export const NPCS={
  archivist:{name:'El Archivista',color:'#91a9a0',role:'La memoria de Azur'},
  merchant:{name:'Mara, la Buhonera',color:'#cfa36f',role:'Mercader de ecos'},
  scout:{name:'Iria, la Vigía',color:'#91b4cf',role:'Exploradora de Arken'},
+ nael:{name:'Nael, Cartógrafa del Olvido',color:'#7bd3c4',role:'Custodia de los reflejos'},
  pilgrim:{name:'El Peregrino',color:'#a8c692',role:'Viajero extraviado'},
  keeper:{name:'Custodia del Umbral',color:'#b4a1d8',role:'Observadora del santuario'}
 } as const;

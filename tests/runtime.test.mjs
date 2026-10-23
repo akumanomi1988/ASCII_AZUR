@@ -4,6 +4,8 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import {dungeonTilePath} from './helpers/dungeon-path.mjs';
 import {damage, MOVES, maxHp} from '../dist/domain.js';
+import {createCreature as createCharacter} from '../dist/domain.js';
+import {generateDungeon as makeCrypt} from '../dist/dungeons/labyrinth.js';
 const fakeContext={
  clearRect(){},fillRect(){},fillText(){},beginPath(){},moveTo(){},lineTo(){},closePath(){},fill(){},stroke(){},translate(){},scale(){},save(){},restore(){},ellipse(){},quadraticCurveTo(){},setTransform(){},rotate(){},arc(){},rect(){},strokeRect(){},putImageData(){},drawImage(){},
  createLinearGradient(){return{addColorStop(){}}},createRadialGradient(){return{addColorStop(){}}},
@@ -168,7 +170,7 @@ test('runtime: main quest provides guided stages and concludes once when Archivi
  game.save.dungeon.active=false;const before=game.economy.echoes,seals=game.save.inventory.seals;
  game.interactNpc('archivist');assert.equal(game.save.flags.filter(f=>f==='arken-vow-restored').length,1);
  assert.equal(game.economy.echoes,before+200);assert.equal(game.save.inventory.seals,seals+4);
- assert.match(dom.get('missionChip').textContent,/COMPLETADO/);
+ assert.match(dom.get('missionChip').textContent,/MARISMAS/,'completed Arken now unlocks the next chapter');
  for(let i=0;i<26;i++)game.nextDialog();
  game.interactNpc('archivist');assert.equal(game.economy.echoes,before+200);
  assert.equal(game.save.flags.filter(f=>f==='arken-vow-restored').length,1);
@@ -274,7 +276,7 @@ test('runtime: Arken progression resolves all crypt events through actual moveme
  assert.equal(game.save.flags.filter(x=>x==='arken-vow-restored').length,1);
  assert.equal(game.economy.echoes,beforeEchoes+200);
  assert.equal(game.save.inventory.seals,beforeSeals+4);
- assert.match(dom.get('missionChip').textContent,/COMPLETADO/);
+ assert.match(dom.get('missionChip').textContent,/MARISMAS/,'completed Arken now unlocks the next chapter');
  game.interactNpc('archivist');while(game.dialogOpen)game.nextDialog();
  assert.equal(game.economy.echoes,beforeEchoes+200);
  assert.ok(storage.getItem('ascii-azur-save-v1'));
@@ -903,4 +905,87 @@ test('runtime: Arken lessons give one-time earned party XP and Iria tonics; repl
  assert.ok(restored.game.save.team[0].level>=level);
  assert.equal(restored.game.save.flags.filter(f=>f==='training-cindrel').length,1);
  assert.ok(restored.game.save.team[0].exp!==exp||restored.game.save.team[0].level>level,'normal repeat experience still works');
+});
+
+/** Chapter II walkthrough with normal combat commands. The Arken-ending and
+ * post-boss party are fixtures: chapter encounters themselves grant real wins.
+ * This verifies the sequel chapter, not a claim of end-to-end new-game traversal. */
+test('N2: both moral endings resolve from seeded Marsh exploration, real combat and v1 save reload',()=>{
+ const createCreature=createCharacter;
+ const outcomes=[];
+ for(const choice of ['keep','release'])for(const starter of ['cindrel','velaria','thorne'])for(let n=1;n<=3;n++){
+  const world=(Math.imul(n,2246822519))>>>0;
+  const {game,dom,storage,flushTimers}=mount({virtualTime:true,seed:n*421+starter.length*37});
+  dom.set('worldSeedInput',{value:String(world)});
+  game.startNew();game.pickStarter(starter);while(game.dialogOpen)game.nextDialog();
+  game.save.flags.push('archivist','zone-forest','zone-sanctuary','arken-vow-restored');
+  game.save.defeatedBoss=true;
+  game.save.dungeon=makeCrypt(1701);
+  game.save.dungeon.cleared=[2,3,5];
+  game.save.dungeon.finished=true;
+  game.save.dungeon.active=false;
+  // Recreate a completed Chapter-I checkpoint for isolation of N2. C3 separately proves how it is earned.
+  game.save.team=[
+   createCreature(starter,15,()=>.01),
+   createCreature('cinderwulf',14,()=>.02),
+   createCreature('runeowl',14,()=>.03)
+  ];
+  game.save.zone='sanctuary';
+  game.interactLandmark({kind:'portal',x:43,y:16,label:'Marismas'});
+  assert.equal(game.save.zone,'marsh');
+  game.interactNpc('nael');while(game.dialogOpen)game.nextDialog();
+  for(const id of ['bell','lantern']){
+   game.interactLandmark({kind:'memory',npcId:id,x:id==='bell'?19:28,y:16,label:id});
+   while(game.dialogOpen)game.nextDialog();
+  }
+  const roamers=game.roamers();
+  assert.equal(roamers.length,3,'missing three testifiers');
+  let fought=0;
+  for(const witness of roamers){
+   game.interactLandmark({kind:'altar',x:24,y:10,label:'Lumbre'});
+   game.startBattle(witness.speciesId,witness.level,'wild',witness.id);
+   let ticks=0;
+   while(game.battle&&ticks++<80){
+    if(game.battle.busy){flushTimers();continue;}
+    const ally=game.getAlly();
+    if(game.battle.chargeStage===2){game.defend();flushTimers();continue;}
+    if(game.save.inventory.tonics>0&&ally.hp<maxHp(ally)*.35){game.tonic();flushTimers();continue;}
+    const moves=ally.moves.filter(id=>MOVES[id]?.power>0).sort((a,b)=>damage(ally,game.battle.enemy,MOVES[b]).value-damage(ally,game.battle.enemy,MOVES[a]).value);
+    assert.ok(moves.length);game.useMove(moves[0]);flushTimers();
+   }
+   assert.ok(ticks<80,'witness softlocked '+witness.id);
+   assert.ok(game.save.flags.includes('roamer-'+witness.id),'unresolved witness '+witness.id);
+   fought++;
+   while(game.dialogOpen)game.nextDialog();
+   if(game.evolution){game.seconds=game.evolution.startedAt+game.evolution.duration+.3;game.loop(1000);}
+  }
+  assert.equal(fought,3);
+  game.interactLandmark({kind:'verdict',x:36,y:16,label:'Tribunal'});
+  assert.equal(game.modalOpen,true,'verdict should be accessible after the 3 testifiers');
+  assert.match(dom.get('modalContent').innerHTML,/PRESERVAR/);
+  assert.match(dom.get('modalContent').innerHTML,/LIBERAR/);
+  const before=game.economy.echoes,seal=game.save.inventory.seals,tonic=game.save.inventory.tonics;
+  game.chooseMarsh(choice);while(game.dialogOpen)game.nextDialog();
+  assert.equal(game.economy.echoes,before+180);
+  assert.equal(game.save.inventory.seals,seal+(choice==='keep'?4:0));
+  assert.equal(game.save.inventory.tonics,tonic+(choice==='release'?4:0));
+  const first=JSON.stringify(game.save.flags);
+  game.chooseMarsh(choice==='keep'?'release':'keep');
+  assert.equal(JSON.stringify(game.save.flags),first,'other ending must not be available after choice');
+  game.interactNpc('nael');while(game.dialogOpen)game.nextDialog();
+  assert.ok(game.save.flags.includes('marsh-chapter-complete'));
+  assert.match(dom.get('missionChip').textContent,/COMPLETADO/);
+  assert.equal(game.economy.echoes,before+260,'epilogue gives an additional 80 once');
+  const persisted=storage.getItem('ascii-azur-save-v1');assert.ok(persisted);
+  const restored=mount({virtualTime:true,seed:99,priorSave:persisted});
+  restored.game.continueGame();
+  assert.equal(restored.game.save.zone,'marsh');
+  assert.equal(restored.game.save.flags.filter(x=>x==='marsh-chapter-complete').length,1);
+  const prior=restored.game.economy.echoes;
+  restored.game.interactNpc('nael');
+  assert.equal(restored.game.economy.echoes,prior,'epilogue may not pay twice');
+  outcomes.push({choice,starter,world});
+ }
+ assert.equal(outcomes.length,18);
+ console.log('N2_CHAPTER_ACCEPTANCE '+JSON.stringify({sessions:outcomes.length,choices:2,starters:3,seeds:3,completion:18}));
 });

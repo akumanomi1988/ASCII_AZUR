@@ -34,7 +34,7 @@ test('crypt stage guides to accessible menu without inventing a world coordinate
 test('completed chapter has a stable terminal cue, regardless of location',()=>{
  const s=story(['archivist','zone-forest','zone-sanctuary',ARKEN_FINALE_FLAG],true,true);
  for(const zone of ['village','forest','sanctuary']){
- const cue=storyGuidance(s,position(zone,20,16));assert.equal(cue.kind,'completed');assert.equal(cue.distance,null);
+ const cue=storyGuidance({...s,flags:[...s.flags,'marsh-chapter-complete']},position(zone,20,16));assert.equal(cue.kind,'completed');assert.equal(cue.distance,null);
  }
 });
 test('future story flags alone do not skip the Archivist requirement',()=>{

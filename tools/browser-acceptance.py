@@ -109,6 +109,16 @@ window.addEventListener('load',()=>setTimeout(async()=>{
   check(info.includes(new URLSearchParams(location.search).has('fallback')?'Canvas2D':'WebGL2'),'Incorrect graphics backend: '+info);
   $('closeModal').click();
   check($('modal').classList.contains('hidden'),'Settings did not close');
+  // Rehydrate a compatible chapter-II location under the same real Chromium
+  // graphics/backend combination; the full journey is tested in Node runtime.
+  const marshSave=JSON.parse(saved);
+  marshSave.zone='marsh';marshSave.x=4;marshSave.y=16;
+  marshSave.flags=[...new Set([...marshSave.flags,'arken-vow-restored','zone-marsh','marsh-met-nael'])];
+  localStorage.setItem('ascii-azur-save-v1',JSON.stringify(marshSave));
+  $('continue').click();
+  check($('zoneName').textContent==='Marismas del Espejo Roto','Marsh resume did not restore its new biome');
+  check($('zoneSubtitle').textContent.includes('vidas'),'Missing authored Marsh subtitle');
+  check($('titleScreen').classList.contains('hidden'),'Resume unexpectedly reopened title');
   check(window.__azurErrors.length===0,'JS errors: '+window.__azurErrors.join(' | '));
   document.body.dataset.azurQa='PASS';
  }catch(error){document.body.dataset.azurQa='FAIL: '+error.message;console.error(error)}
