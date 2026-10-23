@@ -39,18 +39,26 @@ window.addEventListener('load',()=>setTimeout(async()=>{
  const check=(ok,msg)=>{if(!ok)throw Error(msg)};
  try{
   const $=id=>document.getElementById(id);
+  let previousZoneImage='';
   const captureZone=async zone=>{
-   window.__azurQaAdvance();
-   await new Promise(resolve=>setTimeout(resolve,160));
-   check($('zoneName').textContent===({
-    village:'Velo de Arken',forest:'Bosque de Ceniza',sanctuary:'Santuario sin Voz',
-    marsh:'Marismas del Espejo Roto',spire:'Corona de lo No Escrito',
-    ossuary:'Osario de las Mareas',garden:'Jardín de la Última Escarcha'
-   })[zone],'Wrong region before screenshot: '+zone);
+   let image='';
+   for(let attempt=0;attempt<6;attempt++){
+    window.__azurQaAdvance();
+    await new Promise(resolve=>setTimeout(resolve,180));
+    check($('zoneName').textContent===({
+     village:'Velo de Arken',forest:'Bosque de Ceniza',sanctuary:'Santuario sin Voz',
+     marsh:'Marismas del Espejo Roto',spire:'Corona de lo No Escrito',
+     ossuary:'Osario de las Mareas',garden:'Jardín de la Última Escarcha'
+    })[zone],'Wrong region before screenshot: '+zone);
+    image=$('game').toDataURL('image/png');
+    if(image!==previousZoneImage)break;
+   }
+   check(image!==previousZoneImage,'Renderer held a stale frame after entering '+zone);
+   previousZoneImage=image;
    const params=new URLSearchParams(location.search);
    const capture=await fetch('/__qa_capture?mode='+encodeURIComponent(params.get('mode')||'ascii')+
     '&fallback='+(params.has('fallback')?'1':'0')+'&zone='+zone,
-    {method:'POST',body:$('game').toDataURL('image/png')});
+    {method:'POST',body:image});
    check(capture.ok,'Canvas screenshot failed: '+zone);
   };
   check($('game')&&$('newGame'),'Missing game bootstrap');
