@@ -647,11 +647,32 @@ class AzurGame {
       `<div class="modal-content-block">TRES JURAMENTOS · ${vows.claimed?'RECOMPENSA RECLAMADA':vows.ready?'REGRESA A LA CUSTODIA PARA RECLAMAR':vows.resolved+'/3 RETOS RESUELTOS'}</div>`+
       `<div class="modal-content-block">Equipo consciente: ${this.save.team.filter(c=>c.hp>0).length}/${this.save.team.length} · Tónicos: ${this.save.inventory.tonics} · Sellos: ${this.save.inventory.seals}. Cura en las Lumbres y prepara ataques de Ceniza para Hollowhart (Raíz). Este mapa táctico no inicia combates ni altera tu partida.</div>`);
   }
+  /** Authored moral fork: only unlocked by two recovered memories and three resolved testifiers. */
+  private openMarshVerdict(){
+    if(this.save.zone!=='marsh'||!this.started||this.battle)return;
+    const p=marshChapterProgress(this.save.flags);
+    if(p.choice){this.dialog([{title:'TRIBUNAL DEL REFLEJO',text:'La sentencia está grabada para siempre. Habla con Nael para escuchar su consecuencia.'}]);return;}
+    if(!p.verdictReady){this.dialog([{title:'TRIBUNAL SELLADO',text:`El Tribunal exige dos recuerdos (${p.memories}/2), tres testigos (${p.encounters}/3) y la voz de Nael.`}]);return;}
+    this.showModal('TRIBUNAL DEL REFLEJO',`<div class="modal-content-block"><strong>CAPÍTULO II · DECISIÓN IRREVERSIBLE</strong><p>Dos vidas que nunca fueron reales piden destinos opuestos. Conserva sus nombres y acepta el dolor, o libéralos para que los vivos puedan avanzar.</p></div><div class="modal-option"><div><strong>PRESERVAR</strong><small>180 Ecos + 4 Sellos. Los nombres vivirán en el Atlas.</small></div><button data-marsh-choice="keep">PRESERVAR</button></div><div class="modal-option"><div><strong>LIBERAR</strong><small>180 Ecos + 4 Tónicos. Las sombras podrán descansar.</small></div><button data-marsh-choice="release">LIBERAR</button></div>`);
+    for(const b of byId('modalContent').querySelectorAll<HTMLButtonElement>('[data-marsh-choice]'))b.onclick=()=>this.chooseMarsh(b.dataset.marshChoice==='keep'?'keep':'release');
+  }
+  private chooseMarsh(choice:MarshChoice){
+    if(!marshDecision(this.save.flags,choice).newlyDecided)return;
+    const r=MARSH_REWARDS[choice];
+    this.addFlag(choice==='keep'?'marsh-choice-keep':'marsh-choice-release');
+    this.economy.echoes=Math.min(999999,this.economy.echoes+r.echoes);
+    this.save.inventory.seals=Math.min(9999,this.save.inventory.seals+r.seals);
+    this.save.inventory.tonics=Math.min(9999,this.save.inventory.tonics+r.tonics);
+    this.hideModal();this.sound.pick();this.saveNow(false);
+    this.dialog([{title:'EL ESPEJO SE QUIEBRA',text:choice==='keep'?'La campana vuelve a sonar. Las vidas imposibles seguirán siendo recordadas por Nael.':'Los faroles se apagan en calma. Ningún nombre volverá a ser obligado a permanecer.'},{title:'EL CAMINO CONTINÚA',text:'Regresa a Nael para cerrar el Atlas y escuchar tu epílogo.'}]);
+  }
   private openQuests(){if(!this.started)return;
     const step=arkenStoryIndex(this.storyState),beat=this.storyBeat();
     const mainQuest=`<div class="modal-content-block"><strong>ARCO PRINCIPAL · ${Math.min(step,6)}/6 ETAPAS</strong><p>${htmlEscape(beat.objective)}</p>${htmlEscape(beat.hint)}</div>`+
       ARKEN_STORY.slice(0,6).map((chapter,i)=>`<div class="modal-option"><div><strong>${htmlEscape(chapter.title)}</strong><small>${htmlEscape(chapter.objective)}</small></div><span class="quest-state ${i<step?'done':''}">${i<step?'✓ HECHA':i===step?'ACTUAL':'PENDIENTE'}</span></div>`).join('');
-    this.showModal('DIARIO · MISIONES',mainQuest+`<div class="shop-balance">${this.economy.echoes} ECOS · ${this.economy.completed.length}/${QUESTS.length} ENCARGOS SECUNDARIOS</div>`+QUESTS.map(q=>`<div class="modal-option"><div><strong>${htmlEscape(q.name)}</strong><small>${htmlEscape(q.description)}</small><small>RECOMPENSA · ${q.reward} ECOS</small></div><span class="quest-state ${this.economy.completed.includes(q.id)?'done':''}">${this.economy.completed.includes(q.id)?'✓ HECHA':'PENDIENTE'}</span></div>`).join(''));
+    const marsh=marshChapterProgress(this.save.flags);
+    const chapter=this.flag('arken-vow-restored')?`<div class="modal-content-block"><strong>CAPÍTULO II · ${htmlEscape(marsh.title.toUpperCase())} · ${marsh.stage}/6</strong><p>${htmlEscape(marsh.objective)}</p>${htmlEscape(marsh.hint)}</div><div class="modal-option"><div><strong>ESPEJOS DE LA MARISMA</strong><small>${marsh.memories}/2 recuerdos · ${marsh.encounters}/3 testigos · ${marsh.choice?marsh.choice==='keep'?'PRESERVAR':'LIBERAR':'DECISIÓN PENDIENTE'}</small></div><span class="quest-state ${marsh.complete?'done':''}">${marsh.complete?'✓ CERRADO':'EN CURSO'}</span></div>`:'';
+    this.showModal('DIARIO · MISIONES',mainQuest+chapter+`<div class="shop-balance">${this.economy.echoes} ECOS · ${this.economy.completed.length}/${QUESTS.length} ENCARGOS SECUNDARIOS</div>`+QUESTS.map(q=>`<div class="modal-option"><div><strong>${htmlEscape(q.name)}</strong><small>${htmlEscape(q.description)}</small><small>RECOMPENSA · ${q.reward} ECOS</small></div><span class="quest-state ${this.economy.completed.includes(q.id)?'done':''}">${this.economy.completed.includes(q.id)?'✓ HECHA':'PENDIENTE'}</span></div>`).join(''));
   }
   private openCodex(){if(!this.started)return;const known=new Set([...this.save.team,...this.save.storage].map(c=>c.speciesId));this.showModal('CÓDICE · VÍNCULOS',`<div class="modal-content-block">${known.size} / ${Object.keys(SPECIES).length} especies vinculadas.</div>`+Object.values(SPECIES).map(sp=>`<div class="modal-option"><div><strong style="color:${sp.color}">${known.has(sp.id)?htmlEscape(sp.name):'??????'}</strong><small>${known.has(sp.id)?htmlEscape(sp.title+' · '+sp.element+' · '+sp.desc):'Esta criatura aún no ha compartido su nombre.'}</small></div></div>`).join(''));}
   private revealPosition(){if(!this.save.worldSeed)return;const x=Math.floor(this.save.x),y=Math.floor(this.save.y);const mark=x+y*WORLD_W+(['village','forest','sanctuary','marsh'].indexOf(this.save.zone)*WORLD_W*WORLD_H);if(this.lastReveal===mark)return;this.lastReveal=mark;this.save.discovered=reveal(this.save.discovered,this.save.zone as ZoneId,x,y,4.8);}
@@ -820,11 +841,19 @@ class AzurGame {
   }
   private updateUI(){this.updateStoryCompass();const z=ZONES[this.save.zone as ZoneId];byId('zoneName').textContent=this.save.dungeon?.active?'Cripta de los Ecos':z.name;byId('zoneSubtitle').textContent=this.save.dungeon?.active?`${chamberAt(this.save.dungeon,this.save.dungeon.x,this.save.dungeon.y).name} · SELLOS ${chamberProgress(this.save.dungeon).completed}/3`:z.subtitle;byId('locationChip').textContent=this.save.dungeon?.active?'CRIPTA DE LOS ECOS':z.name.toUpperCase();byId('teamCount').textContent=String(this.save.team.length);byId('echoCount').textContent=String(this.economy.echoes);byId('rosterNum').textContent=`${this.save.team.length}/6`;byId('roster').innerHTML=this.save.team.length?this.save.team.map(c=>{const s=SPECIES[c.speciesId]!;return `<div class="creature-row"><div class="creature-icon" style="color:${s.color}">${s.shape===0||s.shape===5?'♨':s.shape===2?'✣':s.shape===4?'✶':s.shape===6?'♜':'◈'}</div><div><strong>${htmlEscape(s.name)} <span style="color:#839da1;font:9px monospace">LV ${c.level}</span></strong><small>${s.element.toUpperCase()} · ${c.hp}/${maxHp(c)} HP</small><div class="mini-health"><div style="width:${c.hp/maxHp(c)*100}%"></div></div></div></div>`;}).join(''):'<div class="roster-empty">Aún no tienes vínculos.</div>';
   const step=arkenStoryIndex(this.storyState),beat=this.storyBeat();
+  if(step===6){const marsh=marshChapterProgress(this.save.flags);
+    byId('fragBar').style.width=(marsh.stage/6*100)+'%';
+    byId('fragments').textContent=`${marsh.stage} / 6 HITOS DEL ESPEJO`;
+    byId('missionChip').textContent=marsh.complete?'CAPÍTULO II COMPLETADO':marsh.objective.toUpperCase();
+    byId('journalText').textContent=marsh.hint;
+    byId('quest').innerHTML=`<div class="quest-icon">${marsh.complete?'✦':'◇'}</div><div><small>${marsh.complete?'CAPÍTULO II COMPLETADO':`CAPÍTULO II · MISIÓN ${marsh.stage+1}/6`}</small><strong>${htmlEscape(marsh.title)}</strong><span>${htmlEscape(marsh.objective)}</span></div>`;
+  }else{
   byId('fragBar').style.width=(Math.min(step,6)/6*100)+'%';
   byId('fragments').textContent=`${Math.min(step,6)} / 6 HITOS DE ARKEN`;
   byId('missionChip').textContent=step===6?'ARCO DE ARKEN COMPLETADO':beat.objective.toUpperCase();
   byId('journalText').textContent=beat.hint;
   byId('quest').innerHTML=`<div class="quest-icon">${step===6?'✦':'◇'}</div><div><small>${step===6?'HISTORIA COMPLETADA':`MISIÓN PRINCIPAL · ${step+1}/6`}</small><strong>${htmlEscape(beat.title)}</strong><span>${htmlEscape(beat.objective)}</span></div>`;
+  }
   }
 
   private loop=(now:number)=>{this.pollGamepad();if(this.last>0)this.frameMetrics.add(now-this.last);const dt=Math.min(.055,(now-this.last)/1000||0);this.last=now;this.seconds+=dt;this.flash=Math.max(0,this.flash-dt*1.7);if(this.started&&!this.dialogOpen&&!this.modalOpen&&!this.battle&&!this.evolution&&!byId('gameDrawer').classList.contains('open')){this.move(dt);this.save.playSeconds+=dt;this.timeSinceSave+=dt;if(this.timeSinceSave>90){this.timeSinceSave=0;this.saveNow(false);}}
