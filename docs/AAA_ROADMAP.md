@@ -167,3 +167,10 @@ The authored three-chapter storyline now has a scripted conclusion and automated
 - **Performance:** decoration caches skip blank tiles and points of interest; first-run Canvas2D enables adaptive glyph performance at scale 1.6 (user preferences override). New pure regressions bound decoration density across all seven biomes and assert frozen world snapshots do not change.
 - **Acceptance evidence required:** TypeScript, Node, release/PWA audit, Chromium ASCII/Pixel × WebGL2/Canvas2D screenshot matrix for all seven regions, independent before/after inspection at desktop and mobile resolution, and published Pages provenance. G2 remains OPEN until images prove >=90% scene/object readability to human reviewers; G4 awaits real minimum-device FPS.
 - The fixed 32-milestone method is unchanged. This is a technically integrated art-direction improvement, not a fabricated AAA acceptance or percentage increase.
+
+
+## Macroiteration — autonomous save durability and accessible combat (v0.43 candidate, 2026-10-23)
+
+- Q2 implementation hardening: require readback of the rotated backup before advancing the primary, simulate 9,000 interleaved three-slot writes with deterministic quota/torn-write/stale-session faults, and preserve frozen original terrain across five legacy v1 snapshot migrations. The async/browser storage-transaction limitation is still explicitly tracked; genuine multi-device concurrency/long-play signoff remains outside autonomous CI.
+- U3 implementation hardening: keyboard focus enters and exits story dialogs correctly, restored combat actions regain focus after a turn, health bars expose dynamic numeric ARIA values, starter/dialog overlays and feedback have semantic roles, and mute exposes a toggle state. Static contrast/markup checks and Chromium integration cover both render modes and backends.
+- These are implementation gates, not a reinterpretation of the fixed 32 binary acceptance milestones. C4/W4/N4/P4/G2/G4/U2/U4/A4/Q4 still require external/hardware evidence. Do not claim a full-product 90% until the fixed acceptance score supports it.

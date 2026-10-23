@@ -1,4 +1,6 @@
-# ASCII AZUR v0.42.0 — The Unwritten
+# ASCII AZUR v0.43.0 — The Unwritten
+
+> **v0.43 candidate — autonomous reliability and accessibility:** resilient backup confirmation before primary rotation, 9,000 fault-injected multi-slot save operations, legacy three-region snapshot upgrade checks, keyboard focus recovery across narrative screens and combat, semantic HP meters, spoken narrative updates, and correctly exposed mute/notification states. This advances implementation evidence only; external device/user acceptance is still required.
 
 > **v0.42 candidate — Glyph Pixel Art clarity:** 90%+ fewer decorative route marks, neutral negative-space around important landmarks, quieter soil/water/grass, five-bit contiguous-cell pixel color, and reduced random glyphs on flat surfaces. Both WebGL2 and Canvas2D use matching material thresholds. Canvas2D first-run starts with adaptive glyph pacing while honoring saved preferences. Visual acceptance and real Android performance remain open.
 

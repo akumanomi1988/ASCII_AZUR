@@ -67,9 +67,12 @@ window.addEventListener('load',()=>setTimeout(async()=>{
   $('worldSeedInput').value='AZUR-QA-STABLE-SEED';
   $('newGame').click();
   check(document.querySelectorAll('#starters button').length===3,'Missing starters');
+  check(document.activeElement?.matches('#starters button'),'Starter selection is not keyboard-focused');
   document.querySelector('#starters button').click();
+  check(document.activeElement?.id==='dialogue','Story dialogue lacks modal keyboard focus');
   for(let i=0;i<4;i++)$('closeDialogue').click();
   check($('dialogue').classList.contains('hidden'),'Intro dialogue not dismissed');
+  check(document.activeElement?.id==='viewport','Closing dialogue did not restore game focus');
   // Allow an actual animation frame after scene transition before capturing pixels.
   await new Promise(resolve=>setTimeout(resolve,180));
   const saved=localStorage.getItem('ascii-azur-save-v1');
@@ -271,6 +274,9 @@ window.addEventListener('load',()=>setTimeout(async()=>{
   $('continue').click();
   check(!$('battle').classList.contains('hidden'),'Saved battle did not restore');
   check(document.querySelectorAll('#battleActions button').length>=4,'Missing tactical battle actions');
+  check($('enemyHealthTrack').getAttribute('aria-valuenow')===$('enemyHpText').textContent.split('/')[0],'Enemy HP is not exposed as progressbar');
+  check($('allyHealthTrack').getAttribute('aria-valuemax')===$('allyHpText').textContent.split('/')[1],'Ally HP maximum is not exposed');
+  check($('battleActions').getAttribute('role')==='group','Battle actions lack semantic grouping');
   const attack=document.querySelector('#battleActions .battle-move:not([disabled])');
   check(!!attack,'No usable player attack');
   attack.click();
