@@ -13,6 +13,7 @@ import {FrameMetrics} from './core/frame-metrics.js';
 import {AdaptiveGlyphs} from './core/adaptive-glyphs.js';
 import {storyGuidance} from './story-navigation.js';
 import {ARKEN_STORY, ARKEN_FINALE_REWARD, arkenStoryBeat, arkenStoryIndex, concludeArken, canConcludeArken, guardianPreparation, guardianRecommendedLead, sanctuaryRoutePlan, sanctuaryOathProgress, SANCTUARY_OATHS_FLAG, SANCTUARY_OATHS_REWARD, type ArkenStoryState} from './story-campaign.js';
+import {marshChapterProgress,marshDecision,marshFinish,MARSH_REWARDS,type MarshChoice} from './story-marsh.js';
 import {readSave,writeSave} from './core/save-store.js';
 import {transferStoredCreature,reserveCreature,grantPartyExperience} from './party.js';
 import {createCombatCue,sampleCombatCue,guardDamage,type CombatCue,type FxKind,type CombatSide} from './actors/combat-fx.js';
@@ -256,7 +257,25 @@ class AzurGame {
     case 'rune':this.openRune(this.save.zone as RuneLocation);break;
     case 'altar':{const firstVisit=!this.flag('altar-'+this.save.zone);const awarded=firstVisit&&this.save.inventory.seals<9;this.save.team.forEach(c=>c.hp=maxHp(c));if(awarded)this.save.inventory.seals++;this.encounterCooldown=4;this.addFlag('altar-'+this.save.zone);this.sound.pick();this.toast(awarded?'VÍNCULOS SANADOS · +1 SELLO POR DESCUBRIR LA LUMBRE':'VÍNCULOS SANADOS · SIN NUEVO SELLO');this.saveNow(false);break;}
     case 'chest':{const id=`chest-${this.save.zone}-${l.x}`;if(this.flag(id)){this.toast('EL COFRE ESTÁ VACÍO');break;}this.addFlag(id);this.save.inventory.seals+=3;this.save.inventory.tonics+=2;this.economy.echoes+=25;this.sound.pick();this.dialog([{title:'Un juramento olvidado',text:'Encuentras 3 Sellos de Vínculo, 2 Tónicos y 25 Ecos. El metal conserva una inscripción: «Nadie desaparece mientras alguien lo recuerde».'}]);break;}
-    case 'portal':{let next:ZoneId;if(this.save.zone==='village')next='forest';else if(this.save.zone==='forest')next=l.x<10?'village':'sanctuary';else next='forest';this.save.zone=next;this.cameraZone='';this.sound.setScene(themeForZone(next));this.save.x=l.x>20?4:40;this.save.y=16;this.encounterCooldown=5;this.lastReveal=-1;this.revealPosition();this.addFlag('zone-'+next);this.sound.portal();this.toast('ENTRAS EN '+ZONES[next].name.toUpperCase());this.saveNow(false);this.updateUI();break;}
+    case 'memory':{
+      if(this.save.zone!=='marsh'||!this.flag('marsh-met-nael')){this.dialog([{title:'EL RECUERDO CERRADO',text:'Habla primero con Nael, la cartógrafa de las Marismas.'}]);break;}
+      const id=l.npcId==='bell'?'bell':'lantern',flag='marsh-memory-'+id;
+      if(this.flag(flag)){this.toast('ESTE RECUERDO YA ESTÁ RESTAURADO');break;}
+      this.addFlag(flag);this.sound.pick();this.saveNow(false);
+      this.dialog(id==='bell'
+        ?[{title:'LA CAMPANA SUMERGIDA',text:'Escuchas el nombre de una niña que nunca nació. En el reflejo, una madre anciana todavía la recuerda.'},{title:'PRIMERA VIDA',text:'Has salvado la memoria de una posibilidad. Busca el Farol de las Orillas.'}]
+        :[{title:'EL FAROL DE LAS ORILLAS',text:'Un navegante contempla los dos puertos de su vida: el que abandonó y el que nunca existió.'},{title:'SEGUNDA VIDA',text:'El farol revela el camino al Tribunal del Reflejo. Los tres testigos errantes aún reclaman ser escuchados.'}]);break;
+    }
+    case 'verdict':this.openMarshVerdict();break;
+    case 'portal':{
+      let next:ZoneId;
+      if(this.save.zone==='village')next='forest';
+      else if(this.save.zone==='forest')next=l.x<10?'village':'sanctuary';
+      else if(this.save.zone==='marsh')next='sanctuary';
+      else if(l.x>20){if(!this.flag('arken-vow-restored')){this.dialog([{title:'LA PUERTA DEL SEGUNDO ECO',text:'Antes de cruzar debes unir la Primera Palabra y el Último Signo con el Archivista de Arken.'}]);break;}next='marsh';}
+      else next='forest';
+      this.save.zone=next;this.cameraZone='';this.sound.setScene(themeForZone(next));this.save.x=l.x>20?4:40;this.save.y=16;this.encounterCooldown=5;this.lastReveal=-1;this.revealPosition();this.addFlag('zone-'+next);this.sound.portal();this.toast('ENTRAS EN '+ZONES[next].name.toUpperCase());this.saveNow(false);this.updateUI();break;
+    }
     case 'guardian':if(this.save.defeatedBoss){this.toast('EL GUARDIÁN DESCANSA');return;}this.prepareGuardianBattle();break;}}
   private checkpointBattle(){
     const b=this.battle;if(!b||!this.started)return;
@@ -431,6 +450,14 @@ class AzurGame {
         this.dialog([{title:'IRIA · TRES LECCIONES',text:'Has dominado los tres desafíos elementales de Arken. Recibes dos Tónicos de Lumbre para cuando las Lumbres queden atrás. La preparación debe servir para algo más que ganar batallas repetidas.'}]);
       }else if(this.flag('pilgrim-met')){this.addFlag('pilgrim-rescued');this.dialog([{title:'Iria, la Vigía',text:'¿Has encontrado al peregrino? El consejo de Arken te lo agradece. Has ganado Ecos para el viaje.'}]);}
       else this.dialog([{title:'Iria, la Vigía',text:`Un peregrino no ha vuelto del bosque. Antes de irte, domina los tres adversarios de COMBATE DIRECTO en Arken: Ceniza, Raíz y Bruma. Lecciones: ${lessons.completed}/3.${lessons.claimed?' Ya recibiste los Tónicos.':''}`}]);
+    }else if(id==='nael'){
+      const p=marshChapterProgress(this.save.flags);
+      if(p.endingReady){
+        if(marshFinish(this.save.flags).newlyFinished){this.addFlag('marsh-chapter-complete');this.economy.echoes=Math.min(999999,this.economy.echoes+80);this.sound.pick();this.saveNow(false);}
+        this.dialog(p.choice==='keep'?[{title:'NAEL · ATLAS DE LAS VIDAS',text:'Preservaste los nombres que nunca existieron. Sus historias perduran, aunque recordar duela.'},{title:'FIN DEL CAPÍTULO II',text:'Nael inscribe las posibilidades perdidas. Recibes 80 Ecos por cerrar el mapa. La marisma conserva tu decisión.'}]
+          :[{title:'NAEL · ATLAS DE LAS VIDAS',text:'Liberaste los nombres imposibles. Su recuerdo no seguirá encadenando a los vivos.'},{title:'FIN DEL CAPÍTULO II',text:'Nael escribe que hubo belleza en aquello que nunca nació. Recibes 80 Ecos por cerrar el mapa.'}]);
+      }else if(p.complete)this.dialog([{title:'NAEL · ATLAS DE LAS VIDAS',text:'Tu elección sigue registrada. El tribunal no volverá a dictar sentencia sobre estas vidas.'}]);
+      else {this.addFlag('marsh-met-nael');this.dialog([{title:'NAEL · CARTÓGRAFA DEL OLVIDO',text:'Arken rescató nombres borrados. Aquí viven los nombres de personas que jamás llegaron a existir.'},{title:'LA CAMPANA Y EL FAROL',text:'Recupera dos recuerdos, vence o vincula a los tres testigos del pantano y acude al Tribunal del Reflejo. Allí deberás elegir qué significa recordar.'}]);}
     }else if(id==='pilgrim'){this.addFlag('pilgrim-met');this.dialog([{title:'El Peregrino',text:'El bosque me robó el camino, pero sigo recordando mi nombre. Di a Iria que sigo vivo. Gracias, Portador.'}]);}
     else if(id==='keeper'){
       const vows=sanctuaryOathProgress(this.save.flags);
