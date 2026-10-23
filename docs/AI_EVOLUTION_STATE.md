@@ -1,255 +1,80 @@
 # ASCII AZUR — Autonomous Evolution State
 
-Updated: 2026-10-23. Latest shipped gameplay change: **v0.32.0 Ecology of the Lost Names, verified main CI, Pages provenance and public browser smoke**. Source: `akumanomi1988/ASCII_AZUR`, release branch `main`, gameplay source `d51c6baf970eea0f59c1f1df767c854e1c6d6442`. Automation does not substitute for physical-device or independent human acceptance.
-
-## Product vision and non-negotiables
-
-Original dark-fantasy creature RPG with dense, continuously shaded ASCII/Unicode glyph art (not a pixel-art background), recognizable silhouettes, turn-based tactical encounters, an authored campaign, deterministic procedural terrain and persistent worlds. Touch controls and HUD must work on Android and desktop. Avoid copyrighted franchise assets. Keep existing `version:1` save compatibility, full visual glyph coverage and the production WebGL2/Canvas2D fallback. Work in one complete vertical slice per invocation.
-
-## Release scope and reality
-
-The current game includes five seeded regions, 17 original species (15 capturable; two unique non-capturable bosses), three authored chapters with four finale combinations, visible/seeded and biome-specific optional encounters, 38 moves, persistent evolutions, a physical crypt, expeditions, procedural maps and version-1 saves. Twelve automated complete new-game-to-ending paths have passed. **This remains below independently accepted premium release quality.** Missing: broader content and balance/playtesting evidence, physical Android performance QA, mastered music, accessibility, player narrative approval and full commercial release acceptance.
-
-## Sixteen-domain quality scorecard (0–5; conservative evidence)
-
-| Domain | Previous | Current v0.32 | Evidence and unclosed acceptance |
-|---|---:|---:|---|
-| Artistic direction | 3 | 3 | Four actor facings; compare readability across biomes with users |
-| ASCII rendering | 3 | 3 | Dense glyph compositor; physical GPU/low-end FPS pending |
-| Animation | 2 | 2 | Authored battle motions; expressive animation coverage pending |
-| World design | 2 | 2 | Five traversable regions and three chapters; diversity and navigation need independent player QA |
-| Procedural generation | 3 | 3 | 200-seed reachability tests; persistent replay QA needed |
-| Exploration | 3 | 3 | Discoveries, runes, visible paths; player reward evaluation pending |
-| Core gameplay | 3 | 3 | Walkable mission routes and repeatable encounters; real-world feel pending |
-| Combat | 3 | 3 | Tactical preview and charged boss; cross-seed win pacing pending |
-| Creatures | 2 | 2 | 15 capturable species, distinct roles/rigs; visual clarity and balance at mobile scale pending |
-| Story and lore | 2 | 2 | Authored trilogy/four endings, 12 automated paths; human narrative/pacing approval absent |
-| Progression | 2 | 2 | First-victory XP plus finite 25% team recovery; full balance pending |
-| UX / HUD | 3 | 3 | Quest guidance; real-device layout and accessibility pending |
-| Mobile | 2 | 2 | Simulated viewports, no sustained physical Android QA |
-| Audio | 3 | 3 | Procedural ambience and combat cues; production mix/themes pending |
-| Technical | 3 | 3 | TS build, 235 Node tests, browser CI and static PWA checks; stress and device profiling pending |
-| Production readiness | 1 | 1 | Automated full campaign and Pages; hardware, accessibility, human playtesting and release hardening missing |
-
-**Average remains 2.5/5 (16 domains), with 0/16 independently verified at ≥4/5.** Technical test gains are not a proxy for subjective player experience; no commercial premium release is claimed.
-
-## Verified work and release baseline
-
-- v0.14: directional hero silhouettes. v0.15: restored microscopic, dense glyph art and faster software glyph rendering. v0.16: differentiated combat choreography. v0.17: six-step authored Arken story. v0.18/0.19: quest compass and walkable path routing. v0.20: optional adaptive glyph FPS controller. v0.21/0.22: move forecasts and capture odds. v0.23: traversable physical crypt. v0.24: real-combat scripted Arken walkthrough and nonblocking boss preparation. v0.25: 50% shared party XP. v0.26: first visible encounter victories give a one-time +48 XP; roamer flags prevent repeats.
-- Previous source baseline on `main`: `ff579e739a309e571b3fdc39dbd9fa4130ceb371` (documentation-only; code v0.26 in `ce9d0e2d2ec43107531dbdf3877ba595b063ced7`). Previous `gh-pages` commit `fdcf992a5a582f37aa4043a7e5ea80b5fb34cf9f`, Pages run `39763347819` SUCCESS. Public `github.io` browser smoke was **not verified**.
-- v0.26.1 diagnosis: despite better first-win XP, route battles exhaust health and lead to repeated return journeys. Change: pure `recoverTrailParty` restores `ceil(maxHp*0.25)` to each conscious ally only on first-win roamer payout; cap at max HP, never revive fainted allies. No new save fields and no economy inflation. Capture, random combat, repeat roamer, boss, sentinel and expedition do not grant this respite. Battle toast communicates the recovery.
-- v0.26.1 acceptance: feature head `b7b9909244e11a87c524a2ef1ccc9136c1f66e72`, GitHub Actions run `39765446134` SUCCESS, **183/183** Node tests PASS, TypeScript build PASS, 31 JS modules/32 cached PWA assets release audit PASS, generated standalone bundle PASS. Tests include no-repeat recovery, persistence, health caps, no revive, and a scripted first-forest combat using real move commands for all three starters. This is virtual-environment combat, **not** a full physical Android or human playthrough.
-- v0.26.1 main merge commit `2724c2579c2316f456ea4697d40bf851415f952a` verified. GitHub Pages provenance and public smoke: **PENDING** until separately verified. Current source changes are not considered released merely because feature CI succeeded.
-
-- v0.26.2 diagnosis: repeated altar interactions awarded +1 capture seal indefinitely, making the core creature-binding economy trivial to bypass. Each altar still heals freely, but its existing `altar-<zone>` flag now permits only one discovery seal (subject to the nine-seal bag cap). Shop purchases and combat income remain renewable; saves `version:1` need no migration. Two new runtime regressions cover regional first visits, repeated healing, old flags, persistence, cap and Mara's paid replenishment.
-- v0.26.2 source release: gameplay commit `8e3c67e543354a558b643898541bcf4e2e528291` on `main`; GitHub Actions `39768946735` SUCCESS: TypeScript build PASS, **185/185** tests PASS, standalone playable bundle PASS, audit PASS (31 compiled JS dependencies, 32 cached static assets).
-- v0.26.2 Pages branch head `d0dcb2c09d3345fbda61e7c2bf054b52466f2caa` includes matching `dist/main.js`, cache key `ascii-azur-v026-q03`, and `build-info.json.source_commit=8e3c67e…`. GitHub Pages workflow `39769087123` was **PENDING** at last inspection. Public `github.io` playthrough/smoke remains **UNVERIFIED** because the external browser could not access the site. Do not equate GitHub content with a verified public deployment.
-
-## Architecture and operational invariants
-
-- `src/**/*.ts` is the source of truth; `dist/` compiled, `play.html` generated only (never committed).
-- GitHub Pages serves `gh-pages` static modules with `build-info.json.source_commit`. Updating `main` does not automatically mean the public game is updated.
-- `src/main.ts` is large. Refactor incrementally around existing stable contracts, never rewrite the entire engine merely for style.
-- Maintain seeded world map snapshots, idempotent quest flags, stable v1 saves, responsive joystick and dense glyph aesthetics.
-- GitHub writes only through `akumanomi1988`; no force pushes, unrelated file overwrites, secrets or automatic schedules.
-
-## Prioritized backlog
-
-1. Verify GitHub Pages workflow `39769087123` and perform a public interactive smoke test for v0.26.2 when public site access is available.
-2. Measure forest→guardian→crypt completion, consumable usage, captures and time for all three starters over many seeds; adjust real encounters based on observed failures rather than arbitrary rewards.
-3. Expand the global authored campaign and supporting unique biomes/encounters to a genuine beginning, climax and ending.
-4. Measure sustained physical Android WebGL2 FPS, GPU/CPU load, heat, battery, joystick and portrait/landscape usability. Target at least 30 stable FPS on a defined minimum device.
-5. Complete creature identity and authored animations, audio mastering, accessibility and external user playtests.
-6. Execute a full gameplay end-to-end acceptance campaign; remove all high/critical defects and verify all 16 quality dimensions at least 4/5, average at least 4.5/5 before any premium-complete claim.
-
-**Next iteration priority:** multi-seed, three-starter progression balance through the Guardian and crypt; remove observed difficulty/dead-end problems before expanding the global campaign. Score gain requires measurable player evidence.
-
-
-## 2026-10-22 — Graphics and UI overhaul v0.27 (feature branch, verification pending)
-
-- Renderers: Added ascii and glyph-pixel profiles, independent RGB foreground/background cell compositing on WebGL2 and Canvas2D, glyph atlas edge sampling safety, fine/balanced/chunky integer cell presets, and removal of repeated global directional-stroke selection.
-- The scene remains shared across modes; this is not a second world generator. Presentation prefs remain outside SaveGame(version:1).
-- Reusable VISUAL_ASSETS includes authored semantic descriptors for actors, creatures, trees, cottages, ruins, stone, trails, and relics. Tree/cottage/ruin render paths consume the shared palette.
-- Inputs: Viewport-local modal and drawer, contextual keyboard handling with editable-input escape hatch, standard arrow/WASD focus, Enter/Space activation, Escape transitions, focus return and modal Tab containment. Mouse/touch buttons still invoke the same game handlers.
-- Settings: Immediate graphics-mode switch, per-mode controls, pixel detail presets and persistent legacy-compatible preferences. UI palette adapts to active graphics mode.
-- Distribution: New compiled modules in standalone bundle and service-worker cache; version updated to 0.27.0.
-- Acceptance status: Implementation committed to feature branch. CI build and 192/192 automated regression tests passed on feature branch (GitHub Actions run 39781584255; plus job 39782056285). Visual screenshots, actual device FPS and production Pages smoke remain to be verified; do not mark the art acceptance completed. The source-controlled Pages workflow now copies passing compiled output from CI to gh-pages on main pushes, records the exact source SHA, and never force-pushes.
-
-## 2026-10-22 — UI nested navigation hardening
-
-- Current confirmed baseline: `f062ead4a2893c490db4e35e2458e71eda0736c0`, quality-gates workflow `39785765299` SUCCESS, Pages workflow `39785839153` SUCCESS. `gh-pages/build-info.json` reports that exact source commit.
-- Fixed reverse-menu entry, added regression coverage; fixed parent-menu return with Escape/gamepad Back/close control for creature skill panels and roster swap; retained the original modal opener across nested navigation.
-- Acceptance still requires Chromium visual proof for both renderers, fullscreen/mobile layouts, external public smoke (public site inaccessible from the current reader), and physical Android performance. Do not claim artistic acceptance or a global game release based on CI alone.
-
-## 2026-10-22 — Real Chromium acceptance evidence
-
-- CI run `39806225565` passed TypeScript, **193/193** Node regressions and four real Chromium combinations (Atmospheric ASCII / Glyph Pixel Art × WebGL2 / Canvas2D) after bounding synthetic CPU fallback frames. Both `verify` and `Publish validated game` succeeded; GitHub Pages run `39806372123` also succeeded.
-- Added deterministic browser canvas PNG capture artifacts for each of the four render combinations on the same seed. These are implementation evidence, **not** independent artistic approval or sustained-performance measurements. A failure to generate the PNG now fails the browser acceptance gate.
-- Outstanding: human inspection of screenshots across all required zones and mobile viewports, measured sustained desktop/mobile FPS, physical Android verification, and an external HTTP smoke test against the public Pages domain.
-
-## 2026-10-22 — Visual review correction
-
-- The four CI screenshots from run `39806697341` were retrieved and visually inspected. They exposed a completely transparent Atmospheric ASCII Canvas2D capture and excessively repeated `i` glyphs over low-detail Glyph Pixel Art terrain. Functional browser tests alone had missed both deficiencies.
-- Corrected dark-terrain glyph selection in WebGL2 and Canvas2D: low-information cells use solid cell backgrounds, with only sparse, deterministic punctuation. Added real Canvas2D rendered-pixel acceptance (alpha and nonzero RGB) plus a post-scene-transition frame delay before PNG capture. The previous capture must not be considered an accepted visual baseline.
-- Art acceptance remains open pending **new** screenshot review and human readability assessment; high-level story and physical-device acceptance are out of scope for this rendering fix.
-
-## 2026-10-22 — Glyph Pixel Art geometry-aware compositing and GPU upload
-
-- Visually reviewed the four deterministic captures from CI `39807555358`. All four are now opaque, including previously blank ASCII/Canvas2D; however, pixel-mode bright surfaces still showed regular vertical glyph bands.
-- Replaced pixel glyph selection driven by raw luminance with structure-driven selection (local color deviation and edge contrast) on both WebGL2 and Canvas2D. Uniform colored cell backgrounds should now read as continuous surfaces, while real boundaries receive glyph detail.
-- Preallocated the fixed source-scene GPU texture and replaced per-frame texture-storage redefinition with `texSubImage2D`; preserves scene size and game state while reducing GL texture-allocation work. Browser validation and visual acceptance of this revision must run again before closing.
-
-## 2026-10-22 — WebGL texture update rollback
-
-- The fixed-allocation WebGL2 `texSubImage2D` experiment from `81ce49a` caused repeated first-variant Chromium CI timeouts (`39808164260` and `39808563603`) whereas the previous `texImage2D` renderer passed all four browser checks.
-- Reverted **only** the unverified upload optimization. Structure-driven pixel glyph selection remains in place. Do not count the texture optimization as shipped or performance-improving without measured evidence.
-
-## 2026-10-22 — Hero visual focus
-
-- The reviewed same-seed Chromium montage reveals a disproportionate ground area and an easily lost main-player silhouette. Added a restrained, localized teal ambient halo and small ground contact ring beneath the player, consistently in both renderer modes. The visual cue is scene-space, camera-following, uses existing Canvas2D compositing, and changes no collision, save or animation logic.
-- Screenshot comparison and release verification must pass for this change; real-device visual inspection remains mandatory for artistic acceptance.
-
-## 2026-10-22 — Legacy routes and guaranteed trail challenges (v0.27.1)
-
-- Diagnosis (source-confirmed): `visibleEncounters` required `terrain === 'path'` but legacy `worldSeed=0` returns only `ground` and `grass` along the central walkable trail, yielding zero visible route encounters in pre-generator saves. These players miss the three finite first-win XP/recovery opportunities per hostile region.
-- Change: for the actual legacy world only, select reachable ground/grass tiles within two rows of the established central road; retain path-only placement for generated worlds, minimum landmark clearance and six-tile roamer separation. For generated paths obstructed near preferred x bands, try another valid reachable path before omitting a first-win fight. No terrain, NPC, economy rules, or save schema changed.
-- Acceptance: new runtime tests check three deterministic encounters in both legacy regions, physical reachable tiles, terrain preservation, landmark clearance, separation, 512 generated seeds, and world-snapshot reloading. **CI, browser matrix, Pages publication and public smoke are pending at time of this source commit.** Do not infer acceptance from this entry alone.
-- Domain quality scorecard remains **2.5/5** (no subjective uplift without player evidence). Source baseline immediately before this change: `fee09adb6362cc90896b16c533a1867af914cf88`. Pages metadata before this change points to `fee09adb6362cc90896b16c533a1867af914cf88` (Pages head `cce943412c960bc198ab8a5d8a4daf756b0fb313`; workflow last reported successful). Public `github.io` smoke is unavailable from this reader.
-- Next: inspect CI for this change and verify Pages provenance; then quantify multi-seed win/loss and resource pacing for all three starters from forest through guardian/crypt. Subjective artwork and complete campaign gates remain open.
-
-## 2026-10-22 — v0.27.1 release verification (documentation-only closure)
-
-- Gameplay source commit on `main`: `053d201a8b90a082e55a4fbed015380daffefb3f`. Exactly three source changes: `src/world/encounters.ts`, `tests/encounters-graphics.test.mjs`, and this evolution log. Code release diff: 1 fast-forward commit, no unrelated files.
-- GitHub Actions quality-gates run [39827806102](https://github.com/akumanomi1988/ASCII_AZUR/actions/runs/39827806102): **SUCCESS**. `verify` and `Publish validated game` jobs both succeeded, including TypeScript compilation, Node regressions, standalone/release audit and four Chromium graphics/backend combinations.
-- GitHub Pages source artifact: `gh-pages` commit `db28b87d9149deca33873e5902c585c257b2bc41`. `build-info.json.source_commit` is the above gameplay source commit, and `dist/world/encounters.js` contains the legacy-world and fallback placement code. Pages deployment workflow [39827992120](https://github.com/akumanomi1988/ASCII_AZUR/actions/runs/39827992120): **SUCCESS**.
-- External public-site navigation/interactive HTTP smoke: **UNVERIFIED**; this environment cannot directly access `https://akumanomi1988.github.io/ASCII_AZUR/`. Successful Actions and GitHub branch content do not prove an external user's page loads. Hardware Android QA, independent art judgment, multi-seed player balance and full commercial campaign are still open.
-- Quality scorecard: unchanged, **2.5/5** overall; **0/16** independently accepted at 4/5 or higher. No premium-quality gate claim.
-- This is a **documentation-only closure commit marked [skip ci]** to avoid re-running browser quality gates or unnecessarily redeploying identical binaries. Deployed gameplay provenance intentionally remains the earlier verified source commit above.
-- Highest-value next iteration: instrument or simulate legitimate combat paths and consumables across seeds and all three starters, then remediate confirmed Guardian/crypt bottlenecks.
-
-## 2026-10-22 — Durable combat turn checkpoints
-
-- Source diagnosis: player attacks, capture seals, tonics, swaps and guarding checkpoint HP/consumption, then schedule enemy retaliation with a timer; loading that checkpoint previously reset `busy=false` and discarded the promised enemy turn. Repeat reloads gave free attacks or lost capture rolls.
-- New optional `activeBattle.pending` turn phase ('enemy', 'capture', 'victory', 'defeat') fits existing v1 saves. Pending turns remain input-locked on reload, paid captures settle exactly once, victory/defeat transitions resume, and old v1 saves without a phase remain valid. No simulation rules, world geometry, renderer contracts, or economy formulas changed.
-- Tests added: saved retaliation, consumed capture and idempotent victory reload, plus invalid phase rejection. **Feature CI, main CI, deployed provenance and external HTTP smoke must still be verified.** Do not inflate scores on code-only evidence.
-- Quality baseline: unchanged 2.5/5. Next: multi-seed legitimate gameplay balancing of Guardian and crypt, complete global authored campaign, mobile-device QA.
-
-## 2026-10-22 — Durable combat resolution: verified release closure
-
-- Gameplay commit: `f3beb2e1d9e17d16279304082d8f1ccf10f7f053` (fast-forwarded from `feature/combat-turn-checkpoint-20261022` to `main`). Feature workflow `39829275031` SUCCESS; main quality gates workflow [39829437499](https://github.com/akumanomi1988/ASCII_AZUR/actions/runs/39829437499) SUCCESS.
-- Verified CI evidence: TypeScript build PASS, **198/198 Node tests PASS, zero failures**, release audit PASS (**33 compiled JS dependency modules, 34 offline cached assets**) and the four actual headless Chromium combinations PASS: Atmospheric ASCII and Glyph Pixel Art, each with WebGL2 and Canvas2D. This is limited browser acceptance, **not** long-duration FPS, accessibility or external-player experience evidence.
-- GitHub Pages: `gh-pages` commit `95e991be386ce3d8a7a38f3d58c6da23c9ca81b9`; Pages workflow [39829564972](https://github.com/akumanomi1988/ASCII_AZUR/actions/runs/39829564972) **SUCCESS**. `gh-pages/build-info.json.source_commit` matches the above gameplay commit and the published `dist/main.js` contains the pending-turn and capture-resolution logic.
-- Direct external public-site HTTP smoke is **UNVERIFIED** (the reader cannot access the `github.io` domain). Neither green CI nor the `gh-pages` source commit proves an unrelated external browser's availability. No physical Android stress test or independent playability assessment.
-- Final quality gate remains **IN PROGRESS, 2.5/5 average; 0 of 16 dimensions demonstrated at >=4/5**. The old defects across global story, high-level pacing, original content completeness, physical mobile and external validation remain in the backlog. This documentation-only `[skip ci]` closure does not change the deployed gameplay commit.
-- **Next prioritized slice:** test real move/guard/tonic command sequences over multiple seeds and all three starters through Hollowhart and crypt; fix observed bottlenecks before expanding the global story.
-
-## 2026-10-22 — Forest trail elemental counterplay and evidence (next evolution slice)
-
-- Previous shipped code: `94d888b2b4e502e18995fc36399a6e742a5d9b18` on `main`; latest published playable code `f3beb2e1d9e17d16279304082d8f1ccf10f7f053`.
-- Controlled baseline: 12 seeded worlds x 3 starters x 6 first-time trail fights = 216 actual VM battle commands with enemy turns, TONIC consumption, and first-win experience. Deliberately **no recurring altar detours**, reserve allies or captured helpers. Baseline: Cindrel **31/72** (forest 23/36; sanctuary 8/36), Velaria **22/72** (forest 12/36; sanctuary 10/36), Thorne **55/72** (forest 27/36; sanctuary 28/36). Solo late-game win rates are NOT representative of parties using captures and lumbres.
-- Root cause in authored onboarding: the forest's visible encounter species lacked Ether entirely, denying Bruma/Velaria an elemental advantage among the three finite first-win training encounters. Random placement and random species could turn an intended choice into a disadvantageous start.
-- Remediation: map the deterministic forest encounters to three escalating elemental lessons, `Bruma → Raíz → Éter`, with two authored species variants per lesson. Every starter has a favourable matchup without per-player scaling or altering the save/world schema. Sanctuary encounters, wild random fights, XP/HP economy and combat formulas stay unchanged.
-- Feature-branch before/after controlled results using the same 12 seeds and battle algorithm: Cindrel **29/72** (forest 23/36, sanctuary 6/36), Velaria **42/72** (forest 24/36, sanctuary 18/36), Thorne **70/72** (forest 36/36, sanctuary 34/36); combined **141/216 vs 108/216**. This improved access for Velaria but **did not establish class parity**, and Cindrel's sanctuary survival marginally decreased. The 22/36 early-forest floor is an automated regression threshold, **not** a player experience completion claim.
-- Quality scorecard stays **2.5/5 (all sixteen domain scores unchanged)**, with zero premium domains independently accepted >=4. Complete global storyline, party balance, physical Android, sustained rendering and independent external playtests remain open.
-- Next priority: measured Guardian/crypt balance with actual captured party rosters and consumable routes, including tuning Thorne's superior solo durability and Cindrel's sanctuary weakness without flattening class identity.
-- Publication evidence: the source change is on a feature branch; require passing feature CI and main quality gates, `gh-pages/build-info.json`, Pages workflow and external HTTP smoke separately. Do not mark this slice released based on these measurements alone.
-
-## 2026-10-22 — Forest elemental onboarding released (verified closeout)
-
-- Gameplay source commit on `main`: `529cb25dc99301517347feb0a8cd4827ac8e241e`, squashed and fast-forwarded from audited feature branch `feature/balance-probe-20261022`. Changed only `src/world/encounters.ts`, `tests/encounters-graphics.test.mjs`, `tests/runtime.test.mjs`, and this evolution state file. No force push or generated secrets.
-- Confirmed static code and deterministic balance tests: **200/200 Node tests PASS**, TypeScript compilation PASS, release audit PASS (33 compiled JS dependency modules; 34 offline cached assets). Across 12 predetermined world seeds and 3 starters, 216 actual combat action sequences improved from **108/216** to **141/216** wins overall in the solo/no-altar-detour probe. Forest first-win counts: Cindrel **23/36**, Velaria **24/36**, Thorne **36/36**. Caveat: Cindrel sanctuary wins **6/36** and Thorne’s solo viability remains excessively high; this is not evidence of polished late-game balance.
-- GitHub Actions main run [39833839330](https://github.com/akumanomi1988/ASCII_AZUR/actions/runs/39833839330) ultimately **SUCCESS (attempt 2)** including the four Chromium rendering combinations, bundle/release audit and Pages publication. **Attempt 1 failed** due a 35-second headless Chromium first-scene timeout on ASCII/WebGL2 (not a unit test failure); this flaky production gate is a documented risk, not suppressed.
-- GitHub Pages deployment: `gh-pages` commit `2314625b53a93995083696454de966c1f7c6c68d`; workflow [39834325931](https://github.com/akumanomi1988/ASCII_AZUR/actions/runs/39834325931) **SUCCESS**; `gh-pages/build-info.json.source_commit=529cb25dc99301517347feb0a8cd4827ac8e241e`. Published `dist/world/encounters.js` contains the same Mist/Root/Ether trail sequence. Public-site HTTP interactive smoke **UNVERIFIED** because `github.io` is inaccessible to the available reader; do not claim it passed.
-- Scoring unchanged: artistic 3, ASCII 3, animation 2, world 2, procedural 3, exploration 3, gameplay 3, combat 3, creatures 2, story 2, progression 2, UX 3, mobile 2, audio 3, technical 3, production 1. **Average 2.5/5**, zero domains at independently verified 4/5; no global story closure or premium release declaration.
-- Priority: instrument multi-seed Guardian and crypt routes **with genuine captured parties** and altar use, then solve the Cindrel sanctuary and Thorne solo balance divergence. Separately harden/reproduce the Chromium CI timeout, evaluate physical Android performance and complete authored global chapters. This closure is documentation-only and marked `[skip ci]`; the deployed binary still corresponds to the above gameplay source SHA.
-
-## 2026-10-22 — Guardian elemental preparation guidance (follow-up slice)
-
-- Diagnosis: the Hollowhart confirmation menu considered an otherwise healthy two-member level-8 party `ready` even when neither member knew an offensive move effective against Hollowhart's Root element. This hid a tactical obstacle for Mist starter users after the forest counterplay change. There was no instruction on locating an Ash ally without restarting.
-- Change: use existing `MOVES`, `SPECIES`, `TYPE_ADV` to inspect **actual conscious party moves**, not starter identity, and advise capture of Ashboar or Cindrel from forest wild grass if the party has no Ash counter. The Guardian quest hint now gives the same route. The warning is informational and players can always challenge; no boss stats, RNG, save format, UI modal, or renderer changed.
-- Added regressions for no-counter two-creature roster, valid Ash attack coverage, removed/equipped moves and low-health advice. CI and Pages publication require separate positive evidence; keep quality at **2.5/5** until more substantial player experience evidence exists. Next priority: multi-seed Guardian/crypt command-based playthroughs with legitimately recruited squads, then tune proven balance issues.
-
-## 2026-10-22 — Guardian counter guidance: release verification
-
-- Gameplay commit: `a9924db292fdc602f195f2985dd59e442d426bfb`, pushed fast-forward onto `main`; changes only `src/story-campaign.ts`, `tests/story-campaign.test.mjs`, this file. The existing actual move/effect calculator is shared with the preparation advisor; no save-state or combat-formula changes.
-- Feature GitHub Actions run [39836201507](https://github.com/akumanomi1988/ASCII_AZUR/actions/runs/39836201507) SUCCESS. Main quality gates run [39836396417](https://github.com/akumanomi1988/ASCII_AZUR/actions/runs/39836396417) SUCCESS: **202/202 Node tests PASS**, TypeScript compile PASS, release audit PASS, and four real Chromium acceptance variants PASS (ASCII/Glyph Pixel Art × WebGL2/Canvas2D).
-- Published `gh-pages` source commit: `a4f7fa11bd3034c819720ee3bf5c22197b6f70b2`. Pages workflow [39836526324](https://github.com/akumanomi1988/ASCII_AZUR/actions/runs/39836526324) SUCCESS. `gh-pages/build-info.json.source_commit` equals `a9924db292fdc602f195f2985dd59e442d426bfb`; the published `dist/story-campaign.js` contains the new actual-move counter evaluation and user-facing Forest recruitment hint.
-- Public `https://akumanomi1988.github.io/ASCII_AZUR/` and live `build-info.json` were attempted with an independent external web reader, but returned **not accessible**. Real public HTTP smoke and mobile hardware validation **UNVERIFIED**; do not conflate CI browser emulation with public site reachability.
-- This is a meaningful **onboarding clarity** slice, not boss-difficulty balancing. No measured improvement to Guardian win rate or full-crypt pass rate yet. Scorecard remains **2.5/5; 0/16 domains with independent >=4/5 acceptance**. World/persistence, creative direction and other 16 dimensions retain previous ratings.
-- Next: actual multi-seed Hollowhart + crypt command-driven completion across all three starters with captured creatures, spells, altar recovery, consumables and difficulty gates. Avoid simulated `winBattle()` success for balance acceptance. High residual risks: unbalanced Thorne vs Cindrel solo sanctuary, short global campaign, physical Android quality, browser CI occasional timeouts, independent external live-site smoke.
-- This release-verification closeout is a docs-only `[skip ci]` commit and intentionally does not change the validated Pages gameplay source hash.
-
-
-## 2026-10-22 — Macroiteration 001: Sanctuary elemental route and scouting (feature development)
-
-- Baseline: source `93a254cb53b9cdaa374e318a004cd46880061c53`; previous playable Pages provenance points to gameplay source `a9924db292fdc602f195f2985dd59e442d426bfb`, main CI `39836396417` SUCCESS and Pages workflow `39836526324` SUCCESS. Public HTTP smoke not validated.
-- Deterministic Sanctuary encounter slots are now Root (level 8), Mist (level 9), Ether (level 10), with authored variants and unchanged encounter IDs/positions, save schema, first-victory recovery/XP, combat rules and persistent flags. Each original starter has one favourable matchup. This is a content and tactical pacing change, not a guarantee that all three can clear the Guardian.
-- Added optional Sanctuary route scouting from the existing drawer (mouse, touch and keyboard). It shows species/level, real equipped-move counters, completed flags and resource/health advice without starting battles or mutating saved data. The plan remains advisory, never blocks entry.
-- Scope includes 512-seed placement/species regression, counter selection and v1 flag regression, and playable runtime modal regression. Verification, feature CI, main deployment and public smoke: **PENDING** at time of feature authoring.
-- Roadmap is now defined in `docs/AAA_ROADMAP.md` using fixed phase weights and four binary milestones per phase; previous evidence anchors 9/32 weighted milestones = **30.00%** baseline. W2 remains open pending verified acceptance. All sixteen quality scores **unchanged at 2.5/5 mean**; no unmeasured improvement is claimed.
-- Next release gate: measured multi-seed captured-party → Hollowhart → crypt E2E under legitimate commands, saves and resource policy; C3 must not be awarded from route content alone.
-
-- Integrated authored Keeper quest: resolving the three Sanctuary roamer flags (victory **or** capture) unlocks a one-time Keeper dialogue and supply grant (2 seals, 2 tonics, 40 echoes), using a new optional flag in the unchanged v1 save. Existing saves with all three roamers finished can claim it retroactively. Tested pending feature CI and Pages.
-
-
-## 2026-10-22 — Macroiteration 001 W2 released and evidence-closed
-
-- **State: COMPLETED** for W2 only; the complete AAA-inspired game remains **IN PROGRESS**. PR [#2](https://github.com/akumanomi1988/ASCII_AZUR/pull/2) squash-merged cleanly on `main` as gameplay/source commit `748b86f855b130fe535eb18813d5e477b3ec701b`. Nine project files changed: deterministic Sanctuary route pools, equipped-move scouting and menu integration, first-time Keeper quest with 2 seals/2 tonics/40 echoes from 3 saved roamer flags, 512-seed tests, actual save/load reward regression, browser integration test, roadmap, evolution state.
-- Release verification: [main GitHub Actions 39846519978](https://github.com/akumanomi1988/ASCII_AZUR/actions/runs/39846519978) **SUCCESS** for TypeScript, standalone/release audit, **207/207 Node tests**, and **4/4 real headless Chromium scenarios** (Atmospheric ASCII and Glyph Pixel Art × WebGL2 and Canvas2D), including the new Sanctuary UI read-only smoke.
-- Static Pages source provenance: `gh-pages` head `b3a089b19ba2055323892f68a4ebeda11bbc0842`; `build-info.json.source_commit=748b86f855b130fe535eb18813d5e477b3ec701b` (exact gameplay commit). [Pages build workflow 39846691519](https://github.com/akumanomi1988/ASCII_AZUR/actions/runs/39846691519) **SUCCESS**. Verified `gh-pages/dist/world/encounters.js` has the Sanctuary stages, `dist/story-campaign.js` has the oath flag, and `dist/main.js` has the optional route menu. Public live HTTP smoke of `https://akumanomi1988.github.io/ASCII_AZUR/` and its `build-info.json` was attempted; **UNVERIFIED** due external reader accessibility restriction, not claimed PASS.
-- Milestone accounting: W2 **closed** after all defined acceptance gates. Four milestones per phase, phase weights [20,15,20,10,10,10,5,10]. World 1/4 → 2/4, 25% → 50%; verified overall **9/32 → 10/32 milestones, weighted 30.00% → 33.75% (+3.75 pp)**. All 16 conservative quality scores remain unchanged, mean **2.5/5**, premium threshold **0/16** dimensions; do not conflate completion of this technical milestone with subjective final quality.
-- Next priority: C3 — 12+ seeds × 3 starters of legitimate capture and resource-constrained Hollowhart + physical crypt walkthroughs; tune observed disproportions, preserve no forced victory and save v1. Other release blockers: global authored campaign/climax, Android physical device performance, human testing, independent public HTTP/site validation.
-
-
-## 2026-10-22 — C3 macroiteration 002 diagnostic and development history
-
-- Multiseed baseline (8 repeated ordinary training bouts per seed, legitimate 1–2 recruits, 12 fixed seeds × 3 starters): Guardian/crypt completion Cindrel 0/12, Velaria 4/12, Thorne 11/12; strong starter asymmetry. Actual battle commands, captures and save/reload were exercised; deterministic report in `tests/runtime.test.mjs`. Direct travel portal handlers isolate the combat evaluation; not a claim of complete human playthrough.
-- Hollowhart's special Ether Eclipse is now telegraphed and reserved for its charged turn; noncharged moves use its normal repertoire. Initial re-probe (before formation and consumable policy fixes) observed Cindrel 0/12, Velaria 10/12, Thorne 12/12. CI failed solely in a new underleveled isolated cue assertion; feature branch not accepted at that step.
-- Player-facing preparation now offers an accessible conscious-party lead selector with damage-based default derived from equipped skills; the boss checkpoint records that active teammate. Better scripted policy reserves tonics outside capture/Guardian/crypt and still uses player actions. Arken's village training circuit rewards a first win over three different species with +55 XP each and a finite two-tonic gift from Iria, reducing eight repetitive fights to three authored lessons in the measured route. Old v1 saves and trainer flags remain optional. **Subsequent verification is recorded in the accepted closure below.**
-
-
-## 2026-10-22 — C3 macroiteration 002: VERIFIED RELEASE 0.28.0
-
-- **C3 COMPLETED** based on 12 fixed seeds × three starters with real capture commands and earned XP, limited three-lesson training, resource-aware tactics, Guardian preparation/choice, actual boss attack/guard/tonic actions, two crypt sentinels through battle actions, physical crypt movement and save/reload regression. **Cindrel 12/12 Guardian + 12/12 crypt; Velaria 12/12 + 12/12; Thorne 12/12 + 12/12.** Gate requires >=11 successes of 12 for **each** starter, not just an average. Cindrel incurred 6 individual route-battle defeats before later successful completions; note for C4 human difficulty tuning.
-- Player-visible delivered systems: original Ash/Root/Mist mastery circuit (+55 one-time XP per distinct village win to standard shared party distribution); claim 2 tonics once from Iria after all three; Guardian leader select with equipment-aware recommendation and v1 battle checkpoint; Hollowhart Eclipse only on its visibly warned charge, not unannounced during base turns. No stat cheats, force-push, map changes or save version bump. All changes in `src/`, not generated `dist/`.
-- Feature quality suite [39860590600](https://github.com/akumanomi1988/ASCII_AZUR/actions/runs/39860590600) SUCCESS; PR [#3](https://github.com/akumanomi1988/ASCII_AZUR/pull/3) reviewed by passing checks and merged as `b441c8968967c3d1118f7b8d922f493ddab00e37`. Main [39860844260](https://github.com/akumanomi1988/ASCII_AZUR/actions/runs/39860844260) SUCCESS — **214/214 Node PASS**, TypeScript PASS, all four **real Chromium** combinations PASS, standalone distribution and PWA audit PASS (33/34 dependency/cache counts), version 0.28.0.
-- Deployment: `gh-pages` SHA `4ca86a4037ce35e81885ce796cd3a7f5c8f606d9`, source trace `b441c8968967c3d1118f7b8d922f493ddab00e37` in published `build-info.json`, [Pages workflow 39860967515](https://github.com/akumanomi1988/ASCII_AZUR/actions/runs/39860967515) SUCCESS. Live external `github.io` smoke attempted for both game and `build-info.json` but blocked by reader accessibility; **UNVERIFIED**. Do not report this as live HTTP PASS.
-- Roadmap **10/32 → 11/32**, Core **50% → 75%**, weighted global **33.75% → 38.75% (+5.00 pp)**. Scores (16 dimensions): artistic 3, ASCII 3, animation 2, world 2, procedural 3, exploration 3, gameplay 3, combat 3, creatures 2, story 2, progression 2, UX 3, mobile 2, audio 3, technical 3, readiness 1; **mean 2.5/5, 0/16 independently premium**. Retain conservative scores: automated completion is not human game feel evidence.
-- Remaining high-impact priorities: N2 full authored second chapter with new region(s), distinctive opponents, decisions and saved consequences; C4 player-tested boss/route difficulty; W3 enriched original world regions. Separately physical Android sustained FPS, independent audio/art UX assessment, complete global ending, public HTTP smoke and final production gates.
-
-
-## 2026-10-23 — MACROITERATION 003: N2 VERIFIED, RELEASE 0.29.0
-
-**Status: COMPLETED for N2; PREMIUM GAME READY: NO.**
-
-- Narrative: Fourth original Marsh biome, Nael, two environmental memories, three visible persistent regional witnesses, and a save-backed irrevocable keep/release choice with two distinct rewards and distinct chapter epilogues. All are integrated into player movement/interactions, audible themes, visual layers, mission journal, quest HUD and GPS-like story compass. Existing species are reused; no fake claim of expanded bestiary.
-- QA: 200 deterministic world seeds; frozen pre-Marsh version-1 map/POI restoration; chapter-stage gate ordering; zero duplicate memory/dialogue/rewards; 18/18 seed×starter×choice scenario completions using actual combat commands for all Marsh witnesses and validated save reloads. The prerequisite Chapter I party and crypt are explicit test fixtures, NOT new-game-to-campaign validation.
-- Version: 0.29.0. Main commit `f75ae1cdab949067688663a12383fe0a867c3d35`; [main CI 39907764058](https://github.com/akumanomi1988/ASCII_AZUR/actions/runs/39907764058) SUCCESS (221/221 Node PASS, TypeScript PASS, 4/4 Chromium graphics/backend combinations PASS with Marsh save resume, standalone and offline 34/35 module/cache audit). [PR #4](https://github.com/akumanomi1988/ASCII_AZUR/pull/4) merged.
-- Published provenance: `gh-pages` SHA `e1449a8e8cec824b459da68207cc128296e3aa56`, deployed `build-info.json.source_commit=f75ae1cdab949067688663a12383fe0a867c3d35`, relevant compiled story module present, [Pages workflow 39907917877](https://github.com/akumanomi1988/ASCII_AZUR/actions/runs/39907917877) SUCCESS. **Public HTTP smoke UNVERIFIED**: both public game and public build-info URLs are inaccessible to the external reader.
-- Progress: N2 closed; Story 25→50%, weighted global 38.75→43.75% (+5 pp); total completed 12/32. The other seven phases remain as in accepted C3 state. Keep **sixteen evidence-based quality scores unchanged**, mean 2.5/5, 0/16 independently ≥4/5.
-- Follow-up release risks: global climax/finale N3 missing, second additional authored region W3 missing, external independent narrative/balance QA, real Android performance, human UX/gameplay review and public HTTP verification not yet done. Prioritize N3 as next integrated macroiteration.
-
-
-## 2026-10-23 — Macroiteration 004: N3 VERIFIED RELEASE 0.30.0
-
-- **Verified product outcome:** fifth seeded biome Corona de lo No Escrito, Oriel NPC, two memory relics, three persistent witness encounters at levels 13–15, unique Nullscribe final boss with its own animation rig / glyph silhouette and guarded charged Ether attack. Marsh Chapter II genuinely unlocks the eastern Crown portal. A second irreversible verdict (Remember/Renew) combines with Nael's previous Keep/Release in four original ending dialogues and two distinct finite inventory reward profiles; Oriel credits a final +150 Echoes only once. Saved flags, HUD, compass, diary, free-roam post-ending and v1 compatibility verified.
-- **Automated evidence:** 200 deterministic world seeds, snapshots preserving original pre-Crown three-/four-zone maps, 36/36 seeded finale encounters/endings using ordinary player attacks, guarded boss turns and saved one-time rewards. Chapter I/II progress and high-level party are explicit setup fixtures in these 36 cases, **not** uninterrupted new-game progression. [Main 39914726339](https://github.com/akumanomi1988/ASCII_AZUR/actions/runs/39914726339) **SUCCESS**: 227/227 Node, TypeScript, 4/4 genuine Chromium render/backend combinations, standalone package and PWA dependency audit (35 JS/36 cached). Version 0.30.0.
-- **Release identity:** PR [#5](https://github.com/akumanomi1988/ASCII_AZUR/pull/5) merged the gameplay; PR [#6](https://github.com/akumanomi1988/ASCII_AZUR/pull/6) and PR [#7](https://github.com/akumanomi1988/ASCII_AZUR/pull/7) fixed two erroneous Chromium QA assertions, no gameplay modifications. Final release source commit `e191c010c76ae4c8e0c4e112a89f228d30776dbe`; deployed gh-pages SHA `ac9e395c1022d2a519790da039192c83a95e36c4`; published `build-info.json.source_commit` matches, `dist/story-finale.js` exists; [Pages run 39914896313](https://github.com/akumanomi1988/ASCII_AZUR/actions/runs/39914896313) SUCCESS. Independently requested public `github.io` HTTP and build-info access failed through external reader, so **PUBLIC SMOKE UNVERIFIED**.
-- **Progress:** N3 COMPLETED: story **2/4 → 3/4 = 75%**, global **43.75% → 48.75% (+5.00 pp)**, verified milestones **12/32 → 13/32**. Other phase percentages unchanged. Evidence-based 16-domain quality scoring conservatively **2.5/5 mean; 0/16 independently above the premium 4/5 threshold**; insufficient basis to raise quality scores from controlled test passes.
-- **Next best cohesive macroiteration:** Q3: uninterrupted new-game through all three chapters and four possible epilogues with legitimate earned catches/levels, saved world navigation and hostile combat across a controlled seed grid, reloading at every chapter boundary and identifying/protecting against player progression traps. Blocker only if browser/hardware human QA required. Also W3 original zone-specific creature identities and navigation, N4 player review, Android physical/thermal performance, accessibility and public live HTTP acceptance.
-
-
-## 2026-10-23 — Macroiteration 005 in progress; Q3 NOT YET CLOSED
-
-- **Development status:** PARTIAL / pending external CI capacity and the production acceptance chain. Feature [PR #8](https://github.com/akumanomi1988/ASCII_AZUR/pull/8), branch `feature/q3-uninterrupted-trilogy-and-roadbook-20261023`, head `79b298a51cf5534e8292c386e0f8e9a40542ed37`. Main remains the verified v0.30.0 release, with publication source `e191c010c76ae4c8e0c4e112a89f228d30776dbe`, Pages workflow 39914896313 SUCCESS, gh-pages `ac9e395c1022d2a519790da039192c83a95e36c4`. External public HTTP smoke still **UNVERIFIED**.
-- **Functional changes staged, not released:** 19-hito player-facing Roadbook in the existing mission journal, displaying actual campaign progress, team survival, tonics/seals, boss elemental counterattack and preparation advice; read-only. v0.31 UI version and SW offline inclusion. A from-new-game 12-combination journey harness uses actual captures, combat actions, crypt walking, pre/post chapter save reload and distinct final choices. Strict physical overworld navigation of portals, altars, NPCs, visible challenges and bosses added as final Q3 acceptance.
-- **Evidence and limitations:** Earlier feature run 39915552379 passed 230/230 Node tests, the 12 first-to-last story lines (254 battles, 23 captures), TS and release audit, **but used direct landmark handlers for surface travel**; this is not an accepted full physical end-to-end. Strict travel failed in older runs because its path planner imported a different world object than the game VM; attempted engine float fix was reverted after diagnosis. Feature head 79b298a5 correctly exposes the game's own VM world in the QA harness; CI runs 39916749487 / 39916754045 were queued at last check. No pass asserted for that final head.
-- **Authoritative progress remains 48.75%, 13/32 milestones, QA 25%, quality 2.5/5 mean and 0/16 independently premium.** Q3 still [ ]; no new production build exists until main CI, four Chromium profiles, gh-pages provenance and GitHub Pages workflow succeed. Do not assume the queued feature build will pass; diagnose any actual failures before integration.
-- **Resume entry:** recover current PR #8 head and the two CI runs; execute the physical E2E gate, correct genuine defects without changing reward/progress flags, recheck 230+ Node / four Chromium modes / source provenance and only then close Q3 (conditional target: QA 25→50%, global 48.75→51.25%). Continue from this feature, do not repeat N3.
-
-## 2026-10-23 — Macroiteration 005 Q3 closed and macroiteration 006 P2 v0.32 VERIFIED RELEASE
-- Q3 source v0.31 [PR #8](https://github.com/akumanomi1988/ASCII_AZUR/pull/8) merged at `ab793da22618d6090cdeaf36ebfb8246cbcc0753`; main CI 39943217202 and Pages 39943389653 SUCCESS with exact `build-info.json` provenance. Public cloud browser launched the published v0.31, selected a starter and entered gameplay. Q3 requires 12 new-game-to-all-ending paths with actual overworld and crypt movement, real battles, captures and reloads; verified by release automation. It closes **14/32 milestones, weighted global 51.25%** from 13/32, 48.75%.
-- v0.32 source [PR #9](https://github.com/akumanomi1988/ASCII_AZUR/pull/9) main merge `d51c6baf970eea0f59c1f1df767c854e1c6d6442` introduces Mourveil (Mist cleanser), Mnemoshade (Ether drain/fracture), Bellroot (Root tank/fracture) and Ashglass (Ash fast scorch) with original shapes/rigs/signature skills. Velaria evolves at level 12, Wispawn at level 13. The Codex correctly excludes two non-capturable story bosses. Marsh/Crown direct challenge pools are immediately unique; higher-level random ecology unlocks after respective chapters to protect first-time story route balance. Compulsory witnesses, stable procedural worlds, flags and `version:1` saves are preserved.
-- Acceptance: feature [CI 39949766853](https://github.com/akumanomi1988/ASCII_AZUR/actions/runs/39949766853) SUCCESS, TypeScript, **235/235 Node tests**, 12/12 new-game-to-final-trilogy journeys (317 battles, 23 captures, 1,098 actual commands), PWA/release audit 36 JS modules and 37 cached resources, standalone bundle. Main [CI 39950404171](https://github.com/akumanomi1988/ASCII_AZUR/actions/runs/39950404171) SUCCESS, four Chromium rendering integrations PASS. [Pages 39950672780](https://github.com/akumanomi1988/ASCII_AZUR/actions/runs/39950672780) SUCCESS; `gh-pages` commit `4ce24177c87c2478b9497fc765b6053638addf87` and `build-info.json.source_commit=d51c6baf970eea0f59c1f1df767c854e1c6d6442`. Live public smoke: PASS — public v0.32 loaded, legacy save continued, menu/Codex opened (1/15 capturable), live build-info JSON matched source commit; cloud-browser fallback readout ~1 FPS is not a hardware benchmark.
-- P2 passes integrated mechanical role/collection acceptance; **Creatures 25% → 50%, 14/32 → 15/32 weighted global 51.25% → 53.75%**. Conservative mean 2.5/5, zero independently premium domains. Real hardware FPS (G4/U2), external visual/art (G2), accessible controls (U3), human narrative/collection balance (N4/P4) and full release Q4 are still OPEN.
-- **Next recommended macroiteration: G2 distinct silhouettes and graphical contrast/camera/HUD review across all biomes and both modes with actual desktop/mobile screenshots, then physical Android FPS and controls.** Art and gameplay experience remain the largest unverified quality gaps despite sound mechanical test coverage.
+Updated: 2026-10-23. **STATUS: IN PROGRESS.** Shipped gameplay version: **v0.37.0 — Afterlight Pilgrimage**. Repository: `akumanomi1988/ASCII_AZUR`, production branch `main`. Release source `275a41222be913a10dc1dbb9a827a1f572241807`. Last verified Pages action `39961124502` and public smoke: PASS: public WORLD ENGINE v0.37 loaded; pre-existing v0.36 local save resumed in Velo de Arken; glyph canvas rendered, compass/HUD visible and no game-origin console errors. Cloud Canvas2D fallback performance is diagnostic only..
+
+## Product vision and hard constraints
+
+An original, coherent dark-fantasy creature RPG whose art is composed from dense ASCII/Unicode glyph primitives, not sprites covered by text. Atmospheric ASCII and contiguous Glyph Pixel Art must share gameplay/camera but retain different meaningful foreground/background glyph composition. Deterministic seeded terrain, persistent version-1 saves, exploration, collection/evolution, tactical turns, authored narrative consequences and a beginning-to-ending campaign are mandatory. Keyboard/mouse and Android touch/virtual joystick must work. Avoid protected franchise assets. **AAA-inspired quality is a target, never a production-credential claim.**
+
+## Current release scope and completion gate
+
+- **Seven** deterministic 46×32 explorable regions: Village, Forest, Sanctuary, Marsh, Spire, Ossuary of the Tides and Garden of the Last Frost. Existing version-1 world snapshots remain stable and extend old 3/4/5-region saves.
+- **19 original creatures**: 17 capturable and two unique non-capturable bosses; tactical moves, party/reserve, collection, evolution and creature-bond choices.
+- Three authored campaign chapters with persistent two-by-two finale outcomes, plus two post-campaign Afterlight chapters with their own NPCs, two discoverable memories, three visible persistent witnesses, irreversible resolutions and epilogues.
+- WebGL2 / Canvas2D fallback, two presentation modes, motion/reduced-motion, region-specific procedural audio, desktop controls, touch HUD and virtual joystick, PWA/offline distribution.
+- Automated campaign acceptance has exercised 12 complete starter × Marsh × Crown combinations with real player commands. Browser CI inspects desktop glyph rendering and input, but **not physical Android performance or independent human satisfaction**.
+- Premium completion requires **all 16 quality domains ≥4/5**, average ≥4.5/5, no high/critical defects, full human/gameplay and physical-device acceptance, successful CI/Pages, and public artifact provenance. This is **not achieved**.
+
+## Demandingly scored quality audit (0–5)
+
+Each row states observable evidence, outstanding deficiency and measurable premium acceptance. Previous column is the last verified v0.36 score; current scores do not rise merely from added content.
+
+| Dimension | Previous → Now | Evidence | Deficiency and acceptance gate |
+|---|---:|---|---|
+| 01 Artistic direction | 3→3 | Five pre-existing distinct palettes plus two Afterlight palettes; authored glyph silhouette primitives | Public world screenshot still has flat dominant road, noisy marks and weak focal silhouettes. Independent desktop/mobile 20-scene readability review must pass ≥90% |
+| 02 ASCII rendering | 3→3 | Both ASCII/Pixel profiles; WebGL2/Canvas2D screenshot matrix and glyph-material cache | 30 sustained FPS on minimum real Android and consistent subject/background contrast ≥4.5:1 for critical entities |
+| 03 Animation | 2→2 | Creature rigs, battle attack/hit/heal/seal/faint VFX, reduced-motion branch | Human-reviewed expressivity for all core battle actions and locomotion; no distracting glyph shimmer in 20-scene sweep |
+| 04 World design | 2→2 | Seven regions with paths, portals, landmarks and designed Afterlight loops | Human wayfinding and biome distinction across all zones; ≥90% of 20 tasks without instructions |
+| 05 Procedural generation | 3→3 | Seeded 46×32 maps, snapshot validation and 200-seed W3 reachability tests | ≥500 seeded full-route reproducibility checks and restart/load byte equality, no unreachable progression |
+| 06 Exploration | 3→3 | Hidden memories, chests, altars, witnesses, secrets, journal | External players discover ≥80% critical clues unaided and judge rewards meaningful |
+| 07 Core gameplay | 3→3 | Keyboard/touch movement, interactions, capture and battles in an integrated loop | 10 human first-hour sessions with no blocking friction, satisfying control feel and progression |
+| 08 Combat | 3→3 | Damage/types/status, move forecasts, charged bosses, AI and 12 campaign routes | ≥20 human combat sessions and cross-starter balance with no dominant/softlocked path |
+| 09 Creatures | 2→2 | 17 capturable species, roles, evolutions, signatures and rigs | Distinguishable original silhouettes, attachment and collection pacing validated by 10 players |
+| 10 Story/lore | 2→2 | Three chapters, four main epilogues, Afterlight branching choices | Independent complete-playthrough narrative coherence and pacing signoff; no unresolved arc |
+| 11 Progression | 2→2 | XP, one-time regional rewards, covenant choices, gated new chapters | Full 3-starter economy/level pacing across ≥50 seeds with no grind or resource dead ends |
+| 12 UX/HUD | 3→3 | Quest compass, Codex, modal keyboard/mouse navigation, inventory and battle controls | WCAG-oriented UI audit and 10 unaided desktop task sessions at 1280×720 |
+| 13 Mobile | 2→2 | Browser viewport/touch simulation and visible virtual joystick | Real minimum Android touch, rotation, fullscreen, font and 30-FPS validation |
+| 14 Audio | 3→3 | Procedural scene motifs and SFX, persistent volume/mute | Mastered original themes, measured mixing transitions and 10 listener accessibility checks |
+| 15 Technical | 3→3 | TypeScript, Node regressions, CI screenshots, PWA audit, v1 saves, Pages build provenance | Long-play/save corruption/concurrency stress, resource and security audit, zero high defects |
+| 16 Production | 1→1 | Automated 12-route story acceptance and GitHub Pages production pipeline | Real-device E2E, accessibility, external beta, content QA and all release criteria signed off |
+
+**Conservative mean: 2.5/5 → 2.5/5. Independent premium domains: 0/16.** Tests support functional claims, not commercial excellence.
+
+## Roadmap continuation
+
+`docs/AAA_ROADMAP.md` defines 32 fixed binary milestones and fixed phase weights. **v0.36 verified: 17/32, weighted 58.75%. v0.37 W3 verified: 18/32, weighted 62.50% (+3.75 percentage points).** Raw 18/32 is not the weighted percentage. Currently complete: C1–C3, W1–W3, N1–N3, P1–P3, G1/G3, U1, A1 and Q1/Q3. Remaining: C4, W4, N4, P4, G2/G4, U2–U4, A2–A4, Q2/Q4.
+
+## Most recent integrated macroiterations and acceptance
+
+- **v0.31 Q3:** 12 genuine new-game-to-finale input-driven paths (3 starters × 2 Marsh × 2 Crown), main `ab793da22618d6090cdeaf36ebfb8246cbcc0753`, CI 39943217202, Pages 39943389653.
+- **v0.32 P2:** Four additional creature roles, signatures, evolutions and seeded wild ecology; 235 Node regressions and all 12 campaign paths, main `d51c6baf970eea0f59c1f1df767c854e1c6d6442`, CI 39950404171, Pages 39950672780.
+- **v0.34 P3:** Four creature-bond narratives with irreversible Fang/Ward choices and persisted combat effects, main `5313d27f848e26e1d44d604a163520844309a219`, CI 39954113097, Pages 39954378584.
+- **v0.35 G3:** Complete creature and combat reaction rigs, reduced-motion and four-backend combat screenshots, main `4e111558d2266c728eaaa79fe1683493f4f03cc8`, CI 39954863164, Pages 39955185992.
+- **v0.36 G2 graphics foundation:** Material-aware glyph density, stronger subject beacons, five authored path-motif families, camera re-composition, bounded art cache. PR #13 merged main `109c0dcef11ed05217b6fc7dbff2a4bdc3580c28`; main CI 39957435005 PASS (251 Node, 24 browser captures), Pages 39958112528 PASS and public source provenance matched. **G2 remains open** due poor actual visual readability.
+- **v0.37 W3 Afterlight:** Two full post-campaign region loops, distinctive glyph biomes/music, NPCs, memories, persistent witnesses, altars/chests, irreversible choices, two capturable creatures and signatures, journal/compass/portal progression. Pure `src/story-afterlight.ts`, no save-schema bump. PR #14 feature `65fdfae5f6d783cad201b554a1d6d2aaa1a6df13`, CI `39959778039`, main `275a41222be913a10dc1dbb9a827a1f572241807`, main CI `39960464550`, Pages `39961124502`. Functional QA: `259/259 Node tests; TypeScript and release audit PASS (40 JS modules, 42 offline assets); 32 Chromium captures (7 biomes + combat × ASCII/Pixel × WebGL2/Canvas2D), modal choice and persistent outcome PASS`. Public interactive smoke: PASS: public WORLD ENGINE v0.37 loaded; pre-existing v0.36 local save resumed in Velo de Arken; glyph canvas rendered, compass/HUD visible and no game-origin console errors. Cloud Canvas2D fallback performance is diagnostic only..
+
+## Architecture and decisions
+
+- `src/**/*.ts` authoritative; `dist/`, standalone and screenshot artifacts are generated. `src/main.ts` owns a large stateful game shell; keep domain logic pure and extract incrementally, no speculative framework rewrite.
+- The world uses deterministic seed + persistable `WorldSnapshot` (gen=1). New-region generation is additive; never reroll an active player's old map. Interactions and irreversible choices are idempotent v1 flags. `src/core/save-store.ts` rotates a validated backup.
+- `src/render.ts` and dedicated material/biome modules compose ASCII glyph cells with foreground/background. WebGL2 and Canvas2D share a scene. Touch and keyboard invoke the same actions.
+- TypeScript/Node/browser QA and standalone/PWA build run in GitHub Actions. `main` CI success publishes `gh-pages` with `build-info.json.source_commit`; Pages workflow and external URL require separate confirmation. Never equate a push or green CI with public deployment.
+- Established user preference: fewer, **large vertical slices** with playable, persisted, UI-complete outcomes and regression evidence, not decorative patches. Protect existing user changes; no force push.
+
+## Prioritized deficiencies / next macroiterations
+
+1. **G2 real visual polish and legibility:** solve weak character/object silhouette separation, dominant flat roads, glyph noise and insufficient focal contrast with photographed desktop/mobile viewport comparisons, direct player benefit and art-direction signoff.
+2. **W4 exploration/navigation:** 200+ seeded *real traversal* routes of all seven zones, no inaccessible clue/portal, plus unaided human wayfinding tasks.
+3. **C4 / P4 gameplay tuning:** external first-hour and long-run samples, starter parity, collection rate, resource economy and boss difficulty.
+4. **U2 / G4 physical Android:** joystick, orientation, text, touch target and sustained ≥30 FPS on minimum hardware; include device model and measurements.
+5. **Q2 save reliability:** backup/rollback, old save migration, quota, interrupted write, return-session and prolonged gameplay stress.
+6. **A2/A3 / U3:** mastered scene music, adaptive mixing, accessibility audit and reduced-motion/contrast validation.
+7. **N4 / U4 / Q4:** independent complete playthroughs, polished narrative/usability, release-level severity zero and all 16 quality gates.
+
+## Current risks and blockers
+
+- The attached execution filesystem is **read-only**, so GitHub connector + remote Actions were used for source edits and validation. No local shell write/test result is claimed.
+- Actual Android hardware, heat/battery profiling and independent player/art/music signoff are **not available here**. Browser fallback FPS is diagnostic only.
+- No automatic completion percentage is inferred from number of files or features. Latest externally verified source is recorded above; if any run/deployment fails, this state must explicitly say so.
+
+**Next priority: G2 demanding visual scene/silhouette acceptance**, followed by W4 mobility/wayfinding and full-game tuning. Never mark premium COMPLETED without all defined gates.

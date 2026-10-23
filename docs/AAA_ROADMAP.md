@@ -10,10 +10,10 @@ A checkbox means the evidence stated below exists. A completed automated gate me
 | Phase | Weight | Completed | Progress | Remaining milestone gate |
 |---|---:|---:|---:|---|
 | 1. Core gameplay and balance | 20% | 3/4 | 75% | C4 human combat balance |
-| 2. World and exploration | 15% | 2/4 | 50% | W3 authored new regions; W4 exploratory QA |
+| 2. World and exploration | 15% | 3/4 | 75% | W4 exploratory QA, especially physical mobile traversal |
 | 3. Complete story and narrative | 20% | 3/4 | 75% | N4 independent narrative / human playtest approval |
-| 4. Creatures and progression | 10% | 2/4 | 50% | P3 connected collection/evolution arcs; P4 external pacing and balance |
-| 5. Graphics and animation | 10% | 1/4 | 25% | G2 expressive biome/character polish; G3 animation breadth; G4 verified minimum-device FPS |
+| 4. Creatures and progression | 10% | 3/4 | 75% | P4 external pacing and balance |
+| 5. Graphics and animation | 10% | 2/4 | 50% | G2 independent visual acceptance; G4 verified minimum-device FPS |
 | 6. UX and mobile | 10% | 1/4 | 25% | U2 real Android testing; U3 accessibility audit; U4 human usability validation |
 | 7. Audio and atmosphere | 5% | 1/4 | 25% | A2 mastered themes; A3 dynamic scene mixing; A4 external audio evaluation |
 | 8. QA and release | 10% | 2/4 | 50% | Q2 save/import and concurrency stress; Q4 independent public/hardware release |
@@ -26,7 +26,7 @@ A checkbox means the evidence stated below exists. A completed automated gate me
 - **C4 [ ]** At least 20 externally observed complete combat sessions, no dominant starter, no critical progression traps, signoff of tuning.
 - **W1 [x]** Deterministic procedural topology, reachable visible routes and v1 snapshot/reload regression on 512 seeds in `tests/encounters-graphics.test.mjs`.
 - **W2 [x]** Every starter has exactly one advantageous Sanctuary encounter across >=512 seeds; three reachable seeded encounters/levels 8–10; two/three/three species variants; in-game optional scouting uses actual equipped moves and cleared flags; Keeper awards a single 2-seal/2-tonic/40-echo oath completion on defeating or capturing each distinct roamer (including old saves), without a save schema bump; TS/Node/runtime and published build pass.
-- **W3 [ ]** Add at least two original meaningful world regions with distinct NPCs, creatures, exploration loops, authored quests and persistent terrain.
+- **W3 [x]** Two deterministic original post-campaign regions (Ossuary and Garden), each with one NPC, two discoverable memories, three persistent encounter witnesses, altar, reward chest and one irreversible choice. Two original capturable creatures, authored moves, distinct biomes and audio, quest guidance and save-v1 compatibility. Verified by v0.37 source/browser acceptance; human quality remains W4/N4.
 - **W4 [ ]** Across >=200 saved seeds, end-to-end traversal, discovery and route QA including human mobile navigation.
 - **N1 [x]** Original six-objective Arken arc, Guardian/crypt outro, one-time reward and idempotent save-backed conclusion.
 - **N2 [x]** Authored full second chapter integrating unique region(s), characters, choices and progression.
@@ -34,11 +34,11 @@ A checkbox means the evidence stated below exists. A completed automated gate me
 - **N4 [ ]** Independent narrative/playtest signoff for clarity, pacing, coherence and endings.
 - **P1 [x]** Capturable species, party/reserve, moves, experience and evolution persist with regressions.
 - **P2 [x]** Four authored capturable late-game roles (Mourveil support/cleanse, Mnemoshade drain/fracture, Bellroot tank/fracture, Ashglass speed/scorch), two level-based evolutions, signature skills/animation silhouettes, biome-appropriate optional duels and gated wild ecology. Dedicated unit/integration tests plus all 12 legitimate trilogy paths pass; external player balance remains P4.
-- **P3 [ ]** Connected collection quests, discoveries and meaningful evolution arcs through the campaign.
+- **P3 [x]** Connected collection quests, discoveries and meaningful evolution arcs through the campaign.
 - **P4 [ ]** Measured economy/collection pacing with external player acceptance.
 - **G1 [x]** Two graphics modes, WebGL2/Canvas2D browser acceptance and four screenshot artifacts in CI 39836396417.
-- **G2 [ ]** Distinct authored silhouettes/biome palettes and inspected screenshots across required regions for both profiles.
-- **G3 [ ]** Comprehensive motion/combat reaction coverage with reduced-motion QA.
+- **G2 [ ]** Distinct authored silhouettes/biome palettes and inspected screenshots across required regions for both profiles. v0.36 has a complete material/negative-space/foreground/background redesign and five authored route motifs, but independent desktop/mobile visual-quality signoff remains pending.
+- **G3 [x]** Comprehensive motion/combat reaction coverage with reduced-motion QA.
 - **G4 [ ]** Real minimum Android hardware sustained >=30 FPS plus stable heat/battery and fallback.
 - **U1 [x]** Keyboard/mouse/touch, modal navigation and virtual joystick covered by existing browser/runtime gates.
 - **U2 [ ]** Real Android touch/joystick/rotation and fullscreen tests on designated minimum device.
@@ -111,3 +111,21 @@ The authored three-chapter storyline now has a scripted conclusion and automated
 - Release v0.32.0 via [PR #9](https://github.com/akumanomi1988/ASCII_AZUR/pull/9), source `d51c6baf970eea0f59c1f1df767c854e1c6d6442`. Four unique capturable creature identities and silhouettes, two evolutions, real signature combat effects, region-specific direct duels and post-chapter wild populations. Crucially, compulsory story witnesses and first-time Marsh/Crown wild difficulty are preserved to avoid campaign regressions; `version:1` saves remain valid.
 - [Feature CI 39949766853](https://github.com/akumanomi1988/ASCII_AZUR/actions/runs/39949766853) SUCCESS: TypeScript/standalone/release, **235/235 Node tests**, 36 compiled JS modules and 37 cached offline assets. Complete Q3 replay: **12/12**, 317 battles, 23 captures, 1,098 player actions. Main [CI 39950404171](https://github.com/akumanomi1988/ASCII_AZUR/actions/runs/39950404171) and [Pages 39950672780](https://github.com/akumanomi1988/ASCII_AZUR/actions/runs/39950672780) SUCCESS; `gh-pages` head `4ce24177c87c2478b9497fc765b6053638addf87`, `build-info.json.source_commit=d51c6baf970eea0f59c1f1df767c854e1c6d6442`. Public browser smoke: PASS — public v0.32 loaded, legacy save continued, menu/Codex opened (1/15 capturable), live build-info JSON matched source commit; cloud-browser fallback readout ~1 FPS is not a hardware benchmark.
 - P2 closes as automated mechanical/role acceptance, **Creatures 25% → 50%, 14/32 → 15/32, weighted global 51.25% → 53.75% (+2.50 pp)**. P4 independent collection balance, physical Android, G2/G4 art+performance and Q4 commercial readiness remain open. **16-domain conservative average stays 2.5/5; 0/16 independently premium.**
+
+## 2026-10-23 — Verified macroiterations P3 and G3
+
+- **P3:** Four regional creature-bond narratives and permanent Fang/Ward outcomes integrated with evolution, memory flags, battle damage, journal/Codex, save persistence and complete campaign regression. PR #11, main `5313d27f848e26e1d44d604a163520844309a219`, main CI 39954113097 and Pages 39954378584 verified.
+- **G3:** Six combat animations, all 17 creature reaction rigs, hit/heal/seal/guard/switch/faint VFX, reduced-motion behavior and Chromium combat screenshots in the four rendering mode/backend combinations. PR #12, main `4e111558d2266c728eaaa79fe1683493f4f03cc8`, PR CI `39954641591`, main CI `39954863164`, Pages `39955185992` and public provenance verified.
+- **Progress:** 17/32 atomic gates, 58.75% weighted global, up from 15/32 and 53.75%. **G2 stays open** despite v0.33's 20 screenshot captures: image quality/legibility still requires demanding visual acceptance. External physical hardware, player balance and premium quality remain open.
+
+## 2026-10-23 — Macroiteration 010, G2 world-material and glyph legibility overhaul
+
+- **Coherent player-facing implementation:** material-aware glyph synthesis (sparse marks on flat surfaces, authored silhouette emphasis), five deterministic road/material motif families, 1.16× world composition, prominent NPC/relic beacons, sharper balanced pixel cells, and bounded 384-tile art cache. Same source scene is fed to WebGL2 and Canvas2D; no gameplay coordinate or save-format mutation.
+- **Verification:** PR #13 feature CI 39956690627, main `109c0dcef11ed05217b6fc7dbff2a4bdc3580c28` CI 39957435005, GitHub Pages 39958112528, public smoke PASS: WORLD ENGINE v0.36 loaded publicly; legacy save resumed, ASCII and Glyph Pixel Art profiles inspected; gh-pages/build-info.json source provenance matched (visual quality still below premium). Browser CI produces 24 captures across five regions and combat in two modes and two backends.
+- **Gate disposition:** G2 remains **OPEN** pending subjective independent art/silhouette assessment, mobile readability and physical-device FPS. Technical delivery is not counted as premium visual acceptance; weighted roadmap stays **17/32 = 58.75%**.
+
+## 2026-10-23 — Macroiteration 011, W3 Afterlight Pilgrimage (v0.37)
+
+- **Playable post-campaign content:** Two distinct 46×32 deterministic regions, Ossuary of the Tides and Garden of the Last Frost, with gated portals, authored NPCs, two memories and three visible witnesses each, branching irreversible resolutions, one-time rewards, quest/compass/journal integration and persisted epilogue consequences. Added Tideworn and Frostlark as original capturable creatures with signatures, rigs, silhouettes and region-specific populations. Existing three/four/five-region v1 saves retain generated terrain and gain deterministic new regions.
+- **Verification:** [PR #14](https://github.com/akumanomi1988/ASCII_AZUR/pull/14), feature head `65fdfae5f6d783cad201b554a1d6d2aaa1a6df13`, feature CI `39959778039`; main source `275a41222be913a10dc1dbb9a827a1f572241807`, CI `39960464550`, Pages `39961124502`; public smoke `PASS: public WORLD ENGINE v0.37 loaded; pre-existing v0.36 local save resumed in Velo de Arken; glyph canvas rendered, compass/HUD visible and no game-origin console errors. Cloud Canvas2D fallback performance is diagnostic only.`. Automated test and browser acceptance evidence: `259/259 Node tests; TypeScript and release audit PASS (40 JS modules, 42 offline assets); 32 Chromium captures (7 biomes + combat × ASCII/Pixel × WebGL2/Canvas2D), modal choice and persistent outcome PASS`.
+- **Roadmap:** W3 closed on technical/playable scope. World phase 50% → 75%, **17/32 → 18/32, weighted global 58.75% → 62.50% (+3.75 pp)**. This counts an authored world milestone, **not** verified premium visual quality, physical Android usability, independent story approval or full release. G2, G4, W4, C4, N4, P4, U2–U4, A2–A4 and Q2/Q4 remain open.
