@@ -7,8 +7,8 @@ const met=[...arrived,'marsh-met-nael'];
 const remembered=[...met,'marsh-memory-bell','marsh-memory-lantern'];
 const ready=[...remembered,'roamer-marsh-0','roamer-marsh-1','roamer-marsh-2'];
 test('second chapter has seven finite sequential beats and an authored objective at every step',()=>{
- for(const [flags,stage] of [[arken,0],[arrived,1],[met,2],[remembered,3],[ready,4],[...ready,'marsh-choice-keep'],[...ready,'marsh-choice-keep',MARSH_CHAPTER_FLAG]].entries()){
-  const p=marshChapterProgress(stage[0]);assert.equal(p.stage,stage[1]);assert.ok(p.objective&&p.title&&p.hint);
+ for(const [flags,stage] of [[arken,0],[arrived,1],[met,2],[remembered,3],[ready,4],[[...ready,'marsh-choice-keep'],5],[[...ready,'marsh-choice-keep',MARSH_CHAPTER_FLAG],6]]){
+  const p=marshChapterProgress(flags);assert.equal(p.stage,stage);assert.ok(p.objective&&p.title&&p.hint);
  }
 });
 test('memories and roamer encounters cannot be substituted by duplicates',()=>{
