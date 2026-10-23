@@ -33,7 +33,7 @@ export function readGraphics(raw:unknown):GraphicsProfile{
 /** Pixel mode uses integer-aligned square cells, with no implicit text line-spacing. */
 export function glyphCell(base:number,profile:GraphicsProfile):{width:number;height:number}{
  if(profile.renderMode==='glyph-pixel'){
-   const factor=profile.pixelDetail==='fine'?.82:profile.pixelDetail==='chunky'?2:1.3;
+   const factor=profile.pixelDetail==='fine'?.75:profile.pixelDetail==='chunky'?1.7:1.1;
    const width=Math.max(4,Math.round(base*factor));
    return {width,height:width};
  }
