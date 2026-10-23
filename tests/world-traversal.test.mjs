@@ -12,7 +12,7 @@ function checkRoute(seed,zone,start,target,physical){
  const path=walkableRouteToTarget(position(zone,start.x,start.y),target);
  assert.ok(path,'No route: '+JSON.stringify({seed,zone,start,target}));
  assert.ok(path.length<=WORLD_W*WORLD_H,'Route cycle '+seed+'/'+zone);
- assert.ok(distance(path[0],start)<=2.83,'Route begins away from player '+seed+'/'+zone);
+ assert.deepEqual(path[0],start,'Route must begin at the real player spawn '+seed+'/'+zone);
  const end=path.at(-1);
  assert.ok(distance(end,target)<=1.65,'Route stops outside interaction range '+seed+'/'+zone);
  const cue=guidanceToTarget(position(zone,start.x,start.y),target);
