@@ -35,3 +35,15 @@ test('accessible presentation: zoom, keyboard skip link and nonvisual state are 
   assert.match(css,/\.skip-link:focus\{transform:none\}/);
   assert.match(css,/:root\.azur-high-contrast :is\(button,input,select,a,\[tabindex\]\):focus-visible/);
 });
+
+
+test('narrative and combat overlays expose dialog, focus and health semantics',()=>{
+  assert.match(html, /id="dialogue"[^>]*role="dialog"[^>]*aria-modal="true"/);
+  assert.match(html, /id="starterScreen"[^>]*role="dialog"[^>]*aria-modal="true"/);
+  assert.match(html, /id="toast"[^>]*role="status"[^>]*aria-live="polite"/);
+  assert.match(html, /id="enemyHealthTrack"[^>]*role="progressbar"/);
+  assert.match(html, /id="allyHealthTrack"[^>]*role="progressbar"/);
+  assert.match(html, /id="battleActions"[^>]*role="group"/);
+  assert.match(html, /id="closeDialogue"[^>]*aria-label="Continuar diálogo"/);
+  assert.match(html, /id="mute"[^>]*aria-pressed="false"/);
+});

@@ -1,6 +1,6 @@
 # ASCII AZUR — Autonomous Evolution State
 
-Updated: 2026-10-23. **STATUS: IN PROGRESS.** Last verified source release: **v0.41.0 — three independent persistent campaigns**. Repository: `akumanomi1988/ASCII_AZUR`, production branch `main`. Release source `1929a961c5e6c6f35066b6ef646436240d6625cf`. Main CI `40007162174` SUCCESS; Pages workflow `40007678172` SUCCESS; `gh-pages/build-info.json.source_commit` matches. A fresh public v0.41 browser smoke has not been recorded; earlier v0.37.1 smoke does not prove v0.41. Cloud Canvas2D fallback FPS is not an Android benchmark.
+Updated: 2026-10-23. **STATUS: IN PROGRESS.** Last verified source release: **v0.42.0 — sparse semantic glyph terrain and pixel-art clarity**. Repository: `akumanomi1988/ASCII_AZUR`, production branch `main`. Release source `aec5376ffaaf4216d815e410b140e7f0cc94e243`. Main CI `40009658573` SUCCESS; Pages workflow `40010050518` SUCCESS; `gh-pages/build-info.json.source_commit` matches. Source/build provenance is verified; independent public visual acceptance and physical-device FPS are not. Cloud Canvas2D fallback FPS is not an Android benchmark.
 
 ## Product vision and hard constraints
 
@@ -112,3 +112,11 @@ The next production-risk slice targets stale browser tabs and quota/interrupted 
 - Atmospheric ASCII now omits random glyphs on flat source surfaces. Glyph Pixel Art uses contiguous solid cell backgrounds, edge-driven block glyphs and quantized five-bit color with less bright ink. CPU/WebGL thresholds are aligned.
 - Canvas2D-only devices enable adaptive glyph pacing by default on first launch with a bounded coarse-cell starting budget; stored opt-out remains authoritative. Save schema and procedural world snapshots are unchanged.
 - Automated material-budget and fallback pacing regressions, full TypeScript/build/Node/browser quality gates and all seven-biome screenshot matrix required. Visual G2 and hardware G4 acceptance remain OPEN until actual before/after review and measured devices.
+
+
+### 2026-10-23 — v0.43 autonomous reliability and accessibility candidate
+
+- Recovery hardening: a failed or silently discarded backup write now stops before replacing the sole known-good primary. The v1 save schema and three campaign slot keys remain unchanged.
+- Programmatic Q2 acceptance expands to 9,000 interleaved three-slot rotations with quota faults, torn primary writes and stale-tab conflicts, plus five-seed legacy three-region → seven-region snapshot restart/replay. Existing browser quota/import and old-save flows remain covered.
+- U3 input/feedback improvements: modal dialogue focus and restoration, first-starter focus, semantic enemy/ally progressbars with current/max HP, labelled battle action group, keyboard focus continuity after combat turns, audible-independent status feedback and exposed mute state. Chromium exercises the core semantics on both graphics modes and backends.
+- The official 32-milestone global score remains 18/32 and 62.50% until all fixed acceptance gates close. This implementation is a candidate; neither independent screen-reader/device signoff nor physical multi-tab race testing is claimed.
