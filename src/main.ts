@@ -357,6 +357,13 @@ class AzurGame {
   private setCombatCue(kind:FxKind,actor:CombatSide,element:string,damageValue=0,effective=false){
     this.combatCue=createCombatCue(kind,actor,element,this.seconds,damageValue,effective);
   }
+  /** Resolve a completed battle with a visible final reaction, without granting a second turn. */
+  private cueFaint(side:CombatSide,complete:()=>void){
+    const b=this.battle;if(!b)return;
+    const target=side==='enemy'?b.enemy:this.getAlly();if(!target){complete();return;}
+    this.setCombatCue('faint',side,SPECIES[target.speciesId]!.element);
+    this.refreshBattle();window.setTimeout(complete,Math.ceil((this.combatCue?.duration??1.12)*1000)+80);
+  }
   private refreshBattle(){const b=this.battle;if(!b)return;const ally=this.getAlly();if(!ally)return;this.checkpointBattle();const es=SPECIES[b.enemy.speciesId]!,as=SPECIES[ally.speciesId]!;
     byId('enemyName').textContent=es.name;byId('enemyLv').textContent='NV. '+b.enemy.level+(b.type==='boss'&&b.bossPhase===2?' · II':'')+(this.statuses(b.enemy).length?' · '+statusLabel(this.statuses(b.enemy)):'');byId('enemyHpText').textContent=`${b.enemy.hp}/${maxHp(b.enemy)}`;byId('enemyHealth').style.width=Math.max(0,b.enemy.hp/maxHp(b.enemy)*100)+'%';
     byId('allyName').textContent=as.name;byId('allyLv').textContent='NV. '+ally.level+(this.statuses(ally).length?' · '+statusLabel(this.statuses(ally)):'');byId('allyHpText').textContent=`${ally.hp}/${maxHp(ally)}`;byId('allyHealth').style.width=Math.max(0,ally.hp/maxHp(ally)*100)+'%';byId('battleLog').textContent=b.log;
@@ -388,14 +395,14 @@ class AzurGame {
     ally.hp=Math.min(maxHp(ally),ally.hp+restored);
     if(utility.cleanse)this.setStatuses(ally,[]);
     const statusText=m.role==='heal'?'':this.applyCombatStatus(b.enemy,id);
-    this.setCombatCue(m.role==='heal'?'heal':'attack','ally',m.element,dealt,result.effective);
+    this.setCombatCue(m.role==='heal'?'heal':'attack','ally',m.element,m.role==='heal'?restored:dealt,result.effective);
     this.flash=.28;this.sound.hitElement(m.element);b.log=`${SPECIES[ally.speciesId]!.name} usa ${m.name}. ${dealt?dealt+' de daño':''}${restored?' · +'+restored+' HP':''}${utility.cleanse?' · ESTADOS LIMPIADOS':''}${result.effective&&dealt?' · ¡EFICAZ!':''}${statusText}.`;
     const selfBurn=this.tickBurn(ally);if(selfBurn)b.log+=` ${SPECIES[ally.speciesId]!.name} sufre ${selfBurn} por ARDOR.`;
     if((b.type==='boss'||(b.type==='expedition'&&this.save.expedition?.pending&&roomById(this.save.expedition,this.save.expedition.pending)?.kind==='boss'))&&b.bossPhase===1&&b.enemy.hp>0&&b.enemy.hp<=maxHp(b.enemy)*.5){b.bossPhase=2;b.chargeStage=1;b.log+=` ¡${SPECIES[b.enemy.speciesId]!.name.toUpperCase()} DESATA SU SEGUNDO NOMBRE!`;this.flash=.72;}
     if(ally.hp<=0){const next=this.save.team.findIndex(c=>c.hp>0);if(next>=0)b.ally=next;}
     // Commit the action before a delayed response so reload cannot grant an extra turn.
     b.pending=b.enemy.hp<=0?'victory':!this.save.team.some(c=>c.hp>0)?'defeat':'enemy';
-    this.refreshBattle();if(b.pending==='victory'){window.setTimeout(()=>this.winBattle(),960);return;}if(b.pending==='defeat'){window.setTimeout(()=>this.defeat(),960);return;}window.setTimeout(()=>this.enemyTurn(),1000);
+    this.refreshBattle();if(b.pending==='victory'){window.setTimeout(()=>this.cueFaint('enemy',()=>this.winBattle()),660);return;}if(b.pending==='defeat'){window.setTimeout(()=>this.cueFaint('ally',()=>this.defeat()),660);return;}window.setTimeout(()=>this.enemyTurn(),1000);
   }
   private defend(){const b=this.battle,ally=this.getAlly();if(!b||!ally||b.busy)return;
     b.busy=true;b.guarding=true;b.log=`${SPECIES[ally.speciesId]!.name} protege sus recuerdos. El próximo ataque hará un 55% menos de daño.`;
@@ -421,10 +428,10 @@ class AzurGame {
     const affliction=m.role==='heal'?'':this.applyCombatStatus(ally,moveId);
     b.log=`${SPECIES[b.enemy.speciesId]!.name} usa ${charged?'RUPTURA DEL SILENCIO':m.name}. ${actual?'Recibes '+actual+' de daño':''}${recovered?' · Recupera '+recovered+' HP':''}${enemyUtility.cleanse?' · Purifica sus estados':''}${b.guarding&&actual?' (guardia)':''}${affliction}.`;
     const burn=this.tickBurn(b.enemy);if(burn)b.log+=` ${SPECIES[b.enemy.speciesId]!.name} sufre ${burn} por ARDOR.`;
-    b.guarding=false;this.setCombatCue(m.role==='heal'?'heal':'attack','enemy',charged?'Éter':m.element,actual,result.effective);this.sound.hitElement(charged?'Éter':m.element);this.flash=charged?.4:.18;
-    if(ally.hp<=0){const next=this.save.team.findIndex(c=>c.hp>0);if(next<0){b.pending='defeat';this.refreshBattle();window.setTimeout(()=>this.defeat(),1050);return;}
+    b.guarding=false;this.setCombatCue(m.role==='heal'?'heal':'attack','enemy',charged?'Éter':m.element,m.role==='heal'?recovered:actual,result.effective);this.sound.hitElement(charged?'Éter':m.element);this.flash=charged?.4:.18;
+    if(ally.hp<=0){const next=this.save.team.findIndex(c=>c.hp>0);if(next<0){b.pending='defeat';this.refreshBattle();window.setTimeout(()=>this.cueFaint('ally',()=>this.defeat()),690);return;}
       b.ally=next;b.log+=` ${SPECIES[this.save.team[next]!.speciesId]!.name} acude a tu llamada.`;}
-    if(b.enemy.hp<=0){b.pending='victory';this.refreshBattle();window.setTimeout(()=>this.winBattle(),760);return;}
+    if(b.enemy.hp<=0){b.pending='victory';this.refreshBattle();window.setTimeout(()=>this.cueFaint('enemy',()=>this.winBattle()),650);return;}
     b.busy=false;this.refreshBattle();
   }
   private winBattle(){const b=this.battle,ally=this.getAlly();if(!b||!ally)return;const bonus=firstRoamerVictoryBonus(b.type,b.encounterId,this.save.flags);const mastery=villageTrainingBonus(b.type,this.save.zone,b.enemy.speciesId,this.save.flags,b.encounterId);const amount=(b.type==='boss'?95:11+b.enemy.level*3)+bonus+mastery;const awards=grantPartyExperience(this.save.team,b.ally,amount);if(bonus>0)this.save.team=recoverTrailParty(this.save.team);const gain=awards.find(a=>a.active)!;const evolution=awards.find(a=>a.evolved);const supporters=awards.filter(a=>!a.active);const originalName=SPECIES[b.enemy.speciesId]!.name;this.finishBattle();if(b.encounterId)this.addFlag('roamer-'+b.encounterId);if(mastery>0)this.addFlag('training-'+b.enemy.speciesId);this.sound.pick();if(b.type==='wild'&&this.save.dungeon?.active&&this.save.dungeon.pending!==null)this.finishDungeonEnemy();if(b.type==='expedition'){this.expeditionBattleWon();if(evolution)this.beginEvolution(evolution.from,evolution.to);this.saveNow(false);this.updateUI();window.setTimeout(()=>this.openExpedition(),evolution?3500:620);return;}if(b.type==='boss'&&b.enemy.speciesId==='nullscribe'){
@@ -457,7 +464,7 @@ class AzurGame {
       this.refreshBattle();this.enemyTurn();
     }
   }
-  private tonic(){const b=this.battle,ally=this.getAlly();if(!b||!ally||b.busy||this.save.inventory.tonics<1)return;this.save.inventory.tonics--;ally.hp=Math.min(maxHp(ally),ally.hp+28);this.setStatuses(ally,this.statuses(ally).filter(s=>s.kind!=='scorch'));b.busy=true;b.pending='enemy';this.setCombatCue('heal','ally',SPECIES[ally.speciesId]!.element);b.log=`${SPECIES[ally.speciesId]!.name} recupera 28 puntos de salud y limpia el ARDOR.`;this.sound.pick();this.refreshBattle();window.setTimeout(()=>this.enemyTurn(),550);}
+  private tonic(){const b=this.battle,ally=this.getAlly();if(!b||!ally||b.busy||this.save.inventory.tonics<1)return;this.save.inventory.tonics--;const beforeHp=ally.hp;ally.hp=Math.min(maxHp(ally),ally.hp+28);this.setStatuses(ally,this.statuses(ally).filter(s=>s.kind!=='scorch'));b.busy=true;b.pending='enemy';this.setCombatCue('heal','ally',SPECIES[ally.speciesId]!.element,ally.hp-beforeHp);b.log=`${SPECIES[ally.speciesId]!.name} recupera 28 puntos de salud y limpia el ARDOR.`;this.sound.pick();this.refreshBattle();window.setTimeout(()=>this.enemyTurn(),550);}
   private switchCreature(){const b=this.battle;if(!b||b.busy)return;
     if(!this.save.team.some((c,i)=>c.hp>0&&i!==b.ally)){this.toast('NO TIENES OTRA CRIATURA DISPONIBLE');return;}
     b.selecting=true;this.refreshBattle();

@@ -186,6 +186,26 @@ window.addEventListener('load',()=>setTimeout(async()=>{
   $('touchInteract').click();
   check($('modal').classList.contains('hidden'),'Claimed bond can be repeated at altar');
   check(JSON.parse(localStorage.getItem('ascii-azur-save-v1')).flags.filter(f=>f==='bond-ember-fang').length===1,'Duplicated bond reward');
+  // G3 complete combat presentation acceptance: rehydrate a real pending duel,
+  // trigger a player move and inspect the glyph-composited action on each backend.
+  const combatSave=JSON.parse(saved);
+  combatSave.activeBattle={
+   enemy:{...combatSave.team[0],uid:'qa-enemy',speciesId:'wispawn',level:4,hp:24,moves:[...combatSave.team[0].moves]},
+   type:'wild',ally:0,guarding:false,bossPhase:1,chargeStage:0,effects:{}
+  };
+  localStorage.setItem('ascii-azur-save-v1',JSON.stringify(combatSave));
+  $('continue').click();
+  check(!$('battle').classList.contains('hidden'),'Saved battle did not restore');
+  check(document.querySelectorAll('#battleActions button').length>=4,'Missing tactical battle actions');
+  const attack=document.querySelector('#battleActions .battle-move:not([disabled])');
+  check(!!attack,'No usable player attack');
+  attack.click();
+  check($('battleLog').textContent.length>5,'Battle action did not update the log');
+  window.__azurQaAdvance();
+  await new Promise(resolve=>setTimeout(resolve,180));
+  const combatImage=await fetch('/__qa_capture?mode='+encodeURIComponent(params.get('mode')||'ascii')+
+   '&fallback='+(params.has('fallback')?'1':'0')+'&zone=battle',{method:'POST',body:$('game').toDataURL('image/png')});
+  check(combatImage.ok,'Combat VFX screenshot failed');
   check(window.__azurErrors.length===0,'JS errors: '+window.__azurErrors.join(' | '));
   document.body.dataset.azurQa='PASS';
  }catch(error){document.body.dataset.azurQa='FAIL: '+error.message;console.error(error)}
@@ -202,7 +222,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
   if request.path!='/__qa_capture': self.send_error(404);return
   query=urllib.parse.parse_qs(request.query)
   mode=query.get('mode',[''])[0];fallback=query.get('fallback',[''])[0];zone=query.get('zone',[''])[0]
-  if mode not in ('ascii','glyph-pixel') or fallback not in ('0','1') or zone not in ('village','forest','sanctuary','marsh','spire'):self.send_error(400);return
+  if mode not in ('ascii','glyph-pixel') or fallback not in ('0','1') or zone not in ('village','forest','sanctuary','marsh','spire','battle'):self.send_error(400);return
   body=self.rfile.read(int(self.headers.get('Content-Length','0'))).decode('ascii')
   if not body.startswith('data:image/png;base64,'):self.send_error(415);return
   png=base64.b64decode(body.split(',',1)[1],validate=True)
@@ -225,10 +245,10 @@ try:
     if result.returncode or 'data-azur-qa="PASS"' not in result.stdout:
      marker=result.stdout.split('data-azur-qa=')[-1][:170] if 'data-azur-qa=' in result.stdout else 'MISSING QA MARKER'
      raise AssertionError(f'{mode} fallback={fallback} failed ({result.returncode}): {marker}\n{result.stderr[-1000:]}')
-    captures=[OUT/(zone+'-'+mode+('-canvas2d' if fallback else '-webgl2')+'.png') for zone in ('village','forest','sanctuary','marsh','spire')]
+    captures=[OUT/(zone+'-'+mode+('-canvas2d' if fallback else '-webgl2')+'.png') for zone in ('village','forest','sanctuary','marsh','spire','battle')]
     if not all(path.exists() for path in captures):raise AssertionError('Missing one or more biome visual captures')
-    if len({hashlib.sha256(path.read_bytes()).hexdigest() for path in captures})!=5:raise AssertionError('Biome screenshots are stale or indistinguishable')
-    print(f'PASS {mode} {"Canvas2D" if fallback else "WebGL2"} · 5 biome screenshots',flush=True)
+    if len({hashlib.sha256(path.read_bytes()).hexdigest() for path in captures})!=6:raise AssertionError('World/combat screenshots are stale or indistinguishable')
+    print(f'PASS {mode} {"Canvas2D" if fallback else "WebGL2"} · 5 biomes + combat VFX screenshot',flush=True)
 finally:
  server.shutdown()
  QA.unlink(missing_ok=True)

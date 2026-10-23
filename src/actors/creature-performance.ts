@@ -32,20 +32,20 @@ export function sampleCreaturePerformance(speciesId:string,seconds:number,action
  const t=Math.max(0,seconds), pulse=Math.sin(t*rig.pace+phase),slow=Math.sin(t*rig.pace*.43+phase),blinkPhase=(t+phase)%rig.blinkInterval;
  const blink=blinkPhase<.11?Math.max(0,1-Math.abs(blinkPhase-.055)/.055):0;
  const signal=action==='attack'?1:action==='hurt'?-1:action==='faint'?-2:action==='evolve'?2:0;
- const freeze=reducedMotion||action==='faint';
- const k=freeze?0:1;
+ const freeze=reducedMotion||action==='faint',k=freeze?0:1;
+ const attack=action==='attack'?1:0,hurt=action==='hurt'?1:0,faint=action==='faint'?1:0;
  return {
   family:rig.family,
-  bob:k*rig.amplitude*(pulse*.48+.52)+(signal===2?Math.sin(t*8)*3:0),
-  roll:k*slow*(rig.family==='fish'?.065:rig.family==='spirit'?.055:.018),
-  breath:1+k*.025*Math.sin(t*rig.pace*.83),
-  gait:k*pulse,
-  tail:k*Math.sin(t*(rig.pace*1.7)+phase)*.65,
-  wing:k*Math.sin(t*(rig.family==='moth'?8.6:4.3)+phase),
-  blink:action==='attack'?0:action==='hurt'?1:blink,
-  eyeGlow:signal===1?1.4:signal===2?1.6:1+.16*slow,
-  halo:k*(.67+.22*Math.sin(t*1.6+phase))+(signal===2?.6:0),
-  particles:k*(rig.family==='spirit'?1.2:rig.family==='stag'?1.1:rig.family==='sprout'?.65:.5),
+  bob:k*rig.amplitude*(pulse*.48+.52)+(signal===2?Math.sin(t*8)*3:0)-hurt*2,
+  roll:faint ? .22 : hurt ? -.095 :k*slow*(rig.family==='fish'?.065:rig.family==='spirit'?.055:.018),
+  breath:faint ? .82 : hurt ? .94 :1+k*.025*Math.sin(t*rig.pace*.83)+attack*.055,
+  gait:k*pulse*(1+attack*.8),
+  tail:k*Math.sin(t*(rig.pace*1.7)+phase)*(.65+attack*.35),
+  wing:k*Math.sin(t*(rig.family==='moth'?8.6:4.3)+phase)*(1+attack*.55),
+  blink:action==='attack'?0:action==='hurt'||action==='faint'?1:blink,
+  eyeGlow:faint ? 0 : hurt ? .65 :signal===1?1.4:signal===2?1.6:1+.16*slow,
+  halo:faint ? 0 : k*(.67+.22*Math.sin(t*1.6+phase))+(signal===2?.6:0),
+  particles:faint ? 0 : k*(rig.family==='spirit'?1.2:rig.family==='stag'?1.1:rig.family==='sprout'?.65:.5),
   expression:signal===1?'feral':signal===-1?'hurt':signal===-2?'faint':signal===2?'transcendent':'calm'
  };
 }

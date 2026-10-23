@@ -227,7 +227,7 @@ function creatureDetails(ctx:CanvasRenderingContext2D,id:string,perf:CreaturePer
 }
 export function drawCreature(ctx:CanvasRenderingContext2D,speciesId:string,x:number,y:number,scale=1,t=0,action:CreatureAction='idle',reducedMotion=false){const sp=SPECIES[speciesId];if(!sp)return;
  const perf=sampleCreaturePerformance(speciesId,t,action,reducedMotion);
- ctx.save();ctx.translate(x,y-perf.bob*scale);ctx.rotate(perf.roll);ctx.scale(scale*perf.breath,scale/perf.breath);ctx.globalAlpha=.22;ctx.fillStyle='#071018';ctx.beginPath();ctx.ellipse(0,7,17,5,0,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;const col=sp.color,shadow='#172534';ctx.fillStyle=col;
+ ctx.save();ctx.translate(x,y-perf.bob*scale+(action==='faint'?12*scale:0));ctx.rotate(perf.roll);ctx.scale(scale*perf.breath,scale*(action==='faint' ? .7 : 1/perf.breath));ctx.globalAlpha=.22;ctx.fillStyle='#071018';ctx.beginPath();ctx.ellipse(0,7,17,5,0,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;const col=sp.color,shadow='#172534';ctx.fillStyle=col;
   if([0,5].includes(sp.shape)){ // wolf, tail, four legs and ears
     poly(ctx,[[-13,-2],[-33,-22+perf.tail*5],[-28,1+perf.tail*3],[-15,7]],col);
     ctx.fillRect(-10,1+perf.gait*1.9,5,13);ctx.fillRect(10,0-perf.gait*1.9,5,14);ctx.beginPath();ctx.ellipse(0,-5,20,13,0,0,7);ctx.fill();poly(ctx,[[6,-12],[15,-30],[19,-14],[27,-9],[28,0],[10,-1]],col);poly(ctx,[[10,-20],[11,-36],[20,-24]],col);poly(ctx,[[19,-19],[26,-32],[27,-15]],col);ctx.fillStyle='#f7e2b8';ctx.fillRect(23,-6,3,3);
@@ -702,7 +702,7 @@ if(flash>0){ctx.fillStyle=`rgba(194,175,229,${flash*.25})`;ctx.fillRect(0,0,W,H)
 function spellColor(element:string):string{
  switch(element){case 'Ceniza':case 'ember':case 'ash':return '#ffac68';case 'Bruma':case 'mist':return '#8de5e1';case 'Raíz':case 'root':return '#afe4a0';case 'Éter':case 'aether':return '#d9aaff';default:return '#d9cbb3';}
 }
-function battleEffects(ctx:CanvasRenderingContext2D,fx:CombatFxFrame,t:number,signature:BattleSignature|null){
+function battleEffects(ctx:CanvasRenderingContext2D,fx:CombatFxFrame,t:number,signature:BattleSignature|null,reducedMotion=false){
  const enemy={x:695,y:220},ally={x:268,y:309};
  const from=fx.actor==='ally'?ally:enemy,to=fx.actor==='ally'?enemy:ally;
  const color=spellColor(fx.element);
@@ -745,19 +745,58 @@ function battleEffects(ctx:CanvasRenderingContext2D,fx:CombatFxFrame,t:number,si
    }
    ctx.globalAlpha=fx.impact*.45;ctx.fillStyle=color;ctx.beginPath();ctx.arc(x,y,14+fx.impact*28,0,Math.PI*2);ctx.fill();
  }
- if(fx.kind==='guard'||fx.kind==='heal'||fx.kind==='capture'){
-   const x=from.x,y=from.y-43;const radius=35+fx.trail*32;
-   ctx.strokeStyle=fx.kind==='heal'?'#a9e9ab':fx.kind==='capture'?'#d0afea':'#a9d5ed';
-   ctx.lineWidth=3;ctx.globalAlpha=fx.trail*.6;
-   ctx.beginPath();ctx.ellipse(x,y,radius,radius*.65,0,0,Math.PI*2);ctx.stroke();
-   for(let i=0;i<11;i++){const a=i*Math.PI*2/11+t*.9;ctx.fillRect(x+Math.cos(a)*radius,y+Math.sin(a)*radius*.65,3,4);}
+ // A complete readable cue language: each non-attack action has its own silhouette.
+ // All visuals are in the glyph source scene, so Canvas2D and WebGL2 agree.
+ if(fx.kind==='guard'){
+   const x=from.x,y=from.y-42,rad=50+fx.trail*12;
+   ctx.save();ctx.translate(x,y);ctx.strokeStyle='#a9d5ed';ctx.lineWidth=4;
+   ctx.globalAlpha=.35+fx.trail*.55;
+   ctx.beginPath();for(let j=0;j<6;j++){const a=Math.PI/3*j-Math.PI/6;const px=Math.cos(a)*rad,py=Math.sin(a)*rad*.8;
+     if(j===0)ctx.moveTo(px,py);else ctx.lineTo(px,py);}ctx.closePath();ctx.stroke();
+   ctx.fillStyle='#c9edf1';ctx.font='bold 15px monospace';ctx.textAlign='center';ctx.fillText('GUARDIA',0,-rad*.8-15);
+   ctx.restore();
+ }
+ if(fx.kind==='heal'){
+   const x=from.x,y=from.y-45;
+   ctx.save();ctx.strokeStyle='#9ee9b6';ctx.lineWidth=3;ctx.globalAlpha=.36+fx.trail*.6;
+   for(let j=0;j<3;j++){ctx.beginPath();ctx.ellipse(x,y,23+j*19,17+j*19,0,0,Math.PI*2);ctx.stroke();}
+   ctx.font='bold 30px monospace';ctx.textAlign='center';ctx.fillStyle='#d5ffe5';
+   ctx.fillText(fx.damage>0?'+'+fx.damage+' PS':'✦ SANACIÓN',x,y-88);
+   if(!reducedMotion)for(let j=0;j<16;j++){const a=j*2.399+t*.65,dist=17+j*3;
+    ctx.fillRect(x+Math.cos(a)*dist,y+Math.sin(a)*dist-(fx.phase*20),3,4);}
+   ctx.restore();
+ }
+ if(fx.kind==='capture'){
+   const p=reducedMotion ? .65 : Math.min(1,fx.phase*1.35);
+   const x=from.x+(to.x-from.x)*p,y=from.y-43+(to.y-from.y)*p-60*Math.sin(Math.PI*p);
+   ctx.save();ctx.strokeStyle='#e4b7ff';ctx.fillStyle='#f8e4ff';ctx.lineWidth=3;ctx.globalAlpha=.5+fx.trail*.42;
+   ctx.beginPath();ctx.arc(x,y,11+fx.trail*8,0,Math.PI*2);ctx.stroke();
+   ctx.fillText('◇',x-9,y+8);
+   ctx.beginPath();ctx.ellipse(to.x,to.y-43,35+fx.trail*29,22+fx.trail*20,0,0,Math.PI*2);ctx.stroke();
+   ctx.font='bold 15px monospace';ctx.textAlign='center';ctx.fillText('SELLO DE VÍNCULO',to.x,to.y-115);
+   ctx.restore();
+ }
+ if(fx.kind==='switch'){
+   const x=from.x,y=from.y-40;
+   ctx.save();ctx.strokeStyle='#d6d6ff';ctx.fillStyle='#edf1ff';ctx.lineWidth=3;ctx.globalAlpha=.45+fx.trail*.4;
+   for(let j=0;j<3;j++){const rad=28+j*18;ctx.beginPath();ctx.ellipse(x,y,rad,rad*.4,0,0,Math.PI*2);ctx.stroke();}
+   ctx.font='bold 16px monospace';ctx.textAlign='center';ctx.fillText('RELEVO',x,y-92);
+   ctx.restore();
+ }
+ if(fx.kind==='faint'){
+   const x=from.x,y=from.y-30,p=fx.phase;
+   ctx.save();ctx.fillStyle=spellColor(fx.element);ctx.globalAlpha=(1-p)*.86;
+   if(!reducedMotion)for(let j=0;j<26;j++){const a=j*2.399,dist=14+j%7*7+37*p;
+     ctx.fillRect(x+Math.cos(a)*dist,y+Math.sin(a)*dist-35*p,2+(j%3),3+(j%3));}
+   ctx.font='bold 18px monospace';ctx.textAlign='center';ctx.fillText('EL NOMBRE SE APAGA',x,y-95-(reducedMotion?0:p*16));
+   ctx.restore();
  }
  // Damage number is authored in the scene, ensuring its appearance uses ASCII glyphs.
  if(fx.kind==='attack'&&fx.phase>.39&&fx.phase<.85&&fx.damage>0){
    const p=(fx.phase-.39)/.46;ctx.globalAlpha=Math.min(1,Math.min(p*6,(1-p)*5));
    ctx.textAlign='center';ctx.font='bold 35px monospace';ctx.fillStyle=fx.effective?'#ffe3a4':'#efc7bc';
-   ctx.fillText(`-${fx.damage}`,to.x,to.y-102-p*43);
-   if(fx.effective){ctx.font='bold 13px monospace';ctx.fillStyle='#fff2bf';ctx.fillText('¡EFICAZ!',to.x,to.y-78-p*42);}
+   ctx.fillText(`-${fx.damage}`,to.x,to.y-102-(reducedMotion?0:p*43));
+   if(fx.effective){ctx.font='bold 13px monospace';ctx.fillStyle='#fff2bf';ctx.fillText('¡EFICAZ!',to.x,to.y-78-(reducedMotion?0:p*42));}
  }
  ctx.restore();
 }
@@ -778,7 +817,7 @@ export function drawBattle(ctx:CanvasRenderingContext2D,enemy:Creature,ally:Crea
  const renderUnit=(unit:Creature,x:number,y:number,scale:number,role:'ally'|'enemy',pose?:{x:number;y:number;scaleX:number;scaleY:number;rotation:number;alpha:number})=>{
    ctx.save();ctx.translate(x,y);if(pose){ctx.translate(pose.x,pose.y);ctx.rotate(pose.rotation);ctx.scale(pose.scaleX,pose.scaleY);ctx.globalAlpha*=pose.alpha;}
    if(signature){const p=fx!.actor===role?signature.attacker:signature.defender;ctx.translate(p.x,p.y);ctx.rotate(p.rotation);ctx.scale(p.scaleX,p.scaleY);ctx.globalAlpha*=p.alpha;}
-   const action:CreatureAction=fx?.kind==='attack'?(fx.actor===role?'attack':signature&&signature.impact>.08?'hurt':'idle'):'idle';
+   const action:CreatureAction=fx?.kind==='faint'&&fx.actor===role?'faint':fx?.kind==='attack'?(fx.actor===role?'attack':signature&&signature.impact>.08?'hurt':'idle'):fx?.kind==='heal'&&fx.actor===role?'evolve':fx?.kind==='capture'&&fx.actor!==role&&fx.phase>.38&&fx.phase<.85?'hurt':'idle';
    drawCreature(ctx,unit.speciesId,0,0,scale,t,action,reducedMotion);ctx.restore();
  };
  const enemyPose=fx?(fx.actor==='enemy'?fx.attacker:fx.target):undefined;
@@ -802,7 +841,7 @@ export function drawBattle(ctx:CanvasRenderingContext2D,enemy:Creature,ally:Crea
  };
  aura(695,234,statuses?.enemy??[]);aura(268,319,statuses?.ally??[]);
  for(let i=0;i<44;i++){const x=hash(i,41,6)*W,y=hash(i,82,4)*H;ctx.globalAlpha=.08+hash(i,12,8)*.14;ctx.fillStyle='#a6d0d4';ctx.fillRect(x+Math.sin(t+i)*6,y,2,2);}ctx.globalAlpha=1;
- if(fx)battleEffects(ctx,fx,t,signature);
+ if(fx)battleEffects(ctx,fx,t,signature,reducedMotion);
  if(flash>0){ctx.fillStyle=`rgba(231,210,195,${flash*.24})`;ctx.fillRect(0,0,W,H);}
  ctx.restore();
 }
