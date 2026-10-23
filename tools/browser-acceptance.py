@@ -312,16 +312,23 @@ window.addEventListener('load',()=>setTimeout(async()=>{
     check(window.__azurErrors.length===0,'JS errors: '+window.__azurErrors.join(' | '));
   document.body.dataset.azurQa='PASS';
  }catch(error){document.body.dataset.azurQa='FAIL: '+error.message;console.error(error)}
+  try{await fetch('/__qa_result',{method:'POST',body:document.body.dataset.azurQa||'FAIL: missing result'});}catch{/* server may have closed */}
 },90));
 </script>'''
 if '</head>' not in HTML: raise SystemExit('Missing HTML head')
 QA=ROOT/'.azur-browser-acceptance.html'
 QA.write_text(HTML.replace('</head>',INJECTION+'</head>',1),encoding='utf-8')
+QA_DONE=threading.Event()
+QA_RESULTS=[]
 class Handler(http.server.SimpleHTTPRequestHandler):
  def __init__(self,*args,**kwargs): super().__init__(*args,directory=str(ROOT),**kwargs)
  def log_message(self,*args): pass
  def do_POST(self):
   request=urllib.parse.urlparse(self.path)
+  if request.path=='/__qa_result':
+   outcome=self.rfile.read(int(self.headers.get('Content-Length','0'))).decode('utf-8','replace')
+   QA_RESULTS.append(outcome);QA_DONE.set()
+   self.send_response(204);self.end_headers();return
   if request.path!='/__qa_capture': self.send_error(404);return
   query=urllib.parse.parse_qs(request.query)
   mode=query.get('mode',[''])[0];fallback=query.get('fallback',[''])[0];zone=query.get('zone',[''])[0]
@@ -343,11 +350,20 @@ try:
    query=urllib.parse.urlencode({'mode':mode,**({'fallback':'1'} if fallback else {})})
    url=f'http://127.0.0.1:{server.server_port}/{QA.name}?{query}'
    with tempfile.TemporaryDirectory() as profile:
-    args=[CHROME,'--headless=new','--no-sandbox','--enable-unsafe-swiftshader','--disable-dev-shm-usage','--disable-background-networking','--no-first-run','--window-size=1280,850','--virtual-time-budget=4200',f'--user-data-dir={profile}','--dump-dom',url]
-    result=subprocess.run(args,text=True,capture_output=True,timeout=75)
-    if result.returncode or 'data-azur-qa="PASS"' not in result.stdout:
-     marker=result.stdout.split('data-azur-qa=')[-1][:170] if 'data-azur-qa=' in result.stdout else 'MISSING QA MARKER'
-     raise AssertionError(f'{mode} fallback={fallback} failed ({result.returncode}): {marker}\n{result.stderr[-1000:]}')
+    args=[CHROME,'--headless=new','--no-sandbox','--enable-unsafe-swiftshader','--disable-dev-shm-usage','--disable-background-networking','--no-first-run','--window-size=1280,850',f'--user-data-dir={profile}',url]
+    QA_DONE.clear();QA_RESULTS.clear()
+    process=subprocess.Popen(args,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+    try:
+     for _ in range(90):
+      if QA_DONE.wait(1):break
+      if process.poll() is not None:raise AssertionError(f'{mode} fallback={fallback}: Chromium exited before acceptance callback')
+     else:raise TimeoutError(f'{mode} fallback={fallback}: no acceptance callback after 90 seconds')
+    finally:
+     process.terminate()
+     try:process.wait(timeout=8)
+     except subprocess.TimeoutExpired:process.kill();process.wait(timeout=5)
+    if QA_RESULTS!=['PASS']:
+     raise AssertionError(f'{mode} fallback={fallback}: {QA_RESULTS[-1] if QA_RESULTS else "no result"}')
     captures=[OUT/(zone+'-'+mode+('-canvas2d' if fallback else '-webgl2')+'.png') for zone in ('village','forest','sanctuary','marsh','spire','ossuary','garden','battle')]
     if not all(path.exists() for path in captures):raise AssertionError('Missing one or more biome visual captures')
     if len({hashlib.sha256(path.read_bytes()).hexdigest() for path in captures})!=8:raise AssertionError('World/combat screenshots are stale or indistinguishable')
