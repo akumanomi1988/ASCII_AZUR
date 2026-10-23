@@ -989,3 +989,94 @@ test('N2: both moral endings resolve from seeded Marsh exploration, real combat 
  assert.equal(outcomes.length,18);
  console.log('N2_CHAPTER_ACCEPTANCE '+JSON.stringify({sessions:outcomes.length,choices:2,starters:3,seeds:3,completion:18}));
 });
+
+/** N3 isolated final-chapter runtime acceptance. The N2 completion and lvl-18
+ * three-creature team are explicit fixtures. All Crown fights, including the
+ * final boss, resolve with ordinary player actions, opponent turns and earned flags. */
+test('N3: four authored endings x three starters x three seeded worlds complete with real final combat', {timeout:180000},()=>{
+ const records=[];
+ for(const marsh of ['keep','release'])for(const choice of ['remember','renew'])
+ for(const starter of ['cindrel','velaria','thorne'])for(let n=1;n<=3;n++){
+  const world=(Math.imul(n,2246822519))>>>0;
+  const {game,dom,storage,flushTimers}=mount({virtualTime:true,seed:n*809+starter.length*41+(marsh==='keep'?1:2)+(choice==='renew'?9:0)});
+  dom.set('worldSeedInput',{value:String(world)});
+  game.startNew();game.pickStarter(starter);
+  const settle=()=>{while(game.dialogOpen)game.nextDialog();if(game.evolution){game.seconds=game.evolution.startedAt+game.evolution.duration+.5;game.loop(1000);}};
+  settle();
+  // Explicit Chapter-II checkpoint fixture; chapter I and II gates are separately tested.
+  game.save.flags.push('archivist','zone-forest','zone-sanctuary','arken-vow-restored','zone-marsh','marsh-met-nael','marsh-choice-'+marsh,'marsh-chapter-complete');
+  game.save.defeatedBoss=true;
+  game.save.team=[createCharacter(starter,18,()=>.12),createCharacter('cinderwulf',18,()=>.22),createCharacter('runeowl',18,()=>.32)];
+  game.save.inventory.tonics=8;game.save.inventory.seals=8;
+  game.save.zone='marsh';
+  game.interactLandmark({kind:'portal',x:43,y:16,label:'Corona'});
+  assert.equal(game.save.zone,'spire','final region must unlock only after chapter II');
+  game.interactNpc('oriel');settle();
+  for(const name of ['flame','archive']){
+   game.interactLandmark({kind:'memory',npcId:name,x:20,y:16,label:name});settle();
+  }
+  const roamers=game.roamers();
+  assert.equal(roamers.length,3,'final chapter must expose three seeded witnesses');
+  const useBattle=()=>{
+   let turns=0;
+   while(game.battle&&turns++<110){
+    const b=game.battle,ally=game.getAlly();
+    if(b.busy){flushTimers();continue;}
+    if(b.chargeStage===2){game.defend();flushTimers();continue;}
+    if(game.save.inventory.tonics>0&&ally.hp<maxHp(ally)*.37){game.tonic();flushTimers();continue;}
+    const ids=ally.moves.filter(mid=>MOVES[mid]?.power>0).sort((a,c)=>damage(ally,b.enemy,MOVES[c]).value-damage(ally,b.enemy,MOVES[a]).value);
+    assert.ok(ids.length,'missing offensive option');
+    game.useMove(ids[0]);flushTimers();
+   }
+   assert.ok(turns<110,'battle softlock at '+starter+'/'+world);
+   assert.equal(game.battle,null,'combat unresolved');
+   settle();
+  };
+  for(const encounter of roamers){
+   game.interactLandmark({kind:'altar',x:24,y:9,label:'Lumbre'});
+   game.startBattle(encounter.speciesId,encounter.level,'wild',encounter.id);
+   useBattle();
+   assert.ok(game.save.flags.includes('roamer-'+encounter.id),'ordinary action victory missing '+encounter.id);
+  }
+  game.interactLandmark({kind:'altar',x:24,y:9,label:'Lumbre'});
+  game.interactLandmark({kind:'guardian',npcId:'nullscribe',x:35,y:15,label:'Nullscribe'});
+  assert.equal(game.modalOpen,true,'boss preflight missing');
+  assert.match(dom.get('modalContent').innerHTML,/CRIATURA QUE ABRE/);
+  dom.set('crownLeadSelect',{value:'2'});
+  dom.get('crownProceed').onclick();
+  assert.equal(game.battle?.type,'boss');
+  assert.equal(game.battle?.enemy.speciesId,'nullscribe');
+  assert.equal(game.battle?.ally,2,'selected conscious leader must start finale');
+  useBattle();
+  assert.ok(game.save.flags.includes('crown-nullscribe-fallen'),'final boss must fall through player actions');
+  assert.ok(game.save.defeatedBoss,'Arken boss progression must remain untouched');
+  game.interactLandmark({kind:'verdict',x:40,y:24,label:'Telar'});
+  assert.equal(game.modalOpen,true,'final choice missing');
+  assert.match(dom.get('modalContent').innerHTML,/RECORDAR/);
+  assert.match(dom.get('modalContent').innerHTML,/RENOVAR/);
+  const before={echoes:game.economy.echoes,seals:game.save.inventory.seals,tonics:game.save.inventory.tonics};
+  game.chooseCrown(choice);settle();
+  assert.equal(game.economy.echoes,before.echoes+220);
+  assert.equal(game.save.inventory.seals,before.seals+(choice==='remember'?4:0));
+  assert.equal(game.save.inventory.tonics,before.tonics+(choice==='renew'?4:0));
+  game.chooseCrown(choice==='remember'?'renew':'remember');
+  assert.equal(game.save.flags.some(x=>x==='crown-choice-'+(choice==='remember'?'renew':'remember')),false);
+  game.interactNpc('oriel');
+  assert.match(dom.get('dialogText').textContent,/Nael|nombres|vidas|existir|posibles|imposibles/i);
+  settle();
+  assert.ok(game.save.flags.includes('crown-trilogy-complete'));
+  assert.match(dom.get('missionChip').textContent,/HISTORIA PRINCIPAL COMPLETADA/);
+  assert.equal(game.economy.echoes,before.echoes+370,'final epilogue grants +150 only once');
+  const snapshot=storage.getItem('ascii-azur-save-v1');assert.ok(snapshot);
+  const reloaded=mount({virtualTime:true,seed:998,priorSave:snapshot});
+  reloaded.game.continueGame();reloaded.flushTimers();
+  assert.equal(reloaded.game.save.zone,'spire');
+  assert.equal(reloaded.game.save.flags.filter(f=>f==='crown-trilogy-complete').length,1);
+  const prior=reloaded.game.economy.echoes;
+  reloaded.game.interactNpc('oriel');
+  assert.equal(reloaded.game.economy.echoes,prior,'final reward cannot duplicate after reload');
+  records.push({marsh,choice,starter,world});
+ }
+ assert.equal(records.length,36);
+ console.log('N3_FINAL_ACCEPTANCE '+JSON.stringify({runs:36,marshChoices:2,finalChoices:2,starters:3,seeds:3,success:records.length}));
+});
