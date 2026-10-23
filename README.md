@@ -1,4 +1,4 @@
-# ASCII AZUR v0.31.0 — The Unwritten
+# ASCII AZUR v0.32.0 — The Unwritten
 
 RPG de captura de criaturas y fantasía oscura, con mundo ASCII generado mediante WebGL2 (fallback Canvas2D), exploración procedural persistente y una cripta física de ocho cámaras. Android horizontal es la plataforma prioritaria; navegador web es el entorno de desarrollo y distribución actual.
 
@@ -89,3 +89,10 @@ The physical region, visual effects, new boss silhouette, music score, story com
 The campaign journal includes a trilogy-wide, honest 19-step **Wayfarer's Roadbook** with first-party game-state chapter completion, current objective, actual living roster, seals, tonics, equipped elemental counters for each boss and health/level-based preparation advice. All projections are read-only, accessible through existing menus from keyboard, mouse and touch, without warps, resources or save-schema changes. Offline installation includes the compiled roadbook module.
 
 The Q3 candidate now attempts a continuous from-new-game trilogy path on all three initial companions and four moral-endpoint combinations. Encounters, captures, guardian and final boss victories are resolved through ordinary player actions; the physical crypt is traversed tile-by-tile and saved/reloaded at major chapter boundaries. **Main-world portal handlers are still invoked directly by the automated harness**, so this does not independently prove navigability of every surface tile or uninterrupted human play. The release documentation must report that limitation accurately.
+
+
+## v0.32.0 — Ecology of the Lost Names
+
+The Marsh and Crown now have distinct optional wild populations and level-appropriate direct challenges. Higher-level random wildlife appears after each region's chapter concludes, protecting the first-time campaign difficulty curve; compulsory saved witness lineages remain unchanged. Four original, collectable identities enrich late-campaign team construction: **Bellroot** (Root guardian/fracture tank), **Mourveil** (Mist support/cleanser), **Ashglass** (Ash speed/scorch striker), and **Mnemoshade** (Ether drain/fracture skirmisher). Mourveil evolves from Velaria at level 12; Mnemoshade evolves from Wispawn at level 13. Their four unique glyph silhouettes, performance rigs and signature moves are integrated across battle, overworld encounters and the Codex.
+
+The Codex now measures capture progress against capturable species only; Hollowhart and Nullscribe remain unique, uncapturable bosses. No save-schema migration is required: old version-1 saves remain valid and seeded visible-roamer identifiers, coordinates and one-time rewards remain stable. Species/role balance and visual quality still require human playtesting on real devices.

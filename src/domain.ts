@@ -5,7 +5,7 @@ import {validateWorldSnapshot,type WorldSnapshot} from './world.js';
 import {validDiscovery,type DiscoveryState} from './world/discovery.js';
 export type Element = 'Ceniza'|'Bruma'|'Raíz'|'Éter';
 export interface Move { id:string; name:string; element:Element; power:number; description:string; role?:'heal'|'drain'|'cleanse'; }
-export interface Species { id:string; name:string; title:string; element:Element; color:string; stats:{hp:number; attack:number; defense:number; speed:number}; evo?:{id:string;level:number}; desc:string; shape:number; }
+export interface Species { id:string; name:string; title:string; element:Element; color:string; stats:{hp:number; attack:number; defense:number; speed:number}; evo?:{id:string;level:number}; desc:string; shape:number; role?:string; }
 export interface Creature {uid:string;speciesId:string;level:number;exp:number;hp:number;moves:string[];}
 /** Serializable combat checkpoint; saved before every interactive command finishes. */
 export interface BattleCheckpoint {
@@ -51,20 +51,28 @@ export const MOVES: Record<string,Move> = {
  eclipse:{id:'eclipse',name:'Eclipse sin voz',element:'Éter',power:30,description:'Un silencio capaz de partir el cielo.'},
  mothdust:{id:'mothdust',name:'Polvo de umbral',element:'Éter',power:24,description:'Sombras de alas borran la memoria.'},
  starlash:{id:'starlash',name:'Látigo de estrellas',element:'Éter',power:25,description:'Un haz que escribe heridas en el aire.'},
+ lament:{id:'lament',name:'Lamento de la viuda',element:'Bruma',power:15,role:'cleanse',description:'Una canción de lluvia que purifica el vínculo.'},
+ sigilbite:{id:'sigilbite',name:'Mordedura del signo',element:'Éter',power:20,role:'drain',description:'Roba vigor y abre una grieta en el nombre rival.'},
+ bellguard:{id:'bellguard',name:'Campanada del umbral',element:'Raíz',power:14,description:'Un tañido de raíces abre fracturas en la defensa rival.'},
+ glassflare:{id:'glassflare',name:'Ascua de cristal',element:'Ceniza',power:23,description:'Cuchillas ígneas que dejan ardor persistente.'},
 
 };
 export const SPECIES:Record<string,Species>={
  cindrel:{id:'cindrel',name:'Cindrel',title:'Zorro de brasas',element:'Ceniza',color:'#e78b60',stats:{hp:37,attack:15,defense:10,speed:14},evo:{id:'cinderwulf',level:9},desc:'De su pelaje cae una lluvia de ceniza caliente.',shape:0},
  cinderwulf:{id:'cinderwulf',name:'Cinderwulf',title:'Lobo del último fuego',element:'Ceniza',color:'#f3a678',stats:{hp:54,attack:24,defense:16,speed:18},desc:'Custodia las hogueras de los viajeros desaparecidos.',shape:5},
- velaria:{id:'velaria',name:'Velaria',title:'Espíritu de niebla',element:'Bruma',color:'#8abed1',stats:{hp:40,attack:12,defense:12,speed:13},desc:'Su rostro solo aparece cuando llueve.',shape:1},
+ velaria:{id:'velaria',name:'Velaria',title:'Espíritu de niebla',element:'Bruma',color:'#8abed1',stats:{hp:40,attack:12,defense:12,speed:13},evo:{id:'mourveil',level:12},desc:'Su rostro solo aparece cuando llueve.',shape:1},
  thorne:{id:'thorne',name:'Thorne',title:'Guardián del musgo',element:'Raíz',color:'#9abf81',stats:{hp:47,attack:12,defense:16,speed:8},desc:'Las flores nacen donde descansan sus huellas.',shape:2},
- wispawn:{id:'wispawn',name:'Wispawn',title:'Llama de los nombres',element:'Éter',color:'#c0a7ee',stats:{hp:32,attack:15,defense:9,speed:18},desc:'Imita los nombres de los que han sido olvidados.',shape:3},
+ wispawn:{id:'wispawn',name:'Wispawn',title:'Llama de los nombres',element:'Éter',color:'#c0a7ee',stats:{hp:32,attack:15,defense:9,speed:18},evo:{id:'mnemoshade',level:13},desc:'Imita los nombres de los que han sido olvidados.',shape:3},
  gravemoth:{id:'gravemoth',name:'Gravemoth',title:'Polilla del luto',element:'Éter',color:'#b0a6d6',stats:{hp:36,attack:16,defense:10,speed:16},desc:'Sus alas parecen páginas de un libro quemado.',shape:4},
  mireling:{id:'mireling',name:'Mireling',title:'Errante del pantano',element:'Bruma',color:'#7eb7ac',stats:{hp:44,attack:12,defense:15,speed:10},desc:'Guarda pequeños recuerdos en su cuerpo de barro.',shape:2},
  runeowl:{id:'runeowl',name:'Runeowl',title:'Búho de las inscripciones',element:'Éter',color:'#c5c5fa',stats:{hp:38,attack:19,defense:9,speed:18},desc:'Sus plumas contienen frases que solo la luna puede leer.',shape:7},
  ashboar:{id:'ashboar',name:'Ashboar',title:'Jabalí de escoria',element:'Ceniza',color:'#eaa079',stats:{hp:51,attack:20,defense:14,speed:8},desc:'Se alimenta de carbones y deja una estela de chispas.',shape:8},
  rillfin:{id:'rillfin',name:'Rillfin',title:'Pez de los caminos',element:'Bruma',color:'#81d9df',stats:{hp:34,attack:14,defense:11,speed:20},desc:'Nada entre charcos y recuerdos de lluvia.',shape:9},
  briarling:{id:'briarling',name:'Briarling',title:'Semilla errante',element:'Raíz',color:'#c0d78d',stats:{hp:36,attack:12,defense:14,speed:12},evo:{id:'thorne',level:8},desc:'Cada amanecer le crece una hoja que no recuerda.',shape:10},
+ mourveil:{id:'mourveil',name:'Mourveil',title:'Viuda del rocío',element:'Bruma',color:'#a6dfe0',stats:{hp:59,attack:17,defense:18,speed:18},desc:'Su velo recoge las lágrimas de quienes aún recuerdan.',shape:12,role:'SOPORTE · BRUMA Y PURIFICACIÓN'},
+ mnemoshade:{id:'mnemoshade',name:'Mnemoshade',title:'Sombra del nombre partido',element:'Éter',color:'#baa2ee',stats:{hp:47,attack:25,defense:13,speed:23},desc:'Habita entre los glifos que dejaron de pronunciarse.',shape:13,role:'HOSTIGADOR · DRENAJE Y FRACTURA'},
+ bellroot:{id:'bellroot',name:'Bellroot',title:'Campana de raíces',element:'Raíz',color:'#a8cb88',stats:{hp:62,attack:13,defense:23,speed:6},desc:'Bajo la marisma, cada tañido suyo protege una memoria.',shape:14,role:'GUARDIÁN · RESISTENCIA Y FRACTURA'},
+ ashglass:{id:'ashglass',name:'Ashglass',title:'Ave del vidrio ardiente',element:'Ceniza',color:'#f4b67d',stats:{hp:39,attack:25,defense:9,speed:25},desc:'Sus alas cortan el aire como fragmentos de sol roto.',shape:15,role:'ASALTANTE · VELOCIDAD Y ARDOR'},
  nullscribe:{id:'nullscribe',name:'Nullscribe',title:'Escriba de los nombres imposibles',element:'Éter',color:'#ddb4ff',stats:{hp:82,attack:20,defense:17,speed:14},desc:'Su cuerpo contiene las páginas vacías que sostuvieron el cielo.',shape:11},
  hollowhart:{id:'hollowhart',name:'Hollowhart',title:'Ciervo del silencio',element:'Raíz',color:'#d9bd9c',stats:{hp:66,attack:22,defense:20,speed:12},desc:'Último guardián de las palabras originales.',shape:6}
 };
@@ -74,7 +82,7 @@ export const BASE_MOVES:Record<Element,string[]>={Ceniza:['ember','pulse','smold
 export const SIGNATURE_MOVES:Readonly<Record<string,string>>={
  cindrel:'ashfang',cinderwulf:'emberstorm',velaria:'drizzle',thorne:'vinegrip',
  wispawn:'siphon',gravemoth:'mothdust',mireling:'undertow',runeowl:'runeburst',
- ashboar:'flare',rillfin:'rilldance',briarling:'verdancy',hollowhart:'eclipse',nullscribe:'eclipse'
+ ashboar:'flare',rillfin:'rilldance',briarling:'verdancy',mourveil:'lament',mnemoshade:'sigilbite',bellroot:'bellguard',ashglass:'glassflare',hollowhart:'eclipse',nullscribe:'eclipse'
 };
 export function learnableMoves(speciesId:string,level:number):string[]{
  const s=SPECIES[speciesId];if(!s)throw Error('Especie desconocida');
