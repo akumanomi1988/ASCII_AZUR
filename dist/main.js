@@ -5,7 +5,7 @@ import { visibleEncounters, nearbyEncounter, firstRoamerVictoryBonus, recoverTra
 import { drawDungeon } from './dungeons/draw-dungeon.js';
 import { chamberAt, chamberProgress } from './dungeons/room-art.js';
 import { generateDungeon, nearbyDungeonEvent, completeDungeonEvent, dungeonGateOpen, revealDungeon, dungeonSweep } from './dungeons/labyrinth.js';
-import { SPECIES, MOVES, createCreature, maxHp, validateSave } from './domain.js';
+import { SPECIES, MOVES, SAVE_KEY, createCreature, maxHp, validateSave } from './domain.js';
 import { ZONES, sweepMove, isWild, nearbyLandmark, configureWorld, captureWorldSnapshot, freshWorldSeed, seedFromText, terrain, WORLD_W, WORLD_H, ZONE_IDS } from './world.js';
 import { SHOP, QUESTS, buy, claimQuests, normalizeEconomy, newEconomy } from './rpg.js';
 import { Sound, themeForZone } from './audio.js';
@@ -17,7 +17,7 @@ import { marshChapterProgress, marshDecision, marshFinish, MARSH_REWARDS } from 
 import { AFTERLIGHT, afterlightFlag, afterlightProgress, afterlightResolution, afterlightEpilogue } from './story-afterlight.js';
 import { crownProgress, crownChoose, crownFinish, crownEpilogue, CROWN_BOSS_FLAG, CROWN_END_FLAG, CROWN_CHOICE_REWARDS } from './story-finale.js';
 import { campaignRoadbook } from './story-roadbook.js';
-import { readSave, writeSave } from './core/save-store.js';
+import { readSave, writeSave, SaveConflictError } from './core/save-store.js';
 import { transferStoredCreature, reserveCreature, grantPartyExperience } from './party.js';
 import { BOND_ARCS, bondAtZone, bondProgress, bondFlag, bondChoice, bondAttackDamage, bondIncomingDamage } from './creatures/bond-quests.js';
 import { createCombatCue, sampleCombatCue, guardDamage } from './actors/combat-fx.js';
@@ -43,6 +43,8 @@ class AzurGame {
     soundEnabled = true;
     reducedMotion = false;
     combatCue = null;
+    saveBaseline;
+    lastAccessibleMessage = '';
     save = { version: 1, zone: 'village', x: 4, y: 16, team: [], storage: [], inventory: { seals: 5, tonics: 3 }, defeatedBoss: false, flags: [], playSeconds: 0, rpg: newEconomy() };
     expeditionMessage = '';
     roamingCache = new Map();
@@ -109,6 +111,18 @@ class AzurGame {
         }
         else
             this.sound.resume(); });
+        window.addEventListener('storage', event => {
+            if (event.key !== SAVE_KEY)
+                return;
+            if (!this.started) {
+                this.loadState();
+                return;
+            }
+            if (this.saveBaseline !== undefined && event.newValue !== this.saveBaseline) {
+                byId('saveStatus').textContent = 'CONFLICTO ENTRE PESTAÑAS · EXPORTA TU PARTIDA';
+                this.toast('OTRA PESTAÑA MODIFICÓ EL GUARDADO · EXPORTA TU PROGRESO');
+            }
+        });
     }
     /** Only the active interaction layer owns keyboard input. Native form editing is never intercepted. */
     handleKeyDown(e) {
@@ -311,12 +325,13 @@ class AzurGame {
             const settings = JSON.parse(localStorage.getItem('ascii-azur-accessibility') || 'null');
             document.documentElement.classList.toggle('azur-large-text', settings?.largeText === true);
             document.documentElement.classList.toggle('azur-left-handed', settings?.leftHanded === true);
+            document.documentElement.classList.toggle('azur-high-contrast', settings?.highContrast === true);
         }
         catch { /* use defaults */ }
     }
     persistAccessibility() {
         try {
-            localStorage.setItem('ascii-azur-accessibility', JSON.stringify({ largeText: document.documentElement.classList.contains('azur-large-text'), leftHanded: document.documentElement.classList.contains('azur-left-handed') }));
+            localStorage.setItem('ascii-azur-accessibility', JSON.stringify({ largeText: document.documentElement.classList.contains('azur-large-text'), leftHanded: document.documentElement.classList.contains('azur-left-handed'), highContrast: document.documentElement.classList.contains('azur-high-contrast') }));
         }
         catch { /* storage unavailable */ }
     }
@@ -358,6 +373,9 @@ class AzurGame {
                     throw Error('Partida inválida');
                 if (!window.confirm('Se sustituirá la partida actual por la importada. ¿Continuar?'))
                     return;
+                // Commit the validated import before replacing the live session. A failed
+                // quota write or stale-tab conflict leaves both the player and save intact.
+                this.saveBaseline = writeSave(localStorage, json, this.saveBaseline);
                 this.save = json;
                 configureWorld(this.save.worldSeed ?? 0, this.save.worldSnapshot);
                 this.save.worldSnapshot = captureWorldSnapshot() ?? this.save.worldSnapshot;
@@ -381,8 +399,8 @@ class AzurGame {
                 this.saveNow(false);
                 this.toast('PARTIDA IMPORTADA');
             }
-            catch {
-                this.toast('ARCHIVO DE PARTIDA NO VÁLIDO');
+            catch (error) {
+                this.toast(error instanceof SaveConflictError ? 'CONFLICTO DE PARTIDAS · EXPORTA TU PROGRESO' : 'IMPORTACIÓN FALLIDA · ARCHIVO O ALMACENAMIENTO');
             }
             finally {
                 input.value = '';
@@ -433,17 +451,18 @@ class AzurGame {
         pad.addEventListener('lostpointercapture', release);
     }
     loadState() { try {
+        this.saveBaseline = localStorage.getItem(SAVE_KEY);
         const saved = readSave(localStorage);
-        if (saved) {
-            byId('continue').hidden = false;
+        byId('continue').hidden = !saved;
+        if (saved)
             byId('saveStatus').textContent = saved.source === 'backup' ? 'RESPALDO DE PARTIDA DISPONIBLE' : 'PARTIDA LOCAL DETECTADA';
-        }
     }
     catch { /* blocked storage */ } }
     reset() { this.resetJoystick(); this.toggleDrawer(false); this.roamingCache.clear(); this.save = { version: 1, zone: 'village', x: 4, y: 16, team: [], storage: [], inventory: { seals: 5, tonics: 3 }, defeatedBoss: false, flags: [], playSeconds: 0, rpg: newEconomy(), worldSeed: freshWorldSeed() }; configureWorld(this.save.worldSeed); this.save.worldSnapshot = captureWorldSnapshot(); this.battle = null; this.evolution = null; this.combatCue = null; this.keys.clear(); this.encounterCooldown = 4; this.camera = { x: 4, y: 16 }; this.cameraZone = 'village'; this.lastReveal = -1; }
     startNew() { try {
         if (readSave(localStorage) && !window.confirm('Crear un viaje nuevo sustituirá tu partida actual. Puedes continuarla y exportarla antes de empezar. ¿Crear nuevo mundo?'))
             return;
+        this.saveBaseline = localStorage.getItem(SAVE_KEY);
     }
     catch { /* storage may be disabled */ } this.sound.unlock(); this.sound.setScene('title'); const requested = (byId('worldSeedInput').value || '').trim(); this.reset(); if (requested) {
         this.save.worldSeed = /^\d{1,10}$/.test(requested) && Number(requested) <= 4294967295 ? Number(requested) || 1 : seedFromText(requested);
@@ -454,6 +473,7 @@ class AzurGame {
         const result = readSave(localStorage);
         if (!result)
             throw Error('Guardado inválido');
+        this.saveBaseline = localStorage.getItem(SAVE_KEY);
         const raw = result.state;
         this.save = raw;
         const storedSnapshot = this.save.worldSnapshot;
@@ -925,6 +945,8 @@ class AzurGame {
         byId('allyHpText').textContent = `${ally.hp}/${maxHp(ally)}`;
         byId('allyHealth').style.width = Math.max(0, ally.hp / maxHp(ally) * 100) + '%';
         byId('battleLog').textContent = b.log;
+        this.sound.setIntensity(Math.max(b.type === 'boss' ? .65 : .30, 1 - ally.hp / maxHp(ally), b.type === 'boss' && b.bossPhase === 2 ? 1 : 0));
+        this.announceAccessibility(`Combate contra ${es.name}. Enemigo ${b.enemy.hp} de ${maxHp(b.enemy)} puntos de vida. ${as.name} ${ally.hp} de ${maxHp(ally)} puntos de vida. ${b.log}`);
         const actions = byId('battleActions');
         actions.replaceChildren();
         const add = (name, func, special = false, disabled = false, detail = '', preview) => { const button = document.createElement('button'); button.textContent = name; button.disabled = b.busy || disabled; if (special)
@@ -1993,6 +2015,7 @@ class AzurGame {
       <div class="settings-row"><label for="effectsVolume">Efectos</label><input id="effectsVolume" type="range" min="0" max="100" step="1"></div>
       <div class="settings-row"><label for="motionReduced">Reducir movimiento</label><input id="motionReduced" type="checkbox"></div>
       <div class="settings-row"><label for="largeText">Texto ampliado</label><input id="largeText" type="checkbox"></div>
+      <div class="settings-row"><label for="highContrast">Alto contraste · interfaz y texto</label><input id="highContrast" type="checkbox"></div>
       <div class="settings-row"><label for="leftHanded">Joystick a la derecha</label><input id="leftHanded" type="checkbox"></div>`, true, true);
         const mus = byId('musicVolume'), fx = byId('effectsVolume');
         const audio = byId('audioEnabled');
@@ -2043,11 +2066,13 @@ class AzurGame {
             localStorage.setItem('ascii-azur-reduced-motion', String(this.reducedMotion));
         }
         catch { /* storage blocked */ } };
-        const textSize = byId('largeText'), handed = byId('leftHanded');
+        const textSize = byId('largeText'), handed = byId('leftHanded'), contrast = byId('highContrast');
         textSize.checked = document.documentElement.classList.contains('azur-large-text');
         handed.checked = document.documentElement.classList.contains('azur-left-handed');
+        contrast.checked = document.documentElement.classList.contains('azur-high-contrast');
         textSize.onchange = () => { document.documentElement.classList.toggle('azur-large-text', textSize.checked); this.persistAccessibility(); };
         handed.onchange = () => { document.documentElement.classList.toggle('azur-left-handed', handed.checked); this.persistAccessibility(); };
+        contrast.onchange = () => { document.documentElement.classList.toggle('azur-high-contrast', contrast.checked); this.persistAccessibility(); };
     }
     showModal(title, body, allowIntro = false, allowBattle = false) {
         if (this.evolution || (this.battle && !allowBattle) || this.dialogOpen || (!allowIntro && !byId('titleScreen').classList.contains('hidden')) || !byId('starterScreen').classList.contains('hidden'))
@@ -2071,16 +2096,24 @@ class AzurGame {
     else
         this.hideModal(); }
     hideModal() { this.modalOpen = false; this.modalBack = null; byId('modal').classList.add('hidden'); this.keys.clear(); this.modalInvoking?.focus?.(); this.modalInvoking = null; }
+    announceAccessibility(message) {
+        if (this.lastAccessibleMessage === message)
+            return;
+        this.lastAccessibleMessage = message;
+        byId('accessibilityStatus').textContent = message;
+    }
     saveNow(notify) { if (!this.started)
         return; try {
-        writeSave(localStorage, this.save);
+        this.saveBaseline = writeSave(localStorage, this.save, this.saveBaseline);
         byId('saveStatus').textContent = 'GUARDADO LOCAL · ' + new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
         if (notify)
             this.toast('EL RECUERDO HA SIDO CONSERVADO');
     }
-    catch {
+    catch (error) {
+        const conflict = error instanceof SaveConflictError;
+        byId('saveStatus').textContent = conflict ? 'CONFLICTO ENTRE PESTAÑAS · EXPORTA TU PARTIDA' : 'GUARDADO FALLIDO · EXPORTA TU PARTIDA';
         if (notify)
-            this.toast('NO SE PUDO GUARDAR · ALMACENAMIENTO LLENO');
+            this.toast(conflict ? 'OTRA PESTAÑA MODIFICÓ LA PARTIDA · EXPORTA TU PROGRESO' : 'NO SE PUDO GUARDAR · EXPORTA TU PROGRESO');
     } }
     updateStoryCompass() {
         const node = byId('storyCompass');
@@ -2160,6 +2193,11 @@ class AzurGame {
             byId('missionChip').textContent = step === 6 ? 'ARCO DE ARKEN COMPLETADO' : beat.objective.toUpperCase();
             byId('journalText').textContent = beat.hint;
             byId('quest').innerHTML = `<div class="quest-icon">${step === 6 ? '✦' : '◇'}</div><div><small>${step === 6 ? 'HISTORIA COMPLETADA' : `MISIÓN PRINCIPAL · ${step + 1}/6`}</small><strong>${htmlEscape(beat.title)}</strong><span>${htmlEscape(beat.objective)}</span></div>`;
+        }
+        if (this.started && !this.battle) {
+            const where = this.save.dungeon?.active ? 'Cripta de los Ecos' : z.name;
+            const goal = byId('missionChip').textContent || 'Consulta el diario';
+            this.announceAccessibility(`Región: ${where}. Objetivo: ${goal}. Equipo: ${this.save.team.length} criaturas. Pulsa E para interactuar cerca de un punto de interés.`);
         }
     }
     loop = (now) => {

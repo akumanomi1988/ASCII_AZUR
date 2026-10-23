@@ -25,6 +25,18 @@ export function ambienceForScene(scene) {
         default: return { gain: .035, lowpassHz: 600, modulation: .15 };
     }
 }
+/** Deterministic adaptive balance. Clamped to avoid runaway gain or invalid Web Audio parameters. */
+export function scoreMix(scene, intensity) {
+    const x = Number.isFinite(intensity) ? Math.max(0, Math.min(1, intensity)) : 0;
+    const combat = scene === 'battle' || scene === 'boss';
+    return {
+        lead: 1 + (combat ? .20 : .08) * x,
+        bass: 1 + .24 * x,
+        pad: combat ? 1 - .30 * x : 1 - .12 * x,
+        percussion: combat ? .65 + 1.05 * x : 0,
+        ambient: combat ? 1 - .45 * x : 1 + .10 * x
+    };
+}
 export function themeForZone(zone) { return zone; }
 export function midiFrequency(midi) { return 440 * Math.pow(2, (midi - 69) / 12); }
 /** Scaled degree -> chromatic offset, supporting degrees below zero. */
@@ -51,11 +63,13 @@ export class Sound {
     musicVolume = .38;
     fxVolume = .55;
     scene = 'title';
+    intensity = 0;
     timer = null;
     nextAt = 0;
     step = 0;
     lookAhead = .28;
     get musicScene() { return this.scene; }
+    getIntensity() { return this.intensity; }
     get isEnabled() { return this.enabled; }
     getMusicVolume() { return this.musicVolume; }
     getEffectsVolume() { return this.fxVolume; }
@@ -96,11 +110,19 @@ export class Sound {
     } }
     setEffectsVolume(v) { this.fxVolume = Math.max(0, Math.min(1, v)); if (this.ctx && this.fxMaster)
         this.fxMaster.gain.setTargetAtTime(this.fxVolume, this.ctx.currentTime, .05); }
+    setIntensity(value) {
+        const next = Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : 0;
+        if (Math.abs(next - this.intensity) < .02)
+            return;
+        this.intensity = next;
+        this.setAmbience();
+    }
     setScene(scene) {
         if (this.scene === scene)
             return;
         this.scene = scene;
         this.step = 0;
+        this.intensity = scene === 'boss' ? .65 : scene === 'battle' ? .35 : 0;
         if (!this.ctx)
             return;
         this.newBus(false);
@@ -146,8 +168,9 @@ export class Sound {
         if (!ctx || !this.ambience || !this.ambientFilter)
             return;
         const a = ambienceForScene(this.scene);
-        this.ambience.gain.setTargetAtTime(a.gain, ctx.currentTime, .65);
-        this.windDepth?.gain.setTargetAtTime(a.gain * a.modulation, ctx.currentTime, .65);
+        const mix = scoreMix(this.scene, this.intensity);
+        this.ambience.gain.setTargetAtTime(a.gain * mix.ambient, ctx.currentTime, .65);
+        this.windDepth?.gain.setTargetAtTime(a.gain * a.modulation * mix.ambient, ctx.currentTime, .65);
         this.ambientFilter.frequency.setTargetAtTime(a.lowpassHz, ctx.currentTime, .6);
     }
     newBus(initial) {
@@ -210,18 +233,21 @@ export class Sound {
         while (this.nextAt < c.currentTime + this.lookAhead && queued++ < 12) {
             const t = themes[this.scene], step = this.step, idx = step % 16, stepDuration = 60 / t.bpm / 2;
             const chord = t.chords[Math.floor(idx / 4)];
+            const mix = scoreMix(this.scene, this.intensity);
             const lead = t.melody[idx], bass = t.bass[idx];
             if (lead != null) {
-                this.note(t.root + 24 + degreeSemitone(lead, t.mode), this.nextAt, stepDuration * (this.scene === 'battle' ? .83 : 1.55), 'lead', t.texture === 'percussion' ? .045 : .032);
+                this.note(t.root + 24 + degreeSemitone(lead, t.mode), this.nextAt, stepDuration * (this.scene === 'battle' ? .83 : 1.55), 'lead', (t.texture === 'percussion' ? .045 : .032) * mix.lead);
             }
             if (bass != null)
-                this.note(t.root - 12 + degreeSemitone(bass, t.mode), this.nextAt, stepDuration * 3.5, 'bass', .048);
+                this.note(t.root - 12 + degreeSemitone(bass, t.mode), this.nextAt, stepDuration * 3.5, 'bass', .048 * mix.bass);
             if (idx % 4 === 0) {
                 for (const degree of chord)
-                    this.note(t.root + 12 + degreeSemitone(degree, t.mode), this.nextAt, stepDuration * 3.55, 'pad', t.texture === 'void' ? .018 : .010);
+                    this.note(t.root + 12 + degreeSemitone(degree, t.mode), this.nextAt, stepDuration * 3.55, 'pad', (t.texture === 'void' ? .018 : .010) * mix.pad);
             }
             if (t.texture === 'percussion' && idx % 2 === 0)
-                this.note(t.root - 24, this.nextAt, .035, 'perc', .014);
+                this.note(t.root - 24, this.nextAt, .035, 'perc', .014 * mix.percussion);
+            if (t.texture === 'percussion' && this.intensity >= .55 && idx % 4 === 2)
+                this.note(t.root + 12 + degreeSemitone(chord[2], t.mode), this.nextAt, stepDuration * .75, 'bell', .012 * this.intensity);
             if (t.texture === 'mist' && idx % 8 === 6)
                 this.note(t.root + 36 + degreeSemitone(chord[1], t.mode), this.nextAt, stepDuration * 2.1, 'bell', .017);
             this.step++;
