@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {Sound,midiFrequency,degreeSemitone,getThemeSummary,themeForZone,scoreMix} from '../dist/audio.js';
+import {Sound,midiFrequency,degreeSemitone,getThemeSummary,themeForZone,scoreMix,scoreArrangement,MASTERING} from '../dist/audio.js';
 
 test('procedural score: six distinct cue profiles',()=>{
   const names=['title','village','forest','sanctuary','battle','boss'];
@@ -23,12 +23,14 @@ test('audio settings: clamp levels and change scenes without a browser AudioCont
   a.dispose();
 });
 test('audio synthesis: audio graph starts after unlock and switches themes',()=>{
-  let started=0;
+  let started=0,compressors=0,echoes=0;
   class Parameter {setValueAtTime(){} linearRampToValueAtTime(){} exponentialRampToValueAtTime(){} setTargetAtTime(){} cancelScheduledValues(){} get value(){return 1;}set value(_){} }
-  class Node {constructor(){this.gain=new Parameter();this.frequency=new Parameter();this.Q=new Parameter();} connect(x){return x;} disconnect(){}start(){started++;}stop(){}set type(_){}set onended(_){} }
-  class FakeContext {state='running';currentTime=1;sampleRate=24000;destination=new Node();createBuffer(channels,length){return {getChannelData:()=>new Float32Array(length)};}createBufferSource(){return new Node();}createGain(){return new Node();}createOscillator(){return new Node();}createBiquadFilter(){return new Node();}resume(){return Promise.resolve();}close(){return Promise.resolve();}}
+  class Node {constructor(){this.gain=new Parameter();this.frequency=new Parameter();this.Q=new Parameter();this.threshold=new Parameter();this.knee=new Parameter();this.ratio=new Parameter();this.attack=new Parameter();this.release=new Parameter();this.delayTime=new Parameter();} connect(x){return x;} disconnect(){}start(){started++;}stop(){}set type(_){}set onended(_){} }
+  class FakeContext {state='running';currentTime=1;sampleRate=24000;destination=new Node();createBuffer(channels,length){return {getChannelData:()=>new Float32Array(length)};}createBufferSource(){return new Node();}createGain(){return new Node();}createOscillator(){return new Node();}createBiquadFilter(){return new Node();}createDynamicsCompressor(){compressors++;return new Node();}createDelay(){echoes++;return new Node();}resume(){return Promise.resolve();}close(){return Promise.resolve();}}
   const orig=globalThis.AudioContext;globalThis.AudioContext=FakeContext;
   try{const a=new Sound();a.unlock();assert.ok(started>0,'music notes actually scheduled');
+    assert.equal(compressors,1,'music and effects pass through one mastering dynamics stage');
+    assert.equal(echoes,1,'shared spatial tail is allocated only once');
     const n=started;a.setScene('boss');assert.ok(started>n,'new theme should schedule notes');
     a.setEnabled(false);assert.equal(a.isEnabled,false);a.dispose();
   }finally{globalThis.AudioContext=orig;}
@@ -41,6 +43,19 @@ test('elemental combat audio synthesizes distinct two-tone profiles',async()=>{
  assert.equal(new Set(notes.map(x=>x[0])).size,8);
 });
 
+test('procedural score: eight-phrase arc supplies deterministic harmonic variation',()=>{
+  const arc=Array.from({length:8},(_,phrase)=>scoreArrangement('forest',phrase,.2));
+  assert.equal(new Set(arc.map(x=>JSON.stringify(x))).size,8);
+  assert.deepEqual(scoreArrangement('forest',8,.2),arc[0]);
+  assert.deepEqual(scoreArrangement('forest',-1,.2),arc[7]);
+  assert.deepEqual(scoreArrangement('forest',Number.NaN,.2),arc[0]);
+  assert.ok(arc.some(x=>x.leadRegister===12)&&arc.some(x=>x.leadRegister===-12));
+  assert.ok(arc.some(x=>x.counterVoice)&&arc.some(x=>!x.counterVoice));
+  assert.equal(scoreArrangement('boss',4,.8).percussionFill,true);
+  assert.equal(scoreArrangement('boss',4,.2).percussionFill,false);
+  assert.equal(scoreArrangement('forest',4,.9).percussionFill,false);
+  assert.ok(MASTERING.outputGain<1&&MASTERING.highpassHz>=20&&MASTERING.ratio>=4);
+});
 test('adaptive score: danger raises combat rhythm while keeping gains bounded',()=>{
   const calm=scoreMix('battle',0),danger=scoreMix('battle',1);
   assert.ok(danger.lead>calm.lead);
