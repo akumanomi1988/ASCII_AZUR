@@ -2,6 +2,7 @@
 """Dependency-free Chromium acceptance for glyph renderer and nested in-game menus."""
 import http.server
 import base64
+import hashlib
 import struct
 import pathlib
 import shutil
@@ -30,13 +31,27 @@ localStorage.setItem('ascii-azur-graphics-v2',JSON.stringify({renderMode:params.
 // Sustained-performance profiling is a separate measurement, not this CI interaction gate.
 {
  const nativeFrame=window.requestAnimationFrame.bind(window);let frames=0;
- const frameBudget=params.has('fallback')?12:20;
- window.requestAnimationFrame=callback=>frames++<frameBudget?nativeFrame(callback):0;
+ const frameBudget=params.has('fallback')?12:20;let stalled=null;
+ window.requestAnimationFrame=callback=>{if(frames++<frameBudget)return nativeFrame(callback);stalled=callback;return 0};
+ window.__azurQaAdvance=()=>{frames=frameBudget-3;if(stalled){const callback=stalled;stalled=null;nativeFrame(callback)}};
 }
 window.addEventListener('load',()=>setTimeout(async()=>{
  const check=(ok,msg)=>{if(!ok)throw Error(msg)};
  try{
   const $=id=>document.getElementById(id);
+  const captureZone=async zone=>{
+   window.__azurQaAdvance();
+   await new Promise(resolve=>setTimeout(resolve,160));
+   check($('zoneName').textContent===({
+    village:'Velo de Arken',forest:'Bosque de Ceniza',sanctuary:'Santuario sin Voz',
+    marsh:'Marismas del Espejo Roto',spire:'Corona de lo No Escrito'
+   })[zone],'Wrong region before screenshot: '+zone);
+   const params=new URLSearchParams(location.search);
+   const capture=await fetch('/__qa_capture?mode='+encodeURIComponent(params.get('mode')||'ascii')+
+    '&fallback='+(params.has('fallback')?'1':'0')+'&zone='+zone,
+    {method:'POST',body:$('game').toDataURL('image/png')});
+   check(capture.ok,'Canvas screenshot failed: '+zone);
+  };
   check($('game')&&$('newGame'),'Missing game bootstrap');
   $('worldSeedInput').value='AZUR-QA-STABLE-SEED';
   $('newGame').click();
@@ -58,8 +73,7 @@ window.addEventListener('load',()=>setTimeout(async()=>{
    }
    check(painted>0,'Renderer returned an empty/transparent Canvas2D frame');
   }
-  const capture=await fetch('/__qa_capture?mode='+encodeURIComponent(params.get('mode')||'ascii')+'&fallback='+(params.has('fallback')?'1':'0'),{method:'POST',body:$('game').toDataURL('image/png')});
-  check(capture.ok,'Canvas screenshot could not be collected');
+  await captureZone('village');
   $('drawerToggle').click();$('resumeBtn').focus();
   document.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowDown',bubbles:true,cancelable:true}));
   check(document.activeElement===$('teamBtn'),'Menu ArrowDown did not focus Team');
@@ -117,6 +131,18 @@ window.addEventListener('load',()=>setTimeout(async()=>{
   check(info.includes(new URLSearchParams(location.search).has('fallback')?'Canvas2D':'WebGL2'),'Incorrect graphics backend: '+info);
   $('closeModal').click();
   check($('modal').classList.contains('hidden'),'Settings did not close');
+  // Capture each authored biome with an actual saved-state reload. This is
+  // a visual matrix, distinct from the full physical traversal gate in Node.
+  for(const [zone,flags] of [
+   ['forest',['zone-forest']],
+   ['sanctuary',['zone-sanctuary','arken-vow-restored']]
+  ]){
+   const regionSave=JSON.parse(saved);regionSave.zone=zone;regionSave.x=4;regionSave.y=16;
+   regionSave.flags=[...new Set([...regionSave.flags,...flags])];
+   localStorage.setItem('ascii-azur-save-v1',JSON.stringify(regionSave));
+   $('continue').click();
+   await captureZone(zone);
+  }
   // Rehydrate a compatible chapter-II location under the same real Chromium
   // graphics/backend combination; the full journey is tested in Node runtime.
   const marshSave=JSON.parse(saved);
@@ -127,6 +153,7 @@ window.addEventListener('load',()=>setTimeout(async()=>{
   check($('zoneName').textContent==='Marismas del Espejo Roto','Marsh resume did not restore its new biome');
   check($('zoneSubtitle').textContent.includes('vidas'),'Missing authored Marsh subtitle');
   check($('titleScreen').classList.contains('hidden'),'Resume unexpectedly reopened title');
+  await captureZone('marsh');
   // Fifth-zone browser integration on the real renderer/backend combination.
   const crownSave=JSON.parse(saved);
   crownSave.zone='spire';crownSave.x=4;crownSave.y=16;
@@ -136,6 +163,7 @@ window.addEventListener('load',()=>setTimeout(async()=>{
   check($('zoneName').textContent==='Corona de lo No Escrito','Crown resume did not restore its distinct zone');
   check($('zoneSubtitle').textContent.includes('última palabra'),'The authored Crown region subtitle is missing');
   check($('titleScreen').classList.contains('hidden'),'Crown resume unexpectedly reopened title');
+  await captureZone('spire');
   check(window.__azurErrors.length===0,'JS errors: '+window.__azurErrors.join(' | '));
   document.body.dataset.azurQa='PASS';
  }catch(error){document.body.dataset.azurQa='FAIL: '+error.message;console.error(error)}
@@ -151,15 +179,15 @@ class Handler(http.server.SimpleHTTPRequestHandler):
   request=urllib.parse.urlparse(self.path)
   if request.path!='/__qa_capture': self.send_error(404);return
   query=urllib.parse.parse_qs(request.query)
-  mode=query.get('mode',[''])[0];fallback=query.get('fallback',[''])[0]
-  if mode not in ('ascii','glyph-pixel') or fallback not in ('0','1'):self.send_error(400);return
+  mode=query.get('mode',[''])[0];fallback=query.get('fallback',[''])[0];zone=query.get('zone',[''])[0]
+  if mode not in ('ascii','glyph-pixel') or fallback not in ('0','1') or zone not in ('village','forest','sanctuary','marsh','spire'):self.send_error(400);return
   body=self.rfile.read(int(self.headers.get('Content-Length','0'))).decode('ascii')
   if not body.startswith('data:image/png;base64,'):self.send_error(415);return
   png=base64.b64decode(body.split(',',1)[1],validate=True)
   if not png.startswith(b'\x89PNG\r\n\x1a\n') or len(png)<24:self.send_error(422);return
   width,height=struct.unpack('>II',png[16:24])
   if width<300 or height<180:self.send_error(422);return
-  name=mode+('-canvas2d' if fallback=='1' else '-webgl2')+'.png'
+  name=zone+'-'+mode+('-canvas2d' if fallback=='1' else '-webgl2')+'.png'
   (OUT/name).write_bytes(png)
   self.send_response(204);self.end_headers()
 server=http.server.ThreadingHTTPServer(('127.0.0.1',0),Handler)
@@ -170,12 +198,15 @@ try:
    query=urllib.parse.urlencode({'mode':mode,**({'fallback':'1'} if fallback else {})})
    url=f'http://127.0.0.1:{server.server_port}/{QA.name}?{query}'
    with tempfile.TemporaryDirectory() as profile:
-    args=[CHROME,'--headless=new','--no-sandbox','--enable-unsafe-swiftshader','--disable-dev-shm-usage','--disable-background-networking','--no-first-run','--window-size=1280,850','--virtual-time-budget=1600',f'--user-data-dir={profile}','--dump-dom',url]
+    args=[CHROME,'--headless=new','--no-sandbox','--enable-unsafe-swiftshader','--disable-dev-shm-usage','--disable-background-networking','--no-first-run','--window-size=1280,850','--virtual-time-budget=2600',f'--user-data-dir={profile}','--dump-dom',url]
     result=subprocess.run(args,text=True,capture_output=True,timeout=35)
     if result.returncode or 'data-azur-qa="PASS"' not in result.stdout:
      marker=result.stdout.split('data-azur-qa=')[-1][:170] if 'data-azur-qa=' in result.stdout else 'MISSING QA MARKER'
      raise AssertionError(f'{mode} fallback={fallback} failed ({result.returncode}): {marker}\n{result.stderr[-1000:]}')
-    print(f'PASS {mode} {"Canvas2D" if fallback else "WebGL2"}',flush=True)
+    captures=[OUT/(zone+'-'+mode+('-canvas2d' if fallback else '-webgl2')+'.png') for zone in ('village','forest','sanctuary','marsh','spire')]
+    if not all(path.exists() for path in captures):raise AssertionError('Missing one or more biome visual captures')
+    if len({hashlib.sha256(path.read_bytes()).hexdigest() for path in captures})!=5:raise AssertionError('Biome screenshots are stale or indistinguishable')
+    print(f'PASS {mode} {"Canvas2D" if fallback else "WebGL2"} · 5 biome screenshots',flush=True)
 finally:
  server.shutdown()
  QA.unlink(missing_ok=True)
