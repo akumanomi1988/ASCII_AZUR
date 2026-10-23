@@ -6,7 +6,7 @@ import {BIOME_ART} from '../dist/render/biome-art.js';
 import {ZONE_IDS,configureWorld,captureWorldSnapshot} from '../dist/world.js';
 import {glyphCell,readGraphics} from '../dist/render/graphics-profile.js';
 
-test('five authored route materials remain distinct and deterministic',()=>{
+test('seven authored route materials remain distinct and deterministic',()=>{
  const families=new Set();
  for(const zone of ZONE_IDS){
    families.add(pathMotif(zone));
@@ -16,7 +16,7 @@ test('five authored route materials remain distinct and deterministic',()=>{
    assert.ok(first.every(m=>m.x>=4&&m.x<=42&&m.y>=4&&m.y<=42&&m.scale>=.6&&m.scale<=1.45));
    assert.ok(BIOME_ART[zone].path);
  }
- assert.equal(families.size,5);
+ assert.equal(families.size,7);
 });
 
 test('material detail is concentrated on authored boundaries, not flat terrain',()=>{
