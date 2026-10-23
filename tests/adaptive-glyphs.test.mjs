@@ -41,3 +41,17 @@ test('Disabling performance mode immediately restores full requested glyph fidel
  assert.equal(auto.observe(report(70),8000,true),false);
  assert.equal(auto.configure(false),false);
 });
+
+test('fallback can start with a bounded coarse-cell budget without changing manual preferences',()=>{
+ const auto=new AdaptiveGlyphs();
+ assert.equal(auto.configure(true,1.6),true);
+ assert.equal(auto.scale,1.6);
+ assert.equal(auto.active,true);
+ assert.equal(auto.configure(false),true);
+ assert.equal(auto.scale,1);
+ assert.equal(auto.configure(true,99),true);
+ assert.equal(auto.scale,auto.maxScale);
+ assert.equal(auto.configure(false),true);
+ assert.equal(auto.configure(true,NaN),true);
+ assert.equal(auto.scale,1);
+});

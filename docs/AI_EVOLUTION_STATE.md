@@ -1,6 +1,6 @@
 # ASCII AZUR — Autonomous Evolution State
 
-Updated: 2026-10-23. **STATUS: IN PROGRESS.** Shipped gameplay version: **v0.37.1 — Afterlight Pilgrimage / Legacy Save Continuity**. Repository: `akumanomi1988/ASCII_AZUR`, production branch `main`. Release source `7f1fde214eb38eb0f57c1ce701f6452c3af57998`. Last verified Pages action `39963280935` and public smoke: PASS: public WORLD ENGINE v0.37.1 loaded, pre-existing v0.36 save resumed, glyph canvas/HUD/compass rendered, both Atmospheric ASCII and Glyph Pixel Art were selected, and no game-origin console errors were observed; cloud Canvas2D fallback FPS is not an Android benchmark.
+Updated: 2026-10-23. **STATUS: IN PROGRESS.** Last verified source release: **v0.41.0 — three independent persistent campaigns**. Repository: `akumanomi1988/ASCII_AZUR`, production branch `main`. Release source `1929a961c5e6c6f35066b6ef646436240d6625cf`. Main CI `40007162174` SUCCESS; Pages workflow `40007678172` SUCCESS; `gh-pages/build-info.json.source_commit` matches. A fresh public v0.41 browser smoke has not been recorded; earlier v0.37.1 smoke does not prove v0.41. Cloud Canvas2D fallback FPS is not an Android benchmark.
 
 ## Product vision and hard constraints
 
@@ -103,3 +103,12 @@ The next production-risk slice targets stale browser tabs and quota/interrupted 
 
 - Implemented three independent, seed-preserving campaign slots with per-slot backup, import/export, conflict detection, summary and safe return to title. Slot I retains the original save key and schema.
 - Added 3,600 rotation stress checks across three slots plus cross-slot corruption/concurrency assertions and a real-browser two-campaign restore sequence. Final status awaits observed CI and deployed Pages checks.
+
+
+### 2026-10-23 — v0.42 visual clarity candidate
+
+- Observed in the live v0.38 Canvas2D scene: too many high-contrast white glyphs in broad path/soil areas, masking actor silhouettes and causing a perceived tile grid. The original path drew three extra source marks plus eight cached authored motifs per tile.
+- Reworked semantic detail budget to at most one probabilistic authored motif per tile and zero in a five-by-five tile apron around authored points of interest. Flat ground has no motif. Additional direct path, soil, grass and water strokes are sparse and low-opacity.
+- Atmospheric ASCII now omits random glyphs on flat source surfaces. Glyph Pixel Art uses contiguous solid cell backgrounds, edge-driven block glyphs and quantized five-bit color with less bright ink. CPU/WebGL thresholds are aligned.
+- Canvas2D-only devices enable adaptive glyph pacing by default on first launch with a bounded coarse-cell starting budget; stored opt-out remains authoritative. Save schema and procedural world snapshots are unchanged.
+- Automated material-budget and fallback pacing regressions, full TypeScript/build/Node/browser quality gates and all seven-biome screenshot matrix required. Visual G2 and hardware G4 acceptance remain OPEN until actual before/after review and measured devices.

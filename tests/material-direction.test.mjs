@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {materialGlyphIndex,materialColors,materialStructure} from '../dist/render/glyph-material.js';
-import {groundMotifs,pathMotif,GroundMaterialCache} from '../dist/render/ground-material.js';
+import {groundMotifs,pathMotif,GroundMaterialCache,groundMotifBudget,isFocalGroundTile} from '../dist/render/ground-material.js';
 import {BIOME_ART} from '../dist/render/biome-art.js';
-import {ZONE_IDS,configureWorld,captureWorldSnapshot} from '../dist/world.js';
+import {ZONE_IDS,ZONES,configureWorld,captureWorldSnapshot} from '../dist/world.js';
 import {glyphCell,readGraphics} from '../dist/render/graphics-profile.js';
 
 test('seven authored route materials remain distinct and deterministic',()=>{
@@ -11,7 +11,7 @@ test('seven authored route materials remain distinct and deterministic',()=>{
  for(const zone of ZONE_IDS){
    families.add(pathMotif(zone));
    const first=groundMotifs(zone,'path',18,27,412);
-   assert.equal(first.length,8);
+   assert.ok(first.length<=1);
    assert.deepEqual(first,groundMotifs(zone,'path',18,27,412));
    assert.ok(first.every(m=>m.x>=4&&m.x<=42&&m.y>=4&&m.y<=42&&m.scale>=.6&&m.scale<=1.45));
    assert.ok(BIOME_ART[zone].path);
@@ -27,7 +27,8 @@ test('material detail is concentrated on authored boundaries, not flat terrain',
  assert.ok(materialStructure(edge)>materialStructure(flat));
  assert.ok(materialGlyphIndex(edge,'ascii')>=8);
  assert.ok(materialGlyphIndex(edge,'glyph-pixel')>=24);
- assert.equal(materialGlyphIndex({...flat,noise:.95},'ascii'),1);
+ assert.equal(materialGlyphIndex({...flat,noise:.95},'ascii'),0);
+ assert.equal(materialGlyphIndex({...flat,noise:.99},'glyph-pixel'),0);
 });
 
 test('both modes preserve separate colored foreground and background, with contrast controls',()=>{
@@ -60,4 +61,31 @@ test('finer balanced pixel profile increases character definition without changi
 test('material cache remains bounded and does not need a DOM before first draw',()=>{
  const cache=new GroundMaterialCache(8);
  assert.equal(cache.size,0);
+});
+
+test('ground-decoration budget preserves clear routes and authored focal aprons across seven biomes',()=>{
+ try{
+  configureWorld(412);
+  const snapshot=captureWorldSnapshot();
+  for(const zone of ZONE_IDS){
+   let decorated=0;
+   for(let y=3;y<29;y++)for(let x=3;x<43;x++){
+    const count=groundMotifBudget(zone,'path',x,y,ZONES[zone].seed);
+    assert.ok(count===0||count===1);
+    decorated+=count;
+    assert.equal(groundMotifs(zone,'path',x,y,ZONES[zone].seed).length,count);
+    assert.equal(groundMotifs(zone,'ground',x,y,412).length,0);
+   }
+   assert.ok(decorated>180&&decorated<540,zone+' path needs restrained but visible authored accents: '+decorated);
+   for(const landmark of ZONES[zone].landmarks){
+    for(let dy=-2;dy<=2;dy++)for(let dx=-2;dx<=2;dx++){
+     const x=landmark.x+dx,y=landmark.y+dy;
+     assert.equal(isFocalGroundTile(zone,x,y),true,zone+' missed focal apron');
+     for(const surface of ['path','ground','grass','stone','water'])
+      assert.equal(groundMotifs(zone,surface,x,y,412).length,0,zone+' noisy point of interest');
+    }
+   }
+  }
+  assert.deepEqual(captureWorldSnapshot(),snapshot,'art decoration changed the frozen procedural world');
+ }finally{configureWorld(0);}
 });
