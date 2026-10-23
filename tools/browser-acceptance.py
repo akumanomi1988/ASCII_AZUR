@@ -284,8 +284,8 @@ try:
      raise AssertionError(f'{mode} fallback={fallback} failed ({result.returncode}): {marker}\n{result.stderr[-1000:]}')
     captures=[OUT/(zone+'-'+mode+('-canvas2d' if fallback else '-webgl2')+'.png') for zone in ('village','forest','sanctuary','marsh','spire','ossuary','garden','battle')]
     if not all(path.exists() for path in captures):raise AssertionError('Missing one or more biome visual captures')
-    if len({hashlib.sha256(path.read_bytes()).hexdigest() for path in captures})!=6:raise AssertionError('World/combat screenshots are stale or indistinguishable')
-    print(f'PASS {mode} {"Canvas2D" if fallback else "WebGL2"} · 5 biomes + combat VFX screenshot',flush=True)
+    if len({hashlib.sha256(path.read_bytes()).hexdigest() for path in captures})!=8:raise AssertionError('World/combat screenshots are stale or indistinguishable')
+    print(f'PASS {mode} {"Canvas2D" if fallback else "WebGL2"} · 7 biomes + combat VFX screenshot',flush=True)
 finally:
  server.shutdown()
  QA.unlink(missing_ok=True)
