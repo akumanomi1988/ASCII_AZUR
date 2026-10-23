@@ -1002,11 +1002,13 @@ function drawGround(ctx, zone, camX, camY, t) {
             ctx.fillStyle = k > .5 ? '#1d3032' : '#203339';
             if (zone === 'sanctuary')
                 ctx.fillStyle = k > .5 ? '#252c3a' : '#29303b';
+            if (zone === 'marsh')
+                ctx.fillStyle = k > .5 ? '#163b40' : '#214145';
             ctx.globalAlpha = .36;
             ctx.fillRect(xx, yy, TILE + 1, TILE + 1);
             ctx.globalAlpha = 1;
             if (tile === 'path') {
-                ctx.fillStyle = zone === 'village' ? '#837360' : zone === 'forest' ? '#867763' : '#756e87';
+                ctx.fillStyle = zone === 'village' ? '#837360' : zone === 'forest' ? '#867763' : zone === 'marsh' ? '#588a85' : '#756e87';
                 ctx.fillRect(xx, yy, TILE + 1, TILE + 1);
                 ctx.globalAlpha = .22;
                 ctx.fillStyle = '#d9bc8d';
@@ -1033,9 +1035,9 @@ function drawGround(ctx, zone, camX, camY, t) {
                 ctx.globalAlpha = 1;
             }
             else if (tile === 'water') {
-                ctx.fillStyle = '#183f4d';
+                ctx.fillStyle = zone === 'marsh' ? '#143a40' : '#183f4d';
                 ctx.fillRect(xx, yy, TILE, TILE);
-                ctx.strokeStyle = '#4f8c95';
+                ctx.strokeStyle = zone === 'marsh' ? '#75c5ac' : '#4f8c95';
                 ctx.globalAlpha = .3;
                 ctx.beginPath();
                 ctx.moveTo(xx + 6, yy + 23 + Math.sin(t * 2 + k) * 3);
@@ -1074,10 +1076,10 @@ function drawGround(ctx, zone, camX, camY, t) {
 function drawClimate(ctx, zone, t, seed, reduced = false) {
     const speed = reduced ? 0 : t;
     ctx.save();
-    if (zone === 'forest') {
+    if (zone === 'forest' || zone === 'marsh') {
         const count = reduced ? 34 : 86;
         ctx.lineWidth = 1.25;
-        ctx.strokeStyle = '#b6d8dc';
+        ctx.strokeStyle = zone === 'marsh' ? '#91e1cb' : '#b6d8dc';
         for (let i = 0; i < count; i++) {
             const a = hash(i, 131, seed), b = hash(i, 53, seed), drift = speed * (100 + a * 140);
             const x = ((a * W + drift) % W + W) % W, y = ((b * H + speed * (190 + b * 130)) % H + H) % H;
@@ -1087,7 +1089,7 @@ function drawClimate(ctx, zone, t, seed, reduced = false) {
             ctx.lineTo(x - 4, y + 12 + b * 10);
             ctx.stroke();
         }
-        ctx.fillStyle = '#b9d2a4';
+        ctx.fillStyle = zone === 'marsh' ? '#8bdfbc' : '#b9d2a4';
         for (let i = 0; i < 15; i++) {
             const x = ((hash(i, 176, seed) * W + speed * (12 + i % 4 * 7)) % W + W) % W;
             const y = ((hash(i, 113, seed) * H + Math.sin(speed * .8 + i) * 12) % H + H) % H;
@@ -1151,6 +1153,23 @@ export function drawWorld(ctx, zone, hero, t, flash = 0, defeated = false, camer
         }
         if (l.kind === 'npc')
             objects.push({ x: xx, y: yy, draw: () => { drawNPC(ctx, xx, yy, t, l.npcId || 'archivist'); } });
+        if (l.kind === 'memory' || l.kind === 'verdict')
+            objects.push({ x: xx, y: yy, draw: () => {
+                    ctx.save();
+                    ctx.translate(xx, yy);
+                    const pulse = reducedMotion ? .38 : .38 + Math.sin(t * 1.6 + l.x) * .15;
+                    ctx.fillStyle = l.kind === 'verdict' ? '#253749' : '#255059';
+                    ctx.fillRect(-17, -30, 34, 30);
+                    ctx.strokeStyle = l.kind === 'verdict' ? '#d8b68d' : '#85d5c1';
+                    ctx.lineWidth = 3;
+                    ctx.strokeRect(-19, -34, 38, 36);
+                    ctx.font = 'bold 24px monospace';
+                    ctx.textAlign = 'center';
+                    ctx.fillStyle = l.kind === 'verdict' ? '#ffdaa8' : '#a7f1da';
+                    ctx.fillText(l.kind === 'verdict' ? '◇' : '◈', 0, -10);
+                    light(ctx, 0, -17, l.kind === 'verdict' ? 88 : 64, l.kind === 'verdict' ? '#edbd83' : '#6fdac7', pulse);
+                    ctx.restore();
+                } });
         if (l.kind === 'rune')
             objects.push({ x: xx, y: yy, draw: () => {
                     ctx.save();

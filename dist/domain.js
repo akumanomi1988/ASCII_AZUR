@@ -94,7 +94,7 @@ export function validateBattleCheckpoint(value, team) {
         return false;
     if (b.pending !== undefined && !['enemy', 'capture', 'victory', 'defeat'].includes(b.pending))
         return false;
-    if (b.encounterId !== undefined && (!/^(forest|sanctuary)-[0-2]$/.test(b.encounterId)))
+    if (b.encounterId !== undefined && (!/^(forest|sanctuary|marsh)-[0-2]$/.test(b.encounterId)))
         return false;
     if (!b.effects || typeof b.effects !== 'object' || Array.isArray(b.effects) || Object.keys(b.effects).length > 8)
         return false;
@@ -110,7 +110,7 @@ export function validateSave(data) {
         const a = c;
         return typeof a.speciesId === 'string' && !!SPECIES[a.speciesId] && typeof a.uid === 'string' && a.uid.length <= 80 && Number.isInteger(a.level) && a.level > 0 && a.level <= 30 && Number.isInteger(a.exp) && a.exp >= 0 && Number.isInteger(a.hp) && a.hp >= 0 && a.hp <= maxHp(a) && Array.isArray(a.moves) && a.moves.length >= 1 && a.moves.length <= 4 && a.moves.every(m => typeof m === 'string' && !!MOVES[m]);
     };
-    return v.version === 1 && ['village', 'forest', 'sanctuary'].includes(v.zone || '')
+    return v.version === 1 && ['village', 'forest', 'sanctuary', 'marsh'].includes(v.zone || '')
         && typeof v.x === 'number' && Number.isFinite(v.x) && v.x >= 0 && v.x < 46
         && typeof v.y === 'number' && Number.isFinite(v.y) && v.y >= 0 && v.y < 32
         && Array.isArray(v.team) && v.team.length > 0 && v.team.length <= 6 && v.team.every(validCreature)
