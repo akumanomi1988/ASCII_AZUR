@@ -1162,7 +1162,7 @@ test('Q3 journey: new-game to all four finale branches with earned captures, bat
     game.stick.x=dx;game.stick.y=dy;
     for(let frame=0;frame<5;frame++){
      game.move(1/(4.35*5));moved++;
-     if(game.battle){doBattle();assert.equal(game.save.zone,zone,'random battle lost exploration position');}
+     if(game.battle){doBattle();assert.equal(game.save.zone,zone,'random battle lost exploration position');game.stick.x=dx;game.stick.y=dy;}
     }
     assert.ok(Math.hypot(game.save.x-point.x,game.save.y-point.y)<.085,
      'physical surface route blocked: '+zone+'/'+seed+' expected '+JSON.stringify(point)+' got '+game.save.x+','+game.save.y);
