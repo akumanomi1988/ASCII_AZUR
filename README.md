@@ -1,4 +1,4 @@
-# ASCII AZUR v0.30.0 — The Unwritten
+# ASCII AZUR v0.31.0 — The Unwritten
 
 RPG de captura de criaturas y fantasía oscura, con mundo ASCII generado mediante WebGL2 (fallback Canvas2D), exploración procedural persistente y una cripta física de ocho cámaras. Android horizontal es la plataforma prioritaria; navegador web es el entorno de desarrollo y distribución actual.
 
@@ -83,3 +83,9 @@ The concluding chapter is now reachable through the newly unlocked eastern Marsh
 The physical region, visual effects, new boss silhouette, music score, story compass, journal, keyboard-operable modal and v1 save all share established systems. Existing three-/four-region frozen maps are not altered; the new region is generated deterministically on first load and persisted with the next save. The final boss is never capturable; 0.30 includes its own rig and scripted charged Ether move.
 
 **Limitations:** Automated scenario fixtures for prior Arken/Marsh chapters do not substitute for human full-campaign playtesting. Player-perceived difficulty, physical Android performance, mastered audio, broader creature roster, accessibility and independent public HTTP smoke are release gates still pending. The game is not considered premium complete.
+
+## v0.31.0 — The Unbroken Pilgrimage
+
+The campaign journal includes a trilogy-wide, honest 19-step **Wayfarer's Roadbook** with first-party game-state chapter completion, current objective, actual living roster, seals, tonics, equipped elemental counters for each boss and health/level-based preparation advice. All projections are read-only, accessible through existing menus from keyboard, mouse and touch, without warps, resources or save-schema changes. Offline installation includes the compiled roadbook module.
+
+The Q3 candidate now attempts a continuous from-new-game trilogy path on all three initial companions and four moral-endpoint combinations. Encounters, captures, guardian and final boss victories are resolved through ordinary player actions; the physical crypt is traversed tile-by-tile and saved/reloaded at major chapter boundaries. **Main-world portal handlers are still invoked directly by the automated harness**, so this does not independently prove navigability of every surface tile or uninterrupted human play. The release documentation must report that limitation accurately.
