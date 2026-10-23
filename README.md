@@ -1,4 +1,6 @@
-# ASCII AZUR v0.41.0 — The Unwritten
+# ASCII AZUR v0.42.0 — The Unwritten
+
+> **v0.42 candidate — Glyph Pixel Art clarity:** 90%+ fewer decorative route marks, neutral negative-space around important landmarks, quieter soil/water/grass, five-bit contiguous-cell pixel color, and reduced random glyphs on flat surfaces. Both WebGL2 and Canvas2D use matching material thresholds. Canvas2D first-run starts with adaptive glyph pacing while honoring saved preferences. Visual acceptance and real Android performance remain open.
 
 > **v0.41 candidate — three independent persistent campaigns:** choose any of three seed-isolated adventures from the title screen, view a live summary of each, safely return to journey selection, and import/export the selected adventure. Legacy localStorage keys and saves remain in slot I. All slots maintain independent backups and conflict protection.
 

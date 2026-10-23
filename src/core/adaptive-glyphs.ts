@@ -1,6 +1,6 @@
 import type {FrameReport} from './frame-metrics.js';
 
-/** Opt-in, conservative frame-pacing controller. This scales cells, never alters saved art preferences. */
+/** Conservative frame-pacing controller. Canvas2D may opt in by default; saved art settings are untouched. */
 export class AdaptiveGlyphs {
   readonly targetFps = 30;
   readonly maxScale = 2.4;
@@ -13,11 +13,12 @@ export class AdaptiveGlyphs {
   get active(): boolean { return this.enabled; }
   get scale(): number { return this.factor; }
 
-  configure(enabled: boolean): boolean {
+  configure(enabled: boolean,initialScale=1): boolean {
     const next = enabled === true;
     if (next === this.enabled) return false;
     this.enabled = next;
     this.reset();
+    if(next&&Number.isFinite(initialScale))this.factor=Math.max(1,Math.min(this.maxScale,initialScale));
     return true;
   }
   reset(): void {

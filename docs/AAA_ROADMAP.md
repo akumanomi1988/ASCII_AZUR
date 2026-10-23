@@ -158,3 +158,12 @@ The authored three-chapter storyline now has a scripted conclusion and automated
 - Title selection displays the selected region, elapsed play time, party count and whether only a recoverable backup remains. A settings action commits the current run before returning to slot selection; a failed save keeps the player in the current run.
 - Import/export and stale-tab checks are slot-scoped. Regression tests exercise independent rotation and backup recovery across all slots; browser acceptance walks a second seeded campaign and restores the original without overwriting it.
 - This is an autonomous implementation milestone for replayability and data integrity. It does not by itself satisfy independent quality gates C4/W4/N4/P4/G2/G4/U2/U4/A4/Q4, and does not change the fixed externally accepted 32-milestone score.
+
+
+## Macroiteration — high-legibility Glyph Pixel Art (v0.42.0 candidate, 2026-10-23)
+
+- **G2 visual implementation:** reduce path decorations from eleven source marks/motifs per tile to a maximum of two sparse marks, eliminate incidental motifs from flat ground, and reserve a clear five-by-five-tile visual apron around every authored landmark. Color palettes, silhouettes and seeded world topology remain unchanged.
+- **Mode distinction:** Atmospheric ASCII suppresses flat-cell dithering while retaining authored ASCII edge marks. Glyph Pixel Art renders contiguous cell backgrounds as the dominant shape, with five-bit color and directional block glyphs only where material structure warrants them. WebGL2 and Canvas2D share the same thresholds and color equations.
+- **Performance:** decoration caches skip blank tiles and points of interest; first-run Canvas2D enables adaptive glyph performance at scale 1.6 (user preferences override). New pure regressions bound decoration density across all seven biomes and assert frozen world snapshots do not change.
+- **Acceptance evidence required:** TypeScript, Node, release/PWA audit, Chromium ASCII/Pixel × WebGL2/Canvas2D screenshot matrix for all seven regions, independent before/after inspection at desktop and mobile resolution, and published Pages provenance. G2 remains OPEN until images prove >=90% scene/object readability to human reviewers; G4 awaits real minimum-device FPS.
+- The fixed 32-milestone method is unchanged. This is a technically integrated art-direction improvement, not a fabricated AAA acceptance or percentage increase.

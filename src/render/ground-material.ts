@@ -1,4 +1,4 @@
-import type {ZoneId} from '../world.js';
+import {ZONES,type ZoneId} from '../world.js';
 import {stableVisualVariant,type BiomePalette} from './biome-art.js';
 
 /** Deterministic visual detail. This module never changes terrain or the save format. */
@@ -11,9 +11,19 @@ export interface GroundMotif {
 const PATH_MOTIFS:Readonly<Record<ZoneId,GroundMotifKind>>={
   village:'cobble',forest:'leaf',sanctuary:'sigil',marsh:'reed',spire:'shard',ossuary:'shell',garden:'frost'
 };
+const MOTIF_RATE:Readonly<Record<GroundSurface,number>>={path:.46,grass:.56,water:.40,stone:.28,ground:0};
 export function pathMotif(zone:ZoneId):GroundMotifKind{return PATH_MOTIFS[zone];}
+/** Landmarks get a clear visual apron; interaction silhouettes outrank texture. */
+export function isFocalGroundTile(zone:ZoneId,x:number,y:number):boolean{
+  return ZONES[zone].landmarks.some(l=>Math.abs(l.x-x)<=2&&Math.abs(l.y-y)<=2);
+}
+/** At most one authored accent per tile. Empty space is intentional. */
+export function groundMotifBudget(zone:ZoneId,surface:GroundSurface,x:number,y:number,seed:number):0|1{
+  if(surface==='ground'||isFocalGroundTile(zone,x,y))return 0;
+  return stableVisualVariant(x,y,seed+719)<MOTIF_RATE[surface]?1:0;
+}
 export function groundMotifs(zone:ZoneId,surface:GroundSurface,x:number,y:number,seed:number):readonly GroundMotif[]{
-  const count=surface==='path'?8:surface==='grass'?4:surface==='water'?2:surface==='stone'?3:3;
+  const count=groundMotifBudget(zone,surface,x,y,seed);
   const result:GroundMotif[]=[];
   for(let i=0;i<count;i++){
     const a=stableVisualVariant(x*37+i*19,y*41+i*13,seed+101);
@@ -38,7 +48,7 @@ export function paintGroundMotifs(ctx:CanvasRenderingContext2D,zone:ZoneId,surfa
   for(const m of motifs){
     ctx.save();ctx.translate(m.x,m.y);ctx.rotate(m.turn);
     const s=m.scale;
-    ctx.globalAlpha=.38+m.shade*.40;
+    ctx.globalAlpha=.22+m.shade*.27;
     switch(m.kind){
       case 'cobble':
         ctx.fillStyle=m.shade>.5?palette.pathMark:palette.pathRim;
@@ -103,6 +113,7 @@ export class GroundMaterialCache {
   get size():number{return this.tiles.size;}
   draw(ctx:CanvasRenderingContext2D,zone:ZoneId,surface:GroundSurface,tileX:number,tileY:number,
       seed:number,screenX:number,screenY:number,palette:BiomePalette,tileSize=48):void{
+    if(groundMotifBudget(zone,surface,tileX,tileY,seed)===0)return;
     const key=zone+'/'+surface+'/'+seed+'/'+tileX+'/'+tileY;
     let canvas=this.tiles.get(key);
     if(!canvas){
