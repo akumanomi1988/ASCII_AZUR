@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {SPECIES,MOVES,TYPE_ADV,createCreature,maxHp,damage,gainExp,validateSave} from '../dist/domain.js';
 import {ZONES,WORLD_W,WORLD_H,terrain,isBlocked,canOccupy,isWild,nearbyLandmark} from '../dist/world.js';
-test('sixteen original species plus final boss and four affinities',()=>{assert.equal(Object.keys(SPECIES).length,17);assert.equal(new Set(Object.values(SPECIES).map(s=>s.element)).size,4);});
+test('fifteen capturable species plus two bosses and four affinities',()=>{assert.equal(Object.keys(SPECIES).length,17);assert.equal(new Set(Object.values(SPECIES).map(s=>s.element)).size,4);});
 test('every species has valid base stats and known moves',()=>{for(const [id,s] of Object.entries(SPECIES)){assert.ok(s.stats.hp>20,id);assert.ok(s.stats.attack>0);assert.ok(s.stats.defense>0);assert.ok(s.stats.speed>0);if(s.evo)assert.ok(SPECIES[s.evo.id]);}assert.ok(Object.keys(MOVES).length>=9);});
 test('capture-generated creature has correct stats',()=>{const c=createCreature('cindrel',5,()=>0.5);assert.equal(c.level,5);assert.equal(c.hp,maxHp(c));assert.equal(c.uid,'cindrel-500000000');assert.ok(c.moves.length>=2);});
 test('type advantages are directional',()=>{for(const [att,def] of Object.entries(TYPE_ADV))assert.notEqual(TYPE_ADV[def],att);});

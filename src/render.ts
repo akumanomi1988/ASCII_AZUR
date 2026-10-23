@@ -218,7 +218,7 @@ function creatureDetails(ctx:CanvasRenderingContext2D,id:string,perf:CreaturePer
  } else if(id==='ashglass'){
    ctx.strokeStyle='#fff4d1';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(-21,-25);ctx.lineTo(-31,-40+perf.wing*3);ctx.moveTo(21,-25);ctx.lineTo(31,-40-perf.wing*3);ctx.stroke();
  }
- if(perf.expression='feral'||perf.expression==='transcendent'){
+ if(perf.expression==='feral'||perf.expression==='transcendent'){
    ctx.globalAlpha=.7;ctx.strokeStyle=col;ctx.lineWidth=1.4;
    for(let i=0;i<7;i++){const a=i*2.399+t*.6,r=23+i%3*8;ctx.beginPath();ctx.moveTo(Math.cos(a)*r, -15+Math.sin(a)*r);ctx.lineTo(Math.cos(a)*(r+5),-15+Math.sin(a)*(r+5));ctx.stroke();}
  }
