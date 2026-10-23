@@ -128,3 +128,10 @@ The next production-risk slice targets stale browser tabs and quota/interrupted 
 - H gives explicit screen-reader-friendly orientation, passable cardinal directions and current story guidance without unsolicited continuous motion chatter.
 - Additional pure/graph audio tests, semantic keyboard checks and four Chromium backend/mode navigation checks are part of the release gate.
 - Q2 and U3 are proposed as technical acceptance milestones following the already verified v0.43 long-run save evidence and the v0.44 accessibility audit. External mobile, audio, playtest and premium review are not assumed; report the score as accepted only after all required CI/Pages evidence exists.
+
+
+## 2026-10-23 — v0.45 Glyph Pixel Art fallback clarity candidate
+
+- Public v0.44 Canvas2D baseline was visually inspected after a fresh journey and story-dialog completion. At the adaptive 2.4x scale, large cells erased actor, foliage and landmark detail. The game ran in this cloud browser at about 1 FPS; that figure is diagnostic and not a physical Android benchmark.
+- New Canvas2D Glyph Pixel Art presentation samples the authored 960×540 world into a bounded 192–480 pixel-width continuous color buffer, then scales by nearest-neighbor pixels. Sparse deterministic glyph marks are drawn only at real contrast edges. This preserves the semantic source silhouettes and avoids an output-sized software ImageData pass. Atmospheric ASCII, world rules, collisions, and version-1 saves are unchanged.
+- Acceptance: CI TypeScript/Node, 4 render/backend browser paths, all-region screenshot artifacts, visual before/after, merged main and Pages source provenance are required before calling v0.45 published. G2 independent artwork approval and G4 physical Android FPS remain open. Weighted milestone progress remains 67.50% (20/32) pending separate acceptance.
