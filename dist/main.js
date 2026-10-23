@@ -456,7 +456,11 @@ class AzurGame {
             throw Error('Guardado inválido');
         const raw = result.state;
         this.save = raw;
-        configureWorld(this.save.worldSeed ?? 0, this.save.worldSnapshot);
+        const storedSnapshot = this.save.worldSnapshot;
+        configureWorld(this.save.worldSeed ?? 0, storedSnapshot);
+        const expandSnapshot = !!this.save.worldSeed && (!storedSnapshot || ZONE_IDS.some(id => !storedSnapshot.tiles[id] || !storedSnapshot.poi[id]));
+        if (expandSnapshot)
+            this.save.worldSnapshot = captureWorldSnapshot() ?? storedSnapshot;
         this.roamingCache.clear();
         this.save.rpg = normalizeEconomy(raw.rpg);
         this.camera = { x: this.save.x, y: this.save.y };
@@ -464,6 +468,8 @@ class AzurGame {
         this.lastReveal = -1;
         this.revealPosition();
         this.started = true;
+        if (expandSnapshot)
+            this.saveNow(false);
         this.sound.unlock();
         this.sound.setScene(this.save.dungeon?.active ? 'sanctuary' : themeForZone(this.save.zone));
         this.encounterCooldown = 4;
