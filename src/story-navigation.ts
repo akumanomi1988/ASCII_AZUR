@@ -61,6 +61,23 @@ function azurRouteStart(position:StoryPosition,cost:Int16Array):number{
  return best;
 }
 
+
+/** Shared walkable guidance for authored landmarks and moving encounter targets.
+ * Uses the same collision footprint as the player and never alters world state. */
+export function guidanceToTarget(position:StoryPosition,point:{x:number;y:number;label:string},title=point.label.toUpperCase()):StoryGuidance{
+ const target:Landmark={...point,kind:'memory'};
+ const simple=(text:string,kind:StoryGuidance['kind']):StoryGuidance=>({text,direction:'✦',distance:null,target:null,kind});
+ if(Math.hypot(point.x-position.x,point.y-position.y)<=1.65)
+  return{text:`✦ ${title} · ACCIÓN`,direction:'✦',distance:0,target,kind:'interaction',waypoint:null};
+ const route=azurRoute(position.zone,target),start=azurRouteStart(position,route.cost);
+ if(start<0)return simple('RUTA BLOQUEADA · CONSULTA EL DIARIO','menu');
+ const next=route.next[start];
+ if(next===undefined||next<0)return{text:`✦ ${title} · ACÉRCATE`,direction:'✦',distance:0,target,kind:'interaction',waypoint:null};
+ const x=next%WORLD_W,y=(next/WORLD_W)|0;
+ const direction=arrow(x-position.x,y-position.y),distance=route.cost[start]!+1;
+ return{text:`${direction} ${title} · ${distance} PASOS · RUTA`,direction,distance,target,kind:'target',waypoint:{x,y}};
+}
+
 export function storyGuidance(story:ArkenStoryState,position:StoryPosition):StoryGuidance{
   const step=arkenStoryIndex(story);
   const simple=(text:string,kind:StoryGuidance['kind']):StoryGuidance=>({text,direction:'✦',distance:null,target:null,kind});
