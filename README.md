@@ -1,6 +1,6 @@
-# ASCII AZUR v0.45.0 — The Unwritten
+# ASCII AZUR v0.46.0 — The Unwritten
 
-> **v0.45 candidate — Glyph Pixel Art fallback clarity:** Canvas2D now composites a contiguous semantic pixel scene at a bounded 192–480-pixel internal width, preserving full actor and landmark silhouettes rather than reducing each to oversized abstract glyph cells. Sparse foreground glyph accents appear only at meaningful high-contrast edges. This avoids a full output-sized software ImageData write each frame. The original Atmospheric ASCII path, world topology, gameplay and save format are untouched. Acceptance still requires measured browser screenshots, Node/CI, live Pages and real minimum Android hardware.
+> **v0.45 released — Glyph Pixel Art fallback clarity:** Canvas2D now composites a contiguous semantic pixel scene at a bounded 192–480-pixel internal width, preserving full actor and landmark silhouettes rather than reducing each to oversized abstract glyph cells. Sparse foreground glyph accents appear only at meaningful high-contrast edges. This avoids a full output-sized software ImageData write each frame. The original Atmospheric ASCII path, world topology, gameplay and save format are untouched. Automated browser/Node CI and Pages provenance have passed; real minimum Android hardware evaluation remains outstanding.
 
 > **v0.43 candidate — autonomous reliability and accessibility:** resilient backup confirmation before primary rotation, 9,000 fault-injected multi-slot save operations, legacy three-region snapshot upgrade checks, keyboard focus recovery across narrative screens and combat, semantic HP meters, spoken narrative updates, and correctly exposed mute/notification states. This advances implementation evidence only; external device/user acceptance is still required.
 
@@ -11,6 +11,9 @@
 > **v0.40 candidate — accessibility and adaptive score:** keyboard skip link, screen-reader game-state narration, persistent high-contrast theme, zoom support, adaptive battle-music mix and deterministic score tests. Human accessibility/audio acceptance and physical Android benchmarking remain open.
 
 RPG de captura de criaturas y fantasía oscura, con mundo ASCII generado mediante WebGL2 (fallback Canvas2D), exploración procedural persistente y una cripta física de ocho cámaras. Android horizontal es la plataforma prioritaria; navegador web es el entorno de desarrollo y distribución actual.
+
+
+> **v0.46 candidate — Atlas wayfinding and seven-region traversal QA:** Discovered landmarks can now be selected from the in-game Atlas as temporary destinations. The story compass gives collision-aware walking directions, and the map draws only already revealed route segments. A deterministic 200-saved-seed test checks paths to every authored landmark and roaming witness across all seven regions, with swept-movement samples. These gates do not replace human mobile acceptance.
 
 ## v0.39.0 — Protección de partidas
 
