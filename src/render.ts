@@ -243,6 +243,11 @@ export function drawCreature(ctx:CanvasRenderingContext2D,speciesId:string,x:num
     ctx.strokeStyle='#93af7c';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(0,-16);ctx.lineTo(0,-35);ctx.stroke();
     poly(ctx,[[0,-31],[-20+perf.tail*3,-37],[-14,-22],[0,-22]],'#79b389');poly(ctx,[[0,-30],[19,-44],[16,-24],[1,-20]],'#b7df83');
     ctx.fillStyle='#263e37';ctx.fillRect(-8,-6,5,4);ctx.fillRect(5,-6,5,4);
+  }else if(sp.shape===11){ // the original Nullscribe: empty scroll beneath a shattered halo
+    const flutter=perf.wing*3;poly(ctx,[[-20,-31],[-34,4],[-8,14],[12,14],[34,4],[20,-31]],'#342843');
+    ctx.fillStyle=col;ctx.fillRect(-15,-43,30,43);ctx.fillStyle='#19172c';ctx.fillRect(-10,-37,20,30);
+    ctx.strokeStyle='#e9c8fc';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(-27,-50-flutter);ctx.lineTo(0,-65);ctx.lineTo(27,-50+flutter);ctx.moveTo(-23,-62);ctx.lineTo(0,-72);ctx.lineTo(23,-62);ctx.stroke();
+    ctx.fillStyle='#fff2dc';ctx.fillRect(-8,-27,5,4);ctx.fillRect(4,-27,5,4);ctx.fillStyle='#d3a6f2';ctx.fillRect(-2,-16,4,10);
   }else if(sp.shape===6){ // deer
     ctx.beginPath();ctx.ellipse(0,-9,21,16,0,0,7);ctx.fill();ctx.fillRect(-15,-1,6,18);ctx.fillRect(10,-1,6,18);ctx.beginPath();ctx.ellipse(13,-28,11,13,0,0,7);ctx.fill();ctx.strokeStyle=col;ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(10,-37);ctx.lineTo(-2,-56);ctx.lineTo(-18,-60);ctx.moveTo(-2,-56);ctx.lineTo(-5,-70);ctx.moveTo(15,-37);ctx.lineTo(24,-59);ctx.lineTo(37,-61);ctx.moveTo(24,-59);ctx.lineTo(23,-70);ctx.stroke();ctx.fillStyle='#fbe8c7';ctx.fillRect(17,-30,3,3);
   }else{ // moss beast
@@ -460,7 +465,7 @@ for(const l of z.landmarks){const xx=(l.x+.5)*TILE-camX,yy=(l.y+.75)*TILE-camY;i
   light(ctx,0,-21,42,'#e4d0a8',glow);ctx.restore();
  }});
  if(l.kind==='chest')objects.push({x:xx,y:yy,draw:()=>{ctx.fillStyle='#705b46';ctx.fillRect(xx-18,yy-14,36,18);ctx.fillStyle='#b29869';ctx.fillRect(xx-18,yy-18,36,8);ctx.fillRect(xx-2,yy-18,5,22);light(ctx,xx,yy,40,'#e5a778',.18);}});
- if(l.kind==='guardian'&&!defeated)objects.push({x:xx,y:yy,draw:()=>{drawCreature(ctx,'hollowhart',xx,yy,2.25,t);light(ctx,xx,yy-45,120,'#a791d5',.3);}});
+ if(l.kind==='guardian'&&!defeated)objects.push({x:xx,y:yy,draw:()=>{drawCreature(ctx,l.npcId==='nullscribe'?'nullscribe':'hollowhart',xx,yy,l.npcId==='nullscribe'?2.7:2.25,t);light(ctx,xx,yy-45,120,l.npcId==='nullscribe'?'#ca97ee':'#a791d5',.3);}});
  }
 for(const e of roamers){const xx=(e.x+.5)*TILE-camX,yy=(e.y+.78)*TILE-camY;if(xx<-80||xx>W+80||yy<-80||yy>H+80)continue;
   objects.push({x:xx,y:yy,draw:()=>{
