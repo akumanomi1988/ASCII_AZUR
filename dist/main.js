@@ -6,7 +6,7 @@ import { drawDungeon } from './dungeons/draw-dungeon.js';
 import { chamberAt, chamberProgress } from './dungeons/room-art.js';
 import { generateDungeon, nearbyDungeonEvent, completeDungeonEvent, dungeonGateOpen, revealDungeon, dungeonSweep } from './dungeons/labyrinth.js';
 import { SPECIES, MOVES, createCreature, maxHp, validateSave } from './domain.js';
-import { ZONES, sweepMove, isWild, nearbyLandmark, configureWorld, captureWorldSnapshot, freshWorldSeed, seedFromText, terrain, WORLD_W, WORLD_H, ZONE_IDS } from './world.js';
+import { ZONES, sweepMove, isBlocked, isWild, nearbyLandmark, configureWorld, captureWorldSnapshot, freshWorldSeed, seedFromText, terrain, WORLD_W, WORLD_H, ZONE_IDS } from './world.js';
 import { SHOP, QUESTS, buy, claimQuests, normalizeEconomy, newEconomy } from './rpg.js';
 import { Sound, themeForZone } from './audio.js';
 import { FrameMetrics } from './core/frame-metrics.js';
@@ -207,6 +207,10 @@ class AzurGame {
             this.openTeam();
         if (key === 'b')
             this.openBag();
+        if (key === 'h' && !e.repeat) {
+            e.preventDefault();
+            this.describeCurrentRoute();
+        }
     }
     /** Trapping Tab in a real modal prevents focus escaping behind an overlay. */
     trapModalTab(e) {
@@ -2153,6 +2157,24 @@ class AzurGame {
         node.setAttribute('aria-valuemax', String(maximum));
         node.setAttribute('aria-valuenow', String(Math.max(0, current)));
         node.setAttribute('aria-valuetext', `${current} de ${maximum} puntos de vida`);
+    }
+    /** Explicit nonvisual world scan: no continual announcements while walking. */
+    describeCurrentRoute() {
+        if (!this.started || this.battle || this.dialogOpen || this.modalOpen)
+            return;
+        this.updateStoryCompass();
+        const direction = ['norte', 'este', 'sur', 'oeste'][this.facing] ?? 'sur';
+        const objective = byId('storyCompass').textContent?.trim() || 'Consulta el diario';
+        const where = this.save.dungeon?.active ? 'Cripta de los Ecos' : ZONES[this.save.zone].name;
+        let passages = 'Consulta el mapa de la cripta';
+        if (!this.save.dungeon?.active) {
+            const x = this.save.x, y = this.save.y, zone = this.save.zone;
+            const open = [['norte', 0, -1], ['este', 1, 0], ['sur', 0, 1], ['oeste', -1, 0]]
+                .filter(([, dx, dy]) => !isBlocked(zone, x + dx * .85, y + dy * .85))
+                .map(([name]) => name);
+            passages = open.length ? 'Salidas cercanas: ' + open.join(', ') : 'No hay salidas inmediatas';
+        }
+        this.announceAccessibility(`Orientación. ${where}. Mirando al ${direction}. ${passages}. Guía: ${objective}. Pulsa H para repetir la orientación.`);
     }
     announceAccessibility(message) {
         if (this.lastAccessibleMessage === message)
