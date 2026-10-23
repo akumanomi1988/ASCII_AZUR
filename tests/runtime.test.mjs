@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import {dungeonTilePath} from './helpers/dungeon-path.mjs';
-import {ZONES,canOccupy,WORLD_W,WORLD_H} from '../dist/world.js';
+import {ZONES,canOccupy,sweepMove,WORLD_W,WORLD_H} from '../dist/world.js';
 import {damage, MOVES, maxHp} from '../dist/domain.js';
 import {createCreature as createCharacter} from '../dist/domain.js';
 import {generateDungeon as makeCrypt} from '../dist/dungeons/labyrinth.js';
@@ -1147,7 +1147,8 @@ test('Q3 journey: new-game to all four finale branches with earned captures, bat
     for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
      const x=cur.x+dx,y=cur.y+dy,k=key(x,y);
      if(x<1||y<2||x>=WORLD_W-1||y>=WORLD_H-2||previous.has(k)||!canOccupy(zone,x,y,.19))continue;
-     if(![.2,.4,.6,.8,1].every(t=>canOccupy(zone,cur.x+dx*t,cur.y+dy*t,.19)))continue;
+     let probe={x:cur.x,y:cur.y};for(let frame=0;frame<5;frame++)probe=sweepMove(zone,probe.x,probe.y,dx*.2,dy*.2,.19);
+     if(Math.hypot(probe.x-x,probe.y-y)>.045)continue;
      previous.set(k,cur);queue.push({x,y});
     }
    }
