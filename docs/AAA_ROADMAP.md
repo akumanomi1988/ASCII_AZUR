@@ -11,7 +11,7 @@ A checkbox means the evidence stated below exists. A completed automated gate me
 |---|---:|---:|---:|---|
 | 1. Core gameplay and balance | 20% | 3/4 | 75% | C4 human combat balance |
 | 2. World and exploration | 15% | 2/4 | 50% | W3 authored new regions; W4 exploratory QA |
-| 3. Complete story and narrative | 20% | 2/4 | 50% | N3 global climax/ending; N4 human narrative QA |
+| 3. Complete story and narrative | 20% | 3/4 | 75% | N4 independent narrative / human playtest approval |
 | 4. Creatures and progression | 10% | 1/4 | 25% | P2 broader roles/collection; P3 sidequests/evolution identity; P4 player-tested balance |
 | 5. Graphics and animation | 10% | 1/4 | 25% | G2 expressive biome/character polish; G3 animation breadth; G4 verified minimum-device FPS |
 | 6. UX and mobile | 10% | 1/4 | 25% | U2 real Android testing; U3 accessibility audit; U4 human usability validation |
@@ -30,7 +30,7 @@ A checkbox means the evidence stated below exists. A completed automated gate me
 - **W4 [ ]** Across >=200 saved seeds, end-to-end traversal, discovery and route QA including human mobile navigation.
 - **N1 [x]** Original six-objective Arken arc, Guardian/crypt outro, one-time reward and idempotent save-backed conclusion.
 - **N2 [x]** Authored full second chapter integrating unique region(s), characters, choices and progression.
-- **N3 [ ]** Original global campaign climax, playable finale and ending sequence with persisted consequences.
+- **N3 [x]** Original global campaign climax, playable finale and ending sequence with persisted consequences. Completed as Crown of the Unwritten Chapter III (v0.30.0), Nullscribe boss, irreversible final choice, four Nael-consequence epilogues, deterministic region and v1 reload: 36/36 seeded chapter paths, 200 world seeds, 227/227 tests and published Pages provenance; human full-campaign new-game run remains a separate Q3/N4 gate.
 - **N4 [ ]** Independent narrative/playtest signoff for clarity, pacing, coherence and endings.
 - **P1 [x]** Capturable species, party/reserve, moves, experience and evolution persist with regressions.
 - **P2 [ ]** Expand original roster/roles with demonstrable strategic identity and balance.
@@ -59,7 +59,7 @@ Baseline before macroiteration 001: completed=9/32 milestones. Phase sequence=2/
 **Verified after macroiteration 001 (2026-10-22): 10/32 milestones.** Phase sequence=2/4, 2/4, 1/4, 1/4, 1/4, 1/4, 1/4, 1/4. **World 25% → 50%; global 30.00% → 33.75% (+3.75 pp).** W2 is closed by 512-seed regressions, real-move scouting + Keeper one-time reward/runtime save tests, main CI [39846519978](https://github.com/akumanomi1988/ASCII_AZUR/actions/runs/39846519978) SUCCESS (207/207 Node tests; 4 Chromium render/backend integrations), `gh-pages` commit `b3a089b19ba2055323892f68a4ebeda11bbc0842`, Pages workflow [39846691519](https://github.com/akumanomi1988/ASCII_AZUR/actions/runs/39846691519) SUCCESS, and `gh-pages/build-info.json.source_commit=748b86f855b130fe535eb18813d5e477b3ec701b`. Public external `github.io` HTTP smoke could not be performed and remains UNVERIFIED; this is not a required W2 gate and remains Q4 blocked.
 
 ## Premium blockers
-Global authored campaign absent; captured-party multi-seed Guardian/crypt tuning not proven; physical Android performance and human playtests missing; full public-site independent smoke unverified. Automated green does not qualify as commercial release acceptance.
+The authored three-chapter storyline now has a scripted conclusion, but a true uninterrupted **new-game → Chapter I → Chapter II → Chapter III** gameplay acceptance (Q3), physical Android hardware performance, independent human playtests, accessible UX, full mastering and public HTTP smoke remain unfinished. C3 multi-seed Guardian/crypt automated acceptance was already verified. Premium production readiness is not established. Automated green does not qualify as commercial release acceptance.
 
 
 ## Verified macroiteration 002 — C3 Guardian and crypt progression (2026-10-22)
@@ -85,3 +85,12 @@ Global authored campaign absent; captured-party multi-seed Guardian/crypt tuning
 **Roadmap math:** Before, 11/32 milestones, Story 1/4 (25%), global 38.75%. After, **12/32**, Story **2/4 (50%)**, global **43.75% (+5.00 percentage points)**. No other phase changes. The 16 quality scores are unchanged (mean 2.5/5, 0 independently approved >=4/5). No real Android performance, independent narrative player acceptance or full global campaign ending is implied.
 
 **Remaining N3 dependency:** The chapter closes its own arcs but not the game's overall story. Next macroiteration should integrate a connected third chapter/global climax and a coherent final ending, rather than more disconnected activities; require its own acceptance gates. Other true blockers: W3 two original new regions not yet met, Q4 external public smoke, physical Android and human playtest signoff.
+
+
+## Verified macroiteration 004 — N3: Crown of the Unwritten and original campaign ending (2026-10-23)
+
+- **Scope:** Chapter III unlocks through Nael's completed Marsh chapter. Five-world original fantasy campaign with Oriel, two authored relics, three deterministic finite roamers, original Nullscribe boss (distinct silhouette, creature animation rig, charged-Ether telegraph, uncapturable), final irreversible choice Remember/Renew, and four original consequence-based narrative epilogues honoring Marsh Keep/Release. Ending adds a one-time saved reward then preserves postgame free-roam; journal, compass, HUD, biome color and music reflect the story. Saves remain v1; old three-/four-zone snapshots preserve original terrain and original landmarks.
+- **Acceptance:** 200 deterministic Crown world seeds with reachable sites and challengers; 36/36 final-chapter scenarios (two Marsh choices × two Crown endings × three starters × three seeds) using player-command combat with enemy turns, selected lead, guarding, healing, permanent flags and reload without double reward. Their Arken/Marsh checkpoint is an explicit fixture: this **does not satisfy Q3** independently verified uninterrupted campaign from a fresh save.
+- **Build:** PR [#5](https://github.com/akumanomi1988/ASCII_AZUR/pull/5) authored the gameplay at merge `529b36939137ea0f0a09cdfc7e7a49e8f847e3c6`. Two narrow browser QA fixture fixes via PR [#6](https://github.com/akumanomi1988/ASCII_AZUR/pull/6) and [#7](https://github.com/akumanomi1988/ASCII_AZUR/pull/7) corrected misleading test assertions, with no gameplay source modification. Final main gameplay + tests SHA `e191c010c76ae4c8e0c4e112a89f228d30776dbe`. [Main CI 39914726339](https://github.com/akumanomi1988/ASCII_AZUR/actions/runs/39914726339) **SUCCESS**: 227/227 Node tests, TypeScript, release/standalone build, PWA audit (35 imported JS dependencies, 36 offline cached assets), four real Chromium render/backend modes **PASS**.
+- **Deployment:** `gh-pages` head `ac9e395c1022d2a519790da039192c83a95e36c4`, `build-info.json.source_commit=e191c010c76ae4c8e0c4e112a89f228d30776dbe`, published `dist/story-finale.js`; [GitHub Pages workflow 39914896313](https://github.com/akumanomi1988/ASCII_AZUR/actions/runs/39914896313) **SUCCESS**. External reader cannot access either `https://akumanomi1988.github.io/ASCII_AZUR/` or `/build-info.json`; live public HTTP smoke remains **UNVERIFIED**, not PASS.
+- **Weighted roadmap:** 12/32 → **13/32**, Story **50% → 75%**, global **43.75% → 48.75% (+5.00 pp)**, all other phase progress unchanged. Sixteen independent premium quality scores conservatively unchanged (mean 2.5/5, zero independently accepted >=4/5). W3 does not close: despite Marsh + Crown, two genuinely distinct original region-specific creature sets and full experiential exploration acceptance are not yet evidenced. N4, Q3 and Q4 remain unfinished.
