@@ -4,6 +4,7 @@ import type {CombatFxFrame} from './actors/combat-fx.js';
 import {sampleBattleSignature,type BattleSignature} from './actors/battle-direction.js';
 import {sampleCreaturePerformance,rigFor,type CreatureAction,type CreaturePerformance} from './actors/creature-performance.js';
 import {SoftwareGlyphFrame} from './render/software-glyph.js';
+import {GlyphPixelPresentation} from './render/glyph-pixel-presentation.js';
 import {VISUAL_ASSETS} from './render/semantic-assets.js';
 import {biomePalette} from './render/biome-art.js';
 import {sampleHeroPose} from './actors/hero-performance.js';
@@ -77,7 +78,7 @@ function texture(gl:WebGL2RenderingContext):WebGLTexture {const t=gl.createTextu
 export class AsciiRenderer {
   canvas:HTMLCanvasElement;readonly source:HTMLCanvasElement;readonly ctx:CanvasRenderingContext2D;
   private gl:WebGL2RenderingContext|null=null;private program:WebGLProgram|null=null;private tex:WebGLTexture|null=null;private atlas:WebGLTexture|null=null;private uniforms:Record<string,WebGLUniformLocation|null>={};
-  renderMode:'ascii'|'glyph-pixel'='ascii';pixelDetail:'fine'|'balanced'|'chunky'='balanced';quality=1; density=.32;glyphScale=.8;contrast=1.18;edgeStrength=1.2;brightness=.02;performanceScale=1;private software:SoftwareGlyphFrame|null=null;private frame=0;private fpsStart=performance.now();fps=0;mode:'gpu'|'fallback'='fallback';
+  renderMode:'ascii'|'glyph-pixel'='ascii';pixelDetail:'fine'|'balanced'|'chunky'='balanced';quality=1; density=.32;glyphScale=.8;contrast=1.18;edgeStrength=1.2;brightness=.02;performanceScale=1;private software:SoftwareGlyphFrame|null=null;private pixelPresentation:GlyphPixelPresentation|null=null;private frame=0;private fpsStart=performance.now();fps=0;mode:'gpu'|'fallback'='fallback';
   constructor(canvas:HTMLCanvasElement){this.canvas=canvas;this.source=document.createElement('canvas');this.source.width=W;this.source.height=H;const ctx=this.source.getContext('2d',{alpha:false});if(!ctx)throw Error('Canvas2D no disponible');this.ctx=ctx;this.initGPU();}
   private initGPU(){const gl=this.canvas.getContext('webgl2',{alpha:false,antialias:false,preserveDrawingBuffer:true,powerPreference:'high-performance'});if(!gl){this.initFallback();return;}try{const p=gl.createProgram();if(!p)throw Error('program');gl.attachShader(p,shader(gl,gl.VERTEX_SHADER,VS));gl.attachShader(p,shader(gl,gl.FRAGMENT_SHADER,FS));gl.linkProgram(p);if(!gl.getProgramParameter(p,gl.LINK_STATUS))throw Error('Link: '+gl.getProgramInfoLog(p));gl.useProgram(p);const arr=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,arr);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,1,1]),gl.STATIC_DRAW);const pos=gl.getAttribLocation(p,'a_pos');gl.enableVertexAttribArray(pos);gl.vertexAttribPointer(pos,2,gl.FLOAT,false,0,0);this.tex=texture(gl);gl.activeTexture(gl.TEXTURE1);this.atlas=texture(gl);const atlas=document.createElement('canvas');atlas.width=8*32;atlas.height=4*36;const a=atlas.getContext('2d');if(!a)throw Error('glyph atlas');a.clearRect(0,0,atlas.width,atlas.height);a.fillStyle='#fff';a.font='bold 31px monospace';a.textAlign='center';a.textBaseline='middle';for(let i=0;i<GLYPHS.length;i++){a.fillText(GLYPHS[i]!,i%8*32+16,Math.floor(i/8)*36+19);}gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,false);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,atlas);for(const k of ['u_resolution','u_cell','u_time','u_quality','u_contrast','u_edges','u_brightness','u_pixelMode','u_crop'])this.uniforms[k]=gl.getUniformLocation(p,k);gl.uniform1i(gl.getUniformLocation(p,'u_scene'),0);gl.uniform1i(gl.getUniformLocation(p,'u_atlas'),1);this.gl=gl;this.program=p;this.mode='gpu';this.resize();}catch(e){console.error('WebGL ASCII falló:',e);this.initFallback();}}
   private initFallback(){this.gl=null;this.mode='fallback';// When WebGL2 is missing, keep the game playable with a CPU glyph compositor.
@@ -96,6 +97,11 @@ export class AsciiRenderer {
       const cell=glyphCell(base,this.getGraphics());gl.uniform2f(this.uniforms.u_cell!,cell.width*this.performanceScale,cell.height*this.performanceScale);
       const crop=this.crop();gl.uniform4f(this.uniforms.u_crop!,crop.x,crop.y,crop.w,crop.h);gl.uniform1f(this.uniforms.u_time!,t*.001);gl.uniform1f(this.uniforms.u_quality!,this.quality);gl.uniform1f(this.uniforms.u_contrast!,this.contrast);gl.uniform1f(this.uniforms.u_edges!,this.edgeStrength);gl.uniform1f(this.uniforms.u_brightness!,this.brightness);gl.uniform1f(this.uniforms.u_pixelMode!,this.renderMode==='glyph-pixel'?1:0);gl.drawArrays(gl.TRIANGLE_STRIP,0,4);return;}
     const c=this.canvas.getContext('2d');if(!c)return;
+    if(this.renderMode==='glyph-pixel'){
+      this.pixelPresentation??=new GlyphPixelPresentation();
+      this.pixelPresentation.present(this.source,this.canvas,c,this.crop(),this.pixelDetail,this.performanceScale);
+      return;
+    }
     const rect=this.canvas.getBoundingClientRect(), dpr=this.canvas.width/(rect.width||W);
     const cell=canvasGlyphCell(Math.max(5,Math.min(10,(rect.width||W)/130))*dpr,this.getGraphics(),this.canvas.width,this.canvas.height);
     const cw=Math.ceil(cell.width*this.performanceScale),ch=Math.ceil(cell.height*this.performanceScale);const crop=this.crop(),data=this.ctx.getImageData(0,0,W,H).data;
