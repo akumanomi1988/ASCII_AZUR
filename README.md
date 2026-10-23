@@ -1,4 +1,4 @@
-# ASCII AZUR v0.28.0 — The Unwritten
+# ASCII AZUR v0.29.0 — The Unwritten
 
 RPG de captura de criaturas y fantasía oscura, con mundo ASCII generado mediante WebGL2 (fallback Canvas2D), exploración procedural persistente y una cripta física de ocho cámaras. Android horizontal es la plataforma prioritaria; navegador web es el entorno de desarrollo y distribución actual.
 
