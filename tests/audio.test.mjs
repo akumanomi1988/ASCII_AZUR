@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {Sound,midiFrequency,degreeSemitone,getThemeSummary,themeForZone} from '../dist/audio.js';
+import {Sound,midiFrequency,degreeSemitone,getThemeSummary,themeForZone,scoreMix} from '../dist/audio.js';
 
 test('procedural score: six distinct cue profiles',()=>{
   const names=['title','village','forest','sanctuary','battle','boss'];
@@ -39,4 +39,29 @@ test('elemental combat audio synthesizes distinct two-tone profiles',async()=>{
  for(const e of ['Ceniza','Bruma','Raíz','Éter'])sound.hitElement(e);
  assert.equal(notes.length,8);
  assert.equal(new Set(notes.map(x=>x[0])).size,8);
+});
+
+test('adaptive score: danger raises combat rhythm while keeping gains bounded',()=>{
+  const calm=scoreMix('battle',0),danger=scoreMix('battle',1);
+  assert.ok(danger.lead>calm.lead);
+  assert.ok(danger.bass>calm.bass);
+  assert.ok(danger.percussion>calm.percussion);
+  assert.ok(danger.pad<calm.pad);
+  assert.ok(danger.ambient<calm.ambient);
+  assert.deepEqual(scoreMix('boss',99),scoreMix('boss',1));
+  assert.deepEqual(scoreMix('forest',-99),scoreMix('forest',0));
+  assert.deepEqual(scoreMix('title',Number.NaN),scoreMix('title',0));
+  for(const scene of ['title','village','forest','sanctuary','marsh','spire','ossuary','garden','battle','boss']){
+    for(const value of [0,.25,.5,.75,1]){
+      for(const gain of Object.values(scoreMix(scene,value)))assert.ok(Number.isFinite(gain)&&gain>=0&&gain<2);
+    }
+  }
+});
+test('adaptive score: intensity state survives without AudioContext and resets on exploration',()=>{
+  const s=new Sound();s.setScene('boss');assert.equal(s.getIntensity(),.65);
+  s.setIntensity(2);assert.equal(s.getIntensity(),1);
+  s.setIntensity(-1);assert.equal(s.getIntensity(),0);
+  s.setIntensity(Number.NaN);assert.equal(s.getIntensity(),0);
+  s.setScene('forest');assert.equal(s.getIntensity(),0);
+  s.dispose();
 });

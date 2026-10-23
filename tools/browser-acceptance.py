@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Dependency-free Chromium acceptance for glyph renderer and nested in-game menus."""
 import http.server
+import os
+import signal
 import base64
 import hashlib
 import struct
@@ -152,6 +154,15 @@ window.addEventListener('load',()=>setTimeout(async()=>{
   check(localStorage.getItem('ascii-azur-save-v1')===saved,'Graphics mode changed persisted gameplay state');
   const info=$('glyphStats').textContent;
   check(info.includes(new URLSearchParams(location.search).has('fallback')?'Canvas2D':'WebGL2'),'Incorrect graphics backend: '+info);
+  const highContrast=$('highContrast');
+  check(highContrast instanceof HTMLInputElement,'High-contrast setting missing');
+  highContrast.checked=true;highContrast.dispatchEvent(new Event('change',{bubbles:true}));
+  check(document.documentElement.classList.contains('azur-high-contrast'),'High contrast did not activate');
+  check(JSON.parse(localStorage.getItem('ascii-azur-accessibility')).highContrast===true,'High contrast did not persist');
+  highContrast.checked=false;highContrast.dispatchEvent(new Event('change',{bubbles:true}));
+  check(!document.documentElement.classList.contains('azur-high-contrast'),'High contrast did not disable');
+  check($('accessibilityStatus').getAttribute('aria-live')==='polite','Accessible world status is not announced');
+  check($('accessibilityStatus').textContent.includes('Región:'),'Accessible world context missing');
   $('closeModal').click();
   check($('modal').classList.contains('hidden'),'Settings did not close');
   // Capture each authored biome with an actual saved-state reload. This is
@@ -269,19 +280,57 @@ window.addEventListener('load',()=>setTimeout(async()=>{
   const combatImage=await fetch('/__qa_capture?mode='+encodeURIComponent(params.get('mode')||'ascii')+
    '&fallback='+(params.has('fallback')?'1':'0')+'&zone=battle',{method:'POST',body:$('game').toDataURL('image/png')});
   check(combatImage.ok,'Combat VFX screenshot failed');
-  check(window.__azurErrors.length===0,'JS errors: '+window.__azurErrors.join(' | '));
+  // Persistence is renderer-independent; run its heavier browser flow once.
+  if(params.get('mode')==='ascii'&&!params.has('fallback')){
+  // Q2: a stale tab must not silently replace another session's saved progress.
+  const competing=JSON.parse(localStorage.getItem('ascii-azur-save-v1'));
+  competing.playSeconds+=20;
+  const competingRaw=JSON.stringify(competing);
+  localStorage.setItem('ascii-azur-save-v1',competingRaw);
+  $('saveBtn').click();
+  check(localStorage.getItem('ascii-azur-save-v1')===competingRaw,'Stale tab overwrote the newer save');
+  check($('saveStatus').textContent.includes('CONFLICTO'),'No visible concurrent-save warning');
+  $('continue').click(); // explicitly reload the newer baseline
+  // A quota failure during import must not swap the live game or saved world.
+  const importSave=JSON.parse(saved);importSave.zone='garden';importSave.playSeconds=987;
+  const restoreInput=$('restoreFile');
+  const nativeSet=Storage.prototype.setItem,nativeConfirm=window.confirm;
+  window.confirm=()=>true;
+  const chooseFile=()=>{
+   const transfer=new DataTransfer();transfer.items.add(new File([JSON.stringify(importSave)],'azur-save.json',{type:'application/json'}));
+   restoreInput.files=transfer.files;restoreInput.dispatchEvent(new Event('change',{bubbles:true}));
+  };
+  const oldZone=$('zoneName').textContent;
+  Storage.prototype.setItem=function(key,value){if(key==='ascii-azur-save-v1')throw Error('quota');return nativeSet.call(this,key,value);};
+  try{chooseFile();await new Promise(resolve=>setTimeout(resolve,100));}
+  finally{Storage.prototype.setItem=nativeSet;}
+  check($('zoneName').textContent===oldZone,'Failed import replaced the live world');
+  check(localStorage.getItem('ascii-azur-save-v1')===competingRaw,'Failed import replaced the persisted world');
+  chooseFile();await new Promise(resolve=>setTimeout(resolve,100));
+  window.confirm=nativeConfirm;
+  check($('zoneName').textContent==='Jardín de la Última Escarcha','Validated import did not enter Garden');
+  check(JSON.parse(localStorage.getItem('ascii-azur-save-v1')).playSeconds>=987,'Imported progress was not persisted');
+  }
+    check(window.__azurErrors.length===0,'JS errors: '+window.__azurErrors.join(' | '));
   document.body.dataset.azurQa='PASS';
  }catch(error){document.body.dataset.azurQa='FAIL: '+error.message;console.error(error)}
+  try{await fetch('/__qa_result',{method:'POST',body:document.body.dataset.azurQa||'FAIL: missing result'});}catch{/* server may have closed */}
 },90));
 </script>'''
 if '</head>' not in HTML: raise SystemExit('Missing HTML head')
 QA=ROOT/'.azur-browser-acceptance.html'
 QA.write_text(HTML.replace('</head>',INJECTION+'</head>',1),encoding='utf-8')
+QA_DONE=threading.Event()
+QA_RESULTS=[]
 class Handler(http.server.SimpleHTTPRequestHandler):
  def __init__(self,*args,**kwargs): super().__init__(*args,directory=str(ROOT),**kwargs)
  def log_message(self,*args): pass
  def do_POST(self):
   request=urllib.parse.urlparse(self.path)
+  if request.path=='/__qa_result':
+   outcome=self.rfile.read(int(self.headers.get('Content-Length','0'))).decode('utf-8','replace')
+   QA_RESULTS.append(outcome);QA_DONE.set()
+   self.send_response(204);self.end_headers();return
   if request.path!='/__qa_capture': self.send_error(404);return
   query=urllib.parse.parse_qs(request.query)
   mode=query.get('mode',[''])[0];fallback=query.get('fallback',[''])[0];zone=query.get('zone',[''])[0]
@@ -302,12 +351,25 @@ try:
   for fallback in (False,True):
    query=urllib.parse.urlencode({'mode':mode,**({'fallback':'1'} if fallback else {})})
    url=f'http://127.0.0.1:{server.server_port}/{QA.name}?{query}'
-   with tempfile.TemporaryDirectory() as profile:
-    args=[CHROME,'--headless=new','--no-sandbox','--enable-unsafe-swiftshader','--disable-dev-shm-usage','--disable-background-networking','--no-first-run','--window-size=1280,850','--virtual-time-budget=2600',f'--user-data-dir={profile}','--dump-dom',url]
-    result=subprocess.run(args,text=True,capture_output=True,timeout=35)
-    if result.returncode or 'data-azur-qa="PASS"' not in result.stdout:
-     marker=result.stdout.split('data-azur-qa=')[-1][:170] if 'data-azur-qa=' in result.stdout else 'MISSING QA MARKER'
-     raise AssertionError(f'{mode} fallback={fallback} failed ({result.returncode}): {marker}\n{result.stderr[-1000:]}')
+   with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as profile:
+    args=[CHROME,'--headless=new','--no-sandbox','--enable-unsafe-swiftshader','--disable-dev-shm-usage','--disable-background-networking','--no-first-run','--window-size=1280,850',f'--user-data-dir={profile}',url]
+    QA_DONE.clear();QA_RESULTS.clear()
+    process=subprocess.Popen(args,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,start_new_session=True)
+    try:
+     for _ in range(90):
+      if QA_DONE.wait(1):break
+      if process.poll() is not None:raise AssertionError(f'{mode} fallback={fallback}: Chromium exited before acceptance callback')
+     else:raise TimeoutError(f'{mode} fallback={fallback}: no acceptance callback after 90 seconds')
+    finally:
+     try:os.killpg(process.pid,signal.SIGTERM)
+     except ProcessLookupError:pass
+     try:process.wait(timeout=8)
+     except subprocess.TimeoutExpired:
+      try:os.killpg(process.pid,signal.SIGKILL)
+      except ProcessLookupError:pass
+      process.wait(timeout=5)
+    if QA_RESULTS!=['PASS']:
+     raise AssertionError(f'{mode} fallback={fallback}: {QA_RESULTS[-1] if QA_RESULTS else "no result"}')
     captures=[OUT/(zone+'-'+mode+('-canvas2d' if fallback else '-webgl2')+'.png') for zone in ('village','forest','sanctuary','marsh','spire','ossuary','garden','battle')]
     if not all(path.exists() for path in captures):raise AssertionError('Missing one or more biome visual captures')
     if len({hashlib.sha256(path.read_bytes()).hexdigest() for path in captures})!=8:raise AssertionError('World/combat screenshots are stale or indistinguishable')

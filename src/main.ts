@@ -17,7 +17,7 @@ import {marshChapterProgress,marshDecision,marshFinish,MARSH_REWARDS,type MarshC
 import {AFTERLIGHT,afterlightFlag,afterlightProgress,afterlightResolution,afterlightEpilogue,type AfterlightZone,type AfterlightChoice} from './story-afterlight.js';
 import {crownProgress,crownChoose,crownFinish,crownEpilogue,CROWN_BOSS_FLAG,CROWN_END_FLAG,CROWN_CHOICE_REWARDS,type CrownEnding} from './story-finale.js';
 import {campaignRoadbook} from './story-roadbook.js';
-import {readSave,writeSave} from './core/save-store.js';
+import {readSave,writeSave,SaveConflictError} from './core/save-store.js';
 import {transferStoredCreature,reserveCreature,grantPartyExperience} from './party.js';
 import {BOND_ARCS,bondAtZone,bondProgress,bondFlag,bondChoice,bondAttackDamage,bondIncomingDamage,type BondArc,type BondPath} from './creatures/bond-quests.js';
 import {createCombatCue,sampleCombatCue,guardDamage,type CombatCue,type FxKind,type CombatSide} from './actors/combat-fx.js';
@@ -35,6 +35,8 @@ class AzurGame {
   private renderer=new AsciiRenderer(byId<HTMLCanvasElement>('game'));
   private frameMetrics=new FrameMetrics();private adaptiveGlyphs=new AdaptiveGlyphs();private lastAdaptiveUpdate=0;private debugPerformance=false;private lastDebugUpdate=0;private lastCompassUpdate=0;
   private sound=new Sound();private soundEnabled=true;private reducedMotion=false;private combatCue:CombatCue|null=null;
+  private saveBaseline:string|null|undefined;
+  private lastAccessibleMessage='';
   private save:SaveGame={version:1,zone:'village',x:4,y:16,team:[],storage:[],inventory:{seals:5,tonics:3},defeatedBoss:false,flags:[],playSeconds:0,rpg:newEconomy()};
   private expeditionMessage='';private roamingCache=new Map<string,RoamingEncounter[]>();
   private started=false;private keys=new Set<string>();private battle:Battle|null=null;private dialogQueue:{title:string;text:string}[]=[];
@@ -69,6 +71,14 @@ class AzurGame {
     document.addEventListener('keyup',e=>this.keys.delete(e.key.toLowerCase()));
     window.addEventListener('blur',()=>{this.keys.clear();this.resetJoystick();this.padStick={x:0,y:0};this.padButtons.clear();});
     document.addEventListener('visibilitychange',()=>{if(document.hidden){this.frameMetrics.reset();this.resetJoystick();this.sound.pause();if(this.started)this.saveNow(false);}else this.sound.resume();});
+    window.addEventListener('storage',event=>{
+      if(event.key!==SAVE_KEY)return;
+      if(!this.started){this.loadState();return;}
+      if(this.saveBaseline!==undefined&&event.newValue!==this.saveBaseline){
+        byId('saveStatus').textContent='CONFLICTO ENTRE PESTAÑAS · EXPORTA TU PARTIDA';
+        this.toast('OTRA PESTAÑA MODIFICÓ EL GUARDADO · EXPORTA TU PROGRESO');
+      }
+    });
   }
 
   /** Only the active interaction layer owns keyboard input. Native form editing is never intercepted. */
@@ -168,10 +178,11 @@ class AzurGame {
     try{const settings=JSON.parse(localStorage.getItem('ascii-azur-accessibility')||'null');
       document.documentElement.classList.toggle('azur-large-text',settings?.largeText===true);
       document.documentElement.classList.toggle('azur-left-handed',settings?.leftHanded===true);
+      document.documentElement.classList.toggle('azur-high-contrast',settings?.highContrast===true);
     }catch{/* use defaults */}
   }
   private persistAccessibility(){
-    try{localStorage.setItem('ascii-azur-accessibility',JSON.stringify({largeText:document.documentElement.classList.contains('azur-large-text'),leftHanded:document.documentElement.classList.contains('azur-left-handed')}));}catch{/* storage unavailable */}
+    try{localStorage.setItem('ascii-azur-accessibility',JSON.stringify({largeText:document.documentElement.classList.contains('azur-large-text'),leftHanded:document.documentElement.classList.contains('azur-left-handed'),highContrast:document.documentElement.classList.contains('azur-high-contrast')}));}catch{/* storage unavailable */}
   }
   private storeAudioSettings(){try{localStorage.setItem('ascii-azur-audio',JSON.stringify({enabled:this.soundEnabled,music:this.sound.getMusicVolume(),effects:this.sound.getEffectsVolume()}));}catch{/* private mode */}}
   private mountDrawer(){
@@ -196,11 +207,14 @@ class AzurGame {
       try{if(file.size>1000000)throw Error('Archivo demasiado grande');const json=JSON.parse(await file.text()) as unknown;
         if(!validateSave(json))throw Error('Partida inválida');
         if(!window.confirm('Se sustituirá la partida actual por la importada. ¿Continuar?'))return;
+        // Commit the validated import before replacing the live session. A failed
+        // quota write or stale-tab conflict leaves both the player and save intact.
+        this.saveBaseline=writeSave(localStorage,json,this.saveBaseline);
         this.save=json;configureWorld(this.save.worldSeed??0,this.save.worldSnapshot);this.save.worldSnapshot=captureWorldSnapshot()??this.save.worldSnapshot;this.roamingCache.clear();this.save.rpg=normalizeEconomy(json.rpg);this.started=true;this.battle=null;this.cameraZone='';this.lastReveal=-1;this.revealPosition();
         this.sound.unlock();this.sound.setScene(this.save.dungeon?.active?'sanctuary':themeForZone(this.save.zone as ZoneId));
         byId('battle').classList.add('hidden');byId('viewport').classList.remove('in-battle');byId('titleScreen').classList.add('hidden');byId('starterScreen').classList.add('hidden');
         this.toggleDrawer(false);this.hideModal();this.updateUI();this.restoreBattle();this.saveNow(false);this.toast('PARTIDA IMPORTADA');
-      }catch{this.toast('ARCHIVO DE PARTIDA NO VÁLIDO');}finally{input.value='';}
+      }catch(error){this.toast(error instanceof SaveConflictError?'CONFLICTO DE PARTIDAS · EXPORTA TU PROGRESO':'IMPORTACIÓN FALLIDA · ARCHIVO O ALMACENAMIENTO');}finally{input.value='';}
     });
     byId('drawerSidebar').append(byId('quest').closest('.sidebar')!);
     byId('viewport').append(byId('modal')); // modal must be a descendant of fullscreen element
@@ -232,10 +246,10 @@ class AzurGame {
     const release=(e:PointerEvent)=>{if(this.stick.pointerId!==e.pointerId)return;this.resetJoystick();};
     pad.addEventListener('pointerup',release);pad.addEventListener('pointercancel',release);pad.addEventListener('lostpointercapture',release);
   }
-  private loadState(){try{const saved=readSave(localStorage);if(saved){byId<HTMLButtonElement>('continue').hidden=false;byId('saveStatus').textContent=saved.source==='backup'?'RESPALDO DE PARTIDA DISPONIBLE':'PARTIDA LOCAL DETECTADA';}}catch{/* blocked storage */}}
+  private loadState(){try{this.saveBaseline=localStorage.getItem(SAVE_KEY);const saved=readSave(localStorage);byId<HTMLButtonElement>('continue').hidden=!saved;if(saved)byId('saveStatus').textContent=saved.source==='backup'?'RESPALDO DE PARTIDA DISPONIBLE':'PARTIDA LOCAL DETECTADA';}catch{/* blocked storage */}}
   private reset(){this.resetJoystick();this.toggleDrawer(false);this.roamingCache.clear();this.save={version:1,zone:'village',x:4,y:16,team:[],storage:[],inventory:{seals:5,tonics:3},defeatedBoss:false,flags:[],playSeconds:0,rpg:newEconomy(),worldSeed:freshWorldSeed()};configureWorld(this.save.worldSeed!);this.save.worldSnapshot=captureWorldSnapshot()!;this.battle=null;this.evolution=null;this.combatCue=null;this.keys.clear();this.encounterCooldown=4;this.camera={x:4,y:16};this.cameraZone='village';this.lastReveal=-1;}
-  private startNew(){try{if(readSave(localStorage)&&!window.confirm('Crear un viaje nuevo sustituirá tu partida actual. Puedes continuarla y exportarla antes de empezar. ¿Crear nuevo mundo?'))return;}catch{/* storage may be disabled */}this.sound.unlock();this.sound.setScene('title');const requested=(byId<HTMLInputElement>('worldSeedInput').value||'').trim();this.reset();if(requested){this.save.worldSeed=/^\d{1,10}$/.test(requested)&&Number(requested)<=4294967295?Number(requested)||1:seedFromText(requested);configureWorld(this.save.worldSeed);this.save.worldSnapshot=captureWorldSnapshot()!;} byId('titleScreen').classList.add('hidden');byId('starterScreen').classList.remove('hidden');this.renderStarters();this.sound.select();}
-  private continueGame(){try{const result=readSave(localStorage);if(!result)throw Error('Guardado inválido');const raw=result.state;this.save=raw;const storedSnapshot=this.save.worldSnapshot;configureWorld(this.save.worldSeed??0,storedSnapshot);const expandSnapshot=!!this.save.worldSeed&&(!storedSnapshot||ZONE_IDS.some(id=>!storedSnapshot.tiles[id]||!storedSnapshot.poi[id]));if(expandSnapshot)this.save.worldSnapshot=captureWorldSnapshot()??storedSnapshot;this.roamingCache.clear();this.save.rpg=normalizeEconomy(raw.rpg);this.camera={x:this.save.x,y:this.save.y};this.cameraZone=this.save.zone;this.lastReveal=-1;this.revealPosition();this.started=true;if(expandSnapshot)this.saveNow(false);this.sound.unlock();this.sound.setScene(this.save.dungeon?.active?'sanctuary':themeForZone(this.save.zone as ZoneId));this.encounterCooldown=4;byId('titleScreen').classList.add('hidden');this.sound.portal();this.toast(result.source==='backup'?'PARTIDA RECUPERADA DESDE RESPALDO':'PARTIDA RECUPERADA');this.updateUI();this.restoreBattle();}catch{this.toast('EL GUARDADO NO SE PUDO RECUPERAR');}}
+  private startNew(){try{if(readSave(localStorage)&&!window.confirm('Crear un viaje nuevo sustituirá tu partida actual. Puedes continuarla y exportarla antes de empezar. ¿Crear nuevo mundo?'))return;this.saveBaseline=localStorage.getItem(SAVE_KEY);}catch{/* storage may be disabled */}this.sound.unlock();this.sound.setScene('title');const requested=(byId<HTMLInputElement>('worldSeedInput').value||'').trim();this.reset();if(requested){this.save.worldSeed=/^\d{1,10}$/.test(requested)&&Number(requested)<=4294967295?Number(requested)||1:seedFromText(requested);configureWorld(this.save.worldSeed);this.save.worldSnapshot=captureWorldSnapshot()!;} byId('titleScreen').classList.add('hidden');byId('starterScreen').classList.remove('hidden');this.renderStarters();this.sound.select();}
+  private continueGame(){try{const result=readSave(localStorage);if(!result)throw Error('Guardado inválido');this.saveBaseline=localStorage.getItem(SAVE_KEY);const raw=result.state;this.save=raw;const storedSnapshot=this.save.worldSnapshot;configureWorld(this.save.worldSeed??0,storedSnapshot);const expandSnapshot=!!this.save.worldSeed&&(!storedSnapshot||ZONE_IDS.some(id=>!storedSnapshot.tiles[id]||!storedSnapshot.poi[id]));if(expandSnapshot)this.save.worldSnapshot=captureWorldSnapshot()??storedSnapshot;this.roamingCache.clear();this.save.rpg=normalizeEconomy(raw.rpg);this.camera={x:this.save.x,y:this.save.y};this.cameraZone=this.save.zone;this.lastReveal=-1;this.revealPosition();this.started=true;if(expandSnapshot)this.saveNow(false);this.sound.unlock();this.sound.setScene(this.save.dungeon?.active?'sanctuary':themeForZone(this.save.zone as ZoneId));this.encounterCooldown=4;byId('titleScreen').classList.add('hidden');this.sound.portal();this.toast(result.source==='backup'?'PARTIDA RECUPERADA DESDE RESPALDO':'PARTIDA RECUPERADA');this.updateUI();this.restoreBattle();}catch{this.toast('EL GUARDADO NO SE PUDO RECUPERAR');}}
   private renderStarters(){const chars:{id:string;glyph:string;title:string}[]=[{id:'cindrel',glyph:'♨',title:'EL FUEGO'},{id:'velaria',glyph:'≋',title:'LA BRUMA'},{id:'thorne',glyph:'✣',title:'LA RAÍZ'}];byId('starters').innerHTML=chars.map(c=>`<button class="starter" data-starter="${c.id}"><span class="starter-symbol" style="color:${SPECIES[c.id]!.color}">${c.glyph}</span><strong>${SPECIES[c.id]!.name}</strong><small>${c.title}</small></button>`).join('');for(const el of byId('starters').querySelectorAll<HTMLButtonElement>('[data-starter]'))el.addEventListener('click',()=>this.pickStarter(el.dataset.starter!));}
   private pickStarter(id:string){this.sound.setScene('village');this.save.team=[createCreature(id,5)];this.revealPosition();this.started=true;byId('starterScreen').classList.add('hidden');this.sound.pick();this.toast('NUEVO MUNDO · SEMILLA '+this.save.worldSeed);this.dialog([{title:'El último Portador',text:'Los nombres se están desvaneciendo. El tuyo permanece porque alguien lo recuerda.'},{title:'El último Portador',text:'Al este se extiende el Bosque de Ceniza. Encuentra el Santuario sin Voz y recupera la Primera Palabra.'},{title:'Comienza el viaje',text:'Muévete con WASD o las flechas. Pulsa E para interactuar. Busca las hogueras para recuperar la fuerza.'}]);this.updateUI();this.saveNow(false);}
   private flag(id:string){return this.save.flags.includes(id);}
@@ -427,6 +441,8 @@ class AzurGame {
   private refreshBattle(){const b=this.battle;if(!b)return;const ally=this.getAlly();if(!ally)return;this.checkpointBattle();const es=SPECIES[b.enemy.speciesId]!,as=SPECIES[ally.speciesId]!;
     byId('enemyName').textContent=es.name;byId('enemyLv').textContent='NV. '+b.enemy.level+(b.type==='boss'&&b.bossPhase===2?' · II':'')+(this.statuses(b.enemy).length?' · '+statusLabel(this.statuses(b.enemy)):'');byId('enemyHpText').textContent=`${b.enemy.hp}/${maxHp(b.enemy)}`;byId('enemyHealth').style.width=Math.max(0,b.enemy.hp/maxHp(b.enemy)*100)+'%';
     byId('allyName').textContent=as.name;byId('allyLv').textContent='NV. '+ally.level+(this.statuses(ally).length?' · '+statusLabel(this.statuses(ally)):'');byId('allyHpText').textContent=`${ally.hp}/${maxHp(ally)}`;byId('allyHealth').style.width=Math.max(0,ally.hp/maxHp(ally)*100)+'%';byId('battleLog').textContent=b.log;
+    this.sound.setIntensity(Math.max(b.type==='boss' ? .65 : .30,1-ally.hp/maxHp(ally),b.type==='boss'&&b.bossPhase===2?1:0));
+    this.announceAccessibility(`Combate contra ${es.name}. Enemigo ${b.enemy.hp} de ${maxHp(b.enemy)} puntos de vida. ${as.name} ${ally.hp} de ${maxHp(ally)} puntos de vida. ${b.log}`);
     const actions=byId('battleActions');actions.replaceChildren();const add=(name:string,func:()=>void,special=false,disabled=false,detail='',preview?:{summary:string;extra:string;accessible:string})=>{const button=document.createElement('button');button.textContent=name;button.disabled=b.busy||disabled;if(special)button.classList.add('special');if(detail){button.title=detail;if(!preview)button.setAttribute('aria-label',`${name}. ${detail}`);}if(preview){button.classList.add('battle-move');button.textContent='';const label=document.createElement('span');label.className='battle-move-name';label.textContent=name;const metrics=document.createElement('span');metrics.className='battle-move-estimate';metrics.textContent=preview.summary;const effects=document.createElement('span');effects.className='battle-move-extra';effects.textContent=preview.extra;button.append(label,metrics,effects);button.setAttribute('aria-label',preview.accessible);}button.onclick=func;actions.appendChild(button);};
     if(b.selecting){this.selectedBattleAction=0;
       for(const {c,i} of this.save.team.map((c,i)=>({c,i}))){if(i===b.ally)continue;const sp=SPECIES[c.speciesId]!;
@@ -948,6 +964,7 @@ class AzurGame {
       <div class="settings-row"><label for="effectsVolume">Efectos</label><input id="effectsVolume" type="range" min="0" max="100" step="1"></div>
       <div class="settings-row"><label for="motionReduced">Reducir movimiento</label><input id="motionReduced" type="checkbox"></div>
       <div class="settings-row"><label for="largeText">Texto ampliado</label><input id="largeText" type="checkbox"></div>
+      <div class="settings-row"><label for="highContrast">Alto contraste · interfaz y texto</label><input id="highContrast" type="checkbox"></div>
       <div class="settings-row"><label for="leftHanded">Joystick a la derecha</label><input id="leftHanded" type="checkbox"></div>`,true,true);
     const mus=byId<HTMLInputElement>('musicVolume'),fx=byId<HTMLInputElement>('effectsVolume');
     const audio=byId<HTMLInputElement>('audioEnabled');audio.checked=this.soundEnabled;
@@ -976,10 +993,11 @@ class AzurGame {
     const adaptive=byId<HTMLInputElement>('adaptiveFps');adaptive.checked=this.adaptiveGlyphs.active;adaptive.onchange=()=>{this.setAdaptiveGraphics(adaptive.checked);sync();};sync();
     const motion=byId<HTMLInputElement>('motionReduced');motion.checked=this.reducedMotion;
     motion.onchange=()=>{this.reducedMotion=motion.checked;try{localStorage.setItem('ascii-azur-reduced-motion',String(this.reducedMotion));}catch{/* storage blocked */}};
-    const textSize=byId<HTMLInputElement>('largeText'),handed=byId<HTMLInputElement>('leftHanded');
-    textSize.checked=document.documentElement.classList.contains('azur-large-text');handed.checked=document.documentElement.classList.contains('azur-left-handed');
+    const textSize=byId<HTMLInputElement>('largeText'),handed=byId<HTMLInputElement>('leftHanded'),contrast=byId<HTMLInputElement>('highContrast');
+    textSize.checked=document.documentElement.classList.contains('azur-large-text');handed.checked=document.documentElement.classList.contains('azur-left-handed');contrast.checked=document.documentElement.classList.contains('azur-high-contrast');
     textSize.onchange=()=>{document.documentElement.classList.toggle('azur-large-text',textSize.checked);this.persistAccessibility();};
     handed.onchange=()=>{document.documentElement.classList.toggle('azur-left-handed',handed.checked);this.persistAccessibility();};
+    contrast.onchange=()=>{document.documentElement.classList.toggle('azur-high-contrast',contrast.checked);this.persistAccessibility();};
   }
 
   private showModal(title:string,body:string,allowIntro=false,allowBattle=false){
@@ -994,7 +1012,12 @@ class AzurGame {
   /** Escape and gamepad Back return to the parent panel before dismissing the overlay. */
   private closeModalOrBack(){const back=this.modalBack;this.modalBack=null;if(back)back();else this.hideModal();}
   private hideModal(){this.modalOpen=false;this.modalBack=null;byId('modal').classList.add('hidden');this.keys.clear();this.modalInvoking?.focus?.();this.modalInvoking=null;}
-  private saveNow(notify:boolean){if(!this.started)return;try{writeSave(localStorage,this.save);byId('saveStatus').textContent='GUARDADO LOCAL · '+new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});if(notify)this.toast('EL RECUERDO HA SIDO CONSERVADO');}catch{if(notify)this.toast('NO SE PUDO GUARDAR · ALMACENAMIENTO LLENO');}}
+  private announceAccessibility(message:string){
+    if(this.lastAccessibleMessage===message)return;
+    this.lastAccessibleMessage=message;
+    byId('accessibilityStatus').textContent=message;
+  }
+  private saveNow(notify:boolean){if(!this.started)return;try{this.saveBaseline=writeSave(localStorage,this.save,this.saveBaseline);byId('saveStatus').textContent='GUARDADO LOCAL · '+new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});if(notify)this.toast('EL RECUERDO HA SIDO CONSERVADO');}catch(error){const conflict=error instanceof SaveConflictError;byId('saveStatus').textContent=conflict?'CONFLICTO ENTRE PESTAÑAS · EXPORTA TU PARTIDA':'GUARDADO FALLIDO · EXPORTA TU PARTIDA';if(notify)this.toast(conflict?'OTRA PESTAÑA MODIFICÓ LA PARTIDA · EXPORTA TU PROGRESO':'NO SE PUDO GUARDAR · EXPORTA TU PROGRESO');}}
   private updateStoryCompass(){
     const node=byId('storyCompass');
     if(!this.started){node.classList.add('hidden');return;}
@@ -1044,6 +1067,11 @@ class AzurGame {
   byId('journalText').textContent=beat.hint;
   byId('quest').innerHTML=`<div class="quest-icon">${step===6?'✦':'◇'}</div><div><small>${step===6?'HISTORIA COMPLETADA':`MISIÓN PRINCIPAL · ${step+1}/6`}</small><strong>${htmlEscape(beat.title)}</strong><span>${htmlEscape(beat.objective)}</span></div>`;
   }
+    if(this.started&&!this.battle){
+      const where=this.save.dungeon?.active?'Cripta de los Ecos':z.name;
+      const goal=byId('missionChip').textContent||'Consulta el diario';
+      this.announceAccessibility(`Región: ${where}. Objetivo: ${goal}. Equipo: ${this.save.team.length} criaturas. Pulsa E para interactuar cerca de un punto de interés.`);
+    }
   }
 
   private loop=(now:number)=>{this.pollGamepad();if(this.last>0)this.frameMetrics.add(now-this.last);const dt=Math.min(.055,(now-this.last)/1000||0);this.last=now;this.seconds+=dt;this.flash=Math.max(0,this.flash-dt*1.7);if(this.started&&!this.dialogOpen&&!this.modalOpen&&!this.battle&&!this.evolution&&!byId('gameDrawer').classList.contains('open')){this.move(dt);this.save.playSeconds+=dt;this.timeSinceSave+=dt;if(this.timeSinceSave>90){this.timeSinceSave=0;this.saveNow(false);}}
