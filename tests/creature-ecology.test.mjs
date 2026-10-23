@@ -38,12 +38,14 @@ test('P2: inherited creatures evolve without save-schema changes or losing suppo
 test('P2: battle roles produce distinct, real combat effects',()=>{
  assert.equal(MOVES.lament.role,'cleanse');
  assert.equal(MOVES.sigilbite.role,'drain');
- assert.equal(MOVES.bellguard.role,'cleanse');
+ assert.equal(MOVES.bellguard.role,undefined);
  assert.equal(MOVE_EFFECTS.sigilbite.kind,'fracture');
  assert.equal(MOVE_EFFECTS.glassflare.kind,'scorch');
  const bell=createCreature('bellroot',13),glass=createCreature('ashglass',13);
  bell.hp-=20;
- assert.equal(skillUtility(bell,MOVES.bellguard,[{kind:'scorch',remaining:2}]).cleanse,true);
+ assert.equal(skillUtility(bell,MOVES.bellguard,[{kind:'scorch',remaining:2}]).cleanse,false);
+ assert.equal(skillUtility(createCreature('mourveil',13),MOVES.lament,[{kind:'scorch',remaining:2}]).cleanse,true);
+ assert.ok(damage(bell,glass,MOVES.bellguard).value>0);
  assert.ok(damage(glass,bell,MOVES.glassflare).value>0);
  assert.ok(glass.level===bell.level&&SPECIES.ashglass.stats.speed>SPECIES.bellroot.stats.speed);
 });
