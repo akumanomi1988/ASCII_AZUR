@@ -272,3 +272,20 @@
  #viewport .quick-settings{top:53px}
  #viewport .drawer-toggle{top:101px}
 }
+
+/* v0.40 — accessible UI: zoom is permitted, focus is visible and a persistent
+   high-contrast presentation can be enabled without changing the game world. */
+.sr-only{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}
+.skip-link{position:fixed;top:8px;left:8px;z-index:1000;padding:12px 16px;background:#f6d9a1;color:#07111a;font-weight:700;transform:translateY(-150%);border:3px solid #07111a}
+.skip-link:focus{transform:none}
+:root.azur-high-contrast{--bg:#04080e;--panel:#07131d;--line:#9ebcc8;--gold:#ffdc9a;--teal:#b3edf0;--ink:#edf8fa;--muted:#c7dce5}
+:root.azur-high-contrast body{background:#04080e}
+:root.azur-high-contrast :is(.topbar,.sidebar,.side-section,.toolbar,.foot){border-color:#91b7c6}
+:root.azur-high-contrast :is(.brand-small,.live-tag,.location p,.fps,.chapter p,.quest span,.side-header>span,.roster-empty,.intro-footer,.toolbar,.foot,.modal-content-block){color:#d0e3e9}
+:root.azur-high-contrast :is(.intro,.sidebar,.game-drawer,.modal){background:#07131df5}
+:root.azur-high-contrast :is(.icon-btn,.secondary,.toolbar button,#viewport .game-drawer button,#viewport .modal-option button,#viewport .settings-row select){background:#102b3a;color:#fff1cf;border-color:#acd5df}
+:root.azur-high-contrast :is(button,input,select,a,[tabindex]):focus-visible{outline:3px solid #fff0a8;outline-offset:3px;box-shadow:0 0 0 2px #07131d}
+:root.azur-high-contrast #viewport :is(.status-badge,.story-compass,.action-prompt,.quest,.creature-row){background:#061a25;border-color:#a7d7da;color:#f4f9fc}
+:root.azur-high-contrast #viewport :is(.settings-row label,.modal-head h2,.game-drawer h2,.battle-actions button){color:#f7f9f8}
+:root.azur-high-contrast .icon-btn{min-width:44px;min-height:44px}
+:root.azur-high-contrast #viewport :is(.settings-row input,.settings-row select,.settings-row button,.drawer-actions button,.modal-option button){min-height:44px}

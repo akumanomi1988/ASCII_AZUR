@@ -90,3 +90,10 @@ Each row states observable evidence, outstanding deficiency and measurable premi
 ## 2026-10-23 — v0.39.0 Q2 candidate: save integrity and import safety
 
 The next production-risk slice targets stale browser tabs and quota/interrupted writes. Changes are isolated to the save-store adapter, game session baseline, existing import UI and focused Node/Chromium regressions. The v1 schema and seeded world snapshots are unchanged. The release is **not counted as shipped** until feature CI, main CI, Pages provenance and public smoke pass. Q2 remains open for physical multi-tab/device and long-play acceptance; progress remains **18/32 (62.50% weighted)**.
+
+
+### 2026-10-23 — v0.40 accessibility and adaptive score integration candidate
+
+- Added screen-reader narration for world objectives and combat states, viewport keyboard skip, browser zoom and persistent high contrast mode.
+- Added deterministic danger-reactive procedural score balance for battles/bosses and tests for bounded mix values across all ten authored scenes.
+- Release readiness remains **unverified** pending CI, real-device profiling and independent acceptance. Roadmap milestone count is unchanged pending evidence.

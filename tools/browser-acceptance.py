@@ -152,6 +152,15 @@ window.addEventListener('load',()=>setTimeout(async()=>{
   check(localStorage.getItem('ascii-azur-save-v1')===saved,'Graphics mode changed persisted gameplay state');
   const info=$('glyphStats').textContent;
   check(info.includes(new URLSearchParams(location.search).has('fallback')?'Canvas2D':'WebGL2'),'Incorrect graphics backend: '+info);
+  const highContrast=$('highContrast');
+  check(highContrast instanceof HTMLInputElement,'High-contrast setting missing');
+  highContrast.checked=true;highContrast.dispatchEvent(new Event('change',{bubbles:true}));
+  check(document.documentElement.classList.contains('azur-high-contrast'),'High contrast did not activate');
+  check(JSON.parse(localStorage.getItem('ascii-azur-accessibility')).highContrast===true,'High contrast did not persist');
+  highContrast.checked=false;highContrast.dispatchEvent(new Event('change',{bubbles:true}));
+  check(!document.documentElement.classList.contains('azur-high-contrast'),'High contrast did not disable');
+  check($('accessibilityStatus').getAttribute('aria-live')==='polite','Accessible world status is not announced');
+  check($('accessibilityStatus').textContent.includes('Región:'),'Accessible world context missing');
   $('closeModal').click();
   check($('modal').classList.contains('hidden'),'Settings did not close');
   // Capture each authored biome with an actual saved-state reload. This is

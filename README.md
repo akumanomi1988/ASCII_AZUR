@@ -1,4 +1,6 @@
-# ASCII AZUR v0.39.0 — The Unwritten
+# ASCII AZUR v0.40.0 — The Unwritten
+
+> **v0.40 candidate — accessibility and adaptive score:** keyboard skip link, screen-reader game-state narration, persistent high-contrast theme, zoom support, adaptive battle-music mix and deterministic score tests. Human accessibility/audio acceptance and physical Android benchmarking remain open.
 
 RPG de captura de criaturas y fantasía oscura, con mundo ASCII generado mediante WebGL2 (fallback Canvas2D), exploración procedural persistente y una cripta física de ocho cámaras. Android horizontal es la plataforma prioritaria; navegador web es el entorno de desarrollo y distribución actual.
 

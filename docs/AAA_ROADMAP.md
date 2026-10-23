@@ -143,3 +143,10 @@ The authored three-chapter storyline now has a scripted conclusion and automated
 - Import commits a validated save before switching the active game; quota failures or concurrent changes retain the old live world. An existing valid primary cannot be advanced if writing its backup fails.
 - Regression coverage adds 500 consecutive rotations, corrupt/oversize/read-denied primary fallback, backup quota refusal, interrupted/partial write behavior, duplicate-save no-op and stale-tab conflicts. Browser acceptance exercises stale-tab rejection and failed/successful import in the actual game UI.
 - **Q2 remains OPEN** pending observed prolonged play, genuine cross-device/multi-tab race testing and version-to-version restart stress. Milestone count remains **18/32, weighted 62.50%**; no external quality score change. CI and publication must be recorded after actual verification.
+
+
+## Macroiteration — accessible play and adaptive procedural score (v0.40.0 candidate, 2026-10-23)
+
+- U3 implementation: persistent high-contrast option, keyboard skip link, browser zoom restored, visible high-contrast focus ring, accessible world/quest and combat narration, save status live announcements. Automated WCAG AA contrast-token regression plus browser UI/persistence assertions are included. Screen-reader, keyboard and human low-vision review still required before closing U3.
+- A3 implementation: scene-aware bounded score mix, danger-dependent lead/bass/percussion layers, ambience ducking and evolving combat intensity based on ally health and boss phase. Pure score-mix regression checks cover all ten scenes and bounded intensity; browser/device profiling remains required before A3 acceptance.
+- The eight-phase weights and 32 milestone definitions are unchanged. U3 and A3 are **implementation candidates, not accepted milestones**. No unverified progress percentage is claimed; 80% requires external human and physical-device evidence under the fixed rubric.
