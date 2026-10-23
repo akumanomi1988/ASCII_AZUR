@@ -5,7 +5,7 @@ import { visibleEncounters, nearbyEncounter, firstRoamerVictoryBonus, recoverTra
 import { drawDungeon } from './dungeons/draw-dungeon.js';
 import { chamberAt, chamberProgress } from './dungeons/room-art.js';
 import { generateDungeon, nearbyDungeonEvent, completeDungeonEvent, dungeonGateOpen, revealDungeon, dungeonSweep } from './dungeons/labyrinth.js';
-import { SPECIES, MOVES, SAVE_KEY, createCreature, maxHp, validateSave } from './domain.js';
+import { SPECIES, MOVES, createCreature, maxHp, validateSave } from './domain.js';
 import { ZONES, sweepMove, isWild, nearbyLandmark, configureWorld, captureWorldSnapshot, freshWorldSeed, seedFromText, terrain, WORLD_W, WORLD_H, ZONE_IDS } from './world.js';
 import { SHOP, QUESTS, buy, claimQuests, normalizeEconomy, newEconomy } from './rpg.js';
 import { Sound, themeForZone } from './audio.js';
@@ -17,7 +17,7 @@ import { marshChapterProgress, marshDecision, marshFinish, MARSH_REWARDS } from 
 import { AFTERLIGHT, afterlightFlag, afterlightProgress, afterlightResolution, afterlightEpilogue } from './story-afterlight.js';
 import { crownProgress, crownChoose, crownFinish, crownEpilogue, CROWN_BOSS_FLAG, CROWN_END_FLAG, CROWN_CHOICE_REWARDS } from './story-finale.js';
 import { campaignRoadbook } from './story-roadbook.js';
-import { readSave, writeSave, SaveConflictError } from './core/save-store.js';
+import { readSave, writeSave, SaveConflictError, saveKeyForSlot, ACTIVE_SAVE_SLOT_KEY } from './core/save-store.js';
 import { transferStoredCreature, reserveCreature, grantPartyExperience } from './party.js';
 import { BOND_ARCS, bondAtZone, bondProgress, bondFlag, bondChoice, bondAttackDamage, bondIncomingDamage } from './creatures/bond-quests.js';
 import { createCombatCue, sampleCombatCue, guardDamage } from './actors/combat-fx.js';
@@ -44,6 +44,7 @@ class AzurGame {
     reducedMotion = false;
     combatCue = null;
     saveBaseline;
+    activeSlot = 1;
     lastAccessibleMessage = '';
     save = { version: 1, zone: 'village', x: 4, y: 16, team: [], storage: [], inventory: { seals: 5, tonics: 3 }, defeatedBoss: false, flags: [], playSeconds: 0, rpg: newEconomy() };
     expeditionMessage = '';
@@ -75,11 +76,12 @@ class AzurGame {
     camera = { x: 4, y: 16 };
     cameraZone = 'village';
     evolution = null;
-    constructor() { this.restoreAudioSettings(); this.restoreMotionSettings(); this.restoreGraphicSettings(); this.restoreAdaptiveGraphics(); this.restoreAccessibility(); this.mountDrawer(); this.wire(); this.loadState(); requestAnimationFrame(this.loop); window.addEventListener('resize', () => this.renderer.resize()); if ('serviceWorker' in navigator && location.protocol.startsWith('http'))
+    constructor() { this.restoreAudioSettings(); this.restoreMotionSettings(); this.restoreGraphicSettings(); this.restoreAdaptiveGraphics(); this.restoreAccessibility(); this.restoreActiveSlot(); this.mountDrawer(); this.wire(); this.loadState(); requestAnimationFrame(this.loop); window.addEventListener('resize', () => this.renderer.resize()); if ('serviceWorker' in navigator && location.protocol.startsWith('http'))
         navigator.serviceWorker.register('./sw.js').catch(() => { }); }
     wire() {
         byId('newGame').addEventListener('click', () => this.startNew());
         byId('continue').addEventListener('click', () => this.continueGame());
+        byId('saveSlotSelect').addEventListener('change', e => this.selectSaveSlot(Number(e.target.value)));
         byId('settings').addEventListener('click', () => this.settings());
         byId('mute').addEventListener('click', () => { this.soundEnabled = !this.soundEnabled; this.sound.setEnabled(this.soundEnabled); this.updateMuteUi(); this.storeAudioSettings(); });
         byId('fullscreen').addEventListener('click', () => this.toggleFullscreen());
@@ -112,7 +114,7 @@ class AzurGame {
         else
             this.sound.resume(); });
         window.addEventListener('storage', event => {
-            if (event.key !== SAVE_KEY)
+            if (event.key !== saveKeyForSlot(this.activeSlot))
                 return;
             if (!this.started) {
                 this.loadState();
@@ -375,7 +377,7 @@ class AzurGame {
                     return;
                 // Commit the validated import before replacing the live session. A failed
                 // quota write or stale-tab conflict leaves both the player and save intact.
-                this.saveBaseline = writeSave(localStorage, json, this.saveBaseline);
+                this.saveBaseline = writeSave(localStorage, json, this.saveBaseline, this.activeSlot);
                 this.save = json;
                 configureWorld(this.save.worldSeed ?? 0, this.save.worldSnapshot);
                 this.save.worldSnapshot = captureWorldSnapshot() ?? this.save.worldSnapshot;
@@ -450,19 +452,51 @@ class AzurGame {
         pad.addEventListener('pointercancel', release);
         pad.addEventListener('lostpointercapture', release);
     }
-    loadState() { try {
-        this.saveBaseline = localStorage.getItem(SAVE_KEY);
-        const saved = readSave(localStorage);
-        byId('continue').hidden = !saved;
-        if (saved)
-            byId('saveStatus').textContent = saved.source === 'backup' ? 'RESPALDO DE PARTIDA DISPONIBLE' : 'PARTIDA LOCAL DETECTADA';
+    restoreActiveSlot() {
+        try {
+            const value = localStorage.getItem(ACTIVE_SAVE_SLOT_KEY);
+            if (value === '2' || value === '3')
+                this.activeSlot = Number(value);
+        }
+        catch { /* storage unavailable */ }
+        byId('saveSlotSelect').value = String(this.activeSlot);
     }
-    catch { /* blocked storage */ } }
+    selectSaveSlot(value) {
+        if (this.started || ![1, 2, 3].includes(value))
+            return;
+        this.activeSlot = value;
+        try {
+            localStorage.setItem(ACTIVE_SAVE_SLOT_KEY, String(this.activeSlot));
+        }
+        catch { /* storage unavailable */ }
+        this.loadState();
+    }
+    loadState() {
+        byId('saveSlotSelect').value = String(this.activeSlot);
+        try {
+            this.saveBaseline = localStorage.getItem(saveKeyForSlot(this.activeSlot));
+            const saved = readSave(localStorage, this.activeSlot);
+            byId('continue').hidden = !saved;
+            if (saved) {
+                const state = saved.state, region = ZONES[state.zone]?.name ?? state.zone;
+                byId('saveSlotSummary').textContent = `VIAJE ${this.activeSlot} · ${region.toUpperCase()} · ${Math.floor(state.playSeconds / 60)} MIN · ${state.team.length} VÍNCULOS${saved.source === 'backup' ? ' · RESPALDO RECUPERABLE' : ''}`;
+                byId('saveStatus').textContent = saved.source === 'backup' ? 'RESPALDO DE PARTIDA DISPONIBLE' : `PARTIDA ${this.activeSlot} DETECTADA`;
+            }
+            else {
+                byId('saveSlotSummary').textContent = `VIAJE ${this.activeSlot} VACÍO · CREA UN MUNDO NUEVO`;
+                byId('saveStatus').textContent = `VIAJE ${this.activeSlot} SIN GUARDAR`;
+            }
+        }
+        catch {
+            byId('continue').hidden = true;
+            byId('saveSlotSummary').textContent = 'ALMACENAMIENTO LOCAL NO DISPONIBLE';
+        }
+    }
     reset() { this.resetJoystick(); this.toggleDrawer(false); this.roamingCache.clear(); this.save = { version: 1, zone: 'village', x: 4, y: 16, team: [], storage: [], inventory: { seals: 5, tonics: 3 }, defeatedBoss: false, flags: [], playSeconds: 0, rpg: newEconomy(), worldSeed: freshWorldSeed() }; configureWorld(this.save.worldSeed); this.save.worldSnapshot = captureWorldSnapshot(); this.battle = null; this.evolution = null; this.combatCue = null; this.keys.clear(); this.encounterCooldown = 4; this.camera = { x: 4, y: 16 }; this.cameraZone = 'village'; this.lastReveal = -1; }
     startNew() { try {
-        if (readSave(localStorage) && !window.confirm('Crear un viaje nuevo sustituirá tu partida actual. Puedes continuarla y exportarla antes de empezar. ¿Crear nuevo mundo?'))
+        if (readSave(localStorage, this.activeSlot) && !window.confirm(`Crear un viaje nuevo sustituirá la partida del espacio ${this.activeSlot}. Los otros viajes se conservarán. ¿Continuar?`))
             return;
-        this.saveBaseline = localStorage.getItem(SAVE_KEY);
+        this.saveBaseline = localStorage.getItem(saveKeyForSlot(this.activeSlot));
     }
     catch { /* storage may be disabled */ } this.sound.unlock(); this.sound.setScene('title'); const requested = (byId('worldSeedInput').value || '').trim(); this.reset(); if (requested) {
         this.save.worldSeed = /^\d{1,10}$/.test(requested) && Number(requested) <= 4294967295 ? Number(requested) || 1 : seedFromText(requested);
@@ -470,10 +504,10 @@ class AzurGame {
         this.save.worldSnapshot = captureWorldSnapshot();
     } byId('titleScreen').classList.add('hidden'); byId('starterScreen').classList.remove('hidden'); this.renderStarters(); this.sound.select(); }
     continueGame() { try {
-        const result = readSave(localStorage);
+        const result = readSave(localStorage, this.activeSlot);
         if (!result)
             throw Error('Guardado inválido');
-        this.saveBaseline = localStorage.getItem(SAVE_KEY);
+        this.saveBaseline = localStorage.getItem(saveKeyForSlot(this.activeSlot));
         const raw = result.state;
         this.save = raw;
         const storedSnapshot = this.save.worldSnapshot;
@@ -1691,7 +1725,7 @@ class AzurGame {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'ascii-azur-partida.json';
+        a.download = `ascii-azur-viaje-${this.activeSlot}.json`;
         document.body.appendChild(a);
         a.click();
         a.remove();
@@ -2016,7 +2050,8 @@ class AzurGame {
       <div class="settings-row"><label for="motionReduced">Reducir movimiento</label><input id="motionReduced" type="checkbox"></div>
       <div class="settings-row"><label for="largeText">Texto ampliado</label><input id="largeText" type="checkbox"></div>
       <div class="settings-row"><label for="highContrast">Alto contraste · interfaz y texto</label><input id="highContrast" type="checkbox"></div>
-      <div class="settings-row"><label for="leftHanded">Joystick a la derecha</label><input id="leftHanded" type="checkbox"></div>`, true, true);
+      <div class="settings-row"><label for="leftHanded">Joystick a la derecha</label><input id="leftHanded" type="checkbox"></div>
+      <div class="settings-row"><button id="returnTitle" class="settings-reset">GUARDAR Y VOLVER A SELECCIONAR VIAJE</button></div>`, true, true);
         const mus = byId('musicVolume'), fx = byId('effectsVolume');
         const audio = byId('audioEnabled');
         audio.checked = this.soundEnabled;
@@ -2073,6 +2108,7 @@ class AzurGame {
         textSize.onchange = () => { document.documentElement.classList.toggle('azur-large-text', textSize.checked); this.persistAccessibility(); };
         handed.onchange = () => { document.documentElement.classList.toggle('azur-left-handed', handed.checked); this.persistAccessibility(); };
         contrast.onchange = () => { document.documentElement.classList.toggle('azur-high-contrast', contrast.checked); this.persistAccessibility(); };
+        byId('returnTitle').onclick = () => this.returnToTitle();
     }
     showModal(title, body, allowIntro = false, allowBattle = false) {
         if (this.evolution || (this.battle && !allowBattle) || this.dialogOpen || (!allowIntro && !byId('titleScreen').classList.contains('hidden')) || !byId('starterScreen').classList.contains('hidden'))
@@ -2102,19 +2138,48 @@ class AzurGame {
         this.lastAccessibleMessage = message;
         byId('accessibilityStatus').textContent = message;
     }
-    saveNow(notify) { if (!this.started)
-        return; try {
-        this.saveBaseline = writeSave(localStorage, this.save, this.saveBaseline);
-        byId('saveStatus').textContent = 'GUARDADO LOCAL · ' + new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-        if (notify)
-            this.toast('EL RECUERDO HA SIDO CONSERVADO');
+    saveNow(notify) {
+        if (!this.started)
+            return false;
+        try {
+            this.saveBaseline = writeSave(localStorage, this.save, this.saveBaseline, this.activeSlot);
+            byId('saveStatus').textContent = `VIAJE ${this.activeSlot} GUARDADO · ` + new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+            if (notify)
+                this.toast('EL RECUERDO HA SIDO CONSERVADO');
+            return true;
+        }
+        catch (error) {
+            const conflict = error instanceof SaveConflictError;
+            byId('saveStatus').textContent = conflict ? 'CONFLICTO ENTRE PESTAÑAS · EXPORTA TU PARTIDA' : 'GUARDADO FALLIDO · EXPORTA TU PARTIDA';
+            if (notify)
+                this.toast(conflict ? 'OTRA PESTAÑA MODIFICÓ LA PARTIDA · EXPORTA TU PROGRESO' : 'NO SE PUDO GUARDAR · EXPORTA TU PROGRESO');
+            return false;
+        }
     }
-    catch (error) {
-        const conflict = error instanceof SaveConflictError;
-        byId('saveStatus').textContent = conflict ? 'CONFLICTO ENTRE PESTAÑAS · EXPORTA TU PARTIDA' : 'GUARDADO FALLIDO · EXPORTA TU PARTIDA';
-        if (notify)
-            this.toast(conflict ? 'OTRA PESTAÑA MODIFICÓ LA PARTIDA · EXPORTA TU PROGRESO' : 'NO SE PUDO GUARDAR · EXPORTA TU PROGRESO');
-    } }
+    /** Leave only after a durable save; another journey can then be selected safely. */
+    returnToTitle() {
+        if (!this.started || !this.saveNow(true))
+            return;
+        this.hideModal();
+        this.toggleDrawer(false);
+        this.keys.clear();
+        this.resetJoystick();
+        this.started = false;
+        this.battle = null;
+        this.evolution = null;
+        this.combatCue = null;
+        this.dialogOpen = false;
+        this.dialogQueue = [];
+        this.lastAccessibleMessage = '';
+        byId('battle').classList.add('hidden');
+        byId('dialogue').classList.add('hidden');
+        byId('starterScreen').classList.add('hidden');
+        byId('viewport').classList.remove('in-battle', 'in-evolution', 'in-dungeon');
+        byId('titleScreen').classList.remove('hidden');
+        this.sound.setScene('title');
+        this.loadState();
+        focusMenuFirst(byId('titleScreen'));
+    }
     updateStoryCompass() {
         const node = byId('storyCompass');
         if (!this.started) {
