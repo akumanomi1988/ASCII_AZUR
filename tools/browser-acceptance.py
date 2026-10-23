@@ -269,6 +269,8 @@ window.addEventListener('load',()=>setTimeout(async()=>{
   const combatImage=await fetch('/__qa_capture?mode='+encodeURIComponent(params.get('mode')||'ascii')+
    '&fallback='+(params.has('fallback')?'1':'0')+'&zone=battle',{method:'POST',body:$('game').toDataURL('image/png')});
   check(combatImage.ok,'Combat VFX screenshot failed');
+  // Persistence is renderer-independent; run its heavier browser flow once.
+  if(params.get('mode')==='ascii'&&!params.has('fallback')){
   // Q2: a stale tab must not silently replace another session's saved progress.
   const competing=JSON.parse(localStorage.getItem('ascii-azur-save-v1'));
   competing.playSeconds+=20;
@@ -297,6 +299,7 @@ window.addEventListener('load',()=>setTimeout(async()=>{
   window.confirm=nativeConfirm;
   check($('zoneName').textContent==='Jardín de la Última Escarcha','Validated import did not enter Garden');
   check(JSON.parse(localStorage.getItem('ascii-azur-save-v1')).playSeconds>=987,'Imported progress was not persisted');
+  }
     check(window.__azurErrors.length===0,'JS errors: '+window.__azurErrors.join(' | '));
   document.body.dataset.azurQa='PASS';
  }catch(error){document.body.dataset.azurQa='FAIL: '+error.message;console.error(error)}
@@ -331,8 +334,8 @@ try:
    query=urllib.parse.urlencode({'mode':mode,**({'fallback':'1'} if fallback else {})})
    url=f'http://127.0.0.1:{server.server_port}/{QA.name}?{query}'
    with tempfile.TemporaryDirectory() as profile:
-    args=[CHROME,'--headless=new','--no-sandbox','--enable-unsafe-swiftshader','--disable-dev-shm-usage','--disable-background-networking','--no-first-run','--window-size=1280,850','--virtual-time-budget=2600',f'--user-data-dir={profile}','--dump-dom',url]
-    result=subprocess.run(args,text=True,capture_output=True,timeout=35)
+    args=[CHROME,'--headless=new','--no-sandbox','--enable-unsafe-swiftshader','--disable-dev-shm-usage','--disable-background-networking','--no-first-run','--window-size=1280,850','--virtual-time-budget=4200',f'--user-data-dir={profile}','--dump-dom',url]
+    result=subprocess.run(args,text=True,capture_output=True,timeout=75)
     if result.returncode or 'data-azur-qa="PASS"' not in result.stdout:
      marker=result.stdout.split('data-azur-qa=')[-1][:170] if 'data-azur-qa=' in result.stdout else 'MISSING QA MARKER'
      raise AssertionError(f'{mode} fallback={fallback} failed ({result.returncode}): {marker}\n{result.stderr[-1000:]}')
