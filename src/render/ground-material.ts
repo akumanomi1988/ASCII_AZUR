@@ -3,13 +3,13 @@ import {stableVisualVariant,type BiomePalette} from './biome-art.js';
 
 /** Deterministic visual detail. This module never changes terrain or the save format. */
 export type GroundSurface='path'|'grass'|'ground'|'stone'|'water';
-export type GroundMotifKind='cobble'|'leaf'|'sigil'|'reed'|'shard'|'tuft'|'grain'|'ripple';
+export type GroundMotifKind='cobble'|'leaf'|'sigil'|'reed'|'shard'|'tuft'|'grain'|'ripple'|'shell'|'frost';
 export interface GroundMotif {
   kind:GroundMotifKind;
   x:number;y:number;scale:number;turn:number;shade:number;
 }
 const PATH_MOTIFS:Readonly<Record<ZoneId,GroundMotifKind>>={
-  village:'cobble',forest:'leaf',sanctuary:'sigil',marsh:'reed',spire:'shard'
+  village:'cobble',forest:'leaf',sanctuary:'sigil',marsh:'reed',spire:'shard',ossuary:'shell',garden:'frost'
 };
 export function pathMotif(zone:ZoneId):GroundMotifKind{return PATH_MOTIFS[zone];}
 export function groundMotifs(zone:ZoneId,surface:GroundSurface,x:number,y:number,seed:number):readonly GroundMotif[]{
@@ -67,6 +67,16 @@ export function paintGroundMotifs(ctx:CanvasRenderingContext2D,zone:ZoneId,surfa
         ctx.fillStyle=palette.stoneMid;
         ctx.beginPath();ctx.moveTo(-4*s,3*s);ctx.lineTo(0,-6*s);ctx.lineTo(5*s,4*s);ctx.closePath();ctx.fill();
         ctx.strokeStyle=palette.stoneLight;ctx.lineWidth=1.2*s;stroke(ctx,0,-6*s,1*s,3*s);
+        break;
+      case 'shell':
+        ctx.strokeStyle=palette.pathMark;ctx.lineWidth=1.4*s;
+        ctx.beginPath();ctx.arc(0,1*s,5*s,Math.PI,Math.PI*2);ctx.stroke();
+        for(let k=-2;k<=2;k++)stroke(ctx,k*1.8*s,1*s,k*2.4*s,-3.5*s);
+        break;
+      case 'frost':
+        ctx.strokeStyle=palette.pathMark;ctx.lineWidth=1.25*s;
+        stroke(ctx,-5*s,0,5*s,0);stroke(ctx,0,-5*s,0,5*s);
+        stroke(ctx,-3.5*s,-3.5*s,3.5*s,3.5*s);stroke(ctx,-3.5*s,3.5*s,3.5*s,-3.5*s);
         break;
       case 'tuft':
         ctx.strokeStyle=palette.grassLight;ctx.lineWidth=1.6*s;

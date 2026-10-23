@@ -25,6 +25,8 @@ export const MOVES: Record<string,Move> = {
  roots:{id:'roots',name:'Raíz ancestral',element:'Raíz',power:19,description:'La tierra reclama lo perdido'},
  astral:{id:'astral',name:'Eco umbrío',element:'Éter',power:12,description:'Una voz que no pertenece a nadie'},
  void:{id:'void',name:'Ruptura',element:'Éter',power:19,description:'Reescribe un fragmento de realidad'},
+ saltwake:{id:'saltwake',name:'Resaca de sal',element:'Bruma',power:23,role:'drain',description:'La marea recoge fuerza de los huesos sumergidos.'},
+ winterpsalm:{id:'winterpsalm',name:'Salmo de escarcha',element:'Éter',power:18,role:'cleanse',description:'Una nota clara rompe los sellos del invierno.'},
  pulse:{id:'pulse',name:'Pulso',element:'Éter',power:9,description:'Un golpe de esencia pura'},
  kindle:{id:'kindle',name:'Cántico de lumbre',element:'Ceniza',power:0,role:'heal',description:'Restaura vida mediante una chispa protectora.'},
  flare:{id:'flare',name:'Filo incandescente',element:'Ceniza',power:23,description:'Ataque veloz con calor que deja cicatrices.'},
@@ -73,6 +75,8 @@ export const SPECIES:Record<string,Species>={
  mnemoshade:{id:'mnemoshade',name:'Mnemoshade',title:'Sombra del nombre partido',element:'Éter',color:'#baa2ee',stats:{hp:47,attack:25,defense:13,speed:23},desc:'Habita entre los glifos que dejaron de pronunciarse.',shape:13,role:'HOSTIGADOR · DRENAJE Y FRACTURA'},
  bellroot:{id:'bellroot',name:'Bellroot',title:'Campana de raíces',element:'Raíz',color:'#a8cb88',stats:{hp:62,attack:13,defense:23,speed:6},desc:'Bajo la marisma, cada tañido suyo protege una memoria.',shape:14,role:'GUARDIÁN · RESISTENCIA Y FRACTURA'},
  ashglass:{id:'ashglass',name:'Ashglass',title:'Ave del vidrio ardiente',element:'Ceniza',color:'#f4b67d',stats:{hp:39,attack:25,defense:9,speed:25},desc:'Sus alas cortan el aire como fragmentos de sol roto.',shape:15,role:'ASALTANTE · VELOCIDAD Y ARDOR'},
+ tideworn:{id:'tideworn',name:'Tideworn',title:'Caracol de los sepultados',element:'Bruma',color:'#98e3d7',stats:{hp:58,attack:18,defense:21,speed:11},desc:'Lleva una catedral marina dentro de su concha; cada vuelta guarda un juramento.',shape:16,role:'BASTIÓN · DRENAJE DE MAREA'},
+ frostlark:{id:'frostlark',name:'Frostlark',title:'Alondra del invierno imposible',element:'Éter',color:'#d6ecff',stats:{hp:43,attack:24,defense:13,speed:26},desc:'Canta cuando una criatura decide florecer pese a la nieve.',shape:17,role:'CANTORA · LIMPIEZA Y VELOCIDAD'},
  nullscribe:{id:'nullscribe',name:'Nullscribe',title:'Escriba de los nombres imposibles',element:'Éter',color:'#ddb4ff',stats:{hp:82,attack:20,defense:17,speed:14},desc:'Su cuerpo contiene las páginas vacías que sostuvieron el cielo.',shape:11},
  hollowhart:{id:'hollowhart',name:'Hollowhart',title:'Ciervo del silencio',element:'Raíz',color:'#d9bd9c',stats:{hp:66,attack:22,defense:20,speed:12},desc:'Último guardián de las palabras originales.',shape:6}
 };
@@ -82,7 +86,7 @@ export const BASE_MOVES:Record<Element,string[]>={Ceniza:['ember','pulse','smold
 export const SIGNATURE_MOVES:Readonly<Record<string,string>>={
  cindrel:'ashfang',cinderwulf:'emberstorm',velaria:'drizzle',thorne:'vinegrip',
  wispawn:'siphon',gravemoth:'mothdust',mireling:'undertow',runeowl:'runeburst',
- ashboar:'flare',rillfin:'rilldance',briarling:'verdancy',mourveil:'lament',mnemoshade:'sigilbite',bellroot:'bellguard',ashglass:'glassflare',hollowhart:'eclipse',nullscribe:'eclipse'
+ ashboar:'flare',rillfin:'rilldance',briarling:'verdancy',mourveil:'lament',mnemoshade:'sigilbite',bellroot:'bellguard',ashglass:'glassflare',tideworn:'saltwake',frostlark:'winterpsalm',hollowhart:'eclipse',nullscribe:'eclipse'
 };
 export function learnableMoves(speciesId:string,level:number):string[]{
  const s=SPECIES[speciesId];if(!s)throw Error('Especie desconocida');
@@ -102,7 +106,7 @@ export function validateBattleCheckpoint(value:unknown,team:Creature[]):value is
  if(!e||typeof e.uid!=='string'||e.uid.length>80||typeof e.speciesId!=='string'||!SPECIES[e.speciesId]||!Number.isInteger(e.level)||e.level!<1||e.level!>30||!Number.isInteger(e.hp)||e.hp!<0||e.hp!>maxHp(e as Creature)||!Number.isInteger(e.exp)||e.exp!<0||!Array.isArray(e.moves)||e.moves.length<1||e.moves.length>4||e.moves.some(m=>typeof m!=='string'||!MOVES[m]))return false;
  if(!['wild','boss','expedition'].includes(b.type||'')||!Number.isInteger(b.ally)||b.ally!<0||b.ally!>=team.length||typeof b.guarding!=='boolean'||![1,2].includes(b.bossPhase||0)||![0,1,2].includes(b.chargeStage??-1))return false;
  if(b.pending!==undefined&&!['enemy','capture','victory','defeat'].includes(b.pending))return false;
- if(b.encounterId!==undefined&&(!/^(forest|sanctuary|marsh|spire)-[0-2]$/.test(b.encounterId)))return false;
+ if(b.encounterId!==undefined&&(!/^(forest|sanctuary|marsh|spire|ossuary|garden)-[0-2]$/.test(b.encounterId)))return false;
  if(!b.effects||typeof b.effects!=='object'||Array.isArray(b.effects)||Object.keys(b.effects).length>8)return false;
  return Object.entries(b.effects).every(([key,list])=>key.length<85&&Array.isArray(list)&&list.length<=3&&list.every(s=>!!s&&['scorch','weaken','fracture'].includes(s.kind)&&Number.isInteger(s.remaining)&&s.remaining>=1&&s.remaining<=5));
 }
@@ -113,7 +117,7 @@ export function validateSave(data:unknown):data is SaveGame {
   if(!c||typeof c!=='object')return false;const a=c as Partial<Creature>;
   return typeof a.speciesId==='string'&&!!SPECIES[a.speciesId]&&typeof a.uid==='string'&&a.uid.length<=80&&Number.isInteger(a.level)&&a.level!>0&&a.level!<=30&&Number.isInteger(a.exp)&&a.exp!>=0&&Number.isInteger(a.hp)&&a.hp!>=0&&a.hp!<=maxHp(a as Creature)&&Array.isArray(a.moves)&&a.moves.length>=1&&a.moves.length<=4&&a.moves.every(m=>typeof m==='string'&&!!MOVES[m]);
  };
- return v.version===1&&['village','forest','sanctuary','marsh','spire'].includes(v.zone||'')
+ return v.version===1&&['village','forest','sanctuary','marsh','spire','ossuary','garden'].includes(v.zone||'')
  &&typeof v.x==='number'&&Number.isFinite(v.x)&&v.x>=0&&v.x<46
  &&typeof v.y==='number'&&Number.isFinite(v.y)&&v.y>=0&&v.y<32
  &&Array.isArray(v.team)&&v.team.length>0&&v.team.length<=6&&v.team.every(validCreature)

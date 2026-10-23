@@ -22,6 +22,8 @@ export const RIGS:Readonly<Record<string,CreatureRig>>=Object.freeze({
  mnemoshade:{family:'spirit',pace:2.15,amplitude:4.4,blinkInterval:4.1,detail:'#f3e7ff',accent:'#cbaaff'},
  bellroot:{family:'beast',pace:.85,amplitude:.7,blinkInterval:6.3,detail:'#f5edbd',accent:'#b9e4a4'},
  ashglass:{family:'owl',pace:3.5,amplitude:2.6,blinkInterval:4.4,detail:'#fff7d4',accent:'#ffbf8b'},
+ tideworn:{family:'beast',pace:.78,amplitude:.85,blinkInterval:6.7,detail:'#e4fff2',accent:'#81e1cf'},
+ frostlark:{family:'owl',pace:3.0,amplitude:2.8,blinkInterval:4.9,detail:'#ffffff',accent:'#c8e8ff'},
  nullscribe:{family:'spirit',pace:.85,amplitude:3.1,blinkInterval:6.2,detail:'#fff2df',accent:'#dba8ff'},
  hollowhart:{family:'stag',pace:.9,amplitude:1.8,blinkInterval:5.6,detail:'#fff0d1',accent:'#ddc6ff'}
 });
