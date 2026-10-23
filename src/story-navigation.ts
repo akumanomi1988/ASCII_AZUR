@@ -88,6 +88,26 @@ export function guidanceToTarget(position:StoryPosition,point:{x:number;y:number
  return{text:`${direction} ${title} · ${distance} PASOS · RUTA`,direction,distance,target,kind:'target',waypoint:{x,y}};
 }
 
+/** Actual footprint-aware, shortest cardinal walking route to interaction range.
+ * Used by the Atlas and deterministic physical traversal acceptance. Never
+ * mutates world state or reveals undiscovered terrain. */
+export function walkableRouteToTarget(position:StoryPosition,point:{x:number;y:number}):{x:number;y:number}[]|null{
+ if(position.inDungeon)return null;
+ const target:Landmark={...point,kind:'memory',label:'Waypoint'};
+ const route=azurRoute(position.zone,target),start=azurRouteStart(position,route.cost);
+ if(start<0)return null;
+ const out:{x:number;y:number}[]=[];
+ let cell=start;
+ for(let count=0;count<WORLD_W*WORLD_H;count++){
+  const x=cell%WORLD_W,y=(cell/WORLD_W)|0;
+  out.push({x,y});
+  const next=route.next[cell];
+  if(next===undefined||next<0)return Math.hypot(x-point.x,y-point.y)<=1.65?out:null;
+  cell=next;
+ }
+ return null;
+}
+
 export function storyGuidance(story:ArkenStoryState,position:StoryPosition):StoryGuidance{
   const step=arkenStoryIndex(story);
   const simple=(text:string,kind:StoryGuidance['kind']):StoryGuidance=>({text,direction:'✦',distance:null,target:null,kind});
