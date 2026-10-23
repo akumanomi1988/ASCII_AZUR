@@ -1,5 +1,7 @@
 import {arkenStoryIndex,type ArkenStoryState} from './story-campaign.js';
-import {ZONES,WORLD_W,WORLD_H,canOccupy,getWorldRevision,type Landmark,type ZoneId} from './world.js';
+import {marshChapterProgress,MARSH_MEMORY_FLAGS} from './story-marsh.js';
+import {visibleEncounters} from './world/encounters.js';
+import {ZONES,WORLD_W,WORLD_H,canOccupy,getWorldRevision,getWorldSeed,type Landmark,type ZoneId} from './world.js';
 
 /** Non-invasive quest guidance: derive compass targets from authored landmarks.
  * Coordinates are read-only; a generated world's seed, save and combat are untouched. */
@@ -61,7 +63,29 @@ function azurRouteStart(position:StoryPosition,cost:Int16Array):number{
 export function storyGuidance(story:ArkenStoryState,position:StoryPosition):StoryGuidance{
   const step=arkenStoryIndex(story);
   const simple=(text:string,kind:StoryGuidance['kind']):StoryGuidance=>({text,direction:'✦',distance:null,target:null,kind});
-  if(step===6)return simple('ARKEN RESTAURADO','completed');
+  if(step===6){
+    const chapter=marshChapterProgress(story.flags);
+    if(chapter.complete)return simple('CAPÍTULO II · ESPEJO RESTAURADO','completed');
+    if(position.inDungeon)return simple('SAL DE LA CRIPTA PARA CONTINUAR','dungeon');
+    let target:Landmark|undefined,title='';
+    if(position.zone==='marsh'){
+      const z=ZONES.marsh;
+      if(chapter.stage===1||chapter.stage===5){target=z.landmarks.find(l=>l.npcId==='nael');title='NAEL';}
+      else if(chapter.stage===2){const pending=MARSH_MEMORY_FLAGS.find(f=>!story.flags.includes(f));target=z.landmarks.find(l=>l.kind==='memory'&&pending?.endsWith(l.npcId||'---'));title='RECUERDO';}
+      else if(chapter.stage===3){const encounter=visibleEncounters('marsh',getWorldSeed()).find(e=>!story.flags.includes('roamer-'+e.id));
+        if(encounter){target={x:encounter.x,y:encounter.y,kind:'memory',label:'Testigo del espejo'};title='TESTIGO';}
+      }else if(chapter.stage===4){target=z.landmarks.find(l=>l.kind==='verdict');title='TRIBUNAL';}
+    }else{target=landmark(position.zone,'portal',true);title='PORTAL ESTE';}
+    if(!target)return simple(chapter.objective.toUpperCase(),'menu');
+    if(Math.hypot(target.x-position.x,target.y-position.y)<=1.65)
+      return{text:`✦ ${title} · ACCIÓN`,direction:'✦',distance:0,target,kind:'interaction',waypoint:null};
+    const route=azurRoute(position.zone,target),start=azurRouteStart(position,route.cost);
+    if(start<0)return simple('RUTA BLOQUEADA · CONSULTA EL DIARIO','menu');
+    const next=route.next[start];
+    if(next===undefined||next<0)return simple(`✦ ${title} · ACÉRCATE`,'interaction');
+    const x=next%WORLD_W,y=(next/WORLD_W)|0,direction=arrow(x-position.x,y-position.y),distance=route.cost[start]!+1;
+    return{text:`${direction} ${title} · ${distance} PASOS · RUTA`,direction,distance,target,kind:'target',waypoint:{x,y}};
+  }
   if(position.inDungeon)return simple(step===4?'EXPLORA LA CRIPTA':'REGRESA A ARKEN','dungeon');
   if(step===4)return simple('MENÚ → CRIPTA EXPLORABLE','menu');
   const destination:ZoneId=step===0||step===5?'village':step===1?'forest':'sanctuary';
