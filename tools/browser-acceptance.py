@@ -39,18 +39,26 @@ window.addEventListener('load',()=>setTimeout(async()=>{
  const check=(ok,msg)=>{if(!ok)throw Error(msg)};
  try{
   const $=id=>document.getElementById(id);
+  let previousZoneImage='';
   const captureZone=async zone=>{
-   window.__azurQaAdvance();
-   await new Promise(resolve=>setTimeout(resolve,160));
-   check($('zoneName').textContent===({
-    village:'Velo de Arken',forest:'Bosque de Ceniza',sanctuary:'Santuario sin Voz',
-    marsh:'Marismas del Espejo Roto',spire:'Corona de lo No Escrito',
-    ossuary:'Osario de las Mareas',garden:'Jardín de la Última Escarcha'
-   })[zone],'Wrong region before screenshot: '+zone);
+   let image='';
+   for(let attempt=0;attempt<6;attempt++){
+    window.__azurQaAdvance();
+    await new Promise(resolve=>setTimeout(resolve,180));
+    check($('zoneName').textContent===({
+     village:'Velo de Arken',forest:'Bosque de Ceniza',sanctuary:'Santuario sin Voz',
+     marsh:'Marismas del Espejo Roto',spire:'Corona de lo No Escrito',
+     ossuary:'Osario de las Mareas',garden:'Jardín de la Última Escarcha'
+    })[zone],'Wrong region before screenshot: '+zone);
+    image=$('game').toDataURL('image/png');
+    if(image!==previousZoneImage)break;
+   }
+   check(image!==previousZoneImage,'Renderer held a stale frame after entering '+zone);
+   previousZoneImage=image;
    const params=new URLSearchParams(location.search);
    const capture=await fetch('/__qa_capture?mode='+encodeURIComponent(params.get('mode')||'ascii')+
     '&fallback='+(params.has('fallback')?'1':'0')+'&zone='+zone,
-    {method:'POST',body:$('game').toDataURL('image/png')});
+    {method:'POST',body:image});
    check(capture.ok,'Canvas screenshot failed: '+zone);
   };
   check($('game')&&$('newGame'),'Missing game bootstrap');
@@ -64,6 +72,20 @@ window.addEventListener('load',()=>setTimeout(async()=>{
   await new Promise(resolve=>setTimeout(resolve,180));
   const saved=localStorage.getItem('ascii-azur-save-v1');
   check(!!saved,'No game save');
+  // Resume an authentic v1 snapshot from before Afterlight was introduced.
+  // Previously generated terrain must remain byte-identical, while both new
+  // regions become part of the persisted save immediately and idempotently.
+  const legacy=JSON.parse(saved);
+  const preserved=Object.fromEntries(['village','forest','sanctuary','marsh','spire'].map(z=>[z,legacy.worldSnapshot.tiles[z]]));
+  for(const zone of ['ossuary','garden']){delete legacy.worldSnapshot.tiles[zone];delete legacy.worldSnapshot.poi[zone];}
+  localStorage.setItem('ascii-azur-save-v1',JSON.stringify(legacy));
+  $('continue').click();
+  const expanded=JSON.parse(localStorage.getItem('ascii-azur-save-v1'));
+  check(!!expanded.worldSnapshot.tiles.ossuary&&!!expanded.worldSnapshot.tiles.garden,'Legacy save did not persist both Afterlight regions');
+  for(const [zone,tiles] of Object.entries(preserved))check(expanded.worldSnapshot.tiles[zone]===tiles,'Legacy terrain was rerolled: '+zone);
+  check(expanded.worldSnapshot.poi.ossuary.length>=6&&expanded.worldSnapshot.poi.garden.length>=6,'Afterlight landmarks were not persisted');
+  $('continue').click();
+  check(JSON.stringify(JSON.parse(localStorage.getItem('ascii-azur-save-v1')).worldSnapshot)===JSON.stringify(expanded.worldSnapshot),'Repeated resume changed a stable world');
   const params=new URLSearchParams(location.search);
   if(params.has('fallback')){
    const ctx=$('game').getContext('2d'),width=$('game').width,height=$('game').height;
