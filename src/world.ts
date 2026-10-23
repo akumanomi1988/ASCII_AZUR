@@ -1,11 +1,12 @@
-export type ZoneId='village'|'forest'|'sanctuary';
-export interface Landmark {x:number;y:number;kind:'npc'|'altar'|'portal'|'guardian'|'chest'|'rune';label:string;npcId?:string;}
+export type ZoneId='village'|'forest'|'sanctuary'|'marsh';
+export interface Landmark {x:number;y:number;kind:'npc'|'altar'|'portal'|'guardian'|'chest'|'rune'|'memory'|'verdict';label:string;npcId?:string;}
 export interface Zone {id:ZoneId;name:string;subtitle:string;ground:string;glow:string;seed:number;landmarks:Landmark[];}
 export const WORLD_W=46,WORLD_H=32,TILE=48;
 export const ZONES:Record<ZoneId,Zone>={
  village:{id:'village',name:'Velo de Arken',subtitle:'La última aldea iluminada',ground:'#1b292b',glow:'#c4a46d',seed:12,landmarks:[{x:8,y:16,kind:'npc',label:'El Archivista',npcId:'archivist'},{x:12,y:17,kind:'npc',label:'Mara · Tienda',npcId:'merchant'},{x:19,y:16,kind:'npc',label:'Iria · Vigía',npcId:'scout'},{x:15,y:12,kind:'altar',label:'Lumbre de reposo'},{x:24,y:19,kind:'chest',label:'Cofre de juramentos'},{x:43,y:16,kind:'portal',label:'Bosque de Ceniza'},{x:21,y:20,kind:'rune',label:'Piedra del origen'}]},
  forest:{id:'forest',name:'Bosque de Ceniza',subtitle:'Las raíces pronuncian nombres antiguos',ground:'#15272b',glow:'#77adb0',seed:48,landmarks:[{x:2,y:16,kind:'portal',label:'Velo de Arken'},{x:17,y:16,kind:'altar',label:'Lumbre de reposo'},{x:26,y:16,kind:'npc',label:'Peregrino perdido',npcId:'pilgrim'},{x:35,y:10,kind:'chest',label:'Cofre cubierto de musgo'},{x:43,y:16,kind:'portal',label:'Santuario sin Voz'},{x:30,y:17,kind:'rune',label:'Juramento de raíces'}]},
- sanctuary:{id:'sanctuary',name:'Santuario sin Voz',subtitle:'Donde termina el lenguaje del mundo',ground:'#202432',glow:'#aa8adb',seed:90,landmarks:[{x:2,y:16,kind:'portal',label:'Bosque de Ceniza'},{x:18,y:16,kind:'altar',label:'Lumbre primordial'},{x:24,y:16,kind:'npc',label:'Custodia del Umbral',npcId:'keeper'},{x:35,y:16,kind:'guardian',label:'Hollowhart · Guardián del Silencio'},{x:29,y:18,kind:'rune',label:'Inscripción ausente'}]}
+ sanctuary:{id:'sanctuary',name:'Santuario sin Voz',subtitle:'Donde termina el lenguaje del mundo',ground:'#202432',glow:'#aa8adb',seed:90,landmarks:[{x:2,y:16,kind:'portal',label:'Bosque de Ceniza'},{x:18,y:16,kind:'altar',label:'Lumbre primordial'},{x:24,y:16,kind:'npc',label:'Custodia del Umbral',npcId:'keeper'},{x:35,y:16,kind:'guardian',label:'Hollowhart · Guardián del Silencio'},{x:29,y:18,kind:'rune',label:'Inscripción ausente'},{x:43,y:16,kind:'portal',label:'Marismas del Espejo Roto'}]},
+ marsh:{id:'marsh',name:'Marismas del Espejo Roto',subtitle:'El agua refleja vidas que nunca sucedieron',ground:'#10262c',glow:'#72ced0',seed:173,landmarks:[{x:2,y:16,kind:'portal',label:'Santuario sin Voz'},{x:12,y:13,kind:'npc',label:'Nael · Cartógrafa del Olvido',npcId:'nael'},{x:19,y:16,kind:'memory',label:'Campana sumergida',npcId:'bell'},{x:28,y:20,kind:'memory',label:'Farol de las orillas',npcId:'lantern'},{x:36,y:16,kind:'verdict',label:'Tribunal del Reflejo'},{x:24,y:10,kind:'altar',label:'Lumbre de los ahogados'},{x:40,y:22,kind:'chest',label:'Arca de las dos vidas'}]}
 };
 export function hash(x:number,y:number,s=0):number{let n=Math.imul(x+137,374761393)^Math.imul(y+193,668265263)^Math.imul(s+19,1274126177);n=Math.imul(n^(n>>>13),1274126177);return((n^(n>>>16))>>>0)/4294967296;}
 function legacyTerrain(zone:ZoneId,x:number,y:number):Tile{if(x<0||y<0||x>=WORLD_W||y>=WORLD_H)return 'wall';const z=ZONES[zone];const r=hash(x,y,z.seed);if(y<=1||y>=WORLD_H-2)return'wall';if(x<=0||x>=WORLD_W-1)return'wall';const center=Math.abs(y-16)<=2;if(center|| (zone==='village'&&x<27&&y>=9&&y<=22))return r>.76?'grass':'ground';if(zone==='sanctuary'){if(y>=12&&y<=20)return'ground';return r>.91?'stone':'ground';}if(zone==='village'){if(r>.91)return'tree';if(r>.86)return'stone';return r>.67?'grass':'ground';}if(r>.81)return'tree';if(r>.70)return'grass';if(r<.055)return'water';return'ground';}
@@ -13,7 +14,7 @@ function legacyTerrain(zone:ZoneId,x:number,y:number):Tile{if(x<0||y<0||x>=WORLD
 /** Procedural generation v1. Seed 0 deliberately preserves every legacy v0.8 save. */
 export type Tile='ground'|'tree'|'stone'|'water'|'wall'|'grass'|'path';
 export const WORLD_GEN_VERSION=1;
-export const ZONE_IDS:ZoneId[]=['village','forest','sanctuary'];
+export const ZONE_IDS:ZoneId[]=['village','forest','sanctuary','marsh'];
 const IDS=ZONE_IDS;
 const TILE_CHARS:Record<Tile,string>={ground:'g',grass:'h',tree:'t',stone:'s',water:'w',wall:'x',path:'p'};
 const CHAR_TILES:Record<string,Tile>={g:'ground',h:'grass',t:'tree',s:'stone',w:'water',x:'wall',p:'path'};
@@ -21,9 +22,15 @@ export interface WorldSnapshot{gen:1;tiles:Record<ZoneId,string>;poi:Record<Zone
 export function validateWorldSnapshot(raw:unknown):raw is WorldSnapshot{
  if(!raw||typeof raw!=='object')return false;const snap=raw as Partial<WorldSnapshot>;
  if(snap.gen!==1||!snap.tiles||!snap.poi)return false;
+ // v1 snapshots from before chapter II contain only three regions and six
+ // Sanctuary POIs (the original five plus a hidden cache). Never rewrite them.
+ const hasMarsh=snap.tiles.marsh!==undefined||snap.poi.marsh!==undefined;
+ if(hasMarsh&&(!snap.tiles.marsh||!snap.poi.marsh))return false;
  return IDS.every(id=>{const tiles=snap.tiles?.[id],poi=snap.poi?.[id];
+  if(id==='marsh'&&!hasMarsh)return true;
+  const expected=ORIGINAL_LANDMARKS[id].length+(SECRET_CACHE[id]?1:0);
   return typeof tiles==='string'&&tiles.length===WORLD_W*WORLD_H&&/^[ghtswxp]+$/.test(tiles)
-   &&Array.isArray(poi)&&poi.length===ORIGINAL_LANDMARKS[id].length+(SECRET_CACHE[id]?1:0)
+   &&Array.isArray(poi)&&(poi.length===expected||(id==='sanctuary'&&poi.length===expected-1))
    &&poi.every(a=>Array.isArray(a)&&a.length===2&&Number.isInteger(a[0])&&Number.isInteger(a[1])&&a[0]>=2&&a[0]<=43&&a[1]>=2&&a[1]<=29);
  });
 }
@@ -51,7 +58,7 @@ export function freshWorldSeed():number {
   else values[0]=((Date.now()^Math.floor(Math.random()*0xFFFFFFFF))>>>0);
   return values[0]||1;
 }
-function zoneSalt(z:ZoneId){return z==='village'?14567:z==='forest'?37517:94163;}
+function zoneSalt(z:ZoneId){return z==='village'?14567:z==='forest'?37517:z==='sanctuary'?94163:118219;}
 function zoneRandom(seed:number,z:ZoneId){let x=(seed^zoneSalt(z))>>>0;return()=>{x^=x<<13;x^=x>>>17;x^=x<<5;return (x>>>0)/4294967296;};}
 function smooth(t:number){return t*t*(3-2*t);}
 function valueNoise(x:number,y:number,seed:number,step:number){
@@ -67,7 +74,8 @@ function buildZone(id:ZoneId,seed:number):Tile[]{
  for(let y=0;y<WORLD_H;y++)for(let x=0;x<WORLD_W;x++){
   if(!inside(x,y)){arr[index(x,y)]='wall';continue;}
   const mass=valueNoise(x,y,salt,5),granular=hash(x,y,salt+97);
-  if(id==='forest')arr[index(x,y)]=mass>.47?(granular>.14?'tree':'grass'):mass<.25&&granular>.58?'water':granular>.82?'stone':granular>.55?'grass':'ground';
+  if(id==='marsh')arr[index(x,y)]=mass>.60?(granular>.48?'tree':'grass'):mass<.32&&granular>.16?'water':granular>.92?'stone':granular>.52?'grass':'ground';
+  else if(id==='forest')arr[index(x,y)]=mass>.47?(granular>.14?'tree':'grass'):mass<.25&&granular>.58?'water':granular>.82?'stone':granular>.55?'grass':'ground';
   else if(id==='village')arr[index(x,y)]=mass>.57?(granular>.27?'tree':'grass'):mass<.30&&granular>.66?'stone':granular>.88?'grass':'ground';
   else arr[index(x,y)]=mass>.56?(granular>.25?'wall':'stone'):mass<.22&&granular>.65?'water':granular>.82?'stone':'ground';
  }
@@ -87,6 +95,7 @@ function buildZone(id:ZoneId,seed:number):Tile[]{
  // Village square and sanctuary arena are authored shapes within the generated landscape.
  if(id==='village')disk(15,16,5.2,'path');
  if(id==='sanctuary')disk(35,16,4.6,'path');
+ if(id==='marsh'){disk(36,16,4.8,'path');disk(19,16,3.2,'path');disk(28,20,3.2,'path');}
  // Add loop / glade route, important for exploration and a choice of approaches.
  const gladeX=19+Math.floor(rng()*12),gladeY=rng()>.5?6+Math.floor(rng()*5):23+Math.floor(rng()*4);
  disk(gladeX,gladeY,3.4,'ground');
@@ -139,9 +148,22 @@ export function configureWorld(seed:number,snapshot?:WorldSnapshot):void{
  generated=null;
  if(activeSeed!==0){
   if(snapshot&&validateWorldSnapshot(snapshot)){
-    generated=Object.fromEntries(IDS.map(id=>[id,Array.from(snapshot.tiles[id],c=>CHAR_TILES[c]!)])) as Record<ZoneId,Tile[]>;
+    const restored={} as Record<ZoneId,Tile[]>;
+    for(const id of IDS){
+      if(snapshot.tiles[id])restored[id]=Array.from(snapshot.tiles[id],c=>CHAR_TILES[c]!);
+      else restored[id]=buildZone(id,activeSeed); // new Marsh only on pre-0.29 snapshots
+    }
+    generated=restored;
     for(const id of IDS)if(SECRET_CACHE[id])ZONES[id].landmarks.push({...SECRET_CACHE[id]!});
-    for(const id of IDS)ZONES[id].landmarks.forEach((l,i)=>{const point=snapshot.poi[id][i]!;l.x=point[0];l.y=point[1];});
+    for(const id of IDS){const points=snapshot.poi[id];if(!points)continue;
+      ZONES[id].landmarks.forEach((l,i)=>{
+        // Old sanctuary snapshots stored hidden cache at index 5; the new
+        // east portal is inserted at index 5 and must keep its fixed location.
+        if(id==='sanctuary'&&points.length===6&&i===5)return;
+        const point=points[id==='sanctuary'&&points.length===6&&i===6?5:i];
+        if(point){l.x=point[0];l.y=point[1];}
+      });
+    }
   }else{const built={} as Record<ZoneId,Tile[]>;for(const id of IDS)built[id]=buildZone(id,activeSeed);generated=built;}
 }
 }
