@@ -46,4 +46,5 @@ test('narrative and combat overlays expose dialog, focus and health semantics',(
   assert.match(html, /id="battleActions"[^>]*role="group"/);
   assert.match(html, /id="closeDialogue"[^>]*aria-label="Continuar diálogo"/);
   assert.match(html, /id="mute"[^>]*aria-pressed="false"/);
+  assert.match(html,/Pulsa E para interactuar, H para escuchar orientación/);
 });
