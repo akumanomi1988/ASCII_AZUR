@@ -64,6 +64,20 @@ window.addEventListener('load',()=>setTimeout(async()=>{
   await new Promise(resolve=>setTimeout(resolve,180));
   const saved=localStorage.getItem('ascii-azur-save-v1');
   check(!!saved,'No game save');
+  // Resume an authentic v1 snapshot from before Afterlight was introduced.
+  // Previously generated terrain must remain byte-identical, while both new
+  // regions become part of the persisted save immediately and idempotently.
+  const legacy=JSON.parse(saved);
+  const preserved=Object.fromEntries(['village','forest','sanctuary','marsh','spire'].map(z=>[z,legacy.worldSnapshot.tiles[z]]));
+  for(const zone of ['ossuary','garden']){delete legacy.worldSnapshot.tiles[zone];delete legacy.worldSnapshot.poi[zone];}
+  localStorage.setItem('ascii-azur-save-v1',JSON.stringify(legacy));
+  $('continue').click();
+  const expanded=JSON.parse(localStorage.getItem('ascii-azur-save-v1'));
+  check(!!expanded.worldSnapshot.tiles.ossuary&&!!expanded.worldSnapshot.tiles.garden,'Legacy save did not persist both Afterlight regions');
+  for(const [zone,tiles] of Object.entries(preserved))check(expanded.worldSnapshot.tiles[zone]===tiles,'Legacy terrain was rerolled: '+zone);
+  check(expanded.worldSnapshot.poi.ossuary.length>=6&&expanded.worldSnapshot.poi.garden.length>=6,'Afterlight landmarks were not persisted');
+  $('continue').click();
+  check(JSON.stringify(JSON.parse(localStorage.getItem('ascii-azur-save-v1')).worldSnapshot)===JSON.stringify(expanded.worldSnapshot),'Repeated resume changed a stable world');
   const params=new URLSearchParams(location.search);
   if(params.has('fallback')){
    const ctx=$('game').getContext('2d'),width=$('game').width,height=$('game').height;
