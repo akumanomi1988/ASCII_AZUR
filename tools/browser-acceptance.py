@@ -310,6 +310,30 @@ window.addEventListener('load',()=>setTimeout(async()=>{
   window.confirm=nativeConfirm;
   check($('zoneName').textContent==='Jardín de la Última Escarcha','Validated import did not enter Garden');
   check(JSON.parse(localStorage.getItem('ascii-azur-save-v1')).playSeconds>=987,'Imported progress was not persisted');
+  // Campaign manager: changing seeds must never replace another slot.
+  $('quickSettings').click();$('returnTitle').click();
+  check(!$('titleScreen').classList.contains('hidden'),'Return to journey selection failed');
+  const slotOneRaw=localStorage.getItem('ascii-azur-save-v1');
+  const slotSelect=$('saveSlotSelect');
+  slotSelect.value='2';slotSelect.dispatchEvent(new Event('change',{bubbles:true}));
+  check($('continue').hidden,'Empty second campaign incorrectly offers Continue');
+  $('worldSeedInput').value='independent-second-campaign';
+  $('newGame').click();
+  check(!$('starterScreen').classList.contains('hidden'),'Second campaign starter selection missing');
+  document.querySelector('[data-starter="cindrel"]').click();
+  for(let i=0;i<12&&!$('dialogue').classList.contains('hidden');i++)$('closeDialogue').click();
+  $('saveBtn').click();
+  const slotTwoStarted=localStorage.getItem('ascii-azur-save-v1-slot-2');
+  check(!!slotTwoStarted,'Second campaign was not written to its own slot');
+  check(JSON.parse(slotTwoStarted).worldSeed!==JSON.parse(slotOneRaw).worldSeed,'Two independent seeds collapsed');
+  check(localStorage.getItem('ascii-azur-save-v1')===slotOneRaw,'Second campaign overwrote first slot');
+  $('quickSettings').click();$('returnTitle').click();
+  const slotTwoRaw=localStorage.getItem('ascii-azur-save-v1-slot-2');
+  slotSelect.value='1';slotSelect.dispatchEvent(new Event('change',{bubbles:true}));
+  check(!$('continue').hidden,'First campaign was not offered after switching back');
+  $('continue').click();
+  check($('zoneName').textContent==='Jardín de la Última Escarcha','First campaign did not restore after slot change');
+  check(localStorage.getItem('ascii-azur-save-v1-slot-2')===slotTwoRaw,'Returning to first campaign changed second slot');
   }
     check(window.__azurErrors.length===0,'JS errors: '+window.__azurErrors.join(' | '));
   document.body.dataset.azurQa='PASS';

@@ -289,3 +289,25 @@
 :root.azur-high-contrast #viewport :is(.settings-row label,.modal-head h2,.game-drawer h2,.battle-actions button){color:#f7f9f8}
 :root.azur-high-contrast .icon-btn{min-width:44px;min-height:44px}
 :root.azur-high-contrast #viewport :is(.settings-row input,.settings-row select,.settings-row button,.drawer-actions button,.modal-option button){min-height:44px}
+
+/* v0.41 — three independently persisted campaign slots in the title overlay. */
+.azur-save-slot-entry{display:flex;flex-direction:column;gap:5px;width:min(345px,88vw);margin:10px auto 0;text-align:left}
+.azur-save-slot-entry label{color:#efcf9c;font:600 9px 'DM Mono',monospace;letter-spacing:.9px}
+.azur-save-slot-entry select{width:100%;min-height:36px;background:#112934;color:#f1e4cd;border:1px solid #a98760;border-radius:3px;padding:5px 9px;font:600 12px 'DM Mono',monospace}
+.azur-save-slot-entry select:focus-visible{outline:3px solid #f0c47f;outline-offset:2px}
+#saveSlotSummary{color:#c4dbe1;font:10px/1.4 'DM Mono',monospace;min-height:15px;text-align:center}
+#viewport .intro-line{margin:14px auto}
+#viewport .intro p{line-height:1.55}
+#viewport .intro-buttons{margin-top:14px}
+#viewport .intro-footer{margin-top:15px}
+@media(max-height:540px){
+ #viewport .intro-content{transform:none}
+ #viewport .intro-glyph{font-size:28px}
+ #viewport .tiny-caps{margin:3px 0 8px}
+ #viewport .intro h1{font-size:clamp(36px,7vw,64px)}
+ #viewport .intro-line{margin:8px auto}
+ #viewport .intro p{font-size:11px;line-height:1.35}
+ #viewport .intro-footer{margin-top:7px}
+ .azur-save-slot-entry{gap:2px;margin:5px auto 0}
+ .azur-save-slot-entry select{min-height:32px}
+}
