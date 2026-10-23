@@ -11,7 +11,7 @@ import {SHOP,NPCS,QUESTS,buy,claimQuests,normalizeEconomy,newEconomy,type ShopIt
 import {Sound,themeForZone} from './audio.js';
 import {FrameMetrics} from './core/frame-metrics.js';
 import {AdaptiveGlyphs} from './core/adaptive-glyphs.js';
-import {storyGuidance} from './story-navigation.js';
+import {storyGuidance,guidanceToTarget} from './story-navigation.js';
 import {ARKEN_STORY, ARKEN_FINALE_REWARD, arkenStoryBeat, arkenStoryIndex, concludeArken, canConcludeArken, guardianPreparation, guardianRecommendedLead, sanctuaryRoutePlan, sanctuaryOathProgress, SANCTUARY_OATHS_FLAG, SANCTUARY_OATHS_REWARD, type ArkenStoryState} from './story-campaign.js';
 import {marshChapterProgress,marshDecision,marshFinish,MARSH_REWARDS,type MarshChoice} from './story-marsh.js';
 import {AFTERLIGHT,afterlightFlag,afterlightProgress,afterlightResolution,afterlightEpilogue,type AfterlightZone,type AfterlightChoice} from './story-afterlight.js';
@@ -1006,13 +1006,11 @@ class AzurGame {
       else if(progress.witnesses<3){const e=this.roamers().find(e=>!this.flag('roamer-'+e.id));if(e)target={x:e.x,y:e.y,label:SPECIES[e.speciesId]?.name||'TESTIGO ERRANTE'};}
       else if(!progress.complete)target=ZONES[zone].landmarks.find(l=>l.kind==='verdict');
       else target=ZONES[zone].landmarks.find(l=>l.kind=== (zone==='ossuary'?'portal':'npc')&&(zone!=='ossuary'||l.x>20));
-      const dx=(target?.x??this.save.x)-this.save.x,dy=(target?.y??this.save.y)-this.save.y;
-      const arrow=Math.abs(dx)>Math.abs(dy)?dx>0?'→':'←':dy>0?'↓':'↑';
-      const distance=Math.round(Math.hypot(dx,dy));
       const label=target?.label||chapter.verdict;
-      const content=progress.complete&&zone==='garden'?'✦ VIGILIA COMPLETA':`${arrow} ${label.toUpperCase()} · ${distance} PASOS`;
+      const cue=target?guidanceToTarget({zone,x:this.save.x,y:this.save.y,inDungeon:false},target,label.toUpperCase()):null;
+      const content=progress.complete&&zone==='garden'?'✦ VIGILIA COMPLETA':cue?.text??'CONSULTA EL DIARIO';
       if(node.textContent!==content)node.textContent=content;
-      node.classList.remove('hidden');node.classList.toggle('is-near',distance<=2.3);return;
+      node.classList.remove('hidden');node.classList.toggle('is-near',cue?.kind==='interaction');return;
     }
     const cue=storyGuidance(this.storyState,{zone:this.save.zone as ZoneId,x:this.save.x,y:this.save.y,inDungeon:!!this.save.dungeon?.active});
     if(node.textContent!==cue.text)node.textContent=cue.text;
