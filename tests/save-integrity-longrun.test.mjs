@@ -67,7 +67,7 @@ test('Q2: 9,000 interleaved slot writes survive quota faults, torn primary write
   const set=db.setItem;
   const quota=n%97===0,partial=n%113===0;
   if(quota||partial)db.setItem=(k,v)=>{
-   if(quota&&k===backup)throw Error('simulated quota');
+   if(quota&&(k===backup||k===key))throw Error('simulated quota');
    if(partial&&k===key){set(k,v.slice(0,20));return;}
    set(k,v);
   };
