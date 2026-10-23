@@ -1006,6 +1006,7 @@ test('N3: four authored endings x three starters x three seeded worlds complete 
   // Explicit Chapter-II checkpoint fixture; chapter I and II gates are separately tested.
   game.save.flags.push('archivist','zone-forest','zone-sanctuary','arken-vow-restored','zone-marsh','marsh-met-nael','marsh-choice-'+marsh,'marsh-chapter-complete');
   game.save.defeatedBoss=true;
+  game.save.dungeon=makeCrypt(1701);game.save.dungeon.cleared=[2,3,5];game.save.dungeon.finished=true;game.save.dungeon.active=false;
   game.save.team=[createCharacter(starter,18,()=>.12),createCharacter('cinderwulf',18,()=>.22),createCharacter('runeowl',18,()=>.32)];
   game.save.inventory.tonics=8;game.save.inventory.seals=8;
   game.save.zone='marsh';
