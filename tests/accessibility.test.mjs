@@ -18,6 +18,16 @@ function highContrastTokens(){
   assert.ok(block,'high contrast palette missing');
   return Object.fromEntries([...block.matchAll(/--([\w-]+):\s*(#[0-9a-fA-F]{6})/g)].map(m=>[m[1],m[2]]));
 }
+test('default palette: all core text tokens meet WCAG AA on both surfaces',()=>{
+  const block=css.match(/:root\{([^}]+)\}/)?.[1];
+  assert.ok(block,'default palette missing');
+  const p=Object.fromEntries([...block.matchAll(/--([\w-]+):\s*(#[0-9a-fA-F]{6})/g)].map(m=>[m[1],m[2]]));
+  for(const foreground of ['ink','muted','gold','teal']){
+    for(const background of ['bg','panel']){
+      assert.ok(contrast(p[foreground],p[background])>=4.5,`default ${foreground} over ${background} is below WCAG AA`);
+    }
+  }
+});
 test('accessible presentation: critical text tokens meet WCAG AA normal text contrast',()=>{
   const p=highContrastTokens();
   for(const foreground of ['ink','muted','gold','teal']){
