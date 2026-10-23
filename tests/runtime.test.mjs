@@ -1147,6 +1147,7 @@ test('Q3 journey: new-game to all four finale branches with earned captures, bat
     for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
      const x=cur.x+dx,y=cur.y+dy,k=key(x,y);
      if(x<1||y<2||x>=WORLD_W-1||y>=WORLD_H-2||previous.has(k)||!canOccupy(zone,x,y,.19))continue;
+     if(![.2,.4,.6,.8,1].every(t=>canOccupy(zone,cur.x+dx*t,cur.y+dy*t,.19)))continue;
      previous.set(k,cur);queue.push({x,y});
     }
    }
