@@ -5,6 +5,7 @@ import vm from 'node:vm';
 import {dungeonTilePath} from './helpers/dungeon-path.mjs';
 import {damage, MOVES, maxHp} from '../dist/domain.js';
 import {createCreature as createCharacter} from '../dist/domain.js';
+import {generateDungeon as makeCrypt} from '../dist/dungeons/labyrinth.js';
 const fakeContext={
  clearRect(){},fillRect(){},fillText(){},beginPath(){},moveTo(){},lineTo(){},closePath(){},fill(){},stroke(){},translate(){},scale(){},save(){},restore(){},ellipse(){},quadraticCurveTo(){},setTransform(){},rotate(){},arc(){},rect(){},strokeRect(){},putImageData(){},drawImage(){},
  createLinearGradient(){return{addColorStop(){}}},createRadialGradient(){return{addColorStop(){}}},
@@ -917,8 +918,13 @@ test('N2: both moral endings resolve from seeded Marsh exploration, real combat 
   const {game,dom,storage,flushTimers}=mount({virtualTime:true,seed:n*421+starter.length*37});
   dom.set('worldSeedInput',{value:String(world)});
   game.startNew();game.pickStarter(starter);while(game.dialogOpen)game.nextDialog();
-  game.save.flags.push('arken-vow-restored');
-  // Recreate a post-Arken party for isolation of N2. C3 separately proves how it is earned.
+  game.save.flags.push('archivist','zone-forest','zone-sanctuary','arken-vow-restored');
+  game.save.defeatedBoss=true;
+  game.save.dungeon=makeCrypt(1701);
+  game.save.dungeon.cleared=[2,3,5];
+  game.save.dungeon.finished=true;
+  game.save.dungeon.active=false;
+  // Recreate a completed Chapter-I checkpoint for isolation of N2. C3 separately proves how it is earned.
   game.save.team=[
    createCreature(starter,15,()=>.01),
    createCreature('cinderwulf',14,()=>.02),
