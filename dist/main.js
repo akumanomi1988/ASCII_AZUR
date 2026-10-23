@@ -56,6 +56,7 @@ class AzurGame {
     modalInvoking = null;
     modalBack = null;
     drawerInvoking = null;
+    battleKeyboardFocus = false;
     dialogOpen = false;
     modalOpen = false;
     flash = 0;
@@ -282,7 +283,7 @@ class AzurGame {
         void document.exitFullscreen();
     else
         void el.requestFullscreen?.().catch(() => this.toast('PANTALLA COMPLETA NO DISPONIBLE')); }
-    updateMuteUi() { byId('mute').textContent = this.soundEnabled ? '♫' : '♪'; byId('mute').setAttribute('aria-label', this.soundEnabled ? 'Silenciar audio' : 'Activar audio'); }
+    updateMuteUi() { byId('mute').textContent = this.soundEnabled ? '♫' : '♪'; byId('mute').setAttribute('aria-label', this.soundEnabled ? 'Silenciar audio' : 'Activar audio'); byId('mute').setAttribute('aria-pressed', String(!this.soundEnabled)); }
     restoreAudioSettings() { try {
         const v = JSON.parse(localStorage.getItem('ascii-azur-audio') || 'null');
         if (v && typeof v === 'object') {
@@ -539,7 +540,7 @@ class AzurGame {
         this.toast('EL GUARDADO NO SE PUDO RECUPERAR');
     } }
     renderStarters() { const chars = [{ id: 'cindrel', glyph: '♨', title: 'EL FUEGO' }, { id: 'velaria', glyph: '≋', title: 'LA BRUMA' }, { id: 'thorne', glyph: '✣', title: 'LA RAÍZ' }]; byId('starters').innerHTML = chars.map(c => `<button class="starter" data-starter="${c.id}"><span class="starter-symbol" style="color:${SPECIES[c.id].color}">${c.glyph}</span><strong>${SPECIES[c.id].name}</strong><small>${c.title}</small></button>`).join(''); for (const el of byId('starters').querySelectorAll('[data-starter]'))
-        el.addEventListener('click', () => this.pickStarter(el.dataset.starter)); }
+        el.addEventListener('click', () => this.pickStarter(el.dataset.starter)); focusMenuFirst(byId('starterScreen')); }
     pickStarter(id) { this.sound.setScene('village'); this.save.team = [createCreature(id, 5)]; this.revealPosition(); this.started = true; byId('starterScreen').classList.add('hidden'); this.sound.pick(); this.toast('NUEVO MUNDO · SEMILLA ' + this.save.worldSeed); this.dialog([{ title: 'El último Portador', text: 'Los nombres se están desvaneciendo. El tuyo permanece porque alguien lo recuerda.' }, { title: 'El último Portador', text: 'Al este se extiende el Bosque de Ceniza. Encuentra el Santuario sin Voz y recupera la Primera Palabra.' }, { title: 'Comienza el viaje', text: 'Muévete con WASD o las flechas. Pulsa E para interactuar. Busca las hogueras para recuperar la fuerza.' }]); this.updateUI(); this.saveNow(false); }
     flag(id) { return this.save.flags.includes(id); }
     get storyState() { return { flags: this.save.flags, defeatedBoss: this.save.defeatedBoss, dungeonFinished: !!this.save.dungeon?.finished }; }
@@ -565,10 +566,11 @@ class AzurGame {
         this.toast(`MISIÓN COMPLETADA: ${q.name.toUpperCase()} · +${q.reward} ECOS`); }
     toast(text) { const el = byId('toast'); el.textContent = text; el.classList.remove('hidden'); if (this.notifyTimer)
         clearTimeout(this.notifyTimer); this.notifyTimer = window.setTimeout(() => el.classList.add('hidden'), 2800); }
-    dialog(items) { this.dialogQueue = items.slice(); this.dialogOpen = true; byId('dialogue').classList.remove('hidden'); this.renderDialog(); }
+    dialog(items) { this.dialogQueue = items.slice(); this.dialogOpen = true; byId('dialogue').classList.remove('hidden'); this.renderDialog(); byId('dialogue').focus(); }
     renderDialog() { const item = this.dialogQueue[0]; if (!item) {
         this.dialogOpen = false;
         byId('dialogue').classList.add('hidden');
+        byId('viewport').focus();
         return;
     } byId('diaTitle').textContent = item.title; byId('diaText').textContent = item.text; }
     nextDialog() { if (!this.dialogOpen)
@@ -976,15 +978,24 @@ class AzurGame {
         byId('enemyLv').textContent = 'NV. ' + b.enemy.level + (b.type === 'boss' && b.bossPhase === 2 ? ' · II' : '') + (this.statuses(b.enemy).length ? ' · ' + statusLabel(this.statuses(b.enemy)) : '');
         byId('enemyHpText').textContent = `${b.enemy.hp}/${maxHp(b.enemy)}`;
         byId('enemyHealth').style.width = Math.max(0, b.enemy.hp / maxHp(b.enemy) * 100) + '%';
+        this.updateHealthMeter('enemyHealthTrack', es.name, b.enemy.hp, maxHp(b.enemy));
         byId('allyName').textContent = as.name;
         byId('allyLv').textContent = 'NV. ' + ally.level + (this.statuses(ally).length ? ' · ' + statusLabel(this.statuses(ally)) : '');
         byId('allyHpText').textContent = `${ally.hp}/${maxHp(ally)}`;
         byId('allyHealth').style.width = Math.max(0, ally.hp / maxHp(ally) * 100) + '%';
+        this.updateHealthMeter('allyHealthTrack', as.name, ally.hp, maxHp(ally));
         byId('battleLog').textContent = b.log;
         this.sound.setIntensity(Math.max(b.type === 'boss' ? .65 : .30, 1 - ally.hp / maxHp(ally), b.type === 'boss' && b.bossPhase === 2 ? 1 : 0));
         this.announceAccessibility(`Combate contra ${es.name}. Enemigo ${b.enemy.hp} de ${maxHp(b.enemy)} puntos de vida. ${as.name} ${ally.hp} de ${maxHp(ally)} puntos de vida. ${b.log}`);
         const actions = byId('battleActions');
+        const previousAction = Array.from(actions.querySelectorAll('button')).indexOf(document.activeElement);
+        if (previousAction >= 0) {
+            this.selectedBattleAction = previousAction;
+            this.battleKeyboardFocus = true;
+        }
         actions.replaceChildren();
+        const restoreActionFocus = () => { if (b.busy || !this.battleKeyboardFocus)
+            return; const buttons = Array.from(actions.querySelectorAll('button:not([disabled])')); buttons[Math.min(this.selectedBattleAction, buttons.length - 1)]?.focus(); this.battleKeyboardFocus = false; };
         const add = (name, func, special = false, disabled = false, detail = '', preview) => { const button = document.createElement('button'); button.textContent = name; button.disabled = b.busy || disabled; if (special)
             button.classList.add('special'); if (detail) {
             button.title = detail;
@@ -1014,6 +1025,7 @@ class AzurGame {
                 add(`↻ ${sp.name} · NV ${c.level} · ${c.hp}/${maxHp(c)}`, () => this.switchTo(i), false, c.hp <= 0, sp.desc);
             }
             add('← VOLVER', () => { b.selecting = false; this.refreshBattle(); });
+            restoreActionFocus();
             return;
         }
         this.selectedBattleAction = Math.min(this.selectedBattleAction, Math.max(0, ally.moves.length + 3));
@@ -1030,6 +1042,7 @@ class AzurGame {
         add('↻ CAMBIAR', () => this.switchCreature(), false, !this.save.team.some((c, i) => c.hp > 0 && i !== b.ally));
         if (b.type === 'wild')
             add('↗ HUIR', () => this.escape());
+        restoreActionFocus();
     }
     useMove(id) {
         const b = this.battle, ally = this.getAlly(), m = MOVES[id];
@@ -2134,6 +2147,13 @@ class AzurGame {
     else
         this.hideModal(); }
     hideModal() { this.modalOpen = false; this.modalBack = null; byId('modal').classList.add('hidden'); this.keys.clear(); this.modalInvoking?.focus?.(); this.modalInvoking = null; }
+    updateHealthMeter(id, name, current, maximum) {
+        const node = byId(id);
+        node.setAttribute('aria-label', `Vida de ${name}`);
+        node.setAttribute('aria-valuemax', String(maximum));
+        node.setAttribute('aria-valuenow', String(Math.max(0, current)));
+        node.setAttribute('aria-valuetext', `${current} de ${maximum} puntos de vida`);
+    }
     announceAccessibility(message) {
         if (this.lastAccessibleMessage === message)
             return;

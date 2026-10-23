@@ -59,8 +59,12 @@ export function writeSave(store, state, expectedPrimary, slot = 1) {
     if (previous === payload)
         return payload;
     // Fail closed on backup quota/refusal: never replace the only verified save.
-    if (previous && decode(previous))
+    if (previous && decode(previous)) {
         store.setItem(backup, previous);
+        // A storage adapter that silently drops the backup must not risk the only good copy.
+        if (store.getItem(backup) !== previous)
+            throw Error('El almacenamiento no confirmó el respaldo');
+    }
     // If this write is interrupted, the old primary and/or backup remains readable.
     store.setItem(key, payload);
     if (store.getItem(key) !== payload)

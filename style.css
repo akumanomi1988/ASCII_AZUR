@@ -311,3 +311,6 @@
  .azur-save-slot-entry{gap:2px;margin:5px auto 0}
  .azur-save-slot-entry select{min-height:32px}
 }
+
+/* Modal narrative focus remains visible for keyboard and screen-reader players. */
+.dialogue:focus{outline:2px solid var(--gold);outline-offset:-3px}
