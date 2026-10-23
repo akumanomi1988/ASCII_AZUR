@@ -8,14 +8,26 @@ export const ZONES = {
             { x: 2, y: 16, kind: 'portal', label: 'Marismas del Espejo Roto' }, { x: 12, y: 14, kind: 'npc', label: 'Oriel · Guardián del Último Nombre', npcId: 'oriel' },
             { x: 19, y: 13, kind: 'memory', label: 'Lumbre de los nombres', npcId: 'flame' }, { x: 28, y: 21, kind: 'memory', label: 'Archivo de las ausencias', npcId: 'archive' },
             { x: 35, y: 15, kind: 'guardian', label: 'Nullscribe · El que no fue', npcId: 'nullscribe' }, { x: 40, y: 24, kind: 'verdict', label: 'Telar del Amanecer' },
-            { x: 24, y: 9, kind: 'altar', label: 'Lumbre del Último Voto' }, { x: 30, y: 25, kind: 'chest', label: 'Tesoro de los ausentes' }
+            { x: 24, y: 9, kind: 'altar', label: 'Lumbre del Último Voto' }, { x: 30, y: 25, kind: 'chest', label: 'Tesoro de los ausentes' }, { x: 43, y: 16, kind: 'portal', label: 'Osario de las Mareas' }
+        ] },
+    ossuary: { id: 'ossuary', name: 'Osario de las Mareas', subtitle: 'La marea devuelve lo que la historia sepultó', ground: '#132f37', glow: '#8bd8c7', seed: 307, landmarks: [
+            { x: 2, y: 16, kind: 'portal', label: 'Corona de lo No Escrito' }, { x: 12, y: 14, kind: 'npc', label: 'Edda · Custodia de las Mareas', npcId: 'edda' },
+            { x: 19, y: 13, kind: 'memory', label: 'Concha de los nombres', npcId: 'shell' }, { x: 28, y: 21, kind: 'memory', label: 'Faro de hueso', npcId: 'beacon' },
+            { x: 36, y: 16, kind: 'verdict', label: 'Pozo de los Retornos' }, { x: 24, y: 9, kind: 'altar', label: 'Lumbre de sal' },
+            { x: 39, y: 24, kind: 'chest', label: 'Arca de las mareas' }, { x: 43, y: 16, kind: 'portal', label: 'Jardín de la Última Escarcha' }
+        ] },
+    garden: { id: 'garden', name: 'Jardín de la Última Escarcha', subtitle: 'La semilla recuerda todos los inviernos', ground: '#26303d', glow: '#d6e8fa', seed: 389, landmarks: [
+            { x: 2, y: 16, kind: 'portal', label: 'Osario de las Mareas' }, { x: 12, y: 14, kind: 'npc', label: 'Silas · Jardinero del Invierno', npcId: 'silas' },
+            { x: 20, y: 11, kind: 'memory', label: 'Semilla de vidrio', npcId: 'seed' }, { x: 28, y: 22, kind: 'memory', label: 'Árbol invertido', npcId: 'tree' },
+            { x: 37, y: 16, kind: 'verdict', label: 'Voto de la Aurora' }, { x: 24, y: 9, kind: 'altar', label: 'Lumbre de escarcha' },
+            { x: 40, y: 24, kind: 'chest', label: 'Cofre de la última flor' }
         ] }
 };
 export function hash(x, y, s = 0) { let n = Math.imul(x + 137, 374761393) ^ Math.imul(y + 193, 668265263) ^ Math.imul(s + 19, 1274126177); n = Math.imul(n ^ (n >>> 13), 1274126177); return ((n ^ (n >>> 16)) >>> 0) / 4294967296; }
 function legacyTerrain(zone, x, y) { if (x < 0 || y < 0 || x >= WORLD_W || y >= WORLD_H)
     return 'wall'; const z = ZONES[zone]; const r = hash(x, y, z.seed); if (y <= 1 || y >= WORLD_H - 2)
     return 'wall'; if (x <= 0 || x >= WORLD_W - 1)
-    return 'wall'; if ((zone === 'marsh' || zone === 'spire') && ZONES[zone].landmarks.some(l => Math.hypot(l.x - x, l.y - y) <= 2.2))
+    return 'wall'; if (['marsh', 'spire', 'ossuary', 'garden'].includes(zone) && ZONES[zone].landmarks.some(l => Math.hypot(l.x - x, l.y - y) <= 2.2))
     return 'ground'; const center = Math.abs(y - 16) <= 2; if (center || (zone === 'village' && x < 27 && y >= 9 && y <= 22))
     return r > .76 ? 'grass' : 'ground'; if (zone === 'sanctuary') {
     if (y >= 12 && y <= 20)
@@ -32,7 +44,7 @@ function legacyTerrain(zone, x, y) { if (x < 0 || y < 0 || x >= WORLD_W || y >= 
     return 'grass'; if (r < .055)
     return 'water'; return 'ground'; }
 export const WORLD_GEN_VERSION = 1;
-export const ZONE_IDS = ['village', 'forest', 'sanctuary', 'marsh', 'spire'];
+export const ZONE_IDS = ['village', 'forest', 'sanctuary', 'marsh', 'spire', 'ossuary', 'garden'];
 const IDS = ZONE_IDS;
 const TILE_CHARS = { ground: 'g', grass: 'h', tree: 't', stone: 's', water: 'w', wall: 'x', path: 'p' };
 const CHAR_TILES = { g: 'ground', h: 'grass', t: 'tree', s: 'stone', w: 'water', x: 'wall', p: 'path' };
@@ -46,17 +58,23 @@ export function validateWorldSnapshot(raw) {
     // Sanctuary POIs (the original five plus a hidden cache). Never rewrite them.
     const hasMarsh = snap.tiles.marsh !== undefined || snap.poi.marsh !== undefined;
     const hasSpire = snap.tiles.spire !== undefined || snap.poi.spire !== undefined;
+    const hasOssuary = snap.tiles.ossuary !== undefined || snap.poi.ossuary !== undefined;
+    const hasGarden = snap.tiles.garden !== undefined || snap.poi.garden !== undefined;
     if (hasMarsh && (!snap.tiles.marsh || !snap.poi.marsh))
         return false;
     if (hasSpire && (!hasMarsh || !snap.tiles.spire || !snap.poi.spire))
         return false;
+    if (hasOssuary && (!hasSpire || !snap.tiles.ossuary || !snap.poi.ossuary))
+        return false;
+    if (hasGarden && (!hasOssuary || !snap.tiles.garden || !snap.poi.garden))
+        return false;
     return IDS.every(id => {
         const tiles = snap.tiles?.[id], poi = snap.poi?.[id];
-        if ((id === 'marsh' && !hasMarsh) || (id === 'spire' && !hasSpire))
+        if ((id === 'marsh' && !hasMarsh) || (id === 'spire' && !hasSpire) || (id === 'ossuary' && !hasOssuary) || (id === 'garden' && !hasGarden))
             return true;
         const expected = ORIGINAL_LANDMARKS[id].length + (SECRET_CACHE[id] ? 1 : 0);
         return typeof tiles === 'string' && tiles.length === WORLD_W * WORLD_H && /^[ghtswxp]+$/.test(tiles)
-            && Array.isArray(poi) && (poi.length === expected || ((id === 'sanctuary' || id === 'marsh') && poi.length === expected - 1))
+            && Array.isArray(poi) && (poi.length === expected || ((id === 'sanctuary' || id === 'marsh' || id === 'spire') && poi.length === expected - 1))
             && poi.every(a => Array.isArray(a) && a.length === 2 && Number.isInteger(a[0]) && Number.isInteger(a[1]) && a[0] >= 2 && a[0] <= 43 && a[1] >= 2 && a[1] <= 29);
     });
 }
@@ -89,7 +107,7 @@ export function freshWorldSeed() {
         values[0] = ((Date.now() ^ Math.floor(Math.random() * 0xFFFFFFFF)) >>> 0);
     return values[0] || 1;
 }
-function zoneSalt(z) { return z === 'village' ? 14567 : z === 'forest' ? 37517 : z === 'sanctuary' ? 94163 : z === 'marsh' ? 118219 : 229123; }
+function zoneSalt(z) { return z === 'village' ? 14567 : z === 'forest' ? 37517 : z === 'sanctuary' ? 94163 : z === 'marsh' ? 118219 : z === 'spire' ? 229123 : z === 'ossuary' ? 327911 : 389701; }
 function zoneRandom(seed, z) { let x = (seed ^ zoneSalt(z)) >>> 0; return () => { x ^= x << 13; x ^= x >>> 17; x ^= x << 5; return (x >>> 0) / 4294967296; }; }
 function smooth(t) { return t * t * (3 - 2 * t); }
 function valueNoise(x, y, seed, step) {
@@ -109,7 +127,11 @@ function buildZone(id, seed) {
                 continue;
             }
             const mass = valueNoise(x, y, salt, 5), granular = hash(x, y, salt + 97);
-            if (id === 'spire')
+            if (id === 'ossuary')
+                arr[index(x, y)] = mass > .60 ? (granular > .43 ? 'stone' : 'grass') : mass < .33 && granular > .18 ? 'water' : granular > .87 ? 'stone' : granular > .45 ? 'grass' : 'ground';
+            else if (id === 'garden')
+                arr[index(x, y)] = mass > .59 ? (granular > .40 ? 'tree' : 'stone') : mass < .22 && granular > .57 ? 'water' : granular > .86 ? 'stone' : granular > .53 ? 'grass' : 'ground';
+            else if (id === 'spire')
                 arr[index(x, y)] = mass > .57 ? (granular > .32 ? 'wall' : 'stone') : mass < .27 && granular > .45 ? 'water' : granular > .81 ? 'stone' : granular > .60 ? 'grass' : 'ground';
             else if (id === 'marsh')
                 arr[index(x, y)] = mass > .60 ? (granular > .48 ? 'tree' : 'grass') : mass < .32 && granular > .16 ? 'water' : granular > .92 ? 'stone' : granular > .52 ? 'grass' : 'ground';
@@ -153,6 +175,11 @@ function buildZone(id, seed) {
         disk(40, 24, 3.5, 'path');
         disk(19, 13, 3.2, 'path');
         disk(28, 21, 3.2, 'path');
+    }
+    if (id === 'ossuary' || id === 'garden') {
+        disk(36, 16, 4.2, 'path');
+        disk(20, 12, 3.2, 'path');
+        disk(28, 21, 3.1, 'path');
     }
     // Add loop / glade route, important for exploration and a choice of approaches.
     const gladeX = 19 + Math.floor(rng() * 12), gladeY = rng() > .5 ? 6 + Math.floor(rng() * 5) : 23 + Math.floor(rng() * 4);

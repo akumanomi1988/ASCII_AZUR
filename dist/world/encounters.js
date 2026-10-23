@@ -18,6 +18,8 @@ const MARSH_TRAIL_POOLS = [
     ['ashboar', 'cinderwulf'] // Embers trapped within the flooded causeway
 ];
 const SPIRE_TRAIL_POOLS = [['ashboar', 'cinderwulf'], ['rillfin', 'mireling'], ['gravemoth', 'runeowl']];
+const OSSUARY_TRAIL_POOLS = [['tideworn', 'rillfin'], ['mourveil', 'mireling'], ['bellroot', 'tideworn']];
+const GARDEN_TRAIL_POOLS = [['frostlark', 'runeowl'], ['ashglass', 'frostlark'], ['mnemoshade', 'gravemoth']];
 const SANCTUARY_TRAIL_POOLS = [
     ['briarling', 'thorne'], // Root: Ash counterplay
     ['mireling', 'rillfin', 'velaria'], // Mist: Root counterplay
@@ -50,9 +52,9 @@ export function visibleEncounters(zone, seed) {
         const pick = candidates[0];
         if (!pick)
             continue;
-        const creatures = (zone === 'forest' ? FOREST_TRAIL_POOLS : zone === 'marsh' ? MARSH_TRAIL_POOLS : zone === 'spire' ? SPIRE_TRAIL_POOLS : SANCTUARY_TRAIL_POOLS)[slot];
+        const creatures = (zone === 'forest' ? FOREST_TRAIL_POOLS : zone === 'marsh' ? MARSH_TRAIL_POOLS : zone === 'spire' ? SPIRE_TRAIL_POOLS : zone === 'ossuary' ? OSSUARY_TRAIL_POOLS : zone === 'garden' ? GARDEN_TRAIL_POOLS : SANCTUARY_TRAIL_POOLS)[slot];
         const variant = Math.floor(hash(slot + 1, seed & 255, seed + 45) * creatures.length);
-        out.push({ id: `${zone}-${slot}`, x: pick.x, y: pick.y, speciesId: creatures[variant], level: zone === 'forest' ? 5 + slot : zone === 'marsh' ? 11 + slot : zone === 'spire' ? 13 + slot : 8 + slot });
+        out.push({ id: `${zone}-${slot}`, x: pick.x, y: pick.y, speciesId: creatures[variant], level: zone === 'forest' ? 5 + slot : zone === 'marsh' ? 11 + slot : zone === 'spire' ? 13 + slot : zone === 'ossuary' ? 15 + slot : zone === 'garden' ? 17 + slot : 8 + slot });
     }
     return out;
 }
@@ -63,14 +65,18 @@ export const BIOME_WILD_SPECIES = {
     forest: ['velaria', 'thorne', 'wispawn', 'mireling', 'gravemoth', 'cindrel', 'runeowl', 'ashboar', 'briarling', 'rillfin'],
     sanctuary: ['gravemoth', 'wispawn', 'mireling', 'thorne', 'runeowl', 'rillfin'],
     marsh: ['bellroot', 'mourveil', 'mireling', 'rillfin', 'gravemoth', 'runeowl'],
-    spire: ['ashglass', 'mnemoshade', 'cinderwulf', 'ashboar', 'wispawn', 'bellroot']
+    spire: ['ashglass', 'mnemoshade', 'cinderwulf', 'ashboar', 'wispawn', 'bellroot'],
+    ossuary: ['tideworn', 'rillfin', 'mourveil', 'bellroot', 'mireling'],
+    garden: ['frostlark', 'runeowl', 'ashglass', 'mnemoshade', 'thorne']
 };
 export const BIOME_DUEL_SPECIES = {
     village: ['cindrel', 'briarling', 'mireling'],
     forest: ['cindrel', 'thorne', 'mireling'],
     sanctuary: ['runeowl', 'wispawn', 'gravemoth'],
     marsh: ['bellroot', 'mourveil', 'rillfin'],
-    spire: ['ashglass', 'mnemoshade', 'cinderwulf']
+    spire: ['ashglass', 'mnemoshade', 'cinderwulf'],
+    ossuary: ['tideworn', 'mourveil', 'bellroot'],
+    garden: ['frostlark', 'ashglass', 'mnemoshade']
 };
 /** Higher-level rare ecology joins random travel after its chapter, avoiding
  * difficulty spikes while players are still resolving compulsory witnesses. */
@@ -78,6 +84,8 @@ export function activeWildBiome(zone, flags) {
     if (zone === 'marsh' && !flags.includes('marsh-chapter-complete'))
         return 'sanctuary';
     if (zone === 'spire' && !flags.includes('crown-trilogy-complete'))
+        return 'sanctuary';
+    if ((zone === 'ossuary' || zone === 'garden') && !flags.includes('crown-trilogy-complete'))
         return 'sanctuary';
     return zone;
 }
@@ -88,11 +96,11 @@ export function drawBiomeWild(zone, roll) {
     return pool[Math.max(0, Math.min(pool.length - 1, Math.floor(roll * pool.length)))];
 }
 export function biomeDuelLevel(zone, index) {
-    const start = { village: 3, forest: 5, sanctuary: 8, marsh: 11, spire: 13 }[zone];
+    const start = { village: 3, forest: 5, sanctuary: 8, marsh: 11, spire: 13, ossuary: 15, garden: 17 }[zone];
     return start + Math.max(0, Math.floor(index));
 }
 export function biomeWildLevel(zone, roll) {
-    const start = { village: 1, forest: 4, sanctuary: 6, marsh: 11, spire: 13 }[zone];
+    const start = { village: 1, forest: 4, sanctuary: 6, marsh: 11, spire: 13, ossuary: 17, garden: 19 }[zone];
     return start + Math.max(0, Math.min(3, Math.floor(roll * 4)));
 }
 export function nearbyEncounter(encounters, flags, x, y, radius = 1.65) {
@@ -103,7 +111,7 @@ export function nearbyEncounter(encounters, flags, x, y, radius = 1.65) {
  * No additional save field is required. Never award for randomly generated battles. */
 export const ROAMER_FIRST_VICTORY_XP = 48;
 export function firstRoamerVictoryBonus(type, encounterId, flags) {
-    return type === 'wild' && typeof encounterId === 'string' && /^(forest|sanctuary|marsh|spire)-[0-2]$/.test(encounterId) && !flags.includes('roamer-' + encounterId)
+    return type === 'wild' && typeof encounterId === 'string' && /^(forest|sanctuary|marsh|spire|ossuary|garden)-[0-2]$/.test(encounterId) && !flags.includes('roamer-' + encounterId)
         ? ROAMER_FIRST_VICTORY_XP : 0;
 }
 /** First trail victories provide a finite, post-combat respite so exploration

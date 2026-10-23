@@ -748,6 +748,50 @@ export function drawCreature(ctx, speciesId, x, y, scale = 1, t = 0, action = 'i
         ctx.lineTo(32, -29 - sweep);
         ctx.stroke();
     }
+    else if (sp.shape === 16) { // Tideworn: spiral shell, antennae and tidal mantle
+        ctx.fillStyle = '#3d7776';
+        ctx.beginPath();
+        ctx.ellipse(0, 1, 23, 11, 0, 0, 7);
+        ctx.fill();
+        ctx.fillStyle = col;
+        ctx.beginPath();
+        ctx.arc(-3, -17, 19, 0, 7);
+        ctx.fill();
+        ctx.strokeStyle = '#e4fff0';
+        ctx.lineWidth = 2.4;
+        ctx.beginPath();
+        ctx.arc(-3, -17, 13, .3, 5.5);
+        ctx.arc(-3, -17, 7, .4, 5.3);
+        ctx.stroke();
+        ctx.strokeStyle = '#7ad7c7';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(13, -12);
+        ctx.lineTo(21, -35);
+        ctx.moveTo(20, -12);
+        ctx.lineTo(28, -34);
+        ctx.stroke();
+        ctx.fillStyle = '#fffbe4';
+        ctx.fillRect(20, -38, 5, 5);
+        ctx.fillRect(28, -38, 5, 5);
+    }
+    else if (sp.shape === 17) { // Frostlark: bifurcated crystalline wings and bright core
+        const flap = perf.wing * 4;
+        poly(ctx, [[-8, -14], [-40, -35 + flap], [-30, -2], [-7, 4]], '#a8d7ee');
+        poly(ctx, [[8, -14], [40, -35 - flap], [30, -2], [7, 4]], '#e3f5ff');
+        poly(ctx, [[-10, -24], [0, -39], [11, -24], [12, 7], [0, 13], [-12, 7]], col);
+        poly(ctx, [[4, -20], [17, -15], [4, -10]], '#f6eed1');
+        ctx.fillStyle = '#29435c';
+        ctx.fillRect(-4, -24, 4, 4);
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1.3;
+        ctx.beginPath();
+        ctx.moveTo(-32, -24 + flap);
+        ctx.lineTo(-20, -13);
+        ctx.moveTo(32, -24 - flap);
+        ctx.lineTo(20, -13);
+        ctx.stroke();
+    }
     else if (sp.shape === 6) { // deer
         ctx.beginPath();
         ctx.ellipse(0, -9, 21, 16, 0, 0, 7);
@@ -1309,6 +1353,36 @@ function drawWayside(ctx, x, y, k, t, zone) {
         ctx.fillRect(13, -42, 3, 4);
         light(ctx, 1, -24, 33, a.accent, .1);
     }
+    else if (zone === 'ossuary') {
+        ctx.fillStyle = a.stoneLight;
+        ctx.beginPath();
+        ctx.ellipse(0, -4, 18, 6, 0, 0, 7);
+        ctx.fill();
+        ctx.fillStyle = a.stoneMid;
+        ctx.fillRect(-4, -37, 8, 33);
+        ctx.strokeStyle = a.accent;
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.arc(0, -32, 10, Math.PI, Math.PI * 2);
+        ctx.stroke();
+        for (let j = -2; j <= 2; j++) {
+            ctx.strokeStyle = a.pathMark;
+            ctx.beginPath();
+            ctx.moveTo(j * 3, -36);
+            ctx.lineTo(j * 5, -45);
+            ctx.stroke();
+        }
+        light(ctx, 0, -36, 34, a.accent, .15);
+    }
+    else if (zone === 'garden') {
+        ctx.fillStyle = a.stoneDark;
+        ctx.fillRect(-5, -34, 10, 36);
+        poly(ctx, [[-16, -29], [0, -53], [16, -29], [0, -12]], a.canopyLight);
+        poly(ctx, [[-9, -27], [0, -42], [9, -27], [0, -19]], a.rim);
+        ctx.fillStyle = a.accent;
+        ctx.fillRect(-3, -35, 6, 6);
+        light(ctx, 0, -32, 32, a.accent, .18);
+    }
     else {
         ctx.fillStyle = a.stoneDark;
         ctx.fillRect(-9, -30, 18, 31);
@@ -1454,10 +1528,10 @@ function drawGround(ctx, zone, camX, camY, t) {
 function drawClimate(ctx, zone, t, seed, reduced = false) {
     const speed = reduced ? 0 : t;
     ctx.save();
-    if (zone === 'forest' || zone === 'marsh') {
-        const count = reduced ? 18 : zone === 'marsh' ? 48 : 36;
+    if (zone === 'forest' || zone === 'marsh' || zone === 'ossuary') {
+        const count = reduced ? 18 : zone === 'marsh' ? 48 : zone === 'ossuary' ? 32 : 36;
         ctx.lineWidth = 1.25;
-        ctx.strokeStyle = zone === 'marsh' ? '#91e1cb' : '#b6d8dc';
+        ctx.strokeStyle = zone === 'marsh' ? '#91e1cb' : zone === 'ossuary' ? '#b0f4e7' : '#b6d8dc';
         for (let i = 0; i < count; i++) {
             const a = hash(i, 131, seed), b = hash(i, 53, seed), drift = speed * (100 + a * 140);
             const x = ((a * W + drift) % W + W) % W, y = ((b * H + speed * (190 + b * 130)) % H + H) % H;
@@ -1467,7 +1541,7 @@ function drawClimate(ctx, zone, t, seed, reduced = false) {
             ctx.lineTo(x - 3, y + 7 + b * 7);
             ctx.stroke();
         }
-        ctx.fillStyle = zone === 'marsh' ? '#8bdfbc' : '#b9d2a4';
+        ctx.fillStyle = zone === 'marsh' ? '#8bdfbc' : zone === 'ossuary' ? '#d1fff0' : '#b9d2a4';
         for (let i = 0; i < 12; i++) {
             const x = ((hash(i, 176, seed) * W + speed * (12 + i % 4 * 7)) % W + W) % W;
             const y = ((hash(i, 113, seed) * H + Math.sin(speed * .8 + i) * 12) % H + H) % H;
@@ -1475,8 +1549,8 @@ function drawClimate(ctx, zone, t, seed, reduced = false) {
             ctx.fillRect(x, y, 2 + i % 2, 2);
         }
     }
-    else if (zone === 'sanctuary' || zone === 'spire') {
-        const glyphs = zone === 'spire' ? ['✦', '∴', '◊', '·'] : ['+', '*', 'o', '~'];
+    else if (zone === 'sanctuary' || zone === 'spire' || zone === 'garden') {
+        const glyphs = zone === 'spire' ? ['✦', '∴', '◊', '·'] : zone === 'garden' ? ['❄', '✧', '·', '*'] : ['+', '*', 'o', '~'];
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.font = 'bold 11px monospace';
@@ -1485,7 +1559,7 @@ function drawClimate(ctx, zone, t, seed, reduced = false) {
             const y = ((hash(i, 79, seed) * H - speed * (13 + i % 5 * 6)) % H + H) % H;
             const alpha = (.13 + .22 * hash(i, 87, seed)) * (.7 + .3 * Math.sin(speed * .6 + i));
             ctx.globalAlpha = alpha;
-            ctx.fillStyle = i % 3 ? (zone === 'spire' ? '#c6a4f7' : '#b9a6ea') : (zone === 'spire' ? '#f1d7e9' : '#e6c7a2');
+            ctx.fillStyle = i % 3 ? (zone === 'spire' ? '#c6a4f7' : zone === 'garden' ? '#e0f5ff' : '#b9a6ea') : (zone === 'spire' ? '#f1d7e9' : zone === 'garden' ? '#ffffff' : '#e6c7a2');
             ctx.fillText(glyphs[i % glyphs.length], x, y);
         }
     }

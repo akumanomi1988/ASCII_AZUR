@@ -6,7 +6,7 @@ import { drawDungeon } from './dungeons/draw-dungeon.js';
 import { chamberAt, chamberProgress } from './dungeons/room-art.js';
 import { generateDungeon, nearbyDungeonEvent, completeDungeonEvent, dungeonGateOpen, revealDungeon, dungeonSweep } from './dungeons/labyrinth.js';
 import { SPECIES, MOVES, createCreature, maxHp, validateSave } from './domain.js';
-import { ZONES, sweepMove, isWild, nearbyLandmark, configureWorld, captureWorldSnapshot, freshWorldSeed, seedFromText, terrain, WORLD_W, WORLD_H } from './world.js';
+import { ZONES, sweepMove, isWild, nearbyLandmark, configureWorld, captureWorldSnapshot, freshWorldSeed, seedFromText, terrain, WORLD_W, WORLD_H, ZONE_IDS } from './world.js';
 import { SHOP, QUESTS, buy, claimQuests, normalizeEconomy, newEconomy } from './rpg.js';
 import { Sound, themeForZone } from './audio.js';
 import { FrameMetrics } from './core/frame-metrics.js';
@@ -14,6 +14,7 @@ import { AdaptiveGlyphs } from './core/adaptive-glyphs.js';
 import { storyGuidance } from './story-navigation.js';
 import { ARKEN_STORY, ARKEN_FINALE_REWARD, arkenStoryBeat, arkenStoryIndex, concludeArken, canConcludeArken, guardianPreparation, guardianRecommendedLead, sanctuaryRoutePlan, sanctuaryOathProgress, SANCTUARY_OATHS_FLAG, SANCTUARY_OATHS_REWARD } from './story-campaign.js';
 import { marshChapterProgress, marshDecision, marshFinish, MARSH_REWARDS } from './story-marsh.js';
+import { AFTERLIGHT, afterlightFlag, afterlightProgress, afterlightResolution, afterlightEpilogue } from './story-afterlight.js';
 import { crownProgress, crownChoose, crownFinish, crownEpilogue, CROWN_BOSS_FLAG, CROWN_END_FLAG, CROWN_CHOICE_REWARDS } from './story-finale.js';
 import { campaignRoadbook } from './story-roadbook.js';
 import { readSave, writeSave } from './core/save-store.js';
@@ -540,7 +541,10 @@ class AzurGame {
     interactLandmark(l) {
         switch (l.kind) {
             case 'npc':
-                this.interactNpc(l.npcId || 'archivist');
+                if (this.save.zone === 'ossuary' || this.save.zone === 'garden')
+                    this.interactAfterlightNpc(this.save.zone);
+                else
+                    this.interactNpc(l.npcId || 'archivist');
                 break;
             case 'rune':
                 this.openRune(this.save.zone);
@@ -574,6 +578,10 @@ class AzurGame {
                 break;
             }
             case 'memory': {
+                if (this.save.zone === 'ossuary' || this.save.zone === 'garden') {
+                    this.interactAfterlightMemory(this.save.zone, l);
+                    break;
+                }
                 if (this.save.zone === 'spire') {
                     if (!this.flag('crown-met-oriel')) {
                         this.dialog([{ title: 'ESCRITURA SELLADA', text: 'Oriel debe abrirte el camino de las dos reliquias.' }]);
@@ -608,7 +616,9 @@ class AzurGame {
                 break;
             }
             case 'verdict':
-                if (this.save.zone === 'spire')
+                if (this.save.zone === 'ossuary' || this.save.zone === 'garden')
+                    this.openAfterlightVerdict(this.save.zone);
+                else if (this.save.zone === 'spire')
                     this.openCrownVerdict();
                 else
                     this.openMarshVerdict();
@@ -619,8 +629,30 @@ class AzurGame {
                     next = 'forest';
                 else if (this.save.zone === 'forest')
                     next = l.x < 10 ? 'village' : 'sanctuary';
-                else if (this.save.zone === 'spire')
-                    next = 'marsh';
+                else if (this.save.zone === 'garden')
+                    next = 'ossuary';
+                else if (this.save.zone === 'ossuary') {
+                    if (l.x > 20) {
+                        if (!afterlightProgress('ossuary', this.save.flags).complete) {
+                            this.dialog([{ title: 'EL JARDÍN CERRADO', text: 'Edda debe sellar primero el Pozo de los Retornos.' }]);
+                            break;
+                        }
+                        next = 'garden';
+                    }
+                    else
+                        next = 'spire';
+                }
+                else if (this.save.zone === 'spire') {
+                    if (l.x > 20) {
+                        if (!this.flag('crown-trilogy-complete')) {
+                            this.dialog([{ title: 'EL OSARIO SELLADO', text: 'Solo quien haya elegido el destino de la Corona puede escuchar el mar de los ausentes.' }]);
+                            break;
+                        }
+                        next = 'ossuary';
+                    }
+                    else
+                        next = 'marsh';
+                }
                 else if (this.save.zone === 'marsh') {
                     if (l.x > 20) {
                         if (!crownProgress(this.save.flags).unlocked) {
@@ -677,6 +709,83 @@ class AzurGame {
                 this.prepareGuardianBattle();
                 break;
         }
+    }
+    /** The Afterlight pilgrimage begins only after the authored main ending. */
+    interactAfterlightNpc(zone) {
+        const chapter = AFTERLIGHT[zone], progress = afterlightProgress(zone, this.save.flags);
+        if (!progress.started) {
+            this.dialog([{ title: chapter.keeper, text: 'Este sendero aún duerme. Las decisiones de la Corona deben cerrarse primero.' }]);
+            return;
+        }
+        if (!progress.met) {
+            this.addFlag(afterlightFlag(zone, 'met'));
+            this.saveNow(false);
+            this.dialog([{ title: chapter.keeper, text: chapter.intro[0] }, { title: chapter.title.toUpperCase(), text: chapter.intro[1] }]);
+            return;
+        }
+        if (progress.complete) {
+            const lines = zone === 'garden' ? afterlightEpilogue(this.save.flags) : ['Los nombres han elegido su lugar en la marea. El Jardín de la Última Escarcha ya puede abrirse.'];
+            this.dialog(lines.map((text, i) => ({ title: i === 0 ? chapter.keeper : 'LA VIGILIA CONTINÚA', text })));
+            return;
+        }
+        this.dialog([{ title: chapter.keeper, text: progress.objective + ' ' + progress.hint }]);
+    }
+    interactAfterlightMemory(zone, landmark) {
+        const progress = afterlightProgress(zone, this.save.flags), chapter = AFTERLIGHT[zone];
+        if (!progress.met) {
+            this.dialog([{ title: 'MEMORIA SELLADA', text: 'Habla primero con ' + chapter.keeper + '.' }]);
+            return;
+        }
+        const memory = chapter.memories.find(m => m.id === landmark.npcId);
+        if (!memory)
+            return;
+        const flag = afterlightFlag(zone, 'memory-' + memory.id);
+        if (this.flag(flag)) {
+            this.toast('MEMORIA YA RESTAURADA');
+            return;
+        }
+        this.addFlag(flag);
+        this.sound.pick();
+        this.saveNow(false);
+        this.dialog(memory.lines.map((text, i) => ({ title: i === 0 ? memory.title.toUpperCase() : 'EL ECO REVELADO', text })));
+    }
+    openAfterlightVerdict(zone) {
+        const chapter = AFTERLIGHT[zone], progress = afterlightProgress(zone, this.save.flags);
+        if (progress.complete) {
+            this.dialog([{ title: chapter.verdict, text: 'El voto permanece. No existe una segunda sentencia.' }]);
+            return;
+        }
+        if (!progress.ready) {
+            this.dialog([{ title: chapter.verdict, text: 'Necesitas hablar con ' + chapter.keeper + ', escuchar las dos memorias y resolver los tres testigos. ' + progress.hint }]);
+            return;
+        }
+        this.showModal(chapter.verdict.toUpperCase(), `<div class="modal-content-block"><strong>${htmlEscape(chapter.title)}</strong><p>Tu decisión será irreversible en esta partida. Ambas opciones permiten continuar y ninguna destruye vínculos adquiridos.</p></div>` +
+            chapter.choices.map(c => `<div class="modal-option"><div><strong>${htmlEscape(c.title)}</strong><small>${htmlEscape(c.description)}</small></div><button data-afterlight-choice="${c.id}" aria-label="Elegir ${htmlEscape(c.title)}">ELEGIR</button></div>`).join('') +
+            '<div class="modal-option"><div><strong>VOLVER</strong><small>Puedes seguir explorando antes de decidir.</small></div><button id="afterlightRetreat">VOLVER</button></div>');
+        byId('afterlightRetreat').onclick = () => this.hideModal();
+        byId('modalContent').querySelectorAll('[data-afterlight-choice]').forEach(button => {
+            button.onclick = () => this.chooseAfterlightVerdict(zone, button.dataset.afterlightChoice);
+        });
+    }
+    chooseAfterlightVerdict(zone, choice) {
+        const result = afterlightResolution(zone, this.save.flags, choice);
+        if (!result) {
+            this.hideModal();
+            this.toast('EL VOTO NO ESTÁ DISPONIBLE');
+            return;
+        }
+        result.additions.forEach(flag => this.addFlag(flag));
+        this.save.inventory.seals = Math.min(9999, this.save.inventory.seals + result.reward.seals);
+        this.save.inventory.tonics = Math.min(9999, this.save.inventory.tonics + result.reward.tonics);
+        this.economy.echoes = Math.min(999999, this.economy.echoes + result.reward.echoes);
+        this.sound.pick();
+        this.saveNow(false);
+        this.hideModal();
+        this.updateUI();
+        const chapter = AFTERLIGHT[zone], chosen = chapter.choices.find(c => c.id === choice);
+        const next = zone === 'ossuary' ? 'Se abre el camino al Jardín de la Última Escarcha.' : 'La Vigilia de las Dos Ausencias ha terminado. Regresa con Silas para escuchar el epílogo.';
+        this.dialog([{ title: chosen.title, text: chosen.description },
+            { title: 'UN VOTO QUE PERMANECE', text: next }]);
     }
     /** Altars offer real optional evolution/collection arcs once the world clues are solved. */
     offerBondTrial() {
@@ -1660,6 +1769,10 @@ class AzurGame {
         const chapter = this.flag('arken-vow-restored') ? `<div class="modal-content-block"><strong>CAPÍTULO II · ${htmlEscape(marsh.title.toUpperCase())} · ${marsh.stage}/6</strong><p>${htmlEscape(marsh.objective)}</p>${htmlEscape(marsh.hint)}</div><div class="modal-option"><div><strong>ESPEJOS DE LA MARISMA</strong><small>${marsh.memories}/2 recuerdos · ${marsh.encounters}/3 testigos · ${marsh.choice ? marsh.choice === 'keep' ? 'PRESERVAR' : 'LIBERAR' : 'DECISIÓN PENDIENTE'}</small></div><span class="quest-state ${marsh.complete ? 'done' : ''}">${marsh.complete ? '✓ CERRADO' : 'EN CURSO'}</span></div>` : '';
         const crown = crownProgress(this.save.flags);
         const finale = this.flag('marsh-chapter-complete') ? `<div class="modal-content-block"><strong>CAPÍTULO III · ${htmlEscape(crown.title.toUpperCase())} · ${crown.stage}/7</strong><p>${htmlEscape(crown.objective)}</p>${htmlEscape(crown.hint)}</div><div class="modal-option"><div><strong>CORONA DE LO NO ESCRITO</strong><small>${crown.memories}/2 reliquias · ${crown.witnesses}/3 testigos · ${crown.boss ? 'ESCRIBA CAÍDO' : 'NULLSCRIBE VIVO'} · ${crown.choice || 'DECISIÓN PENDIENTE'}</small></div><span class="quest-state ${crown.complete ? 'done' : ''}">${crown.complete ? '✓ FINAL' : 'EN CURSO'}</span></div>` : '';
+        const afterlight = this.flag('crown-trilogy-complete') ? ['ossuary', 'garden'].map(zone => {
+            const p = afterlightProgress(zone, this.save.flags), chapter = AFTERLIGHT[zone];
+            return `<div class="modal-option"><div><strong>EPÍLOGO · ${htmlEscape(chapter.title.toUpperCase())}</strong><small>${htmlEscape(p.objective)}</small><small>${htmlEscape(p.hint)}</small></div><span class="quest-state ${p.complete ? 'done' : ''}">${p.complete ? '✓ COMPLETO' : p.started ? 'EN CURSO' : 'BLOQUEADO'}</span></div>`;
+        }).join('') : '';
         const bonds = BOND_ARCS.map(arc => {
             const p = bondProgress(arc, this.save.flags, [...this.save.team, ...this.save.storage]);
             const state = p.stage === 'claimed' ? '✓ ' + (p.path === 'fang' ? 'FILO' : 'VELO') : p.stage === 'ready' ? 'DISPONIBLE' : p.creatureReady ? 'BUSCA RECUERDOS' : 'DESPIERTA';
@@ -1667,7 +1780,7 @@ class AzurGame {
         }).join('');
         const travel = campaignRoadbook(this.storyState, this.save.team, this.save.inventory);
         const progressPanel = `<div class="modal-content-block"><strong>ATLAS DEL VIAJE · ${travel.completed}/${travel.total} HITOS · ${travel.percentage}%</strong><p>${travel.chapters.map(c => `${htmlEscape(c.name)}: ${c.done}/${c.total} ${c.status === 'done' ? '✓' : c.status === 'active' ? '◆' : '○'}`).join(' · ')}</p><p>OBJETIVO · ${htmlEscape(travel.objective)}</p><p>Equipo: ${this.save.team.filter(c => c.hp > 0).length}/${this.save.team.length} conscientes · ${this.save.inventory.tonics} Tónicos · ${this.save.inventory.seals} Sellos${travel.counter ? ' · Contraataque: ' + htmlEscape(travel.counter) : ''}.</p>${travel.advice.map(t => `<p>✦ ${htmlEscape(t)}</p>`).join('')}<p>Este atlas no cambia el guardado ni concede recursos.</p></div>`;
-        this.showModal('DIARIO · MISIONES', progressPanel + mainQuest + chapter + finale + `<div class="modal-content-block"><strong>JURAMENTOS DE VÍNCULO · ${BOND_ARCS.filter(a => bondProgress(a, this.save.flags, [...this.save.team, ...this.save.storage]).stage === 'claimed').length}/${BOND_ARCS.length}</strong><p>Despierta a tus criaturas, descubre memorias y regresa a cada Lumbre para elegir un don permanente.</p></div>` + bonds + `<div class="shop-balance">${this.economy.echoes} ECOS · ${this.economy.completed.length}/${QUESTS.length} ENCARGOS SECUNDARIOS</div>` + QUESTS.map(q => `<div class="modal-option"><div><strong>${htmlEscape(q.name)}</strong><small>${htmlEscape(q.description)}</small><small>RECOMPENSA · ${q.reward} ECOS</small></div><span class="quest-state ${this.economy.completed.includes(q.id) ? 'done' : ''}">${this.economy.completed.includes(q.id) ? '✓ HECHA' : 'PENDIENTE'}</span></div>`).join(''));
+        this.showModal('DIARIO · MISIONES', progressPanel + mainQuest + chapter + finale + afterlight + `<div class="modal-content-block"><strong>JURAMENTOS DE VÍNCULO · ${BOND_ARCS.filter(a => bondProgress(a, this.save.flags, [...this.save.team, ...this.save.storage]).stage === 'claimed').length}/${BOND_ARCS.length}</strong><p>Despierta a tus criaturas, descubre memorias y regresa a cada Lumbre para elegir un don permanente.</p></div>` + bonds + `<div class="shop-balance">${this.economy.echoes} ECOS · ${this.economy.completed.length}/${QUESTS.length} ENCARGOS SECUNDARIOS</div>` + QUESTS.map(q => `<div class="modal-option"><div><strong>${htmlEscape(q.name)}</strong><small>${htmlEscape(q.description)}</small><small>RECOMPENSA · ${q.reward} ECOS</small></div><span class="quest-state ${this.economy.completed.includes(q.id) ? 'done' : ''}">${this.economy.completed.includes(q.id) ? '✓ HECHA' : 'PENDIENTE'}</span></div>`).join(''));
     }
     openCodex() {
         if (!this.started)
@@ -1679,7 +1792,7 @@ class AzurGame {
             capturable.map(sp => `<div class="modal-option"><div><strong style="color:${sp.color}">${known.has(sp.id) ? htmlEscape(sp.name) : '??????'}</strong><small>${known.has(sp.id) ? htmlEscape(sp.title + ' · ' + sp.element + ' · ' + sp.desc) : 'Esta criatura aún no ha compartido su nombre.'}</small>${known.has(sp.id) && sp.role ? `<small>ROL TÁCTICO · ${htmlEscape(sp.role)}</small>` : ''}${bondChoice(this.save.flags, sp.id) ? `<small>JURAMENTO ACTIVO · ${bondChoice(this.save.flags, sp.id) === 'fang' ? 'FILO DEL RECUERDO' : 'VELO PROTECTOR'}</small>` : ''}</div></div>`).join(''));
     }
     revealPosition() { if (!this.save.worldSeed)
-        return; const x = Math.floor(this.save.x), y = Math.floor(this.save.y); const mark = x + y * WORLD_W + (['village', 'forest', 'sanctuary', 'marsh', 'spire'].indexOf(this.save.zone) * WORLD_W * WORLD_H); if (this.lastReveal === mark)
+        return; const x = Math.floor(this.save.x), y = Math.floor(this.save.y); const mark = x + y * WORLD_W + (ZONE_IDS.indexOf(this.save.zone) * WORLD_W * WORLD_H); if (this.lastReveal === mark)
         return; this.lastReveal = mark; this.save.discovered = reveal(this.save.discovered, this.save.zone, x, y, 4.8); }
     openDungeonAtlas() {
         const d = this.save.dungeon;
@@ -1969,6 +2082,33 @@ class AzurGame {
             node.classList.add('hidden');
             return;
         }
+        if (this.save.zone === 'ossuary' || this.save.zone === 'garden') {
+            const zone = this.save.zone, progress = afterlightProgress(zone, this.save.flags), chapter = AFTERLIGHT[zone];
+            let target;
+            if (!progress.met)
+                target = ZONES[zone].landmarks.find(l => l.kind === 'npc');
+            else if (progress.memories < 2)
+                target = ZONES[zone].landmarks.find(l => l.kind === 'memory' && !this.flag(afterlightFlag(zone, 'memory-' + l.npcId)));
+            else if (progress.witnesses < 3) {
+                const e = this.roamers().find(e => !this.flag('roamer-' + e.id));
+                if (e)
+                    target = { x: e.x, y: e.y, label: SPECIES[e.speciesId]?.name || 'TESTIGO ERRANTE' };
+            }
+            else if (!progress.complete)
+                target = ZONES[zone].landmarks.find(l => l.kind === 'verdict');
+            else
+                target = ZONES[zone].landmarks.find(l => l.kind === (zone === 'ossuary' ? 'portal' : 'npc') && (zone !== 'ossuary' || l.x > 20));
+            const dx = (target?.x ?? this.save.x) - this.save.x, dy = (target?.y ?? this.save.y) - this.save.y;
+            const arrow = Math.abs(dx) > Math.abs(dy) ? dx > 0 ? '→' : '←' : dy > 0 ? '↓' : '↑';
+            const distance = Math.round(Math.hypot(dx, dy));
+            const label = target?.label || chapter.verdict;
+            const content = progress.complete && zone === 'garden' ? '✦ VIGILIA COMPLETA' : `${arrow} ${label.toUpperCase()} · ${distance} PASOS`;
+            if (node.textContent !== content)
+                node.textContent = content;
+            node.classList.remove('hidden');
+            node.classList.toggle('is-near', distance <= 2.3);
+            return;
+        }
         const cue = storyGuidance(this.storyState, { zone: this.save.zone, x: this.save.x, y: this.save.y, inDungeon: !!this.save.dungeon?.active });
         if (node.textContent !== cue.text)
             node.textContent = cue.text;
@@ -1986,7 +2126,15 @@ class AzurGame {
         byId('rosterNum').textContent = `${this.save.team.length}/6`;
         byId('roster').innerHTML = this.save.team.length ? this.save.team.map(c => { const s = SPECIES[c.speciesId]; return `<div class="creature-row"><div class="creature-icon" style="color:${s.color}">${s.shape === 0 || s.shape === 5 ? '♨' : s.shape === 2 ? '✣' : s.shape === 4 ? '✶' : s.shape === 6 ? '♜' : '◈'}</div><div><strong>${htmlEscape(s.name)} <span style="color:#839da1;font:9px monospace">LV ${c.level}</span></strong><small>${s.element.toUpperCase()} · ${c.hp}/${maxHp(c)} HP</small><div class="mini-health"><div style="width:${c.hp / maxHp(c) * 100}%"></div></div></div></div>`; }).join('') : '<div class="roster-empty">Aún no tienes vínculos.</div>';
         const step = arkenStoryIndex(this.storyState), beat = this.storyBeat();
-        if (step === 6 && this.flag('marsh-chapter-complete')) {
+        if (this.save.zone === 'ossuary' || this.save.zone === 'garden') {
+            const p = afterlightProgress(this.save.zone, this.save.flags);
+            byId('fragBar').style.width = (p.stage / 5 * 100) + '%';
+            byId('fragments').textContent = `${p.stage} / 5 HITOS DE LA VIGILIA`;
+            byId('missionChip').textContent = p.complete ? 'VIGILIA REGISTRADA' : p.objective.toUpperCase();
+            byId('journalText').textContent = p.hint;
+            byId('quest').innerHTML = `<div class="quest-icon">${p.complete ? '✦' : '◇'}</div><div><small>EPÍLOGO · ${p.stage}/5</small><strong>${htmlEscape(p.title)}</strong><span>${htmlEscape(p.objective)}</span></div>`;
+        }
+        else if (step === 6 && this.flag('marsh-chapter-complete')) {
             const end = crownProgress(this.save.flags);
             byId('fragBar').style.width = (end.stage / 7 * 100) + '%';
             byId('fragments').textContent = `${end.stage} / 7 HITOS DE LA CORONA`;

@@ -1,6 +1,6 @@
 import { stableVisualVariant } from './biome-art.js';
 const PATH_MOTIFS = {
-    village: 'cobble', forest: 'leaf', sanctuary: 'sigil', marsh: 'reed', spire: 'shard'
+    village: 'cobble', forest: 'leaf', sanctuary: 'sigil', marsh: 'reed', spire: 'shard', ossuary: 'shell', garden: 'frost'
 };
 export function pathMotif(zone) { return PATH_MOTIFS[zone]; }
 export function groundMotifs(zone, surface, x, y, seed) {
@@ -84,6 +84,23 @@ export function paintGroundMotifs(ctx, zone, surface, tileX, tileY, seed, screen
                 ctx.strokeStyle = palette.stoneLight;
                 ctx.lineWidth = 1.2 * s;
                 stroke(ctx, 0, -6 * s, 1 * s, 3 * s);
+                break;
+            case 'shell':
+                ctx.strokeStyle = palette.pathMark;
+                ctx.lineWidth = 1.4 * s;
+                ctx.beginPath();
+                ctx.arc(0, 1 * s, 5 * s, Math.PI, Math.PI * 2);
+                ctx.stroke();
+                for (let k = -2; k <= 2; k++)
+                    stroke(ctx, k * 1.8 * s, 1 * s, k * 2.4 * s, -3.5 * s);
+                break;
+            case 'frost':
+                ctx.strokeStyle = palette.pathMark;
+                ctx.lineWidth = 1.25 * s;
+                stroke(ctx, -5 * s, 0, 5 * s, 0);
+                stroke(ctx, 0, -5 * s, 0, 5 * s);
+                stroke(ctx, -3.5 * s, -3.5 * s, 3.5 * s, 3.5 * s);
+                stroke(ctx, -3.5 * s, 3.5 * s, 3.5 * s, -3.5 * s);
                 break;
             case 'tuft':
                 ctx.strokeStyle = palette.grassLight;
