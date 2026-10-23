@@ -1,5 +1,5 @@
 // Versioned offline cache. Older saved games stay in localStorage, outside this cache.
-const CACHE='ascii-azur-v034-q01';
+const CACHE='ascii-azur-v035-q01';
 const CORE=[
  './','./index.html','./style.css','./manifest.webmanifest','./assets/icon.svg',
  './dist/story-campaign.js','./dist/story-marsh.js','./dist/story-finale.js','./dist/story-roadbook.js','./dist/story-navigation.js','./dist/main.js','./dist/dungeons/labyrinth.js','./dist/dungeons/room-art.js','./dist/dungeons/draw-dungeon.js','./dist/creatures/loadout.js','./dist/creatures/bond-quests.js','./dist/expeditions/expedition.js','./dist/rpg.js','./dist/domain.js','./dist/party.js','./dist/combat/tactics.js','./dist/combat/move-preview.js','./dist/combat/capture-odds.js','./dist/puzzles/runes.js','./dist/render.js',
