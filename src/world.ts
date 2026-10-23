@@ -218,11 +218,17 @@ export function canOccupy(zone:ZoneId,x:number,y:number,radius=.20):boolean{
 }
 /** Bounded swept movement avoids tunneling and slides along walls. */
 export function sweepMove(zone:ZoneId,x:number,y:number,dx:number,dy:number,radius=.19):{x:number;y:number}{
+ // Character coordinates are tile-space floats. Remove sub-nanotile drift at
+ // exact tile centres before collision sampling, otherwise a long path of
+ // fractional joystick steps can produce different barriers than the same
+ // route entered from an integer checkpoint.
+ const stable=(n:number)=>Math.abs(n-Math.round(n))<1e-9?Math.round(n):n;
+ x=stable(x);y=stable(y);
  const distance=Math.hypot(dx,dy);const slices=Math.max(1,Math.ceil(distance/.10));
  for(let i=0;i<slices;i++){
   const sx=dx/slices,sy=dy/slices;
-  if(canOccupy(zone,x+sx,y,radius))x+=sx;
-  if(canOccupy(zone,x,y+sy,radius))y+=sy;
+  if(canOccupy(zone,x+sx,y,radius))x=stable(x+sx);
+  if(canOccupy(zone,x,y+sy,radius))y=stable(y+sy);
  }
  return{x,y};
 }
