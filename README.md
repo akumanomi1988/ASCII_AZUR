@@ -1,4 +1,6 @@
-# ASCII AZUR v0.43.0 — The Unwritten
+# ASCII AZUR v0.45.0 — The Unwritten
+
+> **v0.45 candidate — Glyph Pixel Art fallback clarity:** Canvas2D now composites a contiguous semantic pixel scene at a bounded 192–480-pixel internal width, preserving full actor and landmark silhouettes rather than reducing each to oversized abstract glyph cells. Sparse foreground glyph accents appear only at meaningful high-contrast edges. This avoids a full output-sized software ImageData write each frame. The original Atmospheric ASCII path, world topology, gameplay and save format are untouched. Acceptance still requires measured browser screenshots, Node/CI, live Pages and real minimum Android hardware.
 
 > **v0.43 candidate — autonomous reliability and accessibility:** resilient backup confirmation before primary rotation, 9,000 fault-injected multi-slot save operations, legacy three-region snapshot upgrade checks, keyboard focus recovery across narrative screens and combat, semantic HP meters, spoken narrative updates, and correctly exposed mute/notification states. This advances implementation evidence only; external device/user acceptance is still required.
 
