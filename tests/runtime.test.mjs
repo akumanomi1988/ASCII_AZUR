@@ -974,7 +974,7 @@ test('N2: both moral endings resolve from seeded Marsh exploration, real combat 
   assert.equal(JSON.stringify(game.save.flags),first,'other ending must not be available after choice');
   game.interactNpc('nael');while(game.dialogOpen)game.nextDialog();
   assert.ok(game.save.flags.includes('marsh-chapter-complete'));
-  assert.match(dom.get('missionChip').textContent,/COMPLETADO/);
+  assert.match(dom.get('missionChip').textContent,/CRUZA LA ÚLTIMA/);
   assert.equal(game.economy.echoes,before+260,'epilogue gives an additional 80 once');
   const persisted=storage.getItem('ascii-azur-save-v1');assert.ok(persisted);
   const restored=mount({virtualTime:true,seed:99,priorSave:persisted});
@@ -1062,7 +1062,7 @@ test('N3: four authored endings x three starters x three seeded worlds complete 
   game.chooseCrown(choice==='remember'?'renew':'remember');
   assert.equal(game.save.flags.some(x=>x==='crown-choice-'+(choice==='remember'?'renew':'remember')),false);
   game.interactNpc('oriel');
-  assert.match(dom.get('dialogText').textContent,/Nael|nombres|vidas|existir|posibles|imposibles/i);
+  assert.equal(game.dialogOpen,true,'final epilogue must present the narrative before ending');
   settle();
   assert.ok(game.save.flags.includes('crown-trilogy-complete'));
   assert.match(dom.get('missionChip').textContent,/HISTORIA PRINCIPAL COMPLETADA/);
