@@ -11,7 +11,7 @@ import {SHOP,NPCS,QUESTS,buy,claimQuests,normalizeEconomy,newEconomy,type ShopIt
 import {Sound,themeForZone} from './audio.js';
 import {FrameMetrics} from './core/frame-metrics.js';
 import {AdaptiveGlyphs} from './core/adaptive-glyphs.js';
-import {storyGuidance,guidanceToTarget} from './story-navigation.js';
+import {storyGuidance,guidanceToTarget,walkableRouteToTarget} from './story-navigation.js';
 import {ARKEN_STORY, ARKEN_FINALE_REWARD, arkenStoryBeat, arkenStoryIndex, concludeArken, canConcludeArken, guardianPreparation, guardianRecommendedLead, sanctuaryRoutePlan, sanctuaryOathProgress, SANCTUARY_OATHS_FLAG, SANCTUARY_OATHS_REWARD, type ArkenStoryState} from './story-campaign.js';
 import {marshChapterProgress,marshDecision,marshFinish,MARSH_REWARDS,type MarshChoice} from './story-marsh.js';
 import {AFTERLIGHT,afterlightFlag,afterlightProgress,afterlightResolution,afterlightEpilogue,type AfterlightZone,type AfterlightChoice} from './story-afterlight.js';
@@ -37,6 +37,7 @@ class AzurGame {
   private sound=new Sound();private soundEnabled=true;private reducedMotion=false;private combatCue:CombatCue|null=null;
   private saveBaseline:string|null|undefined;
   private activeSlot:SaveSlot=1;
+  private atlasTarget:{zone:ZoneId;x:number;y:number;label:string}|null=null;
   private lastAccessibleMessage='';
   private save:SaveGame={version:1,zone:'village',x:4,y:16,team:[],storage:[],inventory:{seals:5,tonics:3},defeatedBoss:false,flags:[],playSeconds:0,rpg:newEconomy()};
   private expeditionMessage='';private roamingCache=new Map<string,RoamingEncounter[]>();
@@ -215,7 +216,7 @@ class AzurGame {
         // Commit the validated import before replacing the live session. A failed
         // quota write or stale-tab conflict leaves both the player and save intact.
         this.saveBaseline=writeSave(localStorage,json,this.saveBaseline,this.activeSlot);
-        this.save=json;configureWorld(this.save.worldSeed??0,this.save.worldSnapshot);this.save.worldSnapshot=captureWorldSnapshot()??this.save.worldSnapshot;this.roamingCache.clear();this.save.rpg=normalizeEconomy(json.rpg);this.started=true;this.battle=null;this.cameraZone='';this.lastReveal=-1;this.revealPosition();
+        this.atlasTarget=null;this.save=json;configureWorld(this.save.worldSeed??0,this.save.worldSnapshot);this.save.worldSnapshot=captureWorldSnapshot()??this.save.worldSnapshot;this.roamingCache.clear();this.save.rpg=normalizeEconomy(json.rpg);this.started=true;this.battle=null;this.cameraZone='';this.lastReveal=-1;this.revealPosition();
         this.sound.unlock();this.sound.setScene(this.save.dungeon?.active?'sanctuary':themeForZone(this.save.zone as ZoneId));
         byId('battle').classList.add('hidden');byId('viewport').classList.remove('in-battle');byId('titleScreen').classList.add('hidden');byId('starterScreen').classList.add('hidden');
         this.toggleDrawer(false);this.hideModal();this.updateUI();this.restoreBattle();this.saveNow(false);this.toast('PARTIDA IMPORTADA');
@@ -280,9 +281,9 @@ class AzurGame {
       byId('saveSlotSummary').textContent='ALMACENAMIENTO LOCAL NO DISPONIBLE';
     }
   }
-  private reset(){this.resetJoystick();this.toggleDrawer(false);this.roamingCache.clear();this.save={version:1,zone:'village',x:4,y:16,team:[],storage:[],inventory:{seals:5,tonics:3},defeatedBoss:false,flags:[],playSeconds:0,rpg:newEconomy(),worldSeed:freshWorldSeed()};configureWorld(this.save.worldSeed!);this.save.worldSnapshot=captureWorldSnapshot()!;this.battle=null;this.evolution=null;this.combatCue=null;this.keys.clear();this.encounterCooldown=4;this.camera={x:4,y:16};this.cameraZone='village';this.lastReveal=-1;}
+  private reset(){this.atlasTarget=null;this.resetJoystick();this.toggleDrawer(false);this.roamingCache.clear();this.save={version:1,zone:'village',x:4,y:16,team:[],storage:[],inventory:{seals:5,tonics:3},defeatedBoss:false,flags:[],playSeconds:0,rpg:newEconomy(),worldSeed:freshWorldSeed()};configureWorld(this.save.worldSeed!);this.save.worldSnapshot=captureWorldSnapshot()!;this.battle=null;this.evolution=null;this.combatCue=null;this.keys.clear();this.encounterCooldown=4;this.camera={x:4,y:16};this.cameraZone='village';this.lastReveal=-1;}
   private startNew(){try{if(readSave(localStorage,this.activeSlot)&&!window.confirm(`Crear un viaje nuevo sustituirá la partida del espacio ${this.activeSlot}. Los otros viajes se conservarán. ¿Continuar?`))return;this.saveBaseline=localStorage.getItem(saveKeyForSlot(this.activeSlot));}catch{/* storage may be disabled */}this.sound.unlock();this.sound.setScene('title');const requested=(byId<HTMLInputElement>('worldSeedInput').value||'').trim();this.reset();if(requested){this.save.worldSeed=/^\d{1,10}$/.test(requested)&&Number(requested)<=4294967295?Number(requested)||1:seedFromText(requested);configureWorld(this.save.worldSeed);this.save.worldSnapshot=captureWorldSnapshot()!;} byId('titleScreen').classList.add('hidden');byId('starterScreen').classList.remove('hidden');this.renderStarters();this.sound.select();}
-  private continueGame(){try{const result=readSave(localStorage,this.activeSlot);if(!result)throw Error('Guardado inválido');this.saveBaseline=localStorage.getItem(saveKeyForSlot(this.activeSlot));const raw=result.state;this.save=raw;const storedSnapshot=this.save.worldSnapshot;configureWorld(this.save.worldSeed??0,storedSnapshot);const expandSnapshot=!!this.save.worldSeed&&(!storedSnapshot||ZONE_IDS.some(id=>!storedSnapshot.tiles[id]||!storedSnapshot.poi[id]));if(expandSnapshot)this.save.worldSnapshot=captureWorldSnapshot()??storedSnapshot;this.roamingCache.clear();this.save.rpg=normalizeEconomy(raw.rpg);this.camera={x:this.save.x,y:this.save.y};this.cameraZone=this.save.zone;this.lastReveal=-1;this.revealPosition();this.started=true;if(expandSnapshot)this.saveNow(false);this.sound.unlock();this.sound.setScene(this.save.dungeon?.active?'sanctuary':themeForZone(this.save.zone as ZoneId));this.encounterCooldown=4;byId('titleScreen').classList.add('hidden');this.sound.portal();this.toast(result.source==='backup'?'PARTIDA RECUPERADA DESDE RESPALDO':'PARTIDA RECUPERADA');this.updateUI();this.restoreBattle();}catch{this.toast('EL GUARDADO NO SE PUDO RECUPERAR');}}
+  private continueGame(){try{const result=readSave(localStorage,this.activeSlot);if(!result)throw Error('Guardado inválido');this.saveBaseline=localStorage.getItem(saveKeyForSlot(this.activeSlot));const raw=result.state;this.atlasTarget=null;this.save=raw;const storedSnapshot=this.save.worldSnapshot;configureWorld(this.save.worldSeed??0,storedSnapshot);const expandSnapshot=!!this.save.worldSeed&&(!storedSnapshot||ZONE_IDS.some(id=>!storedSnapshot.tiles[id]||!storedSnapshot.poi[id]));if(expandSnapshot)this.save.worldSnapshot=captureWorldSnapshot()??storedSnapshot;this.roamingCache.clear();this.save.rpg=normalizeEconomy(raw.rpg);this.camera={x:this.save.x,y:this.save.y};this.cameraZone=this.save.zone;this.lastReveal=-1;this.revealPosition();this.started=true;if(expandSnapshot)this.saveNow(false);this.sound.unlock();this.sound.setScene(this.save.dungeon?.active?'sanctuary':themeForZone(this.save.zone as ZoneId));this.encounterCooldown=4;byId('titleScreen').classList.add('hidden');this.sound.portal();this.toast(result.source==='backup'?'PARTIDA RECUPERADA DESDE RESPALDO':'PARTIDA RECUPERADA');this.updateUI();this.restoreBattle();}catch{this.toast('EL GUARDADO NO SE PUDO RECUPERAR');}}
   private renderStarters(){const chars:{id:string;glyph:string;title:string}[]=[{id:'cindrel',glyph:'♨',title:'EL FUEGO'},{id:'velaria',glyph:'≋',title:'LA BRUMA'},{id:'thorne',glyph:'✣',title:'LA RAÍZ'}];byId('starters').innerHTML=chars.map(c=>`<button class="starter" data-starter="${c.id}"><span class="starter-symbol" style="color:${SPECIES[c.id]!.color}">${c.glyph}</span><strong>${SPECIES[c.id]!.name}</strong><small>${c.title}</small></button>`).join('');for(const el of byId('starters').querySelectorAll<HTMLButtonElement>('[data-starter]'))el.addEventListener('click',()=>this.pickStarter(el.dataset.starter!));focusMenuFirst(byId('starterScreen'));}
   private pickStarter(id:string){this.sound.setScene('village');this.save.team=[createCreature(id,5)];this.revealPosition();this.started=true;byId('starterScreen').classList.add('hidden');this.sound.pick();this.toast('NUEVO MUNDO · SEMILLA '+this.save.worldSeed);this.dialog([{title:'El último Portador',text:'Los nombres se están desvaneciendo. El tuyo permanece porque alguien lo recuerda.'},{title:'El último Portador',text:'Al este se extiende el Bosque de Ceniza. Encuentra el Santuario sin Voz y recupera la Primera Palabra.'},{title:'Comienza el viaje',text:'Muévete con WASD o las flechas. Pulsa E para interactuar. Busca las hogueras para recuperar la fuerza.'}]);this.updateUI();this.saveNow(false);}
   private flag(id:string){return this.save.flags.includes(id);}
@@ -301,7 +302,7 @@ class AzurGame {
   private dialog(items:{title:string;text:string}[]){this.dialogQueue=items.slice();this.dialogOpen=true;byId('dialogue').classList.remove('hidden');this.renderDialog();byId('dialogue').focus();}
   private renderDialog(){const item=this.dialogQueue[0];if(!item){this.dialogOpen=false;byId('dialogue').classList.add('hidden');byId('viewport').focus();return;}byId('diaTitle').textContent=item.title;byId('diaText').textContent=item.text;}
   private nextDialog(){if(!this.dialogOpen)return;this.dialogQueue.shift();this.sound.select();this.renderDialog();if(!this.dialogOpen&&this.openShopAfterDialog){this.openShopAfterDialog=false;this.openShop();}}
-  private interact(){if(this.evolution)return;if(byId('titleScreen').classList.contains('hidden')===false)return;if(!byId('starterScreen').classList.contains('hidden'))return;if(this.modalOpen)return;if(this.dialogOpen){this.nextDialog();return;}if(this.battle)return;if(!this.started)return;if(this.save.dungeon?.active){this.dungeonInteract();return;}const roamer=this.nearRoamer();if(roamer){this.startBattle(roamer.speciesId,roamer.level,'wild',roamer.id);return;}const l=nearbyLandmark(this.save.zone as ZoneId,this.save.x,this.save.y,2.15);if(!l){this.toast('NO HAY NADA CON LO QUE INTERACTUAR');return;}this.interactLandmark(l);}
+  private interact(){if(this.evolution)return;if(byId('titleScreen').classList.contains('hidden')===false)return;if(!byId('starterScreen').classList.contains('hidden'))return;if(this.modalOpen)return;if(this.dialogOpen){this.nextDialog();return;}if(this.battle)return;if(!this.started)return;if(this.save.dungeon?.active){this.dungeonInteract();return;}const roamer=this.nearRoamer();if(roamer){this.startBattle(roamer.speciesId,roamer.level,'wild',roamer.id);return;}const l=nearbyLandmark(this.save.zone as ZoneId,this.save.x,this.save.y,2.15);if(!l){this.toast('NO HAY NADA CON LO QUE INTERACTUAR');return;}this.interactLandmark(l);if(this.atlasTarget&&this.atlasTarget.zone===this.save.zone&&this.atlasTarget.x===l.x&&this.atlasTarget.y===l.y){this.atlasTarget=null;this.updateStoryCompass();}}
   private roamers():RoamingEncounter[]{const key=this.save.zone+':'+(this.save.worldSeed??0);let list=this.roamingCache.get(key);if(!list){list=visibleEncounters(this.save.zone as ZoneId,this.save.worldSeed??0);this.roamingCache.set(key,list);}return list.filter(e=>!this.flag('roamer-'+e.id));}
   private nearRoamer(){return nearbyEncounter(this.roamers(),this.save.flags,this.save.x,this.save.y,1.8);}
   private interactLandmark(l:Landmark){switch(l.kind){case 'npc':if(this.save.zone==='ossuary'||this.save.zone==='garden')this.interactAfterlightNpc(this.save.zone);else this.interactNpc(l.npcId as NpcId||'archivist');break;
@@ -345,7 +346,7 @@ class AzurGame {
       }
       else if(l.x>20){if(!this.flag('arken-vow-restored')){this.dialog([{title:'LA PUERTA DEL SEGUNDO ECO',text:'Antes de cruzar debes unir la Primera Palabra y el Último Signo con el Archivista de Arken.'}]);break;}next='marsh';}
       else next='forest';
-      this.save.zone=next;this.cameraZone='';this.sound.setScene(themeForZone(next));this.save.x=l.x>20?4:40;this.save.y=16;this.encounterCooldown=5;this.lastReveal=-1;this.revealPosition();this.addFlag('zone-'+next);this.sound.portal();this.toast('ENTRAS EN '+ZONES[next].name.toUpperCase());this.saveNow(false);this.updateUI();break;
+      this.atlasTarget=null;this.save.zone=next;this.cameraZone='';this.sound.setScene(themeForZone(next));this.save.x=l.x>20?4:40;this.save.y=16;this.encounterCooldown=5;this.lastReveal=-1;this.revealPosition();this.addFlag('zone-'+next);this.sound.portal();this.toast('ENTRAS EN '+ZONES[next].name.toUpperCase());this.saveNow(false);this.updateUI();break;
     }
     case 'guardian':if(this.save.zone==='spire'){
       if(this.flag(CROWN_BOSS_FLAG)){this.toast('NULLSCRIBE YA NO ESCRIBE EL CIELO');break;}
@@ -901,19 +902,47 @@ class AzurGame {
     const cursor=`<circle cx="${(d.x+.5)*step}" cy="${(d.y+.5)*step}" r="5" fill="#fff4d2" stroke="#142c35" stroke-width="1.5"/>`;
     this.showModal('MAPA · CRIPTA DE LOS ECOS',`<div class="modal-content-block">${d.cleared.length}/6 hallazgos resueltos · ${dungeonGateOpen(d)?'La puerta está abierta.':'Encuentra los dos vigilantes y la inscripción.'}</div><svg class="azur-dungeon-map" viewBox="0 0 387 261" role="img" aria-label="Mapa de la cripta explorada, con la posición del jugador"><rect width="387" height="261" fill="#080e16"/>${cells.join('')}${pins}${cursor}</svg><div class="azur-map-legend"><span>● PORTADOR</span><span>◆ HALLAZGOS</span><span>░ ZONAS DESCONOCIDAS</span></div><div class="modal-content-block">SEMILLA: ${d.seed}. El mapa y los objetos conservan su posición mientras sigas jugando esta partida.</div>`);
   }
+  /** Fog-respecting Atlas: select any discovered landmark as a temporary
+   * walking objective. The shortest route uses player-footprint collisions,
+   * never teleports and never persists synthetic map information to saves. */
   private openMap(){if(!this.started)return;if(this.save.dungeon?.active){this.openDungeonAtlas();return;}
     const zone=this.save.zone as ZoneId;
+    const known=(x:number,y:number)=>isDiscovered(this.save.discovered,zone,x,y,!this.save.worldSeed);
     const rects:string[]=[];
     const colors:Record<string,string>={unknown:'#0d1820',path:'#98806a',ground:'#2d4145',grass:'#5b7763',tree:'#203b33',stone:'#59626c',water:'#235461',wall:'#161f30'};
     for(let y=0;y<WORLD_H;y++)for(let x=0;x<WORLD_W;x++){
-      const tile=isDiscovered(this.save.discovered,zone,x,y,!this.save.worldSeed)?terrain(zone,x,y):'unknown';
-      rects.push(`<rect x="${x*8}" y="${y*8}" width="8" height="8" fill="${colors[tile]||'#17212a'}"/>`);
+      const tile=known(x,y)?terrain(zone,x,y):'unknown';
+      rects.push('<rect x="'+(x*8)+'" y="'+(y*8)+'" width="8" height="8" fill="'+(colors[tile]||'#17212a')+'"/>');
     }
-    const landmarkIcons:Record<string,string>={npc:'◆',altar:'✦',portal:'⇨',chest:'▣',rune:'✧',guardian:'♜'};
-    const pins=ZONES[zone].landmarks.filter(l=>isDiscovered(this.save.discovered,zone,l.x,l.y,!this.save.worldSeed)).map(l=>`<text x="${(l.x+.5)*8}" y="${(l.y+.5)*8+3}" text-anchor="middle" font-size="13" font-weight="bold" fill="#f2d9ac" stroke="#101820" stroke-width=".8" paint-order="stroke" >${landmarkIcons[l.kind]||'•'}</text>`).join('');
-    const avatar=`<circle cx="${(this.save.x+.5)*8}" cy="${(this.save.y+.5)*8}" r="5" fill="#f8f0d2" stroke="#233d48" stroke-width="2"/>`;
+    const visibleSites=ZONES[zone].landmarks.filter(l=>known(l.x,l.y));
+    const landmarkIcons:Record<string,string>={npc:'◆',altar:'✦',portal:'⇨',chest:'▣',rune:'✧',guardian:'♜',memory:'◇',verdict:'⚖'};
+    const pins=visibleSites.map(l=>'<text x="'+((l.x+.5)*8)+'" y="'+((l.y+.5)*8+3)+'" text-anchor="middle" font-size="13" font-weight="bold" fill="#f2d9ac" stroke="#101820" stroke-width=".8" paint-order="stroke">'+(landmarkIcons[l.kind]||'•')+'</text>').join('');
+    const selected=this.atlasTarget?.zone===zone?this.atlasTarget:null;
+    const route=selected?walkableRouteToTarget({zone,x:this.save.x,y:this.save.y,inDungeon:false},selected):null;
+    const routeInk=(route??[]).slice(1).map((p,i)=>{
+      const prior=route![i]!;
+      if(!known(prior.x,prior.y)||!known(p.x,p.y))return '';
+      return '<line x1="'+((prior.x+.5)*8)+'" y1="'+((prior.y+.5)*8)+'" x2="'+((p.x+.5)*8)+'" y2="'+((p.y+.5)*8)+'" stroke="#f6d292" stroke-width="3" stroke-linecap="round" stroke-dasharray="2 3"/>';
+    }).join('');
+    const targetPin=selected&&known(selected.x,selected.y)?'<circle cx="'+((selected.x+.5)*8)+'" cy="'+((selected.y+.5)*8)+'" r="8" fill="none" stroke="#f6d292" stroke-width="2"/>':'';
+    const avatar='<circle cx="'+((this.save.x+.5)*8)+'" cy="'+((this.save.y+.5)*8)+'" r="5" fill="#f8f0d2" stroke="#233d48" stroke-width="2"/>';
     const seed=String(this.save.worldSeed??0);
-    this.showModal('ATLAS · '+ZONES[zone].name.toUpperCase(),`<div class="azur-map-intro">Terreno descubierto: ${this.save.worldSeed?discoveredPercent(this.save.discovered,zone):100} %. Los senderos aparecen conforme exploras. Ámbar = transitable; bosque oscuro = barrera.</div><svg class="azur-cartography" viewBox="0 0 ${WORLD_W*8} ${WORLD_H*8}" role="img" aria-label="Mapa de caminos, obstáculos, lugares y posición del jugador">${rects.join('')}${pins}${avatar}</svg><div class="azur-map-legend"><span>● TU POSICIÓN</span><span>━ SENDERO</span><span>◆ PERSONAJES</span><span>✦ PUNTOS DE INTERÉS</span></div><div class="azur-map-seed">SEMILLA DEL MUNDO: <strong>${seed}</strong><br><small>El mapa permanece idéntico al continuar o importar esta partida.</small></div>`);
+    const routeState=selected?'<div class="modal-content-block">DESTINO: '+htmlEscape(selected.label)+' · '+(route?(Math.max(0,route.length-1)+' pasos estimados'):'sin ruta transitable')+'. La línea ámbar solo muestra terreno que ya has descubierto. La brújula te guiará mientras caminas.</div>':'<div class="modal-content-block">Elige un lugar descubierto para fijar una ruta temporal. Puedes cambiarla o cancelarla sin modificar tu partida.</div>';
+    const choices=visibleSites.map((site,i)=>'<div class="modal-option"><div><strong>'+htmlEscape(site.label)+'</strong><small>'+site.kind.toUpperCase()+' · '+Math.round(Math.hypot(site.x-this.save.x,site.y-this.save.y))+' casillas en línea recta</small></div><button data-atlas-target="'+i+'" '+(selected?.x===site.x&&selected?.y===site.y?'aria-pressed="true"':'')+'>GUIAR</button></div>').join('');
+    const clear=selected?'<div class="modal-option"><button data-atlas-clear="1">CANCELAR RUTA PERSONALIZADA</button></div>':'';
+    this.showModal('ATLAS · '+ZONES[zone].name.toUpperCase(),
+      '<div class="azur-map-intro">Terreno descubierto: '+(this.save.worldSeed?discoveredPercent(this.save.discovered,zone):100)+' %. Los senderos aparecen conforme exploras. Ámbar = transitable; bosque oscuro = barrera.</div>'+
+      '<svg class="azur-cartography" viewBox="0 0 '+(WORLD_W*8)+' '+(WORLD_H*8)+'" role="img" aria-label="Mapa de caminos, obstáculos, lugares, ruta y posición del jugador">'+rects.join('')+routeInk+pins+targetPin+avatar+'</svg>'+
+      '<div class="azur-map-legend"><span>● TU POSICIÓN</span><span>━ SENDERO</span><span>◆ PERSONAJES</span><span>✦ PUNTOS DE INTERÉS</span></div>'+
+      routeState+choices+clear+
+      '<div class="azur-map-seed">SEMILLA DEL MUNDO: <strong>'+seed+'</strong><br><small>El mapa permanece idéntico al continuar o importar esta partida.</small></div>');
+    for(const button of byId('modalContent').querySelectorAll<HTMLButtonElement>('[data-atlas-target]'))button.onclick=()=>{
+      const index=Number(button.dataset.atlasTarget),site=visibleSites[index];if(!site)return;
+      this.atlasTarget={zone,x:site.x,y:site.y,label:site.label};
+      this.hideModal();this.updateStoryCompass();this.toast('RUTA PERSONALIZADA ACTIVADA');
+    };
+    const cancel=byId('modalContent').querySelector<HTMLButtonElement>('[data-atlas-clear]');
+    if(cancel)cancel.onclick=()=>{this.atlasTarget=null;this.hideModal();this.updateStoryCompass();this.toast('GUÍA DE HISTORIA RESTAURADA');};
   }
   private openTeam(){
     if(!this.started||this.evolution||this.battle||this.dialogOpen||!byId('starterScreen').classList.contains('hidden'))return;
@@ -1089,6 +1118,7 @@ class AzurGame {
   /** Leave only after a durable save; another journey can then be selected safely. */
   private returnToTitle(){
     if(!this.started||!this.saveNow(true))return;
+    this.atlasTarget=null;
     this.hideModal();this.toggleDrawer(false);this.keys.clear();this.resetJoystick();
     this.started=false;this.battle=null;this.evolution=null;this.combatCue=null;
     this.dialogOpen=false;this.dialogQueue=[];this.lastAccessibleMessage='';
@@ -1100,6 +1130,15 @@ class AzurGame {
   private updateStoryCompass(){
     const node=byId('storyCompass');
     if(!this.started){node.classList.add('hidden');return;}
+    if(this.atlasTarget){
+      if(this.atlasTarget.zone!==this.save.zone)this.atlasTarget=null;
+      else if(!this.save.dungeon?.active){
+        const cue=guidanceToTarget({zone:this.atlasTarget.zone,x:this.save.x,y:this.save.y,inDungeon:false},this.atlasTarget,this.atlasTarget.label.toUpperCase());
+        const content='ATLAS · '+cue.text;
+        if(node.textContent!==content)node.textContent=content;
+        node.classList.remove('hidden');node.classList.toggle('is-near',cue.kind==='interaction');return;
+      }
+    }
     if(this.save.zone==='ossuary'||this.save.zone==='garden'){
       const zone=this.save.zone,progress=afterlightProgress(zone,this.save.flags),chapter=AFTERLIGHT[zone];
       let target: {x:number;y:number;label:string}|undefined;
