@@ -135,3 +135,10 @@ The next production-risk slice targets stale browser tabs and quota/interrupted 
 - Public v0.44 Canvas2D baseline was visually inspected after a fresh journey and story-dialog completion. At the adaptive 2.4x scale, large cells erased actor, foliage and landmark detail. The game ran in this cloud browser at about 1 FPS; that figure is diagnostic and not a physical Android benchmark.
 - New Canvas2D Glyph Pixel Art presentation samples the authored 960×540 world into a bounded 192–480 pixel-width continuous color buffer, then scales by nearest-neighbor pixels. Sparse deterministic glyph marks are drawn only at real contrast edges. This preserves the semantic source silhouettes and avoids an output-sized software ImageData pass. Atmospheric ASCII, world rules, collisions, and version-1 saves are unchanged.
 - Acceptance: CI TypeScript/Node, 4 render/backend browser paths, all-region screenshot artifacts, visual before/after, merged main and Pages source provenance are required before calling v0.45 published. G2 independent artwork approval and G4 physical Android FPS remain open. Weighted milestone progress remains 67.50% (20/32) pending separate acceptance.
+
+
+## 2026-10-23 — v0.46 Atlas navigation and seven-region traversal candidate
+
+- The world Atlas lists only discovered authored sites. Players can select any visible site as a temporary walking destination, see a fog-respecting route over known map cells, follow collision-aware compass cues, and cancel the selection. Interaction and region changes clear stale waypoints; imports, new games and resume also reset them. No save-v1 schema or seeded topology changes.
+- A new deterministic W4 gate validates all landmarks and roaming witnesses across 200 persisted/reloaded world seeds and seven regions, with physical swept-movement samples. Chromium acceptance additionally verifies route selection, visual path presence and cancellation in both graphics modes and both backends.
+- Candidate status only: W4 requires independent human mobile navigation and CI/Pages verification before acceptance. Commercial readiness is unchanged until those gates close.
