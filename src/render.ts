@@ -521,6 +521,45 @@ function drawStone(ctx:CanvasRenderingContext2D,x:number,y:number,k:number,zone:
  }
  ctx.restore();
 }
+function drawWayside(ctx:CanvasRenderingContext2D,x:number,y:number,k:number,t:number,zone:ZoneId){
+ const a=biomePalette(zone);
+ drawShadow(ctx,x,y,15,5);ctx.save();ctx.translate(x,y);
+ if(zone==='village'){
+  ctx.fillStyle=a.trunk;ctx.fillRect(-3,-40,6,42);ctx.fillRect(-10,-43,20,5);
+  poly(ctx,[[-11,-37],[0,-50],[11,-37]],a.stoneMid);
+  ctx.fillStyle=a.accent;ctx.fillRect(-6,-36,12,13);
+  ctx.fillStyle='#fff2c7';ctx.fillRect(-2,-35,4,9);
+  ctx.fillStyle=a.trunk;ctx.fillRect(-8,-25,16,4);
+  light(ctx,0,-30,42,a.accent,.25+Math.sin(t*2+k)*.035);
+ }else if(zone==='forest'){
+  poly(ctx,[[-17,1],[-13,-12],[-7,-20],[-2,1]],a.trunk);
+  ctx.fillStyle=a.grassLight;ctx.fillRect(-11,-13,3,12);ctx.fillRect(6,-9,3,9);
+  poly(ctx,[[-20,-13],[-12,-24],[-2,-13]],a.canopyLight);
+  poly(ctx,[[0,-10],[7,-19],[17,-10]],a.canopyMid);
+  ctx.fillStyle=a.accent;ctx.fillRect(-13,-18,5,2);ctx.fillRect(7,-13,4,2);
+  light(ctx,-4,-13,28,a.accent,.12);
+ }else if(zone==='sanctuary'){
+  ctx.fillStyle=a.stoneDark;ctx.fillRect(-16,-11,32,14);ctx.fillRect(-12,-19,24,7);
+  poly(ctx,[[-8,-27],[0,-47],[9,-27],[0,-19]],a.canopyMid);
+  poly(ctx,[[0,-44],[7,-27],[0,-21]],a.rim);
+  ctx.fillStyle=a.accent;ctx.fillRect(-2,-38,4,6);
+  light(ctx,0,-29,38,a.accent,.17);
+ }else if(zone==='marsh'){
+  ctx.strokeStyle=a.trunk;ctx.lineWidth=4;
+  for(let i=0;i<4;i++){const xx=-11+i*8;ctx.beginPath();ctx.moveTo(xx,1);ctx.quadraticCurveTo(xx+3,-20,xx+5,-33-i%2*8);ctx.stroke();}
+  ctx.fillStyle=a.grassLight;ctx.fillRect(-12,-34,5,10);ctx.fillRect(11,-42,5,12);
+  ctx.fillStyle=a.accent;ctx.fillRect(-10,-34,3,4);ctx.fillRect(13,-42,3,4);
+  light(ctx,1,-24,33,a.accent,.1);
+ }else{
+  ctx.fillStyle=a.stoneDark;ctx.fillRect(-9,-30,18,31);
+  poly(ctx,[[-13,-29],[0,-49],[13,-29]],a.stoneMid);
+  ctx.fillStyle=a.rim;ctx.fillRect(-2,-37,4,18);
+  poly(ctx,[[-19,-42],[-12,-51],[-8,-40]],a.canopyLight);
+  poly(ctx,[[13,-57],[19,-67],[22,-53]],a.canopyMid);
+  light(ctx,0,-33,36,a.accent,.14);
+ }
+ ctx.restore();
+}
 function drawRuin(ctx:CanvasRenderingContext2D,x:number,y:number,k:number,zone:ZoneId){
  const a=biomePalette(zone);drawShadow(ctx,x,y,29);
  ctx.save();ctx.translate(x,y);
@@ -611,6 +650,10 @@ for(let y=top;y<=bottom;y++)for(let x=left;x<=right;x++){const typ=terrain(zone,
    const nearPath=terrain(zone,x+1,y)==='path'||terrain(zone,x-1,y)==='path'||terrain(zone,x,y+1)==='path'||terrain(zone,x,y-1)==='path';
    const cottage=zone==='village'&&nearPath&&hash(x,y,z.seed+771)>.72;
    objects.push({x:xx,y:yy,draw:()=>cottage?drawCottage(ctx,xx,yy,k,t):drawTree(ctx,xx,yy,k,t,zone)});
+ }
+ if((typ==='ground'||typ==='grass')&&hash(x,y,z.seed+491)>.82&&
+    (terrain(zone,x+1,y)==='path'||terrain(zone,x-1,y)==='path'||terrain(zone,x,y+1)==='path'||terrain(zone,x,y-1)==='path')){
+   objects.push({x:xx,y:yy,draw:()=>drawWayside(ctx,xx,yy,k,t,zone)});
  }
  if(typ==='wall')objects.push({x:xx,y:yy,draw:()=>drawMasonry(ctx,xx,yy,k,zone)});
  if(typ==='stone')objects.push({x:xx,y:yy,draw:()=>{drawStone(ctx,xx,yy,k,zone);}});}
