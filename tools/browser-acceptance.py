@@ -119,6 +119,15 @@ window.addEventListener('load',()=>setTimeout(async()=>{
   check($('zoneName').textContent==='Marismas del Espejo Roto','Marsh resume did not restore its new biome');
   check($('zoneSubtitle').textContent.includes('vidas'),'Missing authored Marsh subtitle');
   check($('titleScreen').classList.contains('hidden'),'Resume unexpectedly reopened title');
+  // Fifth-zone browser integration on the real renderer/backend combination.
+  const crownSave=JSON.parse(saved);
+  crownSave.zone='spire';crownSave.x=4;crownSave.y=16;
+  crownSave.flags=[...new Set([...crownSave.flags,'arken-vow-restored','marsh-chapter-complete','marsh-choice-keep','zone-spire','crown-met-oriel'])];
+  localStorage.setItem('ascii-azur-save-v1',JSON.stringify(crownSave));
+  $('continue').click();
+  check($('zoneName').textContent==='Corona de lo No Escrito','Crown resume did not restore its distinct zone');
+  check($('missionChip').textContent.includes('RELIQUIAS'),'The authored Chapter III objective is missing from HUD');
+  check(!$('titleScreen').classList.contains('hidden'),'Crown resume unexpectedly reopened title');
   check(window.__azurErrors.length===0,'JS errors: '+window.__azurErrors.join(' | '));
   document.body.dataset.azurQa='PASS';
  }catch(error){document.body.dataset.azurQa='FAIL: '+error.message;console.error(error)}

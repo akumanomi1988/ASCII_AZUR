@@ -65,6 +65,7 @@ export const SPECIES:Record<string,Species>={
  ashboar:{id:'ashboar',name:'Ashboar',title:'Jabalí de escoria',element:'Ceniza',color:'#eaa079',stats:{hp:51,attack:20,defense:14,speed:8},desc:'Se alimenta de carbones y deja una estela de chispas.',shape:8},
  rillfin:{id:'rillfin',name:'Rillfin',title:'Pez de los caminos',element:'Bruma',color:'#81d9df',stats:{hp:34,attack:14,defense:11,speed:20},desc:'Nada entre charcos y recuerdos de lluvia.',shape:9},
  briarling:{id:'briarling',name:'Briarling',title:'Semilla errante',element:'Raíz',color:'#c0d78d',stats:{hp:36,attack:12,defense:14,speed:12},evo:{id:'thorne',level:8},desc:'Cada amanecer le crece una hoja que no recuerda.',shape:10},
+ nullscribe:{id:'nullscribe',name:'Nullscribe',title:'Escriba de los nombres imposibles',element:'Éter',color:'#ddb4ff',stats:{hp:82,attack:20,defense:17,speed:14},desc:'Su cuerpo contiene las páginas vacías que sostuvieron el cielo.',shape:11},
  hollowhart:{id:'hollowhart',name:'Hollowhart',title:'Ciervo del silencio',element:'Raíz',color:'#d9bd9c',stats:{hp:66,attack:22,defense:20,speed:12},desc:'Último guardián de las palabras originales.',shape:6}
 };
 export const TYPE_ADV:Record<Element,Element>={Ceniza:'Raíz',Raíz:'Bruma',Bruma:'Éter',Éter:'Ceniza'};
@@ -73,7 +74,7 @@ export const BASE_MOVES:Record<Element,string[]>={Ceniza:['ember','pulse','smold
 export const SIGNATURE_MOVES:Readonly<Record<string,string>>={
  cindrel:'ashfang',cinderwulf:'emberstorm',velaria:'drizzle',thorne:'vinegrip',
  wispawn:'siphon',gravemoth:'mothdust',mireling:'undertow',runeowl:'runeburst',
- ashboar:'flare',rillfin:'rilldance',briarling:'verdancy',hollowhart:'eclipse'
+ ashboar:'flare',rillfin:'rilldance',briarling:'verdancy',hollowhart:'eclipse',nullscribe:'eclipse'
 };
 export function learnableMoves(speciesId:string,level:number):string[]{
  const s=SPECIES[speciesId];if(!s)throw Error('Especie desconocida');
@@ -93,7 +94,7 @@ export function validateBattleCheckpoint(value:unknown,team:Creature[]):value is
  if(!e||typeof e.uid!=='string'||e.uid.length>80||typeof e.speciesId!=='string'||!SPECIES[e.speciesId]||!Number.isInteger(e.level)||e.level!<1||e.level!>30||!Number.isInteger(e.hp)||e.hp!<0||e.hp!>maxHp(e as Creature)||!Number.isInteger(e.exp)||e.exp!<0||!Array.isArray(e.moves)||e.moves.length<1||e.moves.length>4||e.moves.some(m=>typeof m!=='string'||!MOVES[m]))return false;
  if(!['wild','boss','expedition'].includes(b.type||'')||!Number.isInteger(b.ally)||b.ally!<0||b.ally!>=team.length||typeof b.guarding!=='boolean'||![1,2].includes(b.bossPhase||0)||![0,1,2].includes(b.chargeStage??-1))return false;
  if(b.pending!==undefined&&!['enemy','capture','victory','defeat'].includes(b.pending))return false;
- if(b.encounterId!==undefined&&(!/^(forest|sanctuary|marsh)-[0-2]$/.test(b.encounterId)))return false;
+ if(b.encounterId!==undefined&&(!/^(forest|sanctuary|marsh|spire)-[0-2]$/.test(b.encounterId)))return false;
  if(!b.effects||typeof b.effects!=='object'||Array.isArray(b.effects)||Object.keys(b.effects).length>8)return false;
  return Object.entries(b.effects).every(([key,list])=>key.length<85&&Array.isArray(list)&&list.length<=3&&list.every(s=>!!s&&['scorch','weaken','fracture'].includes(s.kind)&&Number.isInteger(s.remaining)&&s.remaining>=1&&s.remaining<=5));
 }
@@ -104,7 +105,7 @@ export function validateSave(data:unknown):data is SaveGame {
   if(!c||typeof c!=='object')return false;const a=c as Partial<Creature>;
   return typeof a.speciesId==='string'&&!!SPECIES[a.speciesId]&&typeof a.uid==='string'&&a.uid.length<=80&&Number.isInteger(a.level)&&a.level!>0&&a.level!<=30&&Number.isInteger(a.exp)&&a.exp!>=0&&Number.isInteger(a.hp)&&a.hp!>=0&&a.hp!<=maxHp(a as Creature)&&Array.isArray(a.moves)&&a.moves.length>=1&&a.moves.length<=4&&a.moves.every(m=>typeof m==='string'&&!!MOVES[m]);
  };
- return v.version===1&&['village','forest','sanctuary','marsh'].includes(v.zone||'')
+ return v.version===1&&['village','forest','sanctuary','marsh','spire'].includes(v.zone||'')
  &&typeof v.x==='number'&&Number.isFinite(v.x)&&v.x>=0&&v.x<46
  &&typeof v.y==='number'&&Number.isFinite(v.y)&&v.y>=0&&v.y<32
  &&Array.isArray(v.team)&&v.team.length>0&&v.team.length<=6&&v.team.every(validCreature)

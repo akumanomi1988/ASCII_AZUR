@@ -31,10 +31,11 @@ test('crypt stage guides to accessible menu without inventing a world coordinate
  assert.match(cue.text,/CRIPTA/);
  assert.equal(storyGuidance(s,position('village',10,16,true)).kind,'dungeon');
 });
-test('completed chapter has a stable terminal cue, regardless of location',()=>{
+test('Marsh completion transitions to chapter III and final completion is terminal',()=>{
  const s=story(['archivist','zone-forest','zone-sanctuary',ARKEN_FINALE_FLAG],true,true);
  for(const zone of ['village','forest','sanctuary']){
- const cue=storyGuidance({...s,flags:[...s.flags,'marsh-chapter-complete']},position(zone,20,16));assert.equal(cue.kind,'completed');assert.equal(cue.distance,null);
+ const next=storyGuidance({...s,flags:[...s.flags,'marsh-chapter-complete']},position(zone,20,16));assert.equal(next.kind,'target');assert.ok(next.target);
+ const cue=storyGuidance({...s,flags:[...s.flags,'marsh-chapter-complete','crown-nullscribe-fallen','crown-choice-renew','crown-trilogy-complete']},position(zone,20,16));assert.equal(cue.kind,'completed');assert.equal(cue.distance,null);
  }
 });
 test('future story flags alone do not skip the Archivist requirement',()=>{

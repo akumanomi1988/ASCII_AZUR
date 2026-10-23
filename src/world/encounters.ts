@@ -18,6 +18,7 @@ const MARSH_TRAIL_POOLS:readonly (readonly string[])[]=[
  ['gravemoth','runeowl'], // Echo predators circle the drowned bell
  ['ashboar','cinderwulf'] // Embers trapped within the flooded causeway
 ];
+const SPIRE_TRAIL_POOLS:readonly (readonly string[])[]=[['ashboar','cinderwulf'],['rillfin','mireling'],['gravemoth','runeowl']];
 const SANCTUARY_TRAIL_POOLS:readonly (readonly string[])[]=[
  ['briarling','thorne'],              // Root: Ash counterplay
  ['mireling','rillfin','velaria'],    // Mist: Root counterplay
@@ -47,8 +48,8 @@ export function visibleEncounters(zone:ZoneId,seed:number):RoamingEncounter[]{
      return score(a)-score(b);
    });
    const pick=candidates[0];if(!pick)continue;
-   const creatures=(zone==='forest'?FOREST_TRAIL_POOLS:zone==='marsh'?MARSH_TRAIL_POOLS:SANCTUARY_TRAIL_POOLS)[slot]!;const variant=Math.floor(hash(slot+1,seed&255,seed+45)*creatures.length);
-   out.push({id:`${zone}-${slot}`,x:pick.x,y:pick.y,speciesId:creatures[variant]!,level:zone==='forest'?5+slot:zone==='marsh'?11+slot:8+slot});
+   const creatures=(zone==='forest'?FOREST_TRAIL_POOLS:zone==='marsh'?MARSH_TRAIL_POOLS:zone==='spire'?SPIRE_TRAIL_POOLS:SANCTUARY_TRAIL_POOLS)[slot]!;const variant=Math.floor(hash(slot+1,seed&255,seed+45)*creatures.length);
+   out.push({id:`${zone}-${slot}`,x:pick.x,y:pick.y,speciesId:creatures[variant]!,level:zone==='forest'?5+slot:zone==='marsh'?11+slot:zone==='spire'?13+slot:8+slot});
  }
  return out;
 }
@@ -61,7 +62,7 @@ export function nearbyEncounter(encounters:readonly RoamingEncounter[],flags:rea
  * No additional save field is required. Never award for randomly generated battles. */
 export const ROAMER_FIRST_VICTORY_XP=48;
 export function firstRoamerVictoryBonus(type:'wild'|'boss'|'expedition',encounterId:string|undefined,flags:readonly string[]):number{
- return type==='wild'&&typeof encounterId==='string'&&/^(forest|sanctuary|marsh)-[0-2]$/.test(encounterId)&&!flags.includes('roamer-'+encounterId)
+ return type==='wild'&&typeof encounterId==='string'&&/^(forest|sanctuary|marsh|spire)-[0-2]$/.test(encounterId)&&!flags.includes('roamer-'+encounterId)
   ?ROAMER_FIRST_VICTORY_XP:0;
 }
 
