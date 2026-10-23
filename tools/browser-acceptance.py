@@ -269,7 +269,35 @@ window.addEventListener('load',()=>setTimeout(async()=>{
   const combatImage=await fetch('/__qa_capture?mode='+encodeURIComponent(params.get('mode')||'ascii')+
    '&fallback='+(params.has('fallback')?'1':'0')+'&zone=battle',{method:'POST',body:$('game').toDataURL('image/png')});
   check(combatImage.ok,'Combat VFX screenshot failed');
-  check(window.__azurErrors.length===0,'JS errors: '+window.__azurErrors.join(' | '));
+  // Q2: a stale tab must not silently replace another session's saved progress.
+  const competing=JSON.parse(localStorage.getItem('ascii-azur-save-v1'));
+  competing.playSeconds+=20;
+  const competingRaw=JSON.stringify(competing);
+  localStorage.setItem('ascii-azur-save-v1',competingRaw);
+  $('saveBtn').click();
+  check(localStorage.getItem('ascii-azur-save-v1')===competingRaw,'Stale tab overwrote the newer save');
+  check($('saveStatus').textContent.includes('CONFLICTO'),'No visible concurrent-save warning');
+  $('continue').click(); // explicitly reload the newer baseline
+  // A quota failure during import must not swap the live game or saved world.
+  const importSave=JSON.parse(saved);importSave.zone='garden';importSave.playSeconds=987;
+  const restoreInput=$('restoreFile');
+  const nativeSet=Storage.prototype.setItem,nativeConfirm=window.confirm;
+  window.confirm=()=>true;
+  const chooseFile=()=>{
+   const transfer=new DataTransfer();transfer.items.add(new File([JSON.stringify(importSave)],'azur-save.json',{type:'application/json'}));
+   restoreInput.files=transfer.files;restoreInput.dispatchEvent(new Event('change',{bubbles:true}));
+  };
+  const oldZone=$('zoneName').textContent;
+  Storage.prototype.setItem=function(key,value){if(key==='ascii-azur-save-v1')throw Error('quota');return nativeSet.call(this,key,value);};
+  try{chooseFile();await new Promise(resolve=>setTimeout(resolve,100));}
+  finally{Storage.prototype.setItem=nativeSet;}
+  check($('zoneName').textContent===oldZone,'Failed import replaced the live world');
+  check(localStorage.getItem('ascii-azur-save-v1')===competingRaw,'Failed import replaced the persisted world');
+  chooseFile();await new Promise(resolve=>setTimeout(resolve,100));
+  window.confirm=nativeConfirm;
+  check($('zoneName').textContent==='Jardín de la Última Escarcha','Validated import did not enter Garden');
+  check(JSON.parse(localStorage.getItem('ascii-azur-save-v1')).playSeconds>=987,'Imported progress was not persisted');
+    check(window.__azurErrors.length===0,'JS errors: '+window.__azurErrors.join(' | '));
   document.body.dataset.azurQa='PASS';
  }catch(error){document.body.dataset.azurQa='FAIL: '+error.message;console.error(error)}
 },90));
