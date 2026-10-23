@@ -37,7 +37,7 @@ export function validateWorldSnapshot(raw:unknown):raw is WorldSnapshot{
   if((id==='marsh'&&!hasMarsh)||(id==='spire'&&!hasSpire))return true;
   const expected=ORIGINAL_LANDMARKS[id].length+(SECRET_CACHE[id]?1:0);
   return typeof tiles==='string'&&tiles.length===WORLD_W*WORLD_H&&/^[ghtswxp]+$/.test(tiles)
-   &&Array.isArray(poi)&&(poi.length===expected||(id==='sanctuary'&&poi.length===expected-1))
+   &&Array.isArray(poi)&&(poi.length===expected||((id==='sanctuary'||id==='marsh')&&poi.length===expected-1))
    &&poi.every(a=>Array.isArray(a)&&a.length===2&&Number.isInteger(a[0])&&Number.isInteger(a[1])&&a[0]>=2&&a[0]<=43&&a[1]>=2&&a[1]<=29);
  });
 }

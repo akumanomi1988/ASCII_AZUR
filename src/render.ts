@@ -438,7 +438,7 @@ function drawClimate(ctx:CanvasRenderingContext2D,zone:ZoneId,t:number,seed:numb
  }
  ctx.restore();
 }
-export function drawWorld(ctx:CanvasRenderingContext2D,zone:ZoneId,hero:DrawPlayer,t:number,flash=0,defeated=false,camera?:Camera,reducedMotion=false,roamers:readonly RoamingEncounter[]=[]){const z=ZONES[zone];const c=camera||hero;
+export function drawWorld(ctx:CanvasRenderingContext2D,zone:ZoneId,hero:DrawPlayer,t:number,flash=0,defeated=false,camera?:Camera,reducedMotion=false,roamers:readonly RoamingEncounter[]=[],finalBossDefeated=false){const z=ZONES[zone];const c=camera||hero;
   const camX=Math.max(0,Math.min(WORLD_W*TILE-W,(c.x+.5)*TILE-W*.5));const camY=Math.max(0,Math.min(WORLD_H*TILE-H,(c.y+.5)*TILE-H*.5));drawGround(ctx,zone,camX,camY,t);const objects:{x:number;y:number;draw:()=>void}[]=[];
 const left=Math.max(0,Math.floor(camX/TILE)-2),right=Math.min(WORLD_W-1,Math.ceil((camX+W)/TILE)+2),top=Math.max(0,Math.floor(camY/TILE)-3),bottom=Math.min(WORLD_H-1,Math.ceil((camY+H)/TILE)+2);
 for(let y=top;y<=bottom;y++)for(let x=left;x<=right;x++){const typ=terrain(zone,x,y);const xx=(x+.5)*TILE-camX,yy=(y+.78)*TILE-camY,k=hash(x,y,z.seed);if(typ==='tree'){
@@ -465,7 +465,7 @@ for(const l of z.landmarks){const xx=(l.x+.5)*TILE-camX,yy=(l.y+.75)*TILE-camY;i
   light(ctx,0,-21,42,'#e4d0a8',glow);ctx.restore();
  }});
  if(l.kind==='chest')objects.push({x:xx,y:yy,draw:()=>{ctx.fillStyle='#705b46';ctx.fillRect(xx-18,yy-14,36,18);ctx.fillStyle='#b29869';ctx.fillRect(xx-18,yy-18,36,8);ctx.fillRect(xx-2,yy-18,5,22);light(ctx,xx,yy,40,'#e5a778',.18);}});
- if(l.kind==='guardian'&&!defeated)objects.push({x:xx,y:yy,draw:()=>{drawCreature(ctx,l.npcId==='nullscribe'?'nullscribe':'hollowhart',xx,yy,l.npcId==='nullscribe'?2.7:2.25,t);light(ctx,xx,yy-45,120,l.npcId==='nullscribe'?'#ca97ee':'#a791d5',.3);}});
+ if(l.kind==='guardian'&&(l.npcId==='nullscribe'?!finalBossDefeated:!defeated))objects.push({x:xx,y:yy,draw:()=>{drawCreature(ctx,l.npcId==='nullscribe'?'nullscribe':'hollowhart',xx,yy,l.npcId==='nullscribe'?2.7:2.25,t);light(ctx,xx,yy-45,120,l.npcId==='nullscribe'?'#ca97ee':'#a791d5',.3);}});
  }
 for(const e of roamers){const xx=(e.x+.5)*TILE-camX,yy=(e.y+.78)*TILE-camY;if(xx<-80||xx>W+80||yy<-80||yy>H+80)continue;
   objects.push({x:xx,y:yy,draw:()=>{
