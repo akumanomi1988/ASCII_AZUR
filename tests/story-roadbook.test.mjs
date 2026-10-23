@@ -1,0 +1,35 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {campaignRoadbook} from '../dist/story-roadbook.js';
+import {createCreature,maxHp} from '../dist/domain.js';
+const state=(flags=[],defeatedBoss=false,dungeonFinished=false)=>({flags,defeatedBoss,dungeonFinished});
+const items={tonics:3,seals:2};
+test('waybook: nineteen honest chapter beats and no invented progress',()=>{
+ const arken=campaignRoadbook(state(),[createCreature('cindrel',5)],items);
+ assert.equal(arken.chapter,1);assert.equal(arken.completed,0);assert.equal(arken.percentage,0);
+ assert.deepEqual(arken.chapters.map(c=>c.status),['active','locked','locked']);
+ const first=['archivist','zone-forest','zone-sanctuary','arken-vow-restored'];
+ const marsh=campaignRoadbook(state([...first,'zone-marsh','marsh-met-nael'],true,true),[createCreature('velaria',12)],items);
+ assert.equal(marsh.chapter,2);assert.equal(marsh.completed,8);assert.equal(marsh.chapters[0].done,6);assert.equal(marsh.chapters[2].status,'locked');
+ const crowned=campaignRoadbook(state([...first,'marsh-chapter-complete','zone-spire','crown-met-oriel'],true,true),[createCreature('thorne',16)],items);
+ assert.equal(crowned.chapter,3);assert.equal(crowned.completed,14);
+ const done=campaignRoadbook(state([...first,'marsh-chapter-complete','zone-spire','crown-met-oriel','crown-trilogy-complete'],true,true),[createCreature('thorne',19)],items);
+ assert.equal(done.completed,19);assert.equal(done.percentage,100);assert.ok(done.advice.some(x=>x.includes('completada')));
+});
+test('waybook: boss readiness is an actual equipped-move and health calculation',()=>{
+ const flags=['archivist','zone-forest','zone-sanctuary'];
+ const team=[createCreature('thorne',9),createCreature('velaria',9)];
+ const noAsh=campaignRoadbook(state(flags),team,items);
+ assert.equal(noAsh.readyForBattle,false);assert.equal(noAsh.counter,null);
+ assert.ok(noAsh.advice.some(x=>x.includes('Ceniza')));
+ const ash=createCreature('cindrel',10);
+ const prepared=campaignRoadbook(state(flags),[...team,ash],items);
+ assert.equal(prepared.readyForBattle,true);assert.equal(prepared.counter,'Cindrel');
+ ash.hp=Math.floor(maxHp(ash)*.32);
+ const wounded=campaignRoadbook(state(flags),[...team,ash],items);
+ assert.equal(wounded.readyForBattle,false);
+ const crownFlags=[...flags,'arken-vow-restored','marsh-chapter-complete','zone-spire','crown-met-oriel','crown-relic-flame','crown-relic-archive','roamer-spire-0','roamer-spire-1','roamer-spire-2'];
+ const crown=campaignRoadbook(state(crownFlags,true,true),[createCreature('velaria',16),createCreature('thorne',16)],items);
+ assert.equal(crown.chapter,3);assert.equal(crown.readyForBattle,true);assert.equal(crown.counter,'Velaria');
+ assert.equal(campaignRoadbook(state(crownFlags,true,true),[createCreature('velaria',16),createCreature('thorne',16)],{tonics:0,seals:0}).readyForBattle,false);
+});

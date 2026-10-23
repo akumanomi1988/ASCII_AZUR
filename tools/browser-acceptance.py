@@ -77,6 +77,14 @@ window.addEventListener('load',()=>setTimeout(async()=>{
   $('closeModal').click();
   check($('modal').classList.contains('hidden'),'Scouting modal did not close');
   check(localStorage.getItem('ascii-azur-save-v1')===saved,'Scouting mutated saved gameplay');
+  $('questsBtn').click();
+  check(!$('modal').classList.contains('hidden'),'Trilogy roadbook journal did not open');
+  check($('modalContent').textContent.includes('ATLAS DEL VIAJE'),'Nineteen-step roadbook missing');
+  check($('modalContent').textContent.includes('0/19 HITOS'),'Brand-new journey is not 0/19');
+  check($('modalContent').textContent.includes('Equipo: 1/1'),'Real starting party not reported');
+  check($('modalContent').textContent.includes('CRIPTA')||$('modalContent').textContent.includes('ARKEN'),'Chapter roadmap missing');
+  $('closeModal').click();
+  check(localStorage.getItem('ascii-azur-save-v1')===saved,'Read-only roadbook changed saved gameplay');
   $('teamBtn').click();
   check(!$('modal').classList.contains('hidden'),'Team did not open');
   const skills=document.querySelector('[data-skills]');
