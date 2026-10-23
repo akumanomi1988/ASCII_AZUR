@@ -11,7 +11,7 @@ A checkbox means the evidence stated below exists. A completed automated gate me
 |---|---:|---:|---:|---|
 | 1. Core gameplay and balance | 20% | 3/4 | 75% | C4 human combat balance |
 | 2. World and exploration | 15% | 2/4 | 50% | W3 authored new regions; W4 exploratory QA |
-| 3. Complete story and narrative | 20% | 1/4 | 25% | N2 authored second chapter; N3 global climax/ending; N4 human narrative QA |
+| 3. Complete story and narrative | 20% | 2/4 | 50% | N3 global climax/ending; N4 human narrative QA |
 | 4. Creatures and progression | 10% | 1/4 | 25% | P2 broader roles/collection; P3 sidequests/evolution identity; P4 player-tested balance |
 | 5. Graphics and animation | 10% | 1/4 | 25% | G2 expressive biome/character polish; G3 animation breadth; G4 verified minimum-device FPS |
 | 6. UX and mobile | 10% | 1/4 | 25% | U2 real Android testing; U3 accessibility audit; U4 human usability validation |
@@ -29,7 +29,7 @@ A checkbox means the evidence stated below exists. A completed automated gate me
 - **W3 [ ]** Add at least two original meaningful world regions with distinct NPCs, creatures, exploration loops, authored quests and persistent terrain.
 - **W4 [ ]** Across >=200 saved seeds, end-to-end traversal, discovery and route QA including human mobile navigation.
 - **N1 [x]** Original six-objective Arken arc, Guardian/crypt outro, one-time reward and idempotent save-backed conclusion.
-- **N2 [ ]** Authored full second chapter integrating unique region(s), characters, choices and progression.
+- **N2 [x]** Authored full second chapter integrating unique region(s), characters, choices and progression.
 - **N3 [ ]** Original global campaign climax, playable finale and ending sequence with persisted consequences.
 - **N4 [ ]** Independent narrative/playtest signoff for clarity, pacing, coherence and endings.
 - **P1 [x]** Capturable species, party/reserve, moves, experience and evolution persist with regressions.
@@ -70,3 +70,18 @@ Global authored campaign absent; captured-party multi-seed Guardian/crypt tuning
 - Source publication: PR [#3](https://github.com/akumanomi1988/ASCII_AZUR/pull/3) merged as `b441c8968967c3d1118f7b8d922f493ddab00e37`. Main [Actions run 39860844260](https://github.com/akumanomi1988/ASCII_AZUR/actions/runs/39860844260) **SUCCESS**: 214/214 Node tests, TypeScript PASS, 4/4 Chromium graphics/backend acceptance, standalone/release + PWA audit PASS (33 dependent JS modules, 34 cached modules/assets), version 0.28.0.
 - Pages: `gh-pages` commit `4ca86a4037ce35e81885ce796cd3a7f5c8f606d9`, `build-info.json.source_commit=b441c8968967c3d1118f7b8d922f493ddab00e37`, [Pages workflow 39860967515](https://github.com/akumanomi1988/ASCII_AZUR/actions/runs/39860967515) **SUCCESS**. Independent public HTTP smoke of the GitHub Pages game and live `build-info.json` remains **UNVERIFIED**: external reader cannot access `github.io`.
 - **Quality scores unchanged** (conservative mean 2.5/5; zero independent >=4/5 acceptances). Programmatic wins on fixed seeds do not prove human game feel, Android hardware performance, finished global story, or broad difficulty balance.
+
+
+## Verified macroiteration 003 — N2: Broken Mirror Marsh, Chapter II (2026-10-23)
+
+**New verifiable gameplay:** A fourth seeded 46×32 explorable biome (Broken Mirror Marsh) with original teal water, rain/fog, a procedural Marsh score, region entrance unlocked after the Arken finale, Nael as an authored character, two permanent memory monuments, three finite discoverable seeded wild encounters at levels 11–13, and an irreversible preserve-vs-release tribunal. Different rewards (180 Echoes + 4 seals OR 180 Echoes + 4 tonics) and Nael's distinct epilogues (+80 Echoes once) persist as v1 flags. The chapter has seven pure story states (six objectives + completion) reflected in HUD, journal and pathfinding compass. The scene keeps the existing species roster: W3 still requires **two** original meaningful regions and is **not** closed.
+
+**Compatibility:** New v1 snapshots include the Marsh. A pre-v0.29 three-zone snapshot with six Sanctuary points restores its old original three maps/landmarks unchanged, maps the old hidden cache to the correct POI, restores the original west portal and adds the new east gate without changing the frozen original terrain. Missing Marsh data is seeded and included on the next save. No save version bump.
+
+**Measured acceptance:** [main Actions 39907764058](https://github.com/akumanomi1988/ASCII_AZUR/actions/runs/39907764058) **SUCCESS**: TypeScript, 221/221 Node regressions, 200-seed Marsh reachability/three witness topology, compatible pre-Marsh snapshots and **18/18 isolated Chapter-II paths** (two decisions × three initial starter choices × three world seeds). All witness fights in the acceptance scenario use normal battle actions. The Arken-completed party is an explicit fixture, not a dishonest claim of end-to-end human play from a new game. The main release also passed **four real Chromium modes**: Atmospheric ASCII and Glyph Pixel Art, each WebGL2 and Canvas2D, including a Marsh v1 resume. PWA release audit passed (34 JavaScript dependencies, 35 offline cache assets), version 0.29.0.
+
+**Publication:** [PR #4](https://github.com/akumanomi1988/ASCII_AZUR/pull/4) merged at `f75ae1cdab949067688663a12383fe0a867c3d35`. Successful publish from main run 39907764058 produced `gh-pages` commit `e1449a8e8cec824b459da68207cc128296e3aa56` with `build-info.json.source_commit=f75ae1cdab949067688663a12383fe0a867c3d35` and compiled `dist/story-marsh.js`. [Pages workflow 39907917877](https://github.com/akumanomi1988/ASCII_AZUR/actions/runs/39907917877) **SUCCESS**. Independent public `github.io` game and `/build-info.json` requests were **UNVERIFIED**, because the external reader could not access the site; do not conflate successful Pages workflow with live public HTTP smoke.
+
+**Roadmap math:** Before, 11/32 milestones, Story 1/4 (25%), global 38.75%. After, **12/32**, Story **2/4 (50%)**, global **43.75% (+5.00 percentage points)**. No other phase changes. The 16 quality scores are unchanged (mean 2.5/5, 0 independently approved >=4/5). No real Android performance, independent narrative player acceptance or full global campaign ending is implied.
+
+**Remaining N3 dependency:** The chapter closes its own arcs but not the game's overall story. Next macroiteration should integrate a connected third chapter/global climax and a coherent final ending, rather than more disconnected activities; require its own acceptance gates. Other true blockers: W3 two original new regions not yet met, Q4 external public smoke, physical Android and human playtest signoff.
