@@ -191,3 +191,9 @@ The authored three-chapter storyline now has a scripted conclusion and automated
 - **Implemented candidate:** dedicated low-resolution semantic color compositor for Glyph Pixel Art on Canvas2D. The source remains fully continuous and readable, while a deterministic, sparse glyph pass adds ink only on real color edges. Adaptive performance degrades sampling by at most one detail tier; the previous full-size software glyph buffer remains for Atmospheric ASCII. No world, collision or save data changes.
 - **Acceptance required:** TypeScript and Node pure tests, all four Chromium graphics/backend modes and seven-region screenshot matrix, source-to-Pages provenance, actual before/after comparison, and independent visual signoff at desktop/mobile sizes. Real-device G4 hardware and external G2 quality acceptance are still open.
 - **Milestone accounting:** no G2 checkbox or global progress increment from code alone. The last accepted weighted global score remains **67.50% (20/32 milestones)** until the fixed acceptance evidence is independently obtained.
+
+## 2026-10-23 — v0.46 W4 automated navigation candidate
+
+- Added selectable Atlas destinations for already discovered landmarks, fog-safe route overlays, cancel action, and context-sensitive compass guidance. A waypoint is temporary and never mutates v1 save-state/world generation.
+- `tests/world-traversal.test.mjs` exercises 200 deterministic saved/reloaded seeds × all seven regions × every landmark and visible encounter; a substantial seed subset is replayed using the actual swept player collision. Browser acceptance now selects, reopens, and cancels an Atlas route in all four renderer/backend combinations.
+- **W4 stays unchecked** until CI confirms the automated candidate and independent physical mobile navigation validates the experience. Fixed weighted global progress remains **67.50% (20/32)** until a milestone is formally accepted.
