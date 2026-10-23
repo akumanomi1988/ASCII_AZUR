@@ -142,3 +142,9 @@ The next production-risk slice targets stale browser tabs and quota/interrupted 
 - The world Atlas lists only discovered authored sites. Players can select any visible site as a temporary walking destination, see a fog-respecting route over known map cells, follow collision-aware compass cues, and cancel the selection. Interaction and region changes clear stale waypoints; imports, new games and resume also reset them. No save-v1 schema or seeded topology changes.
 - A new deterministic W4 gate validates all landmarks and roaming witnesses across 200 persisted/reloaded world seeds and seven regions, with physical swept-movement samples. Chromium acceptance additionally verifies route selection, visual path presence and cancellation in both graphics modes and both backends.
 - Candidate status only: W4 requires independent human mobile navigation and CI/Pages verification before acceptance. Commercial readiness is unchanged until those gates close.
+
+
+### v0.46 distribution hardening — verified-cache candidate
+
+- Live public Pages initially showed the v0.46 HTML/provenance while unversioned JS requests could still return v0.45 from browser/CDN cache. The published `gh-pages` module blobs themselves were correct. The service worker now preloads and fetches every same-origin asset with an explicit release query and `cache: reload`, caching responses under release-pinned URLs. Offline fallback cannot mix JS from different releases.
+- The cache namespace advances to `ascii-azur-v046-q2`; dedicated service-worker regression tests cover versioned precache, fresh online fetch, matching offline replay and cross-origin/write exclusions. Live external confirmation remains required after CI and Pages rollout.
