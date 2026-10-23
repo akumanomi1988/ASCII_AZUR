@@ -150,3 +150,11 @@ The authored three-chapter storyline now has a scripted conclusion and automated
 - U3 implementation: persistent high-contrast option, keyboard skip link, browser zoom restored, visible high-contrast focus ring, accessible world/quest and combat narration, save status live announcements. Automated WCAG AA contrast-token regression plus browser UI/persistence assertions are included. Screen-reader, keyboard and human low-vision review still required before closing U3.
 - A3 implementation: scene-aware bounded score mix, danger-dependent lead/bass/percussion layers, ambience ducking and evolving combat intensity based on ally health and boss phase. Pure score-mix regression checks cover all ten scenes and bounded intensity; browser/device profiling remains required before A3 acceptance.
 - The eight-phase weights and 32 milestone definitions are unchanged. U3 and A3 are **implementation candidates, not accepted milestones**. No unverified progress percentage is claimed; 80% requires external human and physical-device evidence under the fixed rubric.
+
+
+## Macroiteration — independent persistent campaign slots (v0.41.0 candidate, 2026-10-23)
+
+- Three campaign slots, each with its own stable primary and backup keys, seeded world, creature roster, decisions and progression. The original v1 key remains slot I without migration or data movement.
+- Title selection displays the selected region, elapsed play time, party count and whether only a recoverable backup remains. A settings action commits the current run before returning to slot selection; a failed save keeps the player in the current run.
+- Import/export and stale-tab checks are slot-scoped. Regression tests exercise independent rotation and backup recovery across all slots; browser acceptance walks a second seeded campaign and restores the original without overwriting it.
+- This is an autonomous implementation milestone for replayability and data integrity. It does not by itself satisfy independent quality gates C4/W4/N4/P4/G2/G4/U2/U4/A4/Q4, and does not change the fixed externally accepted 32-milestone score.

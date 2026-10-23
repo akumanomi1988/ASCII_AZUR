@@ -97,3 +97,9 @@ The next production-risk slice targets stale browser tabs and quota/interrupted 
 - Added screen-reader narration for world objectives and combat states, viewport keyboard skip, browser zoom and persistent high contrast mode.
 - Added deterministic danger-reactive procedural score balance for battles/bosses and tests for bounded mix values across all ten authored scenes.
 - Release readiness remains **unverified** pending CI, real-device profiling and independent acceptance. Roadmap milestone count is unchanged pending evidence.
+
+
+### 2026-10-23 — v0.41 campaign isolation candidate
+
+- Implemented three independent, seed-preserving campaign slots with per-slot backup, import/export, conflict detection, summary and safe return to title. Slot I retains the original save key and schema.
+- Added 3,600 rotation stress checks across three slots plus cross-slot corruption/concurrency assertions and a real-browser two-campaign restore sequence. Final status awaits observed CI and deployed Pages checks.

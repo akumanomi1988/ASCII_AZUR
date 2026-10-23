@@ -3,6 +3,17 @@
 import {SAVE_KEY,validateSave,type SaveGame} from '../domain.js';
 
 export const BACKUP_SAVE_KEY=SAVE_KEY+'-backup';
+/** Slot 1 retains the original keys byte-for-byte. Additional slots are isolated. */
+export const SAVE_SLOTS=[1,2,3] as const;
+export type SaveSlot=(typeof SAVE_SLOTS)[number];
+export const ACTIVE_SAVE_SLOT_KEY=SAVE_KEY+'-active-slot';
+export function saveKeyForSlot(slot:SaveSlot):string{
+ if(slot!==1&&slot!==2&&slot!==3)throw Error('Invalid campaign slot');
+ return slot===1?SAVE_KEY:SAVE_KEY+'-slot-'+slot;
+}
+export function backupKeyForSlot(slot:SaveSlot):string{
+ return slot===1?BACKUP_SAVE_KEY:saveKeyForSlot(slot)+'-backup';
+}
 export interface SaveStore {getItem(key:string):string|null;setItem(key:string,value:string):void;}
 export type RestoredSave={state:SaveGame;source:'primary'|'backup'};
 export class SaveConflictError extends Error {
@@ -16,26 +27,27 @@ function decode(raw:string|null):SaveGame|null{
 function readSlot(store:SaveStore,key:string):string|null{
  try{return store.getItem(key);}catch{return null;}
 }
-export function readSave(store:SaveStore):RestoredSave|null{
- const current=decode(readSlot(store,SAVE_KEY));
+export function readSave(store:SaveStore,slot:SaveSlot=1):RestoredSave|null{
+ const current=decode(readSlot(store,saveKeyForSlot(slot)));
  if(current)return{state:current,source:'primary'};
- const fallback=decode(readSlot(store,BACKUP_SAVE_KEY));
+ const fallback=decode(readSlot(store,backupKeyForSlot(slot)));
  return fallback?{state:fallback,source:'backup'}:null;
 }
 /** Returns the exact committed payload so a game session can track its baseline.
  * A mismatching expectedPrimary fails before either slot is touched.
  * Backups must be durable before advancing an existing valid primary. */
-export function writeSave(store:SaveStore,state:SaveGame,expectedPrimary?:string|null):string{
+export function writeSave(store:SaveStore,state:SaveGame,expectedPrimary?:string|null,slot:SaveSlot=1):string{
  if(!validateSave(state))throw Error('No se puede guardar una partida inválida');
  const payload=JSON.stringify(state);
  if(payload.length>MAX_SAVE_LENGTH)throw Error('La partida supera el máximo permitido');
- const previous=store.getItem(SAVE_KEY);
+ const key=saveKeyForSlot(slot),backup=backupKeyForSlot(slot);
+ const previous=store.getItem(key);
  if(expectedPrimary!==undefined&&previous!==expectedPrimary)throw new SaveConflictError();
  if(previous===payload)return payload;
  // Fail closed on backup quota/refusal: never replace the only verified save.
- if(previous&&decode(previous))store.setItem(BACKUP_SAVE_KEY,previous);
+ if(previous&&decode(previous))store.setItem(backup,previous);
  // If this write is interrupted, the old primary and/or backup remains readable.
- store.setItem(SAVE_KEY,payload);
- if(store.getItem(SAVE_KEY)!==payload)throw Error('El almacenamiento no confirmó el guardado');
+ store.setItem(key,payload);
+ if(store.getItem(key)!==payload)throw Error('El almacenamiento no confirmó el guardado');
  return payload;
 }

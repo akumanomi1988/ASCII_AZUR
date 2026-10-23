@@ -1,4 +1,6 @@
-# ASCII AZUR v0.40.0 — The Unwritten
+# ASCII AZUR v0.41.0 — The Unwritten
+
+> **v0.41 candidate — three independent persistent campaigns:** choose any of three seed-isolated adventures from the title screen, view a live summary of each, safely return to journey selection, and import/export the selected adventure. Legacy localStorage keys and saves remain in slot I. All slots maintain independent backups and conflict protection.
 
 > **v0.40 candidate — accessibility and adaptive score:** keyboard skip link, screen-reader game-state narration, persistent high-contrast theme, zoom support, adaptive battle-music mix and deterministic score tests. Human accessibility/audio acceptance and physical Android benchmarking remain open.
 
