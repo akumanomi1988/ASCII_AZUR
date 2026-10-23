@@ -18,6 +18,7 @@ import { crownProgress, crownChoose, crownFinish, crownEpilogue, CROWN_BOSS_FLAG
 import { campaignRoadbook } from './story-roadbook.js';
 import { readSave, writeSave } from './core/save-store.js';
 import { transferStoredCreature, reserveCreature, grantPartyExperience } from './party.js';
+import { BOND_ARCS, bondAtZone, bondProgress, bondFlag, bondChoice, bondAttackDamage, bondIncomingDamage } from './creatures/bond-quests.js';
 import { createCombatCue, sampleCombatCue, guardDamage } from './actors/combat-fx.js';
 import { MOVE_EFFECTS, STATUS_INFO, applyEffect, attackWithStatuses, chooseEnemyMove, chooseGuardianMove, endTurnEffects, statusLabel, skillUtility } from './combat/tactics.js';
 import { previewMove } from './combat/move-preview.js';
@@ -555,6 +556,7 @@ class AzurGame {
                 this.sound.pick();
                 this.toast(awarded ? 'VÍNCULOS SANADOS · +1 SELLO POR DESCUBRIR LA LUMBRE' : 'VÍNCULOS SANADOS · SIN NUEVO SELLO');
                 this.saveNow(false);
+                this.offerBondTrial();
                 break;
             }
             case 'chest': {
@@ -675,6 +677,35 @@ class AzurGame {
                 this.prepareGuardianBattle();
                 break;
         }
+    }
+    /** Altars offer real optional evolution/collection arcs once the world clues are solved. */
+    offerBondTrial() {
+        const arc = bondAtZone(this.save.zone);
+        if (!arc)
+            return;
+        const progress = bondProgress(arc, this.save.flags, [...this.save.team, ...this.save.storage]);
+        if (progress.stage !== 'ready')
+            return;
+        this.showModal('JURAMENTO · ' + arc.title.toUpperCase(), `<div class="modal-content-block"><strong>${htmlEscape(arc.memory)}</strong><p>Elige el destino del vínculo. La decisión es permanente en esta partida y solo afecta a ${htmlEscape(SPECIES[arc.speciesId].name)}.</p></div>` +
+            `<div class="modal-option"><div><strong>FILO DEL RECUERDO</strong><small>+4 de daño con los ataques del compañero vinculado.</small></div><button id="bondFang" aria-label="Elegir Filo del Recuerdo">ELEGIR FILO</button></div>` +
+            `<div class="modal-option"><div><strong>VELO PROTECTOR</strong><small>Recibe un 15% menos de daño directo con el compañero vinculado.</small></div><button id="bondWard" aria-label="Elegir Velo Protector">ELEGIR VELO</button></div>`);
+        byId('bondFang').onclick = () => this.chooseBondTrial(arc, 'fang');
+        byId('bondWard').onclick = () => this.chooseBondTrial(arc, 'ward');
+    }
+    chooseBondTrial(arc, path) {
+        if (this.save.zone !== arc.zone || bondProgress(arc, this.save.flags, [...this.save.team, ...this.save.storage]).stage !== 'ready')
+            return;
+        this.addFlag(bondFlag(arc.id, path));
+        this.economy.echoes = Math.min(999999, this.economy.echoes + 45);
+        this.sound.pick();
+        this.saveNow(false);
+        this.hideModal();
+        this.updateUI();
+        this.dialog([{ title: arc.title.toUpperCase(), text: arc.memory },
+            { title: path === 'fang' ? 'FILO DEL RECUERDO' : 'VELO PROTECTOR',
+                text: path === 'fang' ? 'El vínculo ha aprendido a herir al olvido. Sus ataques infligirán 4 puntos de daño adicionales.' :
+                    'El vínculo ha aprendido a resistir el olvido. Recibirá un 15% menos de daño directo.' },
+            { title: 'EL JURAMENTO PERMANECE', text: 'Recibes 45 Ecos. La elección queda guardada en esta partida y aparecerá en el Diario y el Códice.' }]);
     }
     checkpointBattle() {
         const b = this.battle;
@@ -823,7 +854,7 @@ class AzurGame {
         const result = attackWithStatuses(ally, b.enemy, m, this.statuses(ally), this.statuses(b.enemy), .90 + Math.random() * .19);
         this.setStatuses(ally, result.attackerStatuses);
         this.setStatuses(b.enemy, result.defenderStatuses);
-        const dealt = m.role === 'heal' ? 0 : result.value;
+        const dealt = m.role === 'heal' ? 0 : bondAttackDamage(result.value, this.save.flags, ally.speciesId);
         b.enemy.hp = Math.max(0, b.enemy.hp - dealt);
         let restored = 0;
         if (m.role === 'heal')
@@ -915,7 +946,7 @@ class AzurGame {
         this.setStatuses(b.enemy, result.attackerStatuses);
         this.setStatuses(ally, result.defenderStatuses);
         const raw = m.role === 'heal' ? 0 : Math.ceil(result.value * (charged ? 1.65 : b.bossPhase === 2 ? 1.15 : 1));
-        const actual = raw ? guardDamage(raw, b.guarding) : 0;
+        const actual = raw ? bondIncomingDamage(guardDamage(raw, b.guarding), this.save.flags, ally.speciesId) : 0;
         const recovered = m.role === 'heal' ? enemyUtility.healing : m.role === 'drain' ? Math.min(maxHp(b.enemy) - b.enemy.hp, Math.ceil(actual * .35)) : 0;
         b.enemy.hp = Math.min(maxHp(b.enemy), b.enemy.hp + recovered);
         if (enemyUtility.cleanse)
@@ -1615,9 +1646,14 @@ class AzurGame {
         const chapter = this.flag('arken-vow-restored') ? `<div class="modal-content-block"><strong>CAPÍTULO II · ${htmlEscape(marsh.title.toUpperCase())} · ${marsh.stage}/6</strong><p>${htmlEscape(marsh.objective)}</p>${htmlEscape(marsh.hint)}</div><div class="modal-option"><div><strong>ESPEJOS DE LA MARISMA</strong><small>${marsh.memories}/2 recuerdos · ${marsh.encounters}/3 testigos · ${marsh.choice ? marsh.choice === 'keep' ? 'PRESERVAR' : 'LIBERAR' : 'DECISIÓN PENDIENTE'}</small></div><span class="quest-state ${marsh.complete ? 'done' : ''}">${marsh.complete ? '✓ CERRADO' : 'EN CURSO'}</span></div>` : '';
         const crown = crownProgress(this.save.flags);
         const finale = this.flag('marsh-chapter-complete') ? `<div class="modal-content-block"><strong>CAPÍTULO III · ${htmlEscape(crown.title.toUpperCase())} · ${crown.stage}/7</strong><p>${htmlEscape(crown.objective)}</p>${htmlEscape(crown.hint)}</div><div class="modal-option"><div><strong>CORONA DE LO NO ESCRITO</strong><small>${crown.memories}/2 reliquias · ${crown.witnesses}/3 testigos · ${crown.boss ? 'ESCRIBA CAÍDO' : 'NULLSCRIBE VIVO'} · ${crown.choice || 'DECISIÓN PENDIENTE'}</small></div><span class="quest-state ${crown.complete ? 'done' : ''}">${crown.complete ? '✓ FINAL' : 'EN CURSO'}</span></div>` : '';
+        const bonds = BOND_ARCS.map(arc => {
+            const p = bondProgress(arc, this.save.flags, [...this.save.team, ...this.save.storage]);
+            const state = p.stage === 'claimed' ? '✓ ' + (p.path === 'fang' ? 'FILO' : 'VELO') : p.stage === 'ready' ? 'DISPONIBLE' : p.creatureReady ? 'BUSCA RECUERDOS' : 'DESPIERTA';
+            return `<div class="modal-option"><div><strong>${htmlEscape(arc.title)}</strong><small>${htmlEscape(arc.hint)}</small><small>${p.memories}/${arc.prerequisiteFlags.length} recuerdos · ${p.creatureReady ? 'CRIATURA LISTA' : 'CRIATURA PENDIENTE'}</small></div><span class="quest-state ${p.stage === 'claimed' ? 'done' : ''}">${state}</span></div>`;
+        }).join('');
         const travel = campaignRoadbook(this.storyState, this.save.team, this.save.inventory);
         const progressPanel = `<div class="modal-content-block"><strong>ATLAS DEL VIAJE · ${travel.completed}/${travel.total} HITOS · ${travel.percentage}%</strong><p>${travel.chapters.map(c => `${htmlEscape(c.name)}: ${c.done}/${c.total} ${c.status === 'done' ? '✓' : c.status === 'active' ? '◆' : '○'}`).join(' · ')}</p><p>OBJETIVO · ${htmlEscape(travel.objective)}</p><p>Equipo: ${this.save.team.filter(c => c.hp > 0).length}/${this.save.team.length} conscientes · ${this.save.inventory.tonics} Tónicos · ${this.save.inventory.seals} Sellos${travel.counter ? ' · Contraataque: ' + htmlEscape(travel.counter) : ''}.</p>${travel.advice.map(t => `<p>✦ ${htmlEscape(t)}</p>`).join('')}<p>Este atlas no cambia el guardado ni concede recursos.</p></div>`;
-        this.showModal('DIARIO · MISIONES', progressPanel + mainQuest + chapter + finale + `<div class="shop-balance">${this.economy.echoes} ECOS · ${this.economy.completed.length}/${QUESTS.length} ENCARGOS SECUNDARIOS</div>` + QUESTS.map(q => `<div class="modal-option"><div><strong>${htmlEscape(q.name)}</strong><small>${htmlEscape(q.description)}</small><small>RECOMPENSA · ${q.reward} ECOS</small></div><span class="quest-state ${this.economy.completed.includes(q.id) ? 'done' : ''}">${this.economy.completed.includes(q.id) ? '✓ HECHA' : 'PENDIENTE'}</span></div>`).join(''));
+        this.showModal('DIARIO · MISIONES', progressPanel + mainQuest + chapter + finale + `<div class="modal-content-block"><strong>JURAMENTOS DE VÍNCULO · ${BOND_ARCS.filter(a => bondProgress(a, this.save.flags, [...this.save.team, ...this.save.storage]).stage === 'claimed').length}/${BOND_ARCS.length}</strong><p>Despierta a tus criaturas, descubre memorias y regresa a cada Lumbre para elegir un don permanente.</p></div>` + bonds + `<div class="shop-balance">${this.economy.echoes} ECOS · ${this.economy.completed.length}/${QUESTS.length} ENCARGOS SECUNDARIOS</div>` + QUESTS.map(q => `<div class="modal-option"><div><strong>${htmlEscape(q.name)}</strong><small>${htmlEscape(q.description)}</small><small>RECOMPENSA · ${q.reward} ECOS</small></div><span class="quest-state ${this.economy.completed.includes(q.id) ? 'done' : ''}">${this.economy.completed.includes(q.id) ? '✓ HECHA' : 'PENDIENTE'}</span></div>`).join(''));
     }
     openCodex() {
         if (!this.started)
@@ -1626,7 +1662,7 @@ class AzurGame {
         const capturable = Object.values(SPECIES).filter(sp => sp.id !== 'hollowhart' && sp.id !== 'nullscribe');
         const collected = capturable.filter(sp => known.has(sp.id)).length;
         this.showModal('CÓDICE · VÍNCULOS', `<div class="modal-content-block">${collected} / ${capturable.length} especies vinculables. Hollowhart y Nullscribe son guardianes únicos, no capturables.</div>` +
-            capturable.map(sp => `<div class="modal-option"><div><strong style="color:${sp.color}">${known.has(sp.id) ? htmlEscape(sp.name) : '??????'}</strong><small>${known.has(sp.id) ? htmlEscape(sp.title + ' · ' + sp.element + ' · ' + sp.desc) : 'Esta criatura aún no ha compartido su nombre.'}</small>${known.has(sp.id) && sp.role ? `<small>ROL TÁCTICO · ${htmlEscape(sp.role)}</small>` : ''}</div></div>`).join(''));
+            capturable.map(sp => `<div class="modal-option"><div><strong style="color:${sp.color}">${known.has(sp.id) ? htmlEscape(sp.name) : '??????'}</strong><small>${known.has(sp.id) ? htmlEscape(sp.title + ' · ' + sp.element + ' · ' + sp.desc) : 'Esta criatura aún no ha compartido su nombre.'}</small>${known.has(sp.id) && sp.role ? `<small>ROL TÁCTICO · ${htmlEscape(sp.role)}</small>` : ''}${bondChoice(this.save.flags, sp.id) ? `<small>JURAMENTO ACTIVO · ${bondChoice(this.save.flags, sp.id) === 'fang' ? 'FILO DEL RECUERDO' : 'VELO PROTECTOR'}</small>` : ''}</div></div>`).join(''));
     }
     revealPosition() { if (!this.save.worldSeed)
         return; const x = Math.floor(this.save.x), y = Math.floor(this.save.y); const mark = x + y * WORLD_W + (['village', 'forest', 'sanctuary', 'marsh', 'spire'].indexOf(this.save.zone) * WORLD_W * WORLD_H); if (this.lastReveal === mark)
@@ -1674,7 +1710,7 @@ class AzurGame {
     openTeam() {
         if (!this.started || this.evolution || this.battle || this.dialogOpen || !byId('starterScreen').classList.contains('hidden'))
             return;
-        const display = (c) => { const sp = SPECIES[c.speciesId]; return `<strong style="color:${sp.color}">${htmlEscape(sp.name)}</strong> · NV ${c.level}<small>${htmlEscape(sp.element)} · HP ${c.hp}/${maxHp(c)} · ${htmlEscape(sp.title)}</small>`; };
+        const display = (c) => { const sp = SPECIES[c.speciesId], bond = bondChoice(this.save.flags, c.speciesId); return `<strong style="color:${sp.color}">${htmlEscape(sp.name)}</strong> · NV ${c.level}<small>${htmlEscape(sp.element)} · HP ${c.hp}/${maxHp(c)} · ${htmlEscape(sp.title)}</small>${bond ? `<small>✦ JURAMENTO · ${bond === 'fang' ? 'FILO +4 DAÑO' : 'VELO −15% DAÑO'}</small>` : ''}`; };
         this.showModal('VÍNCULOS Y RESERVA', `<div class="modal-content-block">Selecciona un líder, devuelve criaturas a la reserva o intercámbialas. ${this.save.team.length}/6 en equipo · ${this.save.storage.length} en reserva.</div>` +
             this.save.team.map((c, i) => `<div class="modal-option"><div>${display(c)}</div><div class="roster-buttons">${`<button data-skills="${htmlEscape(c.uid)}">HABILIDADES</button>`}${i ? `<button data-lead="${htmlEscape(c.uid)}">LÍDER</button>` : '<span class="eyebrow">LÍDER</span>'}${this.save.team.length > 1 ? `<button data-deposit="${htmlEscape(c.uid)}">RESERVAR</button>` : ''}</div></div>`).join('') +
             `<div class="modal-content-block">RESERVA · ${this.save.storage.length} VÍNCULOS</div>` +
