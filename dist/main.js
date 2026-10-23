@@ -778,6 +778,20 @@ class AzurGame {
     setCombatCue(kind, actor, element, damageValue = 0, effective = false) {
         this.combatCue = createCombatCue(kind, actor, element, this.seconds, damageValue, effective);
     }
+    /** Resolve a completed battle with a visible final reaction, without granting a second turn. */
+    cueFaint(side, complete) {
+        const b = this.battle;
+        if (!b)
+            return;
+        const target = side === 'enemy' ? b.enemy : this.getAlly();
+        if (!target) {
+            complete();
+            return;
+        }
+        this.setCombatCue('faint', side, SPECIES[target.speciesId].element);
+        this.refreshBattle();
+        window.setTimeout(complete, Math.ceil((this.combatCue?.duration ?? 1.12) * 1000) + 80);
+    }
     refreshBattle() {
         const b = this.battle;
         if (!b)
@@ -865,7 +879,7 @@ class AzurGame {
         if (utility.cleanse)
             this.setStatuses(ally, []);
         const statusText = m.role === 'heal' ? '' : this.applyCombatStatus(b.enemy, id);
-        this.setCombatCue(m.role === 'heal' ? 'heal' : 'attack', 'ally', m.element, dealt, result.effective);
+        this.setCombatCue(m.role === 'heal' ? 'heal' : 'attack', 'ally', m.element, m.role === 'heal' ? restored : dealt, result.effective);
         this.flash = .28;
         this.sound.hitElement(m.element);
         b.log = `${SPECIES[ally.speciesId].name} usa ${m.name}. ${dealt ? dealt + ' de daño' : ''}${restored ? ' · +' + restored + ' HP' : ''}${utility.cleanse ? ' · ESTADOS LIMPIADOS' : ''}${result.effective && dealt ? ' · ¡EFICAZ!' : ''}${statusText}.`;
@@ -887,11 +901,11 @@ class AzurGame {
         b.pending = b.enemy.hp <= 0 ? 'victory' : !this.save.team.some(c => c.hp > 0) ? 'defeat' : 'enemy';
         this.refreshBattle();
         if (b.pending === 'victory') {
-            window.setTimeout(() => this.winBattle(), 960);
+            window.setTimeout(() => this.cueFaint('enemy', () => this.winBattle()), 660);
             return;
         }
         if (b.pending === 'defeat') {
-            window.setTimeout(() => this.defeat(), 960);
+            window.setTimeout(() => this.cueFaint('ally', () => this.defeat()), 660);
             return;
         }
         window.setTimeout(() => this.enemyTurn(), 1000);
@@ -958,7 +972,7 @@ class AzurGame {
         if (burn)
             b.log += ` ${SPECIES[b.enemy.speciesId].name} sufre ${burn} por ARDOR.`;
         b.guarding = false;
-        this.setCombatCue(m.role === 'heal' ? 'heal' : 'attack', 'enemy', charged ? 'Éter' : m.element, actual, result.effective);
+        this.setCombatCue(m.role === 'heal' ? 'heal' : 'attack', 'enemy', charged ? 'Éter' : m.element, m.role === 'heal' ? recovered : actual, result.effective);
         this.sound.hitElement(charged ? 'Éter' : m.element);
         this.flash = charged ? .4 : .18;
         if (ally.hp <= 0) {
@@ -966,7 +980,7 @@ class AzurGame {
             if (next < 0) {
                 b.pending = 'defeat';
                 this.refreshBattle();
-                window.setTimeout(() => this.defeat(), 1050);
+                window.setTimeout(() => this.cueFaint('ally', () => this.defeat()), 690);
                 return;
             }
             b.ally = next;
@@ -975,7 +989,7 @@ class AzurGame {
         if (b.enemy.hp <= 0) {
             b.pending = 'victory';
             this.refreshBattle();
-            window.setTimeout(() => this.winBattle(), 760);
+            window.setTimeout(() => this.cueFaint('enemy', () => this.winBattle()), 650);
             return;
         }
         b.busy = false;
@@ -1096,7 +1110,7 @@ class AzurGame {
         }
     }
     tonic() { const b = this.battle, ally = this.getAlly(); if (!b || !ally || b.busy || this.save.inventory.tonics < 1)
-        return; this.save.inventory.tonics--; ally.hp = Math.min(maxHp(ally), ally.hp + 28); this.setStatuses(ally, this.statuses(ally).filter(s => s.kind !== 'scorch')); b.busy = true; b.pending = 'enemy'; this.setCombatCue('heal', 'ally', SPECIES[ally.speciesId].element); b.log = `${SPECIES[ally.speciesId].name} recupera 28 puntos de salud y limpia el ARDOR.`; this.sound.pick(); this.refreshBattle(); window.setTimeout(() => this.enemyTurn(), 550); }
+        return; this.save.inventory.tonics--; const beforeHp = ally.hp; ally.hp = Math.min(maxHp(ally), ally.hp + 28); this.setStatuses(ally, this.statuses(ally).filter(s => s.kind !== 'scorch')); b.busy = true; b.pending = 'enemy'; this.setCombatCue('heal', 'ally', SPECIES[ally.speciesId].element, ally.hp - beforeHp); b.log = `${SPECIES[ally.speciesId].name} recupera 28 puntos de salud y limpia el ARDOR.`; this.sound.pick(); this.refreshBattle(); window.setTimeout(() => this.enemyTurn(), 550); }
     switchCreature() {
         const b = this.battle;
         if (!b || b.busy)
