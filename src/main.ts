@@ -292,7 +292,7 @@ class AzurGame {
       if(this.flag(CROWN_BOSS_FLAG)){this.toast('NULLSCRIBE YA NO ESCRIBE EL CIELO');break;}
       if(!crownProgress(this.save.flags).bossReady){const p=crownProgress(this.save.flags);this.dialog([{title:'EL ESCRIBA SELLADO',text:`Oriel, las dos reliquias (${p.memories}/2) y los tres testigos (${p.witnesses}/3) deben abrir el nombre de Nullscribe.`}]);break;}
       this.prepareCrownBattle();break;}
-      if(this.save.defeatedBoss){this.toast('EL GUARDIÁN DESCANSA');return;}this.prepareGuardianBattle();break;}}}
+      if(this.save.defeatedBoss){this.toast('EL GUARDIÁN DESCANSA');return;}this.prepareGuardianBattle();break;}}
   private checkpointBattle(){
     const b=this.battle;if(!b||!this.started)return;
     const record:BattleCheckpoint={enemy:{...b.enemy,moves:[...b.enemy.moves]},type:b.type,ally:b.ally,guarding:b.guarding,bossPhase:b.bossPhase,chargeStage:b.chargeStage,encounterId:b.encounterId,pending:b.pending,effects:Object.fromEntries(Object.entries(b.effects).map(([uid,arr])=>[uid,arr.map(a=>({...a}))]))};
