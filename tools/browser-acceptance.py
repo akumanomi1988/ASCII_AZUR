@@ -201,6 +201,10 @@ window.addEventListener('load',()=>setTimeout(async()=>{
   for(let i=0;i<2;i++)$('closeDialogue').click();
   $('touchInteract').click();
   check($('modal').classList.contains('hidden'),'Completed Afterlight verdict offered repeat choice');
+  // The completed shrine returns a short story dialogue; dismiss it before
+  // rehydrating an independent save fixture for the Forest bond test.
+  for(let i=0;i<4&&!$('dialogue').classList.contains('hidden');i++)$('closeDialogue').click();
+  check($('dialogue').classList.contains('hidden'),'Completed Afterlight dialogue remained open');
   // P3 complete optional creature-bond loop: saved evolution + memory + altar
   // -> irreversible choice -> combat trait persistence -> no duplicate claim.
   const bondSave=JSON.parse(saved);
