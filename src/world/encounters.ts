@@ -14,11 +14,11 @@ const FOREST_TRAIL_POOLS:readonly (readonly string[])[]=[
  * elemental opponent (Ash > Root, Root > Mist, Mist > Ether). Identity and
  * placement remain seed-dependent, while v1 roamer IDs and XP stay stable. */
 const MARSH_TRAIL_POOLS:readonly (readonly string[])[]=[
- ['rillfin','mireling'], // Fog dwellers in the sinking reeds
- ['gravemoth','runeowl'], // Echo predators circle the drowned bell
- ['ashboar','cinderwulf'] // Embers trapped within the flooded causeway
+ ['bellroot'], // The rooted bell guards the drowned memory
+ ['mourveil','rillfin'], // The mourning veil wanders the mist
+ ['gravemoth','runeowl'] // Echo predators circle the drowned bell
 ];
-const SPIRE_TRAIL_POOLS:readonly (readonly string[])[]=[['ashboar','cinderwulf'],['rillfin','mireling'],['gravemoth','runeowl']];
+const SPIRE_TRAIL_POOLS:readonly (readonly string[])[]=[['ashglass'],['mnemoshade'],['bellroot','mourveil']];
 const SANCTUARY_TRAIL_POOLS:readonly (readonly string[])[]=[
  ['briarling','thorne'],              // Root: Ash counterplay
  ['mireling','rillfin','velaria'],    // Mist: Root counterplay
@@ -52,6 +52,35 @@ export function visibleEncounters(zone:ZoneId,seed:number):RoamingEncounter[]{
    out.push({id:`${zone}-${slot}`,x:pick.x,y:pick.y,speciesId:creatures[variant]!,level:zone==='forest'?5+slot:zone==='marsh'?11+slot:zone==='spire'?13+slot:8+slot});
  }
  return out;
+}
+/** Each biome has a distinct ecology. Random wilds are independent of the saved
+ * world layout; visible one-time witnesses remain seed-deterministic above. */
+export const BIOME_WILD_SPECIES:Readonly<Record<ZoneId,readonly string[]>>={
+ village:[],
+ forest:['velaria','thorne','wispawn','mireling','gravemoth','cindrel','runeowl','ashboar','briarling','rillfin'],
+ sanctuary:['gravemoth','wispawn','mireling','thorne','runeowl','rillfin'],
+ marsh:['bellroot','mourveil','mireling','rillfin','gravemoth','runeowl'],
+ spire:['ashglass','mnemoshade','cinderwulf','ashboar','wispawn','bellroot']
+};
+export const BIOME_DUEL_SPECIES:Readonly<Record<ZoneId,readonly string[]>>={
+ village:['cindrel','briarling','mireling'],
+ forest:['cindrel','thorne','mireling'],
+ sanctuary:['runeowl','wispawn','gravemoth'],
+ marsh:['bellroot','mourveil','rillfin'],
+ spire:['ashglass','mnemoshade','cinderwulf']
+};
+export function drawBiomeWild(zone:ZoneId,roll:number):string|undefined{
+ const pool=BIOME_WILD_SPECIES[zone];
+ if(!pool.length||!Number.isFinite(roll))return undefined;
+ return pool[Math.max(0,Math.min(pool.length-1,Math.floor(roll*pool.length)))];
+}
+export function biomeDuelLevel(zone:ZoneId,index:number):number{
+ const start={village:3,forest:5,sanctuary:8,marsh:11,spire:13}[zone];
+ return start+Math.max(0,Math.floor(index));
+}
+export function biomeWildLevel(zone:ZoneId,roll:number):number{
+ const start={village:1,forest:4,sanctuary:6,marsh:11,spire:13}[zone];
+ return start+Math.max(0,Math.min(3,Math.floor(roll*4)));
 }
 export function nearbyEncounter(encounters:readonly RoamingEncounter[],flags:readonly string[],x:number,y:number,radius=1.65):RoamingEncounter|undefined{
  return encounters.find(e=>!flags.includes('roamer-'+e.id)&&Math.hypot(e.x-x,e.y-y)<=radius);
