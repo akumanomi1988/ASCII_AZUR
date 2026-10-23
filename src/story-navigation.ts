@@ -21,17 +21,27 @@ function landmark(zone:ZoneId,kind:Landmark['kind'],right=true):Landmark|undefin
 /** Reverse shortest-path fields; no save-state mutation. Memoized per generated world revision. */
 interface AzurRouteField {cost:Int16Array;next:Int16Array;}
 const azurRoutes=new Map<string,AzurRouteField>();
+const azurWalkable=new Map<ZoneId,Uint8Array>();
 let azurRouteRevision=-1;
 const azurNeighbors=[[0,-1],[1,0],[0,1],[-1,0]] as const;
+/** Cache footprint-aware tiles once per zone/revision; route breadth no longer
+ * multiplies expensive collision + landmark checks for every target. */
+function walkableCells(zone:ZoneId):Uint8Array{
+ const cached=azurWalkable.get(zone);if(cached)return cached;
+ const cells=new Uint8Array(WORLD_W*WORLD_H);
+ for(let y=0;y<WORLD_H;y++)for(let x=0;x<WORLD_W;x++)
+  if(canOccupy(zone,x,y,.19))cells[y*WORLD_W+x]=1;
+ azurWalkable.set(zone,cells);return cells;
+}
 function azurRoute(zone:ZoneId,target:Landmark):AzurRouteField{
  const revision=getWorldRevision();
- if(revision!==azurRouteRevision){azurRoutes.clear();azurRouteRevision=revision;}
+ if(revision!==azurRouteRevision){azurRoutes.clear();azurWalkable.clear();azurRouteRevision=revision;}
  const key=`${zone}:${target.kind}:${target.x}:${target.y}`;
  const cached=azurRoutes.get(key);if(cached)return cached;
  const length=WORLD_W*WORLD_H;
  const cost=new Int16Array(length).fill(-1),next=new Int16Array(length).fill(-1);
- const queue=new Int16Array(length);
- const valid=(x:number,y:number)=>x>=0&&y>=0&&x<WORLD_W&&y<WORLD_H&&canOccupy(zone,x,y,.19);
+ const queue=new Int16Array(length),walkable=walkableCells(zone);
+ const valid=(x:number,y:number)=>x>=0&&y>=0&&x<WORLD_W&&y<WORLD_H&&walkable[y*WORLD_W+x]===1;
  let head=0,tail=0;
  for(let y=Math.floor(target.y)-2;y<=Math.ceil(target.y)+2;y++)
  for(let x=Math.floor(target.x)-2;x<=Math.ceil(target.x)+2;x++){
