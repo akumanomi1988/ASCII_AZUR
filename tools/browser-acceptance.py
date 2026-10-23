@@ -183,6 +183,25 @@ window.addEventListener('load',()=>setTimeout(async()=>{
    localStorage.setItem('ascii-azur-save-v1',JSON.stringify(regionSave));
    $('continue').click();
    await captureZone(zone);
+   if(zone==='forest'){
+    // Real browser Atlas: discovered POIs support selectable personal
+    // waypoints; the route respects fog and can be cancelled.
+    $('drawerToggle').click();$('mapBtn').click();
+    check($('modalTitle').textContent.includes('ATLAS'),'World Atlas did not open');
+    const west=[...document.querySelectorAll('[data-atlas-target]')]
+     .find(b=>b.closest('.modal-option')?.textContent.includes('Velo de Arken'));
+    check(!!west,'Discovered Forest return portal is missing from Atlas');
+    west.click();
+    check($('modal').classList.contains('hidden'),'Atlas waypoint did not close menu');
+    check($('storyCompass').textContent.startsWith('ATLAS ·'),'Atlas guidance did not override story compass');
+    $('drawerToggle').click();$('mapBtn').click();
+    check($('modalContent').textContent.includes('DESTINO:'),'Atlas selection did not survive reopening');
+    check(!!document.querySelector('.azur-cartography line[stroke="#f6d292"]'),'Atlas route is not drawn over revealed cells');
+    check(!!document.querySelector('[data-atlas-clear]'),'Atlas route has no cancel action');
+    document.querySelector('[data-atlas-clear]').click();
+    check(!$('storyCompass').textContent.startsWith('ATLAS ·'),'Atlas cancellation did not restore story compass');
+    check($('modal').classList.contains('hidden'),'Atlas cancellation left menu open');
+   }
   }
   // Rehydrate a compatible chapter-II location under the same real Chromium
   // graphics/backend combination; the full journey is tested in Node runtime.
