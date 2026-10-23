@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import {dungeonTilePath} from './helpers/dungeon-path.mjs';
+import {ZONES,canOccupy,WORLD_W,WORLD_H} from '../dist/world.js';
 import {damage, MOVES, maxHp} from '../dist/domain.js';
 import {createCreature as createCharacter} from '../dist/domain.js';
 import {generateDungeon as makeCrypt} from '../dist/dungeons/labyrinth.js';
@@ -1131,9 +1132,54 @@ test('Q3 journey: new-game to all four finale branches with earned captures, bat
    const newCapture=game.save.team.length>initialSize;if(newCapture)caught++;
    return newCapture;
   };
-  const heal=()=>{settle();game.interactLandmark({kind:'altar',x:15,y:12,label:'Lumbre'});heals++;};
-  const portal=x=>{settle();game.interactLandmark({kind:'portal',x,y:16,label:'Paso'});settle();};
-  settle();game.interactNpc('archivist');settle();
+  // Traverse each real overworld route by the player's analogue movement, not
+  // by teleporting between NPCs, roaming battles, rest sites or world portals.
+  // Walkable waypoints avoid physical NPC collider footprints.
+  const approach=(target)=>{
+   settle();
+   const zone=game.save.zone,from={x:Math.round(game.save.x),y:Math.round(game.save.y)};
+   const key=(x,y)=>y*WORLD_W+x;
+   const goal=(x,y)=>Math.hypot(x-target.x,y-target.y)<=1.5;
+   const queue=[from],previous=new Map([[key(from.x,from.y),null]]);
+   let finish=null;
+   for(let i=0;i<queue.length;i++){
+    const cur=queue[i];if(goal(cur.x,cur.y)&&canOccupy(zone,cur.x,cur.y,.19)){finish=cur;break;}
+    for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
+     const x=cur.x+dx,y=cur.y+dy,k=key(x,y);
+     if(x<1||y<2||x>=WORLD_W-1||y>=WORLD_H-2||previous.has(k)||!canOccupy(zone,x,y,.19))continue;
+     previous.set(k,cur);queue.push({x,y});
+    }
+   }
+   assert.ok(finish,'no player-accessible path to '+target.label+' '+zone+'/'+seed);
+   const path=[];for(let cur=finish;cur;cur=previous.get(key(cur.x,cur.y)))path.push(cur);
+   path.reverse();
+   let moved=0;
+   for(const point of path.slice(1)){
+    const dx=point.x-Math.round(game.save.x),dy=point.y-Math.round(game.save.y);
+    assert.equal(Math.abs(dx)+Math.abs(dy),1,'surface route must move 1 tile at a time');
+    game.stick.x=dx;game.stick.y=dy;
+    for(let frame=0;frame<5;frame++){
+     game.move(1/(4.35*5));moved++;
+     if(game.battle){doBattle();assert.equal(game.save.zone,zone,'random battle lost exploration position');}
+    }
+    assert.ok(Math.hypot(game.save.x-point.x,game.save.y-point.y)<.085,
+     'physical surface route blocked: '+zone+'/'+seed+' expected '+JSON.stringify(point)+' got '+game.save.x+','+game.save.y);
+   }
+   game.resetJoystick();settle();
+   assert.ok(Math.hypot(game.save.x-target.x,game.save.y-target.y)<=1.65,
+    'physical interaction out of reach: '+target.label);
+   return moved;
+  };
+  const site=(kind,npcId)=>{
+   const item=ZONES[game.save.zone].landmarks.find(l=>l.kind===kind&&(npcId===undefined||l.npcId===npcId));
+   assert.ok(item,'missing authored site '+kind+'/'+npcId);
+   approach(item);return item;
+  };
+  const visitNpc=id=>{game.interactLandmark(site('npc',id));settle();};
+  const heal=()=>{settle();game.interactLandmark(site('altar'));heals++;};
+  const portal=x=>{settle();const p=ZONES[game.save.zone].landmarks.find(l=>l.kind==='portal'&&(x<10?l.x<10:l.x>20));assert.ok(p);approach(p);game.interactLandmark(p);settle();};
+  const witness=e=>{approach({...e,label:e.id});game.interact();assert.equal(game.battle?.enemy.speciesId,e.speciesId,'visible roaming encounter skipped');doBattle();assert.ok(game.save.flags.includes('roamer-'+e.id),'witness not resolved');};
+  settle();visitNpc('archivist');
   // Legitimately recruit at least one companion from ordinary wild duels.
   for(const id of starter==='cindrel'?['mireling','briarling']:['cindrel','briarling']){
    let found=false;
@@ -1145,13 +1191,13 @@ test('Q3 journey: new-game to all four finale branches with earned captures, bat
   for(const [species,level] of [['cindrel',3],['briarling',4],['mireling',5]]){
    heal();game.startBattle(species,level,'wild');doBattle();
   }
-  game.interactNpc('scout');settle();
+  visitNpc('scout');
   heal();portal(43);assert.equal(game.save.zone,'forest');
-  for(const event of game.roamers()){heal();game.startBattle(event.speciesId,event.level,'wild',event.id);doBattle();assert.ok(game.save.flags.includes('roamer-'+event.id));}
+  for(const event of game.roamers()){heal();witness(event);}
   portal(43);assert.equal(game.save.zone,'sanctuary');
-  for(const event of game.roamers()){heal();game.startBattle(event.speciesId,event.level,'wild',event.id);doBattle();assert.ok(game.save.flags.includes('roamer-'+event.id));}
-  game.interactNpc('keeper');settle();heal();
-  game.interactLandmark({kind:'guardian',x:35,y:16,label:'Hollowhart'});
+  for(const event of game.roamers()){heal();witness(event);}
+  visitNpc('keeper');heal();
+  game.interactLandmark(site('guardian'));
   assert.equal(game.modalOpen,true,'earned Guardian preflight');
   dom.get('guardianProceed').onclick();assert.equal(game.battle.enemy.speciesId,'hollowhart');
   doBattle();assert.ok(game.save.defeatedBoss,'Hollowhart won by the party');
@@ -1175,35 +1221,35 @@ test('Q3 journey: new-game to all four finale branches with earned captures, bat
   }
   assert.ok(game.save.dungeon.finished,'crypt was not completed by ordinary movement');
   walkCrypt(game.save.dungeon.events[0]);game.dungeonInteract();
-  game.interactNpc('archivist');settle();
+  visitNpc('archivist');
   assert.ok(game.save.flags.includes('arken-vow-restored'),'Chapter I conclusion missing');
   saveReload('Arken');
   portal(43);portal(43);portal(43);
   assert.equal(game.save.zone,'marsh','unlocked Marsh portal');
-  game.interactNpc('nael');settle();
-  for(const npcId of ['bell','lantern']){game.interactLandmark({kind:'memory',npcId,x:20,y:16,label:npcId});settle();}
-  for(const event of game.roamers()){heal();game.startBattle(event.speciesId,event.level,'wild',event.id);doBattle();assert.ok(game.save.flags.includes('roamer-'+event.id));}
-  game.interactLandmark({kind:'verdict',x:36,y:16,label:'Tribunal'});
+  visitNpc('nael');
+  for(const npcId of ['bell','lantern']){game.interactLandmark(site('memory',npcId));settle();}
+  for(const event of game.roamers()){heal();witness(event);}
+  game.interactLandmark(site('verdict'));
   assert.ok(game.modalOpen,'Marsh moral fork missing');game.chooseMarsh(marsh);settle();
-  game.interactNpc('nael');settle();
+  visitNpc('nael');
   assert.ok(game.save.flags.includes('marsh-chapter-complete'),'Chapter II conclusion missing');
   saveReload('Marsh');
   portal(43);assert.equal(game.save.zone,'spire','unlocked Crown');
-  game.interactNpc('oriel');settle();
-  for(const npcId of ['flame','archive']){game.interactLandmark({kind:'memory',npcId,x:20,y:16,label:npcId});settle();}
-  for(const event of game.roamers()){heal();game.startBattle(event.speciesId,event.level,'wild',event.id);doBattle();assert.ok(game.save.flags.includes('roamer-'+event.id));}
-  heal();game.interactLandmark({kind:'guardian',npcId:'nullscribe',x:35,y:15,label:'Nullscribe'});
+  visitNpc('oriel');
+  for(const npcId of ['flame','archive']){game.interactLandmark(site('memory',npcId));settle();}
+  for(const event of game.roamers()){heal();witness(event);}
+  heal();game.interactLandmark(site('guardian'));
   assert.ok(game.modalOpen,'legitimate Nullscribe preflight missing');
   dom.get('crownProceed').onclick();assert.equal(game.battle.enemy.speciesId,'nullscribe');
   doBattle();assert.ok(game.save.flags.includes('crown-nullscribe-fallen'),'final boss missing');
-  game.interactLandmark({kind:'verdict',x:40,y:24,label:'Telar'});
+  game.interactLandmark(site('verdict'));
   assert.ok(game.modalOpen,'final verdict missing');
-  game.chooseCrown(ending);settle();game.interactNpc('oriel');settle();
+  game.chooseCrown(ending);settle();visitNpc('oriel');
   assert.ok(game.save.flags.includes('crown-trilogy-complete'),'final outcome missing');
   assert.ok(game.save.flags.includes('marsh-choice-'+marsh));
   assert.ok(game.save.flags.includes('crown-choice-'+ending));
   const finalE=game.economy.echoes;saveReload('Final');
-  game.interactNpc('oriel');settle();assert.equal(game.economy.echoes,finalE,'duplicated completion reward');
+  visitNpc('oriel');assert.equal(game.economy.echoes,finalE,'duplicated completion reward');
   cases.push({starter,marsh,ending,world:seed,captured:caught,battles,actions,heals,level:game.save.team[0].level});
  }
  assert.equal(cases.length,12);
