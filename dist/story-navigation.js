@@ -13,12 +13,28 @@ function landmark(zone, kind, right = true) {
     return right ? matches[matches.length - 1] : matches[0];
 }
 const azurRoutes = new Map();
+const azurWalkable = new Map();
 let azurRouteRevision = -1;
 const azurNeighbors = [[0, -1], [1, 0], [0, 1], [-1, 0]];
+/** Cache footprint-aware tiles once per zone/revision; route breadth no longer
+ * multiplies expensive collision + landmark checks for every target. */
+function walkableCells(zone) {
+    const cached = azurWalkable.get(zone);
+    if (cached)
+        return cached;
+    const cells = new Uint8Array(WORLD_W * WORLD_H);
+    for (let y = 0; y < WORLD_H; y++)
+        for (let x = 0; x < WORLD_W; x++)
+            if (canOccupy(zone, x, y, .19))
+                cells[y * WORLD_W + x] = 1;
+    azurWalkable.set(zone, cells);
+    return cells;
+}
 function azurRoute(zone, target) {
     const revision = getWorldRevision();
     if (revision !== azurRouteRevision) {
         azurRoutes.clear();
+        azurWalkable.clear();
         azurRouteRevision = revision;
     }
     const key = `${zone}:${target.kind}:${target.x}:${target.y}`;
@@ -27,8 +43,8 @@ function azurRoute(zone, target) {
         return cached;
     const length = WORLD_W * WORLD_H;
     const cost = new Int16Array(length).fill(-1), next = new Int16Array(length).fill(-1);
-    const queue = new Int16Array(length);
-    const valid = (x, y) => x >= 0 && y >= 0 && x < WORLD_W && y < WORLD_H && canOccupy(zone, x, y, .19);
+    const queue = new Int16Array(length), walkable = walkableCells(zone);
+    const valid = (x, y) => x >= 0 && y >= 0 && x < WORLD_W && y < WORLD_H && walkable[y * WORLD_W + x] === 1;
     let head = 0, tail = 0;
     for (let y = Math.floor(target.y) - 2; y <= Math.ceil(target.y) + 2; y++)
         for (let x = Math.floor(target.x) - 2; x <= Math.ceil(target.x) + 2; x++) {
@@ -74,6 +90,23 @@ function azurRouteStart(position, cost) {
             }
         }
     return best;
+}
+/** Shared walkable guidance for authored landmarks and moving encounter targets.
+ * Uses the same collision footprint as the player and never alters world state. */
+export function guidanceToTarget(position, point, title = point.label.toUpperCase()) {
+    const target = { ...point, kind: 'memory' };
+    const simple = (text, kind) => ({ text, direction: '✦', distance: null, target: null, kind });
+    if (Math.hypot(point.x - position.x, point.y - position.y) <= 1.65)
+        return { text: `✦ ${title} · ACCIÓN`, direction: '✦', distance: 0, target, kind: 'interaction', waypoint: null };
+    const route = azurRoute(position.zone, target), start = azurRouteStart(position, route.cost);
+    if (start < 0)
+        return simple('RUTA BLOQUEADA · CONSULTA EL DIARIO', 'menu');
+    const next = route.next[start];
+    if (next === undefined || next < 0)
+        return { text: `✦ ${title} · ACÉRCATE`, direction: '✦', distance: 0, target, kind: 'interaction', waypoint: null };
+    const x = next % WORLD_W, y = (next / WORLD_W) | 0;
+    const direction = arrow(x - position.x, y - position.y), distance = route.cost[start] + 1;
+    return { text: `${direction} ${title} · ${distance} PASOS · RUTA`, direction, distance, target, kind: 'target', waypoint: { x, y } };
 }
 export function storyGuidance(story, position) {
     const step = arkenStoryIndex(story);
