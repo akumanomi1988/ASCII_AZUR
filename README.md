@@ -13,6 +13,21 @@ RPG de captura de criaturas y fantasía oscura, con mundo ASCII generado mediant
 
 `play.html` es un **artefacto generado, no versionado**. No debes editarlo manualmente. GitHub Pages publica los módulos compilados directamente y CI genera el HTML autónomo descargable. Los archivos fuente de verdad están en `src/`. Los tests usan `node:test` sin frameworks innecesarios.
 
+## v0.29.0 — La Marisma del Espejo Roto
+
+Después de completar el primer arco de Arken, el portal oriental del Santuario abre **una cuarta región procedural persistente**: las Marismas del Espejo Roto, con paleta verde azulado, niebla, lluvia, música propia y caminos legibles.
+
+**Capítulo II:**
+1. Entra en la Marisma y habla con **Nael, la Cartógrafa del Olvido**.
+2. Recupera las dos memorias únicas: la **Campana Sumergida** y el **Farol de las Orillas**.
+3. Enfrenta o vincula a tres testigos errantes con especies, rutas y niveles determinados por la semilla.
+4. En el Tribunal del Reflejo, elige **PRESERVAR** los nombres imposibles (180 Ecos, 4 Sellos) o **LIBERARLOS** (180 Ecos, 4 Tónicos); la decisión es única e irreversible en esa partida.
+5. Regresa a Nael para un epílogo específico y 80 Ecos únicos. El capítulo y la región siguen accesibles después del desenlace.
+
+El diario y la brújula siguen cada objetivo. La nueva región conserva exploración, posición de monumentos, cofres, capturas, recompensas y desenlace al recargar. Los guardados v1 previos mantienen sus tres mapas congelados sin cambiar ninguna posición: se genera únicamente la cuarta región al restaurar, y después se incluye en el mismo formato v1. Las ilustraciones y sonidos son originales/programáticos.
+
+**QA:** 200 semillas de conectividad y tres testigos; compatibilidad de snapshots anteriores; 18 sesiones aisladas del Capítulo II con ataques, defensas, curas, dos decisiones y reanudación. Estas son pruebas automatizadas de la secuela con el Arken ya completado como fixture; no equivalen a 18 sesiones humanas ni a una campaña global terminada. El tercer capítulo y el final definitivo siguen pendientes.
+
 ## v0.28.0 — Las tres lecciones y el Eclipse
 
 La preparación de Hollowhart ya no depende de combates idénticos repetidos. En Arken, **Menú → Combate directo** ofrece tres lecciones elementales distintas: vencer por primera vez a Cindrel, Briarling y Mireling concede 55 EXP adicional por especie (con experiencia compartida normal). Cuando completes las tres, habla con Iria para reclamar **2 Tónicos una sola vez**; repetir rivales no repite las recompensas. La experiencia de entrenamiento no sustituye los premios únicos de los encuentros visibles del Bosque y Santuario.
