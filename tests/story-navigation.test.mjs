@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {storyGuidance} from '../dist/story-navigation.js';
+import {storyGuidance,guidanceToTarget} from '../dist/story-navigation.js';
 import {ARKEN_FINALE_FLAG} from '../dist/story-campaign.js';
 const story=(flags=[],defeatedBoss=false,dungeonFinished=false)=>({flags,defeatedBoss,dungeonFinished});
 const position=(zone,x,y,inDungeon=false)=>({zone,x,y,inDungeon});
@@ -57,4 +57,40 @@ test('navigation reads landmarks relocated by seeded map generation rather than 
  }finally{
   configureWorld(0);
  }
+});
+
+test('W4 shared route compass physically reaches all landmarks and roamers across 200 deterministic worlds',async()=>{
+ const {configureWorld,ZONES,ZONE_IDS,canOccupy,sweepMove,getWorldSeed}=await import('../dist/world.js');
+ const {visibleEncounters}=await import('../dist/world/encounters.js');
+ let routes=0,moves=0;
+ try{
+  for(let seed=1;seed<=200;seed++){
+   configureWorld((Math.imul(seed,2654435761)>>>0)||1);
+   for(const zone of ZONE_IDS){
+    const targets=[
+     ...ZONES[zone].landmarks,
+     ...visibleEncounters(zone,getWorldSeed()).map(e=>({x:e.x,y:e.y,label:e.speciesId}))
+    ];
+    for(const target of targets){
+     let x=4,y=16,arrived=false;
+     assert.ok(canOccupy(zone,x,y,.19),`${seed}/${zone} spawn blocked`);
+     for(let step=0;step<1600;step++){
+      const cue=guidanceToTarget({zone,x,y,inDungeon:false},target);
+      if(cue.kind==='interaction'){arrived=true;break;}
+      assert.equal(cue.kind,'target',`${seed}/${zone}/${target.label}: ${cue.text}`);
+      assert.ok(cue.waypoint,`${seed}/${zone}/${target.label} has no waypoint`);
+      const next=cue.waypoint;
+      assert.equal(Math.abs(next.x-x)+Math.abs(next.y-y),1,`${seed}/${zone}/${target.label} jumps a tile`);
+      const moved=sweepMove(zone,x,y,next.x-x,next.y-y,.19);
+      assert.ok(Math.hypot(moved.x-next.x,moved.y-next.y)<1e-6,`${seed}/${zone}/${target.label} movement blocked`);
+      x=next.x;y=next.y;moves++;
+     }
+     assert.ok(arrived,`${seed}/${zone}/${target.label} did not arrive`);
+     routes++;
+    }
+   }
+  }
+ }finally{configureWorld(0);}
+ assert.ok(routes>=8000,`expected broad route coverage, got ${routes}`);
+ assert.ok(moves>routes,`expected actual traversal, got ${moves}`);
 });
