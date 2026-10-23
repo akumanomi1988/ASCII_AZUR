@@ -3,7 +3,7 @@ export const DISCOVERY_CELLS = WORLD_W * WORLD_H;
 export function validDiscovery(v) {
     if (!v || typeof v !== 'object' || Array.isArray(v))
         return false;
-    return Object.entries(v).every(([k, value]) => ['village', 'forest', 'sanctuary', 'marsh'].includes(k)
+    return Object.entries(v).every(([k, value]) => ['village', 'forest', 'sanctuary', 'marsh', 'spire'].includes(k)
         && typeof value === 'string' && value.length === DISCOVERY_CELLS && /^[01]+$/.test(value));
 }
 export function isDiscovered(discovered, zone, x, y, legacy = false) {

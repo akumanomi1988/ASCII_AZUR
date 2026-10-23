@@ -83,8 +83,8 @@ export function sanctuaryOathProgress(flags) {
 /** Propose (never force) the highest immediate-damage healthy opening combatant
  * against the real level-12 Guardian, using equipped attacks and current HP.
  * The player may deliberately choose any conscious teammate instead. */
-export function guardianRecommendedLead(team) {
-    const boss = createCreature('hollowhart', 12, () => 0);
+export function guardianRecommendedLead(team, bossSpecies = 'hollowhart') {
+    const boss = createCreature(bossSpecies, bossSpecies === 'hollowhart' ? 12 : 16, () => 0);
     let choice = -1, best = -Infinity;
     for (let i = 0; i < team.length; i++) {
         const creature = team[i];

@@ -10,6 +10,7 @@ export const RIGS = Object.freeze({
     ashboar: { family: 'boar', pace: 2.6, amplitude: 1.4, blinkInterval: 4.3, detail: '#fff1d5', accent: '#ffc08f' },
     rillfin: { family: 'fish', pace: 2.8, amplitude: 3.5, blinkInterval: 9.0, detail: '#e1ffff', accent: '#9ddcf8' },
     briarling: { family: 'sprout', pace: 1.7, amplitude: 2.0, blinkInterval: 4.8, detail: '#f4f6b0', accent: '#b5e8ae' },
+    nullscribe: { family: 'spirit', pace: .85, amplitude: 3.1, blinkInterval: 6.2, detail: '#fff2df', accent: '#dba8ff' },
     hollowhart: { family: 'stag', pace: .9, amplitude: 1.8, blinkInterval: 5.6, detail: '#fff0d1', accent: '#ddc6ff' }
 });
 export function rigFor(speciesId) { const rig = RIGS[speciesId]; if (!rig)

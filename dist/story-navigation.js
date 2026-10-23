@@ -1,5 +1,6 @@
 import { arkenStoryIndex } from './story-campaign.js';
 import { marshChapterProgress, MARSH_MEMORY_FLAGS } from './story-marsh.js';
+import { crownProgress, CROWN_RELIC_FLAGS } from './story-finale.js';
 import { visibleEncounters } from './world/encounters.js';
 import { ZONES, WORLD_W, WORLD_H, canOccupy, getWorldRevision, getWorldSeed } from './world.js';
 const MARKS = ['→', '↘', '↓', '↙', '←', '↖', '↑', '↗'];
@@ -79,8 +80,57 @@ export function storyGuidance(story, position) {
     const simple = (text, kind) => ({ text, direction: '✦', distance: null, target: null, kind });
     if (step === 6) {
         const chapter = marshChapterProgress(story.flags);
-        if (chapter.complete)
-            return simple('CAPÍTULO II · ESPEJO RESTAURADO', 'completed');
+        if (chapter.complete) {
+            const last = crownProgress(story.flags);
+            if (last.complete)
+                return simple('HISTORIA PRINCIPAL COMPLETADA · MUNDO LIBRE', 'completed');
+            if (position.inDungeon)
+                return simple('SAL DE LA CRIPTA PARA CONTINUAR', 'dungeon');
+            let target, title = '';
+            if (position.zone === 'spire') {
+                const z = ZONES.spire;
+                if (last.stage === 1 || last.stage === 6) {
+                    target = z.landmarks.find(l => l.npcId === 'oriel');
+                    title = 'ORIEL';
+                }
+                else if (last.stage === 2) {
+                    const required = CROWN_RELIC_FLAGS.find(f => !story.flags.includes(f));
+                    target = z.landmarks.find(l => l.kind === 'memory' && required?.endsWith(l.npcId || '--'));
+                    title = 'RELIQUIA';
+                }
+                else if (last.stage === 3) {
+                    const encounter = visibleEncounters('spire', getWorldSeed()).find(e => !story.flags.includes('roamer-' + e.id));
+                    if (encounter) {
+                        target = { x: encounter.x, y: encounter.y, kind: 'memory', label: 'Centinela del Telar' };
+                        title = 'CENTINELA';
+                    }
+                }
+                else if (last.stage === 4) {
+                    target = z.landmarks.find(l => l.kind === 'guardian');
+                    title = 'NULLSCRIBE';
+                }
+                else if (last.stage === 5) {
+                    target = z.landmarks.find(l => l.kind === 'verdict');
+                    title = 'TELAR';
+                }
+            }
+            else {
+                target = landmark(position.zone, 'portal', true);
+                title = 'PORTAL ESTE';
+            }
+            if (!target)
+                return simple(last.objective.toUpperCase(), 'menu');
+            if (Math.hypot(target.x - position.x, target.y - position.y) <= 1.65)
+                return { text: `✦ ${title} · ACCIÓN`, direction: '✦', distance: 0, target, kind: 'interaction', waypoint: null };
+            const route = azurRoute(position.zone, target), start = azurRouteStart(position, route.cost);
+            if (start < 0)
+                return simple('RUTA BLOQUEADA · CONSULTA EL DIARIO', 'menu');
+            const next = route.next[start];
+            if (next === undefined || next < 0)
+                return simple(`✦ ${title} · ACÉRCATE`, 'interaction');
+            const x = next % WORLD_W, y = (next / WORLD_W) | 0;
+            return { text: `${arrow(x - position.x, y - position.y)} ${title} · ${route.cost[start] + 1} PASOS · RUTA`, direction: arrow(x - position.x, y - position.y), distance: route.cost[start] + 1, target, kind: 'target', waypoint: { x, y } };
+        }
         if (position.inDungeon)
             return simple('SAL DE LA CRIPTA PARA CONTINUAR', 'dungeon');
         let target, title = '';
@@ -108,8 +158,8 @@ export function storyGuidance(story, position) {
             }
         }
         else {
-            target = landmark(position.zone, 'portal', true);
-            title = 'PORTAL ESTE';
+            target = landmark(position.zone, 'portal', position.zone !== 'spire');
+            title = position.zone === 'spire' ? 'PORTAL OESTE' : 'PORTAL ESTE';
         }
         if (!target)
             return simple(chapter.objective.toUpperCase(), 'menu');

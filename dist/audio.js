@@ -4,6 +4,7 @@ const themes = {
     forest: { bpm: 66, root: 45, mode: [0, 2, 3, 5, 7, 8, 10], melody: [0, null, null, 2, 3, null, null, 2, 4, null, 3, null, 1, null, -2, null], bass: [0, null, null, null, -2, null, null, null, -4, null, null, null, -2, null, null, null], chords: [[0, 2, 4], [-2, 0, 2], [-4, -2, 0], [-2, 0, 3]], texture: 'mist' },
     sanctuary: { bpm: 56, root: 45, mode: [0, 1, 3, 5, 7, 8, 10], melody: [0, null, null, null, 3, null, 2, null, 5, null, null, 3, 1, null, -1, null], bass: [0, null, null, null, -3, null, null, null, -4, null, null, null, -1, null, null, null], chords: [[0, 2, 4], [-3, -1, 1], [-4, -2, 0], [-1, 1, 3]], texture: 'void' },
     marsh: { bpm: 62, root: 43, mode: [0, 2, 3, 5, 7, 8, 10], melody: [0, null, 3, null, 2, 1, null, -2, 0, null, 4, 3, 1, null, -2, null], bass: [0, null, null, null, -4, null, null, null, -2, null, null, null, -5, null, null, null], chords: [[0, 2, 4], [-4, -2, 0], [-2, 0, 2], [-5, -2, 1]], texture: 'mist' },
+    spire: { bpm: 52, root: 41, mode: [0, 1, 3, 5, 6, 8, 10], melody: [0, null, 3, null, 5, 3, 1, null, -2, null, 1, 4, null, -1, 0, null], bass: [0, null, null, null, -3, null, null, null, -5, null, null, null, -1, null, null, null], chords: [[0, 2, 4], [-3, -1, 1], [-5, -2, 0], [-1, 1, 3]], texture: 'void' },
     battle: { bpm: 126, root: 45, mode: [0, 2, 3, 5, 7, 8, 10], melody: [0, 0, 4, null, 3, 2, 4, null, 5, 4, 3, 2, 0, null, -2, 0], bass: [0, null, 0, null, -2, null, -2, null, -4, null, -4, null, -2, null, -2, null], chords: [[0, 2, 4], [-2, 0, 2], [-4, -2, 0], [-2, 0, 3]], texture: 'percussion' },
     boss: { bpm: 144, root: 43, mode: [0, 1, 3, 5, 7, 8, 10], melody: [0, null, 3, 2, 1, 0, -2, null, 4, 3, 5, null, 3, 1, 0, -2], bass: [0, null, 0, null, -1, null, -1, null, -4, null, -4, null, -2, null, -2, null], chords: [[0, 2, 4], [-1, 1, 3], [-4, -2, 0], [-2, 0, 2]], texture: 'percussion' }
 };
@@ -11,6 +12,7 @@ const themes = {
 export function ambienceForScene(scene) {
     switch (scene) {
         case 'forest': return { gain: .14, lowpassHz: 450, modulation: .35 };
+        case 'spire': return { gain: .16, lowpassHz: 210, modulation: .23 };
         case 'marsh': return { gain: .20, lowpassHz: 340, modulation: .48 };
         case 'sanctuary': return { gain: .17, lowpassHz: 240, modulation: .18 };
         case 'village': return { gain: .06, lowpassHz: 650, modulation: .12 };

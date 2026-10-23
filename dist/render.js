@@ -618,6 +618,29 @@ export function drawCreature(ctx, speciesId, x, y, scale = 1, t = 0, action = 'i
         ctx.fillRect(-8, -6, 5, 4);
         ctx.fillRect(5, -6, 5, 4);
     }
+    else if (sp.shape === 11) { // the original Nullscribe: empty scroll beneath a shattered halo
+        const flutter = perf.wing * 3;
+        poly(ctx, [[-20, -31], [-34, 4], [-8, 14], [12, 14], [34, 4], [20, -31]], '#342843');
+        ctx.fillStyle = col;
+        ctx.fillRect(-15, -43, 30, 43);
+        ctx.fillStyle = '#19172c';
+        ctx.fillRect(-10, -37, 20, 30);
+        ctx.strokeStyle = '#e9c8fc';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(-27, -50 - flutter);
+        ctx.lineTo(0, -65);
+        ctx.lineTo(27, -50 + flutter);
+        ctx.moveTo(-23, -62);
+        ctx.lineTo(0, -72);
+        ctx.lineTo(23, -62);
+        ctx.stroke();
+        ctx.fillStyle = '#fff2dc';
+        ctx.fillRect(-8, -27, 5, 4);
+        ctx.fillRect(4, -27, 5, 4);
+        ctx.fillStyle = '#d3a6f2';
+        ctx.fillRect(-2, -16, 4, 10);
+    }
     else if (sp.shape === 6) { // deer
         ctx.beginPath();
         ctx.ellipse(0, -9, 21, 16, 0, 0, 7);
@@ -1004,11 +1027,13 @@ function drawGround(ctx, zone, camX, camY, t) {
                 ctx.fillStyle = k > .5 ? '#252c3a' : '#29303b';
             if (zone === 'marsh')
                 ctx.fillStyle = k > .5 ? '#163b40' : '#214145';
+            if (zone === 'spire')
+                ctx.fillStyle = k > .5 ? '#241d3c' : '#302443';
             ctx.globalAlpha = .36;
             ctx.fillRect(xx, yy, TILE + 1, TILE + 1);
             ctx.globalAlpha = 1;
             if (tile === 'path') {
-                ctx.fillStyle = zone === 'village' ? '#837360' : zone === 'forest' ? '#867763' : zone === 'marsh' ? '#588a85' : '#756e87';
+                ctx.fillStyle = zone === 'village' ? '#837360' : zone === 'forest' ? '#867763' : zone === 'marsh' ? '#588a85' : zone === 'spire' ? '#8470a5' : '#756e87';
                 ctx.fillRect(xx, yy, TILE + 1, TILE + 1);
                 ctx.globalAlpha = .22;
                 ctx.fillStyle = '#d9bc8d';
@@ -1035,9 +1060,9 @@ function drawGround(ctx, zone, camX, camY, t) {
                 ctx.globalAlpha = 1;
             }
             else if (tile === 'water') {
-                ctx.fillStyle = zone === 'marsh' ? '#143a40' : '#183f4d';
+                ctx.fillStyle = zone === 'marsh' ? '#143a40' : zone === 'spire' ? '#23173f' : '#183f4d';
                 ctx.fillRect(xx, yy, TILE, TILE);
-                ctx.strokeStyle = zone === 'marsh' ? '#75c5ac' : '#4f8c95';
+                ctx.strokeStyle = zone === 'marsh' ? '#75c5ac' : zone === 'spire' ? '#9970d0' : '#4f8c95';
                 ctx.globalAlpha = .3;
                 ctx.beginPath();
                 ctx.moveTo(xx + 6, yy + 23 + Math.sin(t * 2 + k) * 3);
@@ -1046,7 +1071,7 @@ function drawGround(ctx, zone, camX, camY, t) {
                 ctx.globalAlpha = 1;
             }
             else if (tile === 'grass' || k > .53) {
-                ctx.strokeStyle = zone === 'sanctuary' ? '#5e5777' : '#628981';
+                ctx.strokeStyle = zone === 'sanctuary' || zone === 'spire' ? '#8e73af' : '#628981';
                 ctx.globalAlpha = .3;
                 for (let i = 0; i < 5; i++) {
                     let gx = xx + 5 + hash(x + i, y, z.seed) * 38, gy = yy + hash(x, y + i, z.seed) * 43;
@@ -1097,8 +1122,8 @@ function drawClimate(ctx, zone, t, seed, reduced = false) {
             ctx.fillRect(x, y, 2 + i % 2, 2);
         }
     }
-    else if (zone === 'sanctuary') {
-        const glyphs = ['+', '*', 'o', '~'];
+    else if (zone === 'sanctuary' || zone === 'spire') {
+        const glyphs = zone === 'spire' ? ['✦', '∴', '◊', '·'] : ['+', '*', 'o', '~'];
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.font = 'bold 11px monospace';
@@ -1107,7 +1132,7 @@ function drawClimate(ctx, zone, t, seed, reduced = false) {
             const y = ((hash(i, 79, seed) * H - speed * (13 + i % 5 * 6)) % H + H) % H;
             const alpha = (.13 + .22 * hash(i, 87, seed)) * (.7 + .3 * Math.sin(speed * .6 + i));
             ctx.globalAlpha = alpha;
-            ctx.fillStyle = i % 3 ? '#b9a6ea' : '#e6c7a2';
+            ctx.fillStyle = i % 3 ? (zone === 'spire' ? '#c6a4f7' : '#b9a6ea') : (zone === 'spire' ? '#f1d7e9' : '#e6c7a2');
             ctx.fillText(glyphs[i % glyphs.length], x, y);
         }
     }
@@ -1122,7 +1147,7 @@ function drawClimate(ctx, zone, t, seed, reduced = false) {
     }
     ctx.restore();
 }
-export function drawWorld(ctx, zone, hero, t, flash = 0, defeated = false, camera, reducedMotion = false, roamers = []) {
+export function drawWorld(ctx, zone, hero, t, flash = 0, defeated = false, camera, reducedMotion = false, roamers = [], finalBossDefeated = false) {
     const z = ZONES[zone];
     const c = camera || hero;
     const camX = Math.max(0, Math.min(WORLD_W * TILE - W, (c.x + .5) * TILE - W * .5));
@@ -1188,8 +1213,8 @@ export function drawWorld(ctx, zone, hero, t, flash = 0, defeated = false, camer
                 } });
         if (l.kind === 'chest')
             objects.push({ x: xx, y: yy, draw: () => { ctx.fillStyle = '#705b46'; ctx.fillRect(xx - 18, yy - 14, 36, 18); ctx.fillStyle = '#b29869'; ctx.fillRect(xx - 18, yy - 18, 36, 8); ctx.fillRect(xx - 2, yy - 18, 5, 22); light(ctx, xx, yy, 40, '#e5a778', .18); } });
-        if (l.kind === 'guardian' && !defeated)
-            objects.push({ x: xx, y: yy, draw: () => { drawCreature(ctx, 'hollowhart', xx, yy, 2.25, t); light(ctx, xx, yy - 45, 120, '#a791d5', .3); } });
+        if (l.kind === 'guardian' && (l.npcId === 'nullscribe' ? !finalBossDefeated : !defeated))
+            objects.push({ x: xx, y: yy, draw: () => { drawCreature(ctx, l.npcId === 'nullscribe' ? 'nullscribe' : 'hollowhart', xx, yy, l.npcId === 'nullscribe' ? 2.7 : 2.25, t); light(ctx, xx, yy - 45, 120, l.npcId === 'nullscribe' ? '#ca97ee' : '#a791d5', .3); } });
     }
     for (const e of roamers) {
         const xx = (e.x + .5) * TILE - camX, yy = (e.y + .78) * TILE - camY;

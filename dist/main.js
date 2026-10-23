@@ -14,6 +14,7 @@ import { AdaptiveGlyphs } from './core/adaptive-glyphs.js';
 import { storyGuidance } from './story-navigation.js';
 import { ARKEN_STORY, ARKEN_FINALE_REWARD, arkenStoryBeat, arkenStoryIndex, concludeArken, canConcludeArken, guardianPreparation, guardianRecommendedLead, sanctuaryRoutePlan, sanctuaryOathProgress, SANCTUARY_OATHS_FLAG, SANCTUARY_OATHS_REWARD } from './story-campaign.js';
 import { marshChapterProgress, marshDecision, marshFinish, MARSH_REWARDS } from './story-marsh.js';
+import { crownProgress, crownChoose, crownFinish, crownEpilogue, CROWN_BOSS_FLAG, CROWN_END_FLAG, CROWN_CHOICE_REWARDS } from './story-finale.js';
 import { readSave, writeSave } from './core/save-store.js';
 import { transferStoredCreature, reserveCreature, grantPartyExperience } from './party.js';
 import { createCombatCue, sampleCombatCue, guardDamage } from './actors/combat-fx.js';
@@ -356,6 +357,7 @@ class AzurGame {
                     return;
                 this.save = json;
                 configureWorld(this.save.worldSeed ?? 0, this.save.worldSnapshot);
+                this.save.worldSnapshot = captureWorldSnapshot() ?? this.save.worldSnapshot;
                 this.roamingCache.clear();
                 this.save.rpg = normalizeEconomy(json.rpg);
                 this.started = true;
@@ -569,6 +571,22 @@ class AzurGame {
                 break;
             }
             case 'memory': {
+                if (this.save.zone === 'spire') {
+                    if (!this.flag('crown-met-oriel')) {
+                        this.dialog([{ title: 'ESCRITURA SELLADA', text: 'Oriel debe abrirte el camino de las dos reliquias.' }]);
+                        break;
+                    }
+                    const name = l.npcId === 'flame' ? 'flame' : 'archive', flag = 'crown-relic-' + name;
+                    if (this.flag(flag)) {
+                        this.toast('RELIQUIA YA RECORDADA');
+                        break;
+                    }
+                    this.addFlag(flag);
+                    this.sound.pick();
+                    this.saveNow(false);
+                    this.dialog(name === 'flame' ? [{ title: 'LUMBRE DE LOS NOMBRES', text: 'La primera criatura encendió una luz para que otra pudiera encontrar el camino. No escribió una ley: ofreció compañía.' }, { title: 'UN FUEGO QUE NO ORDENA', text: 'La brasa revela un nombre sin dueño. El último escriba desea convertirlo en un decreto.' }] : [{ title: 'ARCHIVO DE LAS AUSENCIAS', text: 'Entre páginas blancas aparecen los nombres de quienes desaparecieron y de quienes podrían existir.' }, { title: 'LA ÚLTIMA PÁGINA', text: 'El futuro no es un recuerdo que deba obedecerse. Busca a los tres testigos antes de desafiar a Nullscribe.' }]);
+                    break;
+                }
                 if (this.save.zone !== 'marsh' || !this.flag('marsh-met-nael')) {
                     this.dialog([{ title: 'EL RECUERDO CERRADO', text: 'Habla primero con Nael, la cartógrafa de las Marismas.' }]);
                     break;
@@ -587,7 +605,10 @@ class AzurGame {
                 break;
             }
             case 'verdict':
-                this.openMarshVerdict();
+                if (this.save.zone === 'spire')
+                    this.openCrownVerdict();
+                else
+                    this.openMarshVerdict();
                 break;
             case 'portal': {
                 let next;
@@ -595,8 +616,19 @@ class AzurGame {
                     next = 'forest';
                 else if (this.save.zone === 'forest')
                     next = l.x < 10 ? 'village' : 'sanctuary';
-                else if (this.save.zone === 'marsh')
-                    next = 'sanctuary';
+                else if (this.save.zone === 'spire')
+                    next = 'marsh';
+                else if (this.save.zone === 'marsh') {
+                    if (l.x > 20) {
+                        if (!crownProgress(this.save.flags).unlocked) {
+                            this.dialog([{ title: 'LA PUERTA DEL ÚLTIMO NOMBRE', text: 'Nael debe cerrar las vidas del espejo antes de que la Corona te reciba.' }]);
+                            break;
+                        }
+                        next = 'spire';
+                    }
+                    else
+                        next = 'sanctuary';
+                }
                 else if (l.x > 20) {
                     if (!this.flag('arken-vow-restored')) {
                         this.dialog([{ title: 'LA PUERTA DEL SEGUNDO ECO', text: 'Antes de cruzar debes unir la Primera Palabra y el Último Signo con el Archivista de Arken.' }]);
@@ -622,6 +654,19 @@ class AzurGame {
                 break;
             }
             case 'guardian':
+                if (this.save.zone === 'spire') {
+                    if (this.flag(CROWN_BOSS_FLAG)) {
+                        this.toast('NULLSCRIBE YA NO ESCRIBE EL CIELO');
+                        break;
+                    }
+                    if (!crownProgress(this.save.flags).bossReady) {
+                        const p = crownProgress(this.save.flags);
+                        this.dialog([{ title: 'EL ESCRIBA SELLADO', text: `Oriel, las dos reliquias (${p.memories}/2) y los tres testigos (${p.witnesses}/3) deben abrir el nombre de Nullscribe.` }]);
+                        break;
+                    }
+                    this.prepareCrownBattle();
+                    break;
+                }
                 if (this.save.defeatedBoss) {
                     this.toast('EL GUARDIÁN DESCANSA');
                     return;
@@ -673,7 +718,7 @@ class AzurGame {
         ally = leadIndex; if (ally < 0) {
         this.defeat();
         return;
-    } this.sound.setScene(type === 'boss' ? 'boss' : 'battle'); this.battle = { enemy: createCreature(id, level), type, encounterId, busy: false, ally, guarding: false, selecting: false, bossPhase: 1, chargeStage: 0, effects: {}, log: type === 'boss' ? 'HOLLOWHART, EL ÚLTIMO GUARDIÁN, DESPIERTA.' : type === 'expedition' ? `LA GRIETA SE ABRE: ${SPECIES[id].name.toUpperCase()} TE DESAFÍA.` : `¡UN ${SPECIES[id].name.toUpperCase()} SALVAJE APARECE!` }; this.combatCue = null; this.encounterCooldown = 9; byId('battle').classList.remove('hidden'); byId('viewport').classList.add('in-battle'); byId('prompt').classList.add('hidden'); this.sound.portal(); this.refreshBattle(); }
+    } this.sound.setScene(type === 'boss' ? 'boss' : 'battle'); this.battle = { enemy: createCreature(id, level), type, encounterId, busy: false, ally, guarding: false, selecting: false, bossPhase: 1, chargeStage: 0, effects: {}, log: type === 'boss' ? `${SPECIES[id].name.toUpperCase()}, EL ESCRIBA DEL SILENCIO, DESPIERTA.` : type === 'expedition' ? `LA GRIETA SE ABRE: ${SPECIES[id].name.toUpperCase()} TE DESAFÍA.` : `¡UN ${SPECIES[id].name.toUpperCase()} SALVAJE APARECE!` }; this.combatCue = null; this.encounterCooldown = 9; byId('battle').classList.remove('hidden'); byId('viewport').classList.add('in-battle'); byId('prompt').classList.add('hidden'); this.sound.portal(); this.refreshBattle(); }
     /** Explicit warning and tactical plan before the point-of-no-return boss encounter.
      * Players may still challenge the boss underlevelled; this never gates progression. */
     prepareGuardianBattle() {
@@ -860,7 +905,7 @@ class AzurGame {
         }
         const charged = b.chargeStage === 2;
         b.chargeStage = 0;
-        const moveId = b.type === 'boss' && b.enemy.speciesId === 'hollowhart'
+        const moveId = b.type === 'boss' && (b.enemy.speciesId === 'hollowhart' || b.enemy.speciesId === 'nullscribe')
             ? chooseGuardianMove(b.enemy, ally, this.statuses(b.enemy), this.statuses(ally), charged ? 2 : 0, Math.random())
             : chooseEnemyMove(b.enemy, ally, this.statuses(b.enemy), this.statuses(ally), Math.random());
         const m = MOVES[moveId] || MOVES.pulse;
@@ -904,32 +949,59 @@ class AzurGame {
         b.busy = false;
         this.refreshBattle();
     }
-    winBattle() { const b = this.battle, ally = this.getAlly(); if (!b || !ally)
-        return; const bonus = firstRoamerVictoryBonus(b.type, b.encounterId, this.save.flags); const mastery = villageTrainingBonus(b.type, this.save.zone, b.enemy.speciesId, this.save.flags, b.encounterId); const amount = (b.type === 'boss' ? 95 : 11 + b.enemy.level * 3) + bonus + mastery; const awards = grantPartyExperience(this.save.team, b.ally, amount); if (bonus > 0)
-        this.save.team = recoverTrailParty(this.save.team); const gain = awards.find(a => a.active); const evolution = awards.find(a => a.evolved); const supporters = awards.filter(a => !a.active); const originalName = SPECIES[b.enemy.speciesId].name; this.finishBattle(); if (b.encounterId)
-        this.addFlag('roamer-' + b.encounterId); if (mastery > 0)
-        this.addFlag('training-' + b.enemy.speciesId); this.sound.pick(); if (b.type === 'wild' && this.save.dungeon?.active && this.save.dungeon.pending !== null)
-        this.finishDungeonEnemy(); if (b.type === 'expedition') {
-        this.expeditionBattleWon();
+    winBattle() {
+        const b = this.battle, ally = this.getAlly();
+        if (!b || !ally)
+            return;
+        const bonus = firstRoamerVictoryBonus(b.type, b.encounterId, this.save.flags);
+        const mastery = villageTrainingBonus(b.type, this.save.zone, b.enemy.speciesId, this.save.flags, b.encounterId);
+        const amount = (b.type === 'boss' ? 95 : 11 + b.enemy.level * 3) + bonus + mastery;
+        const awards = grantPartyExperience(this.save.team, b.ally, amount);
+        if (bonus > 0)
+            this.save.team = recoverTrailParty(this.save.team);
+        const gain = awards.find(a => a.active);
+        const evolution = awards.find(a => a.evolved);
+        const supporters = awards.filter(a => !a.active);
+        const originalName = SPECIES[b.enemy.speciesId].name;
+        this.finishBattle();
+        if (b.encounterId)
+            this.addFlag('roamer-' + b.encounterId);
+        if (mastery > 0)
+            this.addFlag('training-' + b.enemy.speciesId);
+        this.sound.pick();
+        if (b.type === 'wild' && this.save.dungeon?.active && this.save.dungeon.pending !== null)
+            this.finishDungeonEnemy();
+        if (b.type === 'expedition') {
+            this.expeditionBattleWon();
+            if (evolution)
+                this.beginEvolution(evolution.from, evolution.to);
+            this.saveNow(false);
+            this.updateUI();
+            window.setTimeout(() => this.openExpedition(), evolution ? 3500 : 620);
+            return;
+        }
+        if (b.type === 'boss' && b.enemy.speciesId === 'nullscribe') {
+            if (!this.flag(CROWN_BOSS_FLAG))
+                this.addFlag(CROWN_BOSS_FLAG);
+            this.dialog([{ title: 'EL ÚLTIMO ESCRIBA CAE', text: 'Nullscribe se deshace en miles de signos. Ningún rey ha ordenado el fin del mundo: solo el miedo a que otros lo escriban.' }, { title: 'EL TELAR TE ESPERA', text: 'El cielo ya no está sujeto a una pluma. En el Telar del Amanecer deberás decidir qué lugar ocupa la memoria en su futuro.' }]);
+        }
+        else if (b.type === 'boss') {
+            this.save.defeatedBoss = true;
+            this.addFlag('first-word');
+            this.dialog([{ title: 'El lenguaje se quiebra', text: 'Hollowhart cae de rodillas. Entre sus astas aparece una palabra que no puede pronunciarse.' }, { title: 'LA PRIMERA PALABRA', text: 'La primera sílaba del mundo es tuya. El bosque vuelve a respirar. Pero más allá del santuario alguien ha comenzado a borrar el cielo.' }, { title: 'FIN DEL CAPÍTULO I', text: 'La Primera Palabra ha vuelto, pero Arken aún no puede recordarlo todo. Regresa a la aldea, desciende a la Cripta de los Ecos y busca el Último Signo.' }]);
+        }
+        else {
+            if (!evolution)
+                this.toast(`${originalName.toUpperCase()} VENCIDO · +${amount} EXP${bonus ? ' · RASTRO +' + bonus + ' EXP · REPOSO +25% PS' : ''}${mastery ? ' · LECCIÓN +' + mastery + ' EXP' : ''}${gain.levelUp ? ' · ¡NIVEL!' : ''}${supporters.length ? ' · ' + supporters.length + ' ALIADOS +' + supporters[0].amount + ' EXP' : ''}`);
+            if (Math.random() < .25)
+                this.save.inventory.seals++;
+            this.economy.echoes = Math.min(999999, this.economy.echoes + 4 + Math.floor(b.enemy.level * .9));
+        }
         if (evolution)
             this.beginEvolution(evolution.from, evolution.to);
         this.saveNow(false);
         this.updateUI();
-        window.setTimeout(() => this.openExpedition(), evolution ? 3500 : 620);
-        return;
-    } if (b.type === 'boss') {
-        this.save.defeatedBoss = true;
-        this.addFlag('first-word');
-        this.dialog([{ title: 'El lenguaje se quiebra', text: 'Hollowhart cae de rodillas. Entre sus astas aparece una palabra que no puede pronunciarse.' }, { title: 'LA PRIMERA PALABRA', text: 'La primera sílaba del mundo es tuya. El bosque vuelve a respirar. Pero más allá del santuario alguien ha comenzado a borrar el cielo.' }, { title: 'FIN DEL CAPÍTULO I', text: 'La Primera Palabra ha vuelto, pero Arken aún no puede recordarlo todo. Regresa a la aldea, desciende a la Cripta de los Ecos y busca el Último Signo.' }]);
     }
-    else {
-        if (!evolution)
-            this.toast(`${originalName.toUpperCase()} VENCIDO · +${amount} EXP${bonus ? ' · RASTRO +' + bonus + ' EXP · REPOSO +25% PS' : ''}${mastery ? ' · LECCIÓN +' + mastery + ' EXP' : ''}${gain.levelUp ? ' · ¡NIVEL!' : ''}${supporters.length ? ' · ' + supporters.length + ' ALIADOS +' + supporters[0].amount + ' EXP' : ''}`);
-        if (Math.random() < .25)
-            this.save.inventory.seals++;
-        this.economy.echoes = Math.min(999999, this.economy.echoes + 4 + Math.floor(b.enemy.level * .9));
-    } if (evolution)
-        this.beginEvolution(evolution.from, evolution.to); this.saveNow(false); this.updateUI(); }
     beginEvolution(from, to) {
         this.evolution = { from, to, startedAt: this.seconds, duration: this.reducedMotion ? .65 : 3.2 };
         this.resetJoystick();
@@ -1099,6 +1171,26 @@ class AzurGame {
             else {
                 this.addFlag('marsh-met-nael');
                 this.dialog([{ title: 'NAEL · CARTÓGRAFA DEL OLVIDO', text: 'Arken rescató nombres borrados. Aquí viven los nombres de personas que jamás llegaron a existir.' }, { title: 'LA CAMPANA Y EL FAROL', text: 'Recupera dos recuerdos, vence o vincula a los tres testigos del pantano y acude al Tribunal del Reflejo. Allí deberás elegir qué significa recordar.' }]);
+            }
+        }
+        else if (id === 'oriel') {
+            const p = crownProgress(this.save.flags);
+            if (p.endingReady) {
+                if (crownFinish(this.save.flags).newlyFinished) {
+                    this.addFlag(CROWN_END_FLAG);
+                    this.economy.echoes = Math.min(999999, this.economy.echoes + 150);
+                    this.sound.pick();
+                    this.saveNow(false);
+                }
+                this.dialog(crownEpilogue(this.save.flags));
+            }
+            else if (p.complete)
+                this.dialog([{ title: 'ORIEL · EL ÚLTIMO TESTIGO', text: 'El cielo no necesita otro dueño. Tu final permanece en el Atlas. Las rutas y criaturas siguen abiertas.' }]);
+            else if (!p.unlocked)
+                this.dialog([{ title: 'ORIEL · CARTA CERRADA', text: 'Arken y Nael deben terminar sus historias antes del último nombre.' }]);
+            else {
+                this.addFlag('crown-met-oriel');
+                this.dialog([{ title: 'ORIEL · GUARDIÁN DEL ÚLTIMO NOMBRE', text: 'Nullscribe no destruye los recuerdos. Los escribe de antemano para que nadie pueda elegir.' }, { title: 'LA CORONA SIN REY', text: 'Devuelve la Lumbre y el Archivo, escucha a los tres testigos y desafía al Escriba. Solo entonces podrás elegir qué historia merece sobrevivir.' }]);
             }
         }
         else if (id === 'pilgrim') {
@@ -1472,6 +1564,46 @@ class AzurGame {
         this.saveNow(false);
         this.dialog([{ title: 'EL ESPEJO SE QUIEBRA', text: choice === 'keep' ? 'La campana vuelve a sonar. Las vidas imposibles seguirán siendo recordadas por Nael.' : 'Los faroles se apagan en calma. Ningún nombre volverá a ser obligado a permanecer.' }, { title: 'EL CAMINO CONTINÚA', text: 'Regresa a Nael para cerrar el Atlas y escuchar tu epílogo.' }]);
     }
+    prepareCrownBattle() {
+        if (this.battle || this.dialogOpen || !crownProgress(this.save.flags).bossReady)
+            return;
+        const recommended = guardianRecommendedLead(this.save.team, 'nullscribe');
+        const options = this.save.team.map((c, i) => c.hp <= 0 ? '' : `<option value="${i}" ${i === recommended ? 'selected' : ''}>${htmlEscape(SPECIES[c.speciesId].name)} · NV ${c.level} · ${c.hp}/${maxHp(c)} HP</option>`).join('');
+        this.showModal('NULLSCRIBE · LA ÚLTIMA BATALLA', `<div class="guardian-prep"><p>La criatura de Éter se resiste a ceder el porvenir. Prepara un equipo consciente, cura en la Lumbre y conserva tónicos.</p><p>El Escriba carga ECLIPSE antes de liberarlo. Cuando se anuncie, responde con GUARDIA o cambia de estrategia.</p><label for="crownLeadSelect">CRIATURA QUE ABRE EL FINAL</label><select id="crownLeadSelect" aria-label="Elegir líder del combate final">${options}</select><div class="guardian-options"><button id="crownProceed">DESAFIAR A NULLSCRIBE</button><button id="crownRetreat">PREPARARSE</button></div></div>`);
+        if (!this.modalOpen)
+            return;
+        byId('crownProceed').onclick = () => { const chosen = Number(byId('crownLeadSelect').value); this.hideModal(); this.startBattle('nullscribe', 16, 'boss', undefined, Number.isSafeInteger(chosen) ? chosen : recommended); };
+        byId('crownRetreat').onclick = () => this.hideModal();
+    }
+    openCrownVerdict() {
+        if (this.save.zone !== 'spire' || !this.started || this.battle)
+            return;
+        const p = crownProgress(this.save.flags);
+        if (p.choice) {
+            this.dialog([{ title: 'EL TELAR ESTÁ SELLADO', text: 'La decisión es definitiva. Regresa a Oriel y contempla su consecuencia.' }]);
+            return;
+        }
+        if (!p.choiceReady) {
+            this.dialog([{ title: 'EL TELAR ESPERA', text: 'Primero debes vencer a Nullscribe. Ninguna decisión puede tomarse bajo su pluma.' }]);
+            return;
+        }
+        this.showModal('TELAR DEL AMANECER · DECISIÓN FINAL', `<div class="modal-content-block"><strong>CAPÍTULO III · FINAL IRREVERSIBLE</strong><p>La Primera Palabra ha regresado. Nael ha resuelto las vidas imposibles. Ahora el cielo exige tu respuesta: ¿cuidar sus nombres para siempre o devolver a todos la libertad de escribirlos?</p></div><div class="modal-option"><div><strong>RECORDAR</strong><small>Conserva los nombres · +220 Ecos, +4 Sellos</small></div><button data-crown-choice="remember">RECORDAR</button></div><div class="modal-option"><div><strong>RENOVAR</strong><small>Deja el futuro libre · +220 Ecos, +4 Tónicos</small></div><button data-crown-choice="renew">RENOVAR</button></div>`);
+        for (const btn of byId('modalContent').querySelectorAll('[data-crown-choice]'))
+            btn.onclick = () => this.chooseCrown(btn.dataset.crownChoice === 'remember' ? 'remember' : 'renew');
+    }
+    chooseCrown(choice) {
+        if (!crownChoose(this.save.flags, choice).newlyChosen)
+            return;
+        const reward = CROWN_CHOICE_REWARDS[choice];
+        this.addFlag('crown-choice-' + choice);
+        this.economy.echoes = Math.min(999999, this.economy.echoes + reward.echoes);
+        this.save.inventory.seals = Math.min(9999, this.save.inventory.seals + reward.seals);
+        this.save.inventory.tonics = Math.min(9999, this.save.inventory.tonics + reward.tonics);
+        this.hideModal();
+        this.sound.pick();
+        this.saveNow(false);
+        this.dialog([{ title: 'EL CIELO ABIERTO', text: choice === 'remember' ? 'Los nombres olvidados regresan como constelaciones; nadie será borrado si otro lo recuerda.' : 'Las páginas vacías se convierten en cielo abierto. Nadie volverá a heredar su destino de un escriba.' }, { title: 'EL ÚLTIMO TESTIGO', text: 'Busca a Oriel. El desenlace de Arken y Nael te espera en sus palabras.' }]);
+    }
     openQuests() {
         if (!this.started)
             return;
@@ -1480,12 +1612,14 @@ class AzurGame {
             ARKEN_STORY.slice(0, 6).map((chapter, i) => `<div class="modal-option"><div><strong>${htmlEscape(chapter.title)}</strong><small>${htmlEscape(chapter.objective)}</small></div><span class="quest-state ${i < step ? 'done' : ''}">${i < step ? '✓ HECHA' : i === step ? 'ACTUAL' : 'PENDIENTE'}</span></div>`).join('');
         const marsh = marshChapterProgress(this.save.flags);
         const chapter = this.flag('arken-vow-restored') ? `<div class="modal-content-block"><strong>CAPÍTULO II · ${htmlEscape(marsh.title.toUpperCase())} · ${marsh.stage}/6</strong><p>${htmlEscape(marsh.objective)}</p>${htmlEscape(marsh.hint)}</div><div class="modal-option"><div><strong>ESPEJOS DE LA MARISMA</strong><small>${marsh.memories}/2 recuerdos · ${marsh.encounters}/3 testigos · ${marsh.choice ? marsh.choice === 'keep' ? 'PRESERVAR' : 'LIBERAR' : 'DECISIÓN PENDIENTE'}</small></div><span class="quest-state ${marsh.complete ? 'done' : ''}">${marsh.complete ? '✓ CERRADO' : 'EN CURSO'}</span></div>` : '';
-        this.showModal('DIARIO · MISIONES', mainQuest + chapter + `<div class="shop-balance">${this.economy.echoes} ECOS · ${this.economy.completed.length}/${QUESTS.length} ENCARGOS SECUNDARIOS</div>` + QUESTS.map(q => `<div class="modal-option"><div><strong>${htmlEscape(q.name)}</strong><small>${htmlEscape(q.description)}</small><small>RECOMPENSA · ${q.reward} ECOS</small></div><span class="quest-state ${this.economy.completed.includes(q.id) ? 'done' : ''}">${this.economy.completed.includes(q.id) ? '✓ HECHA' : 'PENDIENTE'}</span></div>`).join(''));
+        const crown = crownProgress(this.save.flags);
+        const finale = this.flag('marsh-chapter-complete') ? `<div class="modal-content-block"><strong>CAPÍTULO III · ${htmlEscape(crown.title.toUpperCase())} · ${crown.stage}/7</strong><p>${htmlEscape(crown.objective)}</p>${htmlEscape(crown.hint)}</div><div class="modal-option"><div><strong>CORONA DE LO NO ESCRITO</strong><small>${crown.memories}/2 reliquias · ${crown.witnesses}/3 testigos · ${crown.boss ? 'ESCRIBA CAÍDO' : 'NULLSCRIBE VIVO'} · ${crown.choice || 'DECISIÓN PENDIENTE'}</small></div><span class="quest-state ${crown.complete ? 'done' : ''}">${crown.complete ? '✓ FINAL' : 'EN CURSO'}</span></div>` : '';
+        this.showModal('DIARIO · MISIONES', mainQuest + chapter + finale + `<div class="shop-balance">${this.economy.echoes} ECOS · ${this.economy.completed.length}/${QUESTS.length} ENCARGOS SECUNDARIOS</div>` + QUESTS.map(q => `<div class="modal-option"><div><strong>${htmlEscape(q.name)}</strong><small>${htmlEscape(q.description)}</small><small>RECOMPENSA · ${q.reward} ECOS</small></div><span class="quest-state ${this.economy.completed.includes(q.id) ? 'done' : ''}">${this.economy.completed.includes(q.id) ? '✓ HECHA' : 'PENDIENTE'}</span></div>`).join(''));
     }
     openCodex() { if (!this.started)
         return; const known = new Set([...this.save.team, ...this.save.storage].map(c => c.speciesId)); this.showModal('CÓDICE · VÍNCULOS', `<div class="modal-content-block">${known.size} / ${Object.keys(SPECIES).length} especies vinculadas.</div>` + Object.values(SPECIES).map(sp => `<div class="modal-option"><div><strong style="color:${sp.color}">${known.has(sp.id) ? htmlEscape(sp.name) : '??????'}</strong><small>${known.has(sp.id) ? htmlEscape(sp.title + ' · ' + sp.element + ' · ' + sp.desc) : 'Esta criatura aún no ha compartido su nombre.'}</small></div></div>`).join('')); }
     revealPosition() { if (!this.save.worldSeed)
-        return; const x = Math.floor(this.save.x), y = Math.floor(this.save.y); const mark = x + y * WORLD_W + (['village', 'forest', 'sanctuary', 'marsh'].indexOf(this.save.zone) * WORLD_W * WORLD_H); if (this.lastReveal === mark)
+        return; const x = Math.floor(this.save.x), y = Math.floor(this.save.y); const mark = x + y * WORLD_W + (['village', 'forest', 'sanctuary', 'marsh', 'spire'].indexOf(this.save.zone) * WORLD_W * WORLD_H); if (this.lastReveal === mark)
         return; this.lastReveal = mark; this.save.discovered = reveal(this.save.discovered, this.save.zone, x, y, 4.8); }
     openDungeonAtlas() {
         const d = this.save.dungeon;
@@ -1792,7 +1926,15 @@ class AzurGame {
         byId('rosterNum').textContent = `${this.save.team.length}/6`;
         byId('roster').innerHTML = this.save.team.length ? this.save.team.map(c => { const s = SPECIES[c.speciesId]; return `<div class="creature-row"><div class="creature-icon" style="color:${s.color}">${s.shape === 0 || s.shape === 5 ? '♨' : s.shape === 2 ? '✣' : s.shape === 4 ? '✶' : s.shape === 6 ? '♜' : '◈'}</div><div><strong>${htmlEscape(s.name)} <span style="color:#839da1;font:9px monospace">LV ${c.level}</span></strong><small>${s.element.toUpperCase()} · ${c.hp}/${maxHp(c)} HP</small><div class="mini-health"><div style="width:${c.hp / maxHp(c) * 100}%"></div></div></div></div>`; }).join('') : '<div class="roster-empty">Aún no tienes vínculos.</div>';
         const step = arkenStoryIndex(this.storyState), beat = this.storyBeat();
-        if (step === 6) {
+        if (step === 6 && this.flag('marsh-chapter-complete')) {
+            const end = crownProgress(this.save.flags);
+            byId('fragBar').style.width = (end.stage / 7 * 100) + '%';
+            byId('fragments').textContent = `${end.stage} / 7 HITOS DE LA CORONA`;
+            byId('missionChip').textContent = end.complete ? 'HISTORIA PRINCIPAL COMPLETADA' : end.objective.toUpperCase();
+            byId('journalText').textContent = end.hint;
+            byId('quest').innerHTML = `<div class="quest-icon">${end.complete ? '✦' : '◇'}</div><div><small>${end.complete ? 'FINAL PRINCIPAL' : 'CAPÍTULO III · MISIÓN ' + (end.stage + 1) + '/7'}</small><strong>${htmlEscape(end.title)}</strong><span>${htmlEscape(end.objective)}</span></div>`;
+        }
+        else if (step === 6) {
             const marsh = marshChapterProgress(this.save.flags);
             byId('fragBar').style.width = (marsh.stage / 6 * 100) + '%';
             byId('fragments').textContent = `${marsh.stage} / 6 HITOS DEL ESPEJO`;
@@ -1854,7 +1996,7 @@ class AzurGame {
             const follow = 1 - Math.exp(-dt * 9);
             this.camera.x += (this.save.x - this.camera.x) * follow;
             this.camera.y += (this.save.y - this.camera.y) * follow;
-            drawWorld(ctx, this.save.zone, { x: this.save.x, y: this.save.y, facing: this.facing, walking: this.moving && !this.dialogOpen }, this.seconds, this.flash, this.save.defeatedBoss, this.camera, this.reducedMotion, this.roamers());
+            drawWorld(ctx, this.save.zone, { x: this.save.x, y: this.save.y, facing: this.facing, walking: this.moving && !this.dialogOpen }, this.seconds, this.flash, this.save.defeatedBoss, this.camera, this.reducedMotion, this.roamers(), this.flag(CROWN_BOSS_FLAG));
         }
         this.renderer.present(now);
         if (now - this.lastAdaptiveUpdate > 1900) {

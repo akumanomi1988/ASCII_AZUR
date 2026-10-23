@@ -8,6 +8,7 @@ export const NPCS = {
     scout: { name: 'Iria, la Vigía', color: '#91b4cf', role: 'Exploradora de Arken' },
     nael: { name: 'Nael, Cartógrafa del Olvido', color: '#7bd3c4', role: 'Custodia de los reflejos' },
     pilgrim: { name: 'El Peregrino', color: '#a8c692', role: 'Viajero extraviado' },
+    oriel: { name: 'Oriel, Custodio del Último Nombre', color: '#c5a3f1', role: 'Guardia del Telar' },
     keeper: { name: 'Custodia del Umbral', color: '#b4a1d8', role: 'Observadora del santuario' }
 };
 export function newEconomy() { return { echoes: 35, completed: [], visitedNpcs: [] }; }
