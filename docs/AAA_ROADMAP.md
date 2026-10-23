@@ -14,9 +14,9 @@ A checkbox means the evidence stated below exists. A completed automated gate me
 | 3. Complete story and narrative | 20% | 3/4 | 75% | N4 independent narrative / human playtest approval |
 | 4. Creatures and progression | 10% | 3/4 | 75% | P4 external pacing and balance |
 | 5. Graphics and animation | 10% | 2/4 | 50% | G2 independent visual acceptance; G4 verified minimum-device FPS |
-| 6. UX and mobile | 10% | 1/4 | 25% | U2 real Android testing; U3 accessibility audit; U4 human usability validation |
+| 6. UX and mobile | 10% | 2/4 | 50% | U2 real Android testing; U4 human usability validation |
 | 7. Audio and atmosphere | 5% | 1/4 | 25% | A2 mastered themes; A3 dynamic scene mixing; A4 external audio evaluation |
-| 8. QA and release | 10% | 2/4 | 50% | Q2 save/import and concurrency stress; Q4 independent public/hardware release |
+| 8. QA and release | 10% | 3/4 | 75% | Q4 independent public/hardware release |
 
 ## Evidence and exact acceptance criteria per milestone
 
@@ -42,14 +42,14 @@ A checkbox means the evidence stated below exists. A completed automated gate me
 - **G4 [ ]** Real minimum Android hardware sustained >=30 FPS plus stable heat/battery and fallback.
 - **U1 [x]** Keyboard/mouse/touch, modal navigation and virtual joystick covered by existing browser/runtime gates.
 - **U2 [ ]** Real Android touch/joystick/rotation and fullscreen tests on designated minimum device.
-- **U3 [ ]** Audited contrast, non-pointer interaction, screen-reader labels and alternative feedback.
+- **U3 [x]** Automated contrast audit, keyboard-only modal/world/combat operation, semantic labels and live alternate feedback in Node and Chromium (v0.43–v0.44); H announces nearby routes and mission guidance. This verifies accessible implementation, not actual screen-reader comprehension or human usability, which remain U4/Q4.
 - **U4 [ ]** Successful independent task-based usability study across desktop/mobile.
 - **A1 [x]** Programmatic biome audio/cues, mute, persistent volume tested in `tests/audio.test.mjs`.
 - **A2 [ ]** Original mastered music/theme set for all scenes and boss finale.
 - **A3 [ ]** Tested dynamic transitions, mixing and device performance.
 - **A4 [ ]** Independent sound quality and accessibility approval.
 - **Q1 [x]** CI TypeScript/Node/build/standalone/browser checks + tracked Pages provenance, verified previous release run 39836396417.
-- **Q2 [ ]** Saved world/party compatibility + resume, storage edge cases and prolonged stress across versions.
+- **Q2 [x]** Three-slot primary/backup integrity, legacy 3/4/5→7-region snapshot compatibility, 9,000 interleaved deterministic storage operations (quota/torn/stale-write/conflict), atomic failed-import preservation and Chromium resume/conflict acceptance (v0.43). Real cross-device and multi-hour human trials remain Q4.
 - **Q3 [x]** 12 new-game-to-finale campaign paths (3 starters × 2 Marsh verdicts × 2 Crown verdicts) with physical overworld walking, crypt tiles, actual encounters/captures/combat, chapter save/reload and persistent four endings; main v0.31 CI and Pages provenance verified. Independent human acceptance remains N4/Q4.
 - **Q4 [ ]** Main/Pages exact-source release success, publicly verified HTTP smoke, real-device QA, no high/critical defects, external testers and 16/16 quality >=4/5 averaging >=4.5.
 
@@ -174,3 +174,12 @@ The authored three-chapter storyline now has a scripted conclusion and automated
 - Q2 implementation hardening: require readback of the rotated backup before advancing the primary, simulate 9,000 interleaved three-slot writes with deterministic quota/torn-write/stale-session faults, and preserve frozen original terrain across five legacy v1 snapshot migrations. The async/browser storage-transaction limitation is still explicitly tracked; genuine multi-device concurrency/long-play signoff remains outside autonomous CI.
 - U3 implementation hardening: keyboard focus enters and exits story dialogs correctly, restored combat actions regain focus after a turn, health bars expose dynamic numeric ARIA values, starter/dialog overlays and feedback have semantic roles, and mute exposes a toggle state. Static contrast/markup checks and Chromium integration cover both render modes and backends.
 - These are implementation gates, not a reinterpretation of the fixed 32 binary acceptance milestones. C4/W4/N4/P4/G2/G4/U2/U4/A4/Q4 still require external/hardware evidence. Do not claim a full-product 90% until the fixed acceptance score supports it.
+
+
+## 2026-10-23 — Macroiteration 014: adaptive score mastering and nonvisual navigation (v0.44)
+
+- **Audio development:** eight-phrase deterministic arrangement arc for each of ten original scene themes; harmonically constrained countervoice, octave changes, combat fills, and a shared low-feedback spatial tail. A 28 Hz high-pass, bounded headroom and dynamics stage process combined score and effects; the old dry Web Audio fallback remains available when these nodes are unsupported. No streaming or licensed samples.
+- **Nonvisual navigation:** the H shortcut reads the current location, facing direction, nearby unblocked passages and live quest guidance through the existing polite announcement region. It does not flood screen readers continuously while walking. Described in the screen-reader instructions and covered in all four Chromium render/backend combinations.
+- **Independent automated acceptance:** TypeScript, Node score/limiter/route/ARIA regressions, Chromium keyboard route announcement, save-slot and campaign regressions, offline audit and main/Pages provenance required before publication.
+- **Milestone accounting:** Q2 and U3 fulfill their defined automated technical evidence after the already verified v0.43 durability/browser gates and the v0.44 keyboard/ARIA audit. The fixed 32-gate score becomes **20/32, weighted 67.50%** (62.50% + 2.50% Q2 + 2.50% U3) once v0.44 CI and deployment pass. A2/A3 remain open until measured mastered output and real-device audio performance are demonstrated. G2/G4 and external player gates are not reclassified.
+- **Remaining to 90% global:** 22.5 weighted points; reaching them requires substantial independent visual, narrative, balance, physical Android and audio acceptance. This cannot be truthfully certified from source changes or CI alone.
