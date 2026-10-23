@@ -12,11 +12,11 @@ A checkbox means the evidence stated below exists. A completed automated gate me
 | 1. Core gameplay and balance | 20% | 3/4 | 75% | C4 human combat balance |
 | 2. World and exploration | 15% | 2/4 | 50% | W3 authored new regions; W4 exploratory QA |
 | 3. Complete story and narrative | 20% | 3/4 | 75% | N4 independent narrative / human playtest approval |
-| 4. Creatures and progression | 10% | 1/4 | 25% | P2 broader roles/collection; P3 sidequests/evolution identity; P4 player-tested balance |
+| 4. Creatures and progression | 10% | 2/4 | 50% | P3 connected collection/evolution arcs; P4 external pacing and balance |
 | 5. Graphics and animation | 10% | 1/4 | 25% | G2 expressive biome/character polish; G3 animation breadth; G4 verified minimum-device FPS |
 | 6. UX and mobile | 10% | 1/4 | 25% | U2 real Android testing; U3 accessibility audit; U4 human usability validation |
 | 7. Audio and atmosphere | 5% | 1/4 | 25% | A2 mastered themes; A3 dynamic scene mixing; A4 external audio evaluation |
-| 8. QA and release | 10% | 1/4 | 25% | Q2 save/import and concurrency stress; Q3 full campaign E2E; Q4 independent public/hardware release |
+| 8. QA and release | 10% | 2/4 | 50% | Q2 save/import and concurrency stress; Q4 independent public/hardware release |
 
 ## Evidence and exact acceptance criteria per milestone
 
@@ -33,7 +33,7 @@ A checkbox means the evidence stated below exists. A completed automated gate me
 - **N3 [x]** Original global campaign climax, playable finale and ending sequence with persisted consequences. Completed as Crown of the Unwritten Chapter III (v0.30.0), Nullscribe boss, irreversible final choice, four Nael-consequence epilogues, deterministic region and v1 reload: 36/36 seeded chapter paths, 200 world seeds, 227/227 tests and published Pages provenance; human full-campaign new-game run remains a separate Q3/N4 gate.
 - **N4 [ ]** Independent narrative/playtest signoff for clarity, pacing, coherence and endings.
 - **P1 [x]** Capturable species, party/reserve, moves, experience and evolution persist with regressions.
-- **P2 [ ]** Expand original roster/roles with demonstrable strategic identity and balance.
+- **P2 [x]** Four authored capturable late-game roles (Mourveil support/cleanse, Mnemoshade drain/fracture, Bellroot tank/fracture, Ashglass speed/scorch), two level-based evolutions, signature skills/animation silhouettes, biome-appropriate optional duels and gated wild ecology. Dedicated unit/integration tests plus all 12 legitimate trilogy paths pass; external player balance remains P4.
 - **P3 [ ]** Connected collection quests, discoveries and meaningful evolution arcs through the campaign.
 - **P4 [ ]** Measured economy/collection pacing with external player acceptance.
 - **G1 [x]** Two graphics modes, WebGL2/Canvas2D browser acceptance and four screenshot artifacts in CI 39836396417.
@@ -50,7 +50,7 @@ A checkbox means the evidence stated below exists. A completed automated gate me
 - **A4 [ ]** Independent sound quality and accessibility approval.
 - **Q1 [x]** CI TypeScript/Node/build/standalone/browser checks + tracked Pages provenance, verified previous release run 39836396417.
 - **Q2 [ ]** Saved world/party compatibility + resume, storage edge cases and prolonged stress across versions.
-- **Q3 [ ]** All campaign paths starting from new game, real encounters, finale and replay tested end-to-end.
+- **Q3 [x]** 12 new-game-to-finale campaign paths (3 starters × 2 Marsh verdicts × 2 Crown verdicts) with physical overworld walking, crypt tiles, actual encounters/captures/combat, chapter save/reload and persistent four endings; main v0.31 CI and Pages provenance verified. Independent human acceptance remains N4/Q4.
 - **Q4 [ ]** Main/Pages exact-source release success, publicly verified HTTP smoke, real-device QA, no high/critical defects, external testers and 16/16 quality >=4/5 averaging >=4.5.
 
 ## Baseline and current macroiteration
@@ -59,7 +59,7 @@ Baseline before macroiteration 001: completed=9/32 milestones. Phase sequence=2/
 **Verified after macroiteration 001 (2026-10-22): 10/32 milestones.** Phase sequence=2/4, 2/4, 1/4, 1/4, 1/4, 1/4, 1/4, 1/4. **World 25% → 50%; global 30.00% → 33.75% (+3.75 pp).** W2 is closed by 512-seed regressions, real-move scouting + Keeper one-time reward/runtime save tests, main CI [39846519978](https://github.com/akumanomi1988/ASCII_AZUR/actions/runs/39846519978) SUCCESS (207/207 Node tests; 4 Chromium render/backend integrations), `gh-pages` commit `b3a089b19ba2055323892f68a4ebeda11bbc0842`, Pages workflow [39846691519](https://github.com/akumanomi1988/ASCII_AZUR/actions/runs/39846691519) SUCCESS, and `gh-pages/build-info.json.source_commit=748b86f855b130fe535eb18813d5e477b3ec701b`. Public external `github.io` HTTP smoke could not be performed and remains UNVERIFIED; this is not a required W2 gate and remains Q4 blocked.
 
 ## Premium blockers
-The authored three-chapter storyline now has a scripted conclusion, but a true uninterrupted **new-game → Chapter I → Chapter II → Chapter III** gameplay acceptance (Q3), physical Android hardware performance, independent human playtests, accessible UX, full mastering and public HTTP smoke remain unfinished. C3 multi-seed Guardian/crypt automated acceptance was already verified. Premium production readiness is not established. Automated green does not qualify as commercial release acceptance.
+The authored three-chapter storyline now has a scripted conclusion and automated **new-game → Chapter I → Chapter II → Chapter III** paths (Q3 verified), but physical Android hardware performance, independent human playtests, accessible UX, full mastering and final public release acceptance remain unfinished. C3 multi-seed Guardian/crypt automated acceptance was already verified. Premium production readiness is not established. Automated green does not qualify as commercial release acceptance.
 
 
 ## Verified macroiteration 002 — C3 Guardian and crypt progression (2026-10-22)
@@ -103,3 +103,11 @@ The authored three-chapter storyline now has a scripted conclusion, but a true u
 - Earlier **nonphysical-surface** acceptance succeeded 12/12 journeys with 254 battle sessions, 23 captures, 964 combat actions and Node 230/230 PASS in feature run 39915552379, including PWA release audit. **This does not close Q3:** its script called overworld landmark handlers directly without walking to them.
 - Stricter overworld traversal gate exposed a *test harness defect*, not a verified engine collision bug: the Node imported world module had a separate procedural configuration from the VM's real game. The candidate head `79b298a51cf5534e8292c386e0f8e9a40542ed37` fixes this by using the same runtime world's `ZONES`, `canOccupy` and `sweepMove` as the game. An unrelated floating-point engine patch was fully reverted. Real overworld movement gate is **PENDING verified rerun**, as are main Chromium 4/4, Pages exact-source provenance and actual public HTTP smoke.
 - [Latest feature workflow 39916749487](https://github.com/akumanomi1988/ASCII_AZUR/actions/runs/39916749487) and [PR workflow 39916754045](https://github.com/akumanomi1988/ASCII_AZUR/actions/runs/39916754045) were **QUEUED at last verified check**. Do not merge or mark Q3 complete until they pass and the released artifact is verified.
+
+## Verified macroiteration 005 closeout — Q3 trilogy continuity (2026-10-23)
+- [PR #8](https://github.com/akumanomi1988/ASCII_AZUR/pull/8) merged into `main` at `ab793da22618d6090cdeaf36ebfb8246cbcc0753` (v0.31). [CI 39943217202](https://github.com/akumanomi1988/ASCII_AZUR/actions/runs/39943217202) and [Pages 39943389653](https://github.com/akumanomi1988/ASCII_AZUR/actions/runs/39943389653) both SUCCESS; `gh-pages/build-info.json.source_commit` matches. External browser opened the published game, selected a starter and traversed the opening dialogue. Headless automation covered all 12 actual-input trilogy lines, portal/world movement, crypt traversal, catches, battles, reload and all outcomes. Q3 closed, **QA 25% → 50%, 13/32 → 14/32, weighted global 48.75% → 51.25% (+2.50 pp)**. Physical Android and independent human full playthrough remain unverified.
+
+## Verified macroiteration 006 — P2 ecology and original roster (2026-10-23)
+- Release v0.32.0 via [PR #9](https://github.com/akumanomi1988/ASCII_AZUR/pull/9), source `d51c6baf970eea0f59c1f1df767c854e1c6d6442`. Four unique capturable creature identities and silhouettes, two evolutions, real signature combat effects, region-specific direct duels and post-chapter wild populations. Crucially, compulsory story witnesses and first-time Marsh/Crown wild difficulty are preserved to avoid campaign regressions; `version:1` saves remain valid.
+- [Feature CI 39949766853](https://github.com/akumanomi1988/ASCII_AZUR/actions/runs/39949766853) SUCCESS: TypeScript/standalone/release, **235/235 Node tests**, 36 compiled JS modules and 37 cached offline assets. Complete Q3 replay: **12/12**, 317 battles, 23 captures, 1,098 player actions. Main [CI 39950404171](https://github.com/akumanomi1988/ASCII_AZUR/actions/runs/39950404171) and [Pages 39950672780](https://github.com/akumanomi1988/ASCII_AZUR/actions/runs/39950672780) SUCCESS; `gh-pages` head `4ce24177c87c2478b9497fc765b6053638addf87`, `build-info.json.source_commit=d51c6baf970eea0f59c1f1df767c854e1c6d6442`. Public browser smoke: PASS — public v0.32 loaded, legacy save continued, menu/Codex opened (1/15 capturable), live build-info JSON matched source commit; cloud-browser fallback readout ~1 FPS is not a hardware benchmark.
+- P2 closes as automated mechanical/role acceptance, **Creatures 25% → 50%, 14/32 → 15/32, weighted global 51.25% → 53.75% (+2.50 pp)**. P4 independent collection balance, physical Android, G2/G4 art+performance and Q4 commercial readiness remain open. **16-domain conservative average stays 2.5/5; 0/16 independently premium.**

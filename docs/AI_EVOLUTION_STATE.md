@@ -1,6 +1,6 @@
 # ASCII AZUR — Autonomous Evolution State
 
-Updated: 2026-10-23. Latest shipped gameplay change: **v0.30.0 Crown of the Unwritten, original Chapter III global finale; main CI and Pages workflow verified, external live HTTP smoke pending**. Source: `akumanomi1988/ASCII_AZUR`, release branch `main`. Do not infer deployment from a push or green CI.
+Updated: 2026-10-23. Latest shipped gameplay change: **v0.32.0 Ecology of the Lost Names, verified main CI, Pages provenance and public browser smoke**. Source: `akumanomi1988/ASCII_AZUR`, release branch `main`, gameplay source `d51c6baf970eea0f59c1f1df767c854e1c6d6442`. Automation does not substitute for physical-device or independent human acceptance.
 
 ## Product vision and non-negotiables
 
@@ -8,30 +8,30 @@ Original dark-fantasy creature RPG with dense, continuously shaded ASCII/Unicode
 
 ## Release scope and reality
 
-The current game includes five seeded regions, 13 species (including a unique uncapturable final boss), three authored chapters with a branching global finale, visible/seeded encounters, 34 moves, evolving creatures, a persistent physical crypt, expeditions, seeded maps and saves. **An authored global conclusion now exists, but this is not an independently accepted premium-quality complete game**. Missing: uninterrupted new-game through trilogy E2E; content breadth and balance validation; Android physical-device QA; mastered music; accessibility coverage; independent player playtesting and narrative signoff. Do not report premium release readiness before these are verified.
+The current game includes five seeded regions, 17 original species (15 capturable; two unique non-capturable bosses), three authored chapters with four finale combinations, visible/seeded and biome-specific optional encounters, 38 moves, persistent evolutions, a physical crypt, expeditions, procedural maps and version-1 saves. Twelve automated complete new-game-to-ending paths have passed. **This remains below independently accepted premium release quality.** Missing: broader content and balance/playtesting evidence, physical Android performance QA, mastered music, accessibility, player narrative approval and full commercial release acceptance.
 
 ## Sixteen-domain quality scorecard (0–5; conservative evidence)
 
-| Domain | v0.26.1 | v0.26.2 | Evidence and unclosed acceptance |
+| Domain | Previous | Current v0.32 | Evidence and unclosed acceptance |
 |---|---:|---:|---|
 | Artistic direction | 3 | 3 | Four actor facings; compare readability across biomes with users |
 | ASCII rendering | 3 | 3 | Dense glyph compositor; physical GPU/low-end FPS pending |
 | Animation | 2 | 2 | Authored battle motions; expressive animation coverage pending |
-| World design | 2 | 2 | Three traversable regions; more meaningful authored world sites needed |
+| World design | 2 | 2 | Five traversable regions and three chapters; diversity and navigation need independent player QA |
 | Procedural generation | 3 | 3 | 200-seed reachability tests; persistent replay QA needed |
 | Exploration | 3 | 3 | Discoveries, runes, visible paths; player reward evaluation pending |
 | Core gameplay | 3 | 3 | Walkable mission routes and repeatable encounters; real-world feel pending |
 | Combat | 3 | 3 | Tactical preview and charged boss; cross-seed win pacing pending |
-| Creatures | 2 | 2 | 12 original species; visual personality across all at mobile scale pending |
-| Story and lore | 2 | 2 | Arken arc closed; global beginning–climax–ending absent |
+| Creatures | 2 | 2 | 15 capturable species, distinct roles/rigs; visual clarity and balance at mobile scale pending |
+| Story and lore | 2 | 2 | Authored trilogy/four endings, 12 automated paths; human narrative/pacing approval absent |
 | Progression | 2 | 2 | First-victory XP plus finite 25% team recovery; full balance pending |
 | UX / HUD | 3 | 3 | Quest guidance; real-device layout and accessibility pending |
 | Mobile | 2 | 2 | Simulated viewports, no sustained physical Android QA |
 | Audio | 3 | 3 | Procedural ambience and combat cues; production mix/themes pending |
-| Technical | 3 | 3 | TS build, 183 unit/runtime tests, static PWA checks; stress pending |
-| Production readiness | 1 | 1 | Global content, hardware QA, complete playthrough still missing |
+| Technical | 3 | 3 | TS build, 235 Node tests, browser CI and static PWA checks; stress and device profiling pending |
+| Production readiness | 1 | 1 | Automated full campaign and Pages; hardware, accessibility, human playtesting and release hardening missing |
 
-**Average: 2.5/5 → 2.5/5.** (v0.26.1 → v0.26.2; no subjective score inflation.) These domain scores remain unchanged because feature tests are not player-experience evidence. No critical/high-severity defect resolution is claimed beyond the tested slice.
+**Average remains 2.5/5 (16 domains), with 0/16 independently verified at ≥4/5.** Technical test gains are not a proxy for subjective player experience; no commercial premium release is claimed.
 
 ## Verified work and release baseline
 
@@ -246,3 +246,10 @@ The current game includes five seeded regions, 13 species (including a unique un
 - **Evidence and limitations:** Earlier feature run 39915552379 passed 230/230 Node tests, the 12 first-to-last story lines (254 battles, 23 captures), TS and release audit, **but used direct landmark handlers for surface travel**; this is not an accepted full physical end-to-end. Strict travel failed in older runs because its path planner imported a different world object than the game VM; attempted engine float fix was reverted after diagnosis. Feature head 79b298a5 correctly exposes the game's own VM world in the QA harness; CI runs 39916749487 / 39916754045 were queued at last check. No pass asserted for that final head.
 - **Authoritative progress remains 48.75%, 13/32 milestones, QA 25%, quality 2.5/5 mean and 0/16 independently premium.** Q3 still [ ]; no new production build exists until main CI, four Chromium profiles, gh-pages provenance and GitHub Pages workflow succeed. Do not assume the queued feature build will pass; diagnose any actual failures before integration.
 - **Resume entry:** recover current PR #8 head and the two CI runs; execute the physical E2E gate, correct genuine defects without changing reward/progress flags, recheck 230+ Node / four Chromium modes / source provenance and only then close Q3 (conditional target: QA 25→50%, global 48.75→51.25%). Continue from this feature, do not repeat N3.
+
+## 2026-10-23 — Macroiteration 005 Q3 closed and macroiteration 006 P2 v0.32 VERIFIED RELEASE
+- Q3 source v0.31 [PR #8](https://github.com/akumanomi1988/ASCII_AZUR/pull/8) merged at `ab793da22618d6090cdeaf36ebfb8246cbcc0753`; main CI 39943217202 and Pages 39943389653 SUCCESS with exact `build-info.json` provenance. Public cloud browser launched the published v0.31, selected a starter and entered gameplay. Q3 requires 12 new-game-to-all-ending paths with actual overworld and crypt movement, real battles, captures and reloads; verified by release automation. It closes **14/32 milestones, weighted global 51.25%** from 13/32, 48.75%.
+- v0.32 source [PR #9](https://github.com/akumanomi1988/ASCII_AZUR/pull/9) main merge `d51c6baf970eea0f59c1f1df767c854e1c6d6442` introduces Mourveil (Mist cleanser), Mnemoshade (Ether drain/fracture), Bellroot (Root tank/fracture) and Ashglass (Ash fast scorch) with original shapes/rigs/signature skills. Velaria evolves at level 12, Wispawn at level 13. The Codex correctly excludes two non-capturable story bosses. Marsh/Crown direct challenge pools are immediately unique; higher-level random ecology unlocks after respective chapters to protect first-time story route balance. Compulsory witnesses, stable procedural worlds, flags and `version:1` saves are preserved.
+- Acceptance: feature [CI 39949766853](https://github.com/akumanomi1988/ASCII_AZUR/actions/runs/39949766853) SUCCESS, TypeScript, **235/235 Node tests**, 12/12 new-game-to-final-trilogy journeys (317 battles, 23 captures, 1,098 actual commands), PWA/release audit 36 JS modules and 37 cached resources, standalone bundle. Main [CI 39950404171](https://github.com/akumanomi1988/ASCII_AZUR/actions/runs/39950404171) SUCCESS, four Chromium rendering integrations PASS. [Pages 39950672780](https://github.com/akumanomi1988/ASCII_AZUR/actions/runs/39950672780) SUCCESS; `gh-pages` commit `4ce24177c87c2478b9497fc765b6053638addf87` and `build-info.json.source_commit=d51c6baf970eea0f59c1f1df767c854e1c6d6442`. Live public smoke: PASS — public v0.32 loaded, legacy save continued, menu/Codex opened (1/15 capturable), live build-info JSON matched source commit; cloud-browser fallback readout ~1 FPS is not a hardware benchmark.
+- P2 passes integrated mechanical role/collection acceptance; **Creatures 25% → 50%, 14/32 → 15/32 weighted global 51.25% → 53.75%**. Conservative mean 2.5/5, zero independently premium domains. Real hardware FPS (G4/U2), external visual/art (G2), accessible controls (U3), human narrative/collection balance (N4/P4) and full release Q4 are still OPEN.
+- **Next recommended macroiteration: G2 distinct silhouettes and graphical contrast/camera/HUD review across all biomes and both modes with actual desktop/mobile screenshots, then physical Android FPS and controls.** Art and gameplay experience remain the largest unverified quality gaps despite sound mechanical test coverage.
