@@ -1081,3 +1081,132 @@ test('N3: four authored endings x three starters x three seeded worlds complete 
  assert.equal(records.length,36);
  console.log('N3_FINAL_ACCEPTANCE '+JSON.stringify({runs:36,marshChoices:2,finalChoices:2,starters:3,seeds:3,success:records.length}));
 });
+
+/** Q3 trilogy continuity: NEVER mutate progress flags, team levels, dungeon clear,
+ * victories or rewards. Every chapter is earned in a single save lineage from
+ * pickStarter. Exact surface portal handlers are exercised; physical movement
+ * through the crypt uses dungeonSweep as in C3. */
+test('Q3 journey: new-game to all four finale branches with earned captures, battles, crypt and reloaded chapter gates', {timeout:240000},()=>{
+ const cases=[];
+ for(const starter of ['cindrel','velaria','thorne'])for(const marsh of ['keep','release'])for(const ending of ['remember','renew']){
+  const seed=Math.imul(starter.length*17+(marsh==='keep'?1:5)+(ending==='remember'?11:29),2654435761)>>>0;
+  let {game,dom,storage,flushTimers}=mount({virtualTime:true,seed:seed^0x5A5AA5A5});
+  dom.set('worldSeedInput',{value:String(seed)});
+  game.startNew();game.pickStarter(starter);
+  let battles=0,caught=0,actions=0,heals=0;
+  const settle=()=>{while(game.dialogOpen)game.nextDialog();if(game.evolution){game.seconds=game.evolution.startedAt+game.evolution.duration+.4;game.loop(1000);}};
+  const saveReload=(label)=>{
+   settle();
+   const raw=storage.getItem('ascii-azur-save-v1');assert.ok(raw,label+' missing save');
+   const before=JSON.parse(raw);
+   const reread=mount({virtualTime:true,seed:seed^0xA5A55A5A,priorSave:raw});
+   reread.game.continueGame();reread.flushTimers();
+   assert.equal(reread.game.save.version,1,label+' format changed');
+   assert.deepEqual(JSON.parse(JSON.stringify(reread.game.save.flags)),before.flags,label+' progression flags lost');
+   assert.deepEqual(JSON.parse(JSON.stringify(reread.game.save.team)),before.team,label+' creatures tampered');
+   assert.equal(reread.game.save.worldSeed,seed,label+' seed changed');
+   ({game,dom,storage,flushTimers}=reread);
+   settle();
+  };
+  const doBattle=(bind=false)=>{
+   let steps=0,initialSize=game.save.team.length;
+   while(game.battle&&steps++<110){
+    const battle=game.battle,ally=game.getAlly();
+    if(battle.busy){flushTimers();continue;}
+    if(battle.chargeStage===2){game.defend();actions++;flushTimers();continue;}
+    if(game.save.inventory.tonics>0&&ally.hp<maxHp(ally)*(bind?.26:.37)){
+     game.tonic();actions++;flushTimers();continue;
+    }
+    if(bind&&game.save.inventory.seals>0&&battle.enemy.hp/maxHp(battle.enemy)<.65){
+     game.capture();actions++;flushTimers();continue;
+    }
+    const ids=ally.moves.filter(m=>MOVES[m]?.power>0).sort((a,b)=>bind
+     ?damage(ally,battle.enemy,MOVES[a]).value-damage(ally,battle.enemy,MOVES[b]).value
+     :damage(ally,battle.enemy,MOVES[b]).value-damage(ally,battle.enemy,MOVES[a]).value);
+    assert.ok(ids.length,'no moves '+starter);
+    game.useMove(ids[0]);actions++;flushTimers();
+   }
+   assert.ok(steps<110,'battle softlock '+starter+'/'+seed);
+   settle();battles++;
+   const newCapture=game.save.team.length>initialSize;if(newCapture)caught++;
+   return newCapture;
+  };
+  const heal=()=>{settle();game.interactLandmark({kind:'altar',x:15,y:12,label:'Lumbre'});heals++;};
+  const portal=x=>{settle();game.interactLandmark({kind:'portal',x,y:16,label:'Paso'});settle();};
+  settle();game.interactNpc('archivist');settle();
+  // Legitimately recruit at least one companion from ordinary wild duels.
+  for(const id of starter==='cindrel'?['mireling','briarling']:['cindrel','briarling']){
+   let found=false;
+   for(let attempt=0;attempt<3&&!found&&game.save.inventory.seals>0;attempt++){
+    heal();game.startBattle(id,id==='mireling'?5:3,'wild');found=doBattle(true);
+   }
+  }
+  assert.ok(caught>=1,starter+' '+seed+' no earned capture');
+  for(const [species,level] of [['cindrel',3],['briarling',4],['mireling',5]]){
+   heal();game.startBattle(species,level,'wild');doBattle();
+  }
+  game.interactNpc('scout');settle();
+  heal();portal(43);assert.equal(game.save.zone,'forest');
+  for(const event of game.roamers()){heal();game.startBattle(event.speciesId,event.level,'wild',event.id);doBattle();assert.ok(game.save.flags.includes('roamer-'+event.id));}
+  portal(43);assert.equal(game.save.zone,'sanctuary');
+  for(const event of game.roamers()){heal();game.startBattle(event.speciesId,event.level,'wild',event.id);doBattle();assert.ok(game.save.flags.includes('roamer-'+event.id));}
+  game.interactNpc('keeper');settle();heal();
+  game.interactLandmark({kind:'guardian',x:35,y:16,label:'Hollowhart'});
+  assert.equal(game.modalOpen,true,'earned Guardian preflight');
+  dom.get('guardianProceed').onclick();assert.equal(game.battle.enemy.speciesId,'hollowhart');
+  doBattle();assert.ok(game.save.defeatedBoss,'Hollowhart won by the party');
+  portal(2);portal(2);assert.equal(game.save.zone,'village');
+  heal();game.enterDungeon(false);assert.ok(game.save.dungeon?.active);
+  // Spatial dungeon movement, not injected cleared events.
+  const walkCrypt=event=>{
+   const d=game.save.dungeon;
+   const path=dungeonTilePath(d,{x:d.x,y:d.y},event);
+   for(const next of path.slice(1)){
+    const prev=game.save.dungeon,dx=next.x-prev.x,dy=next.y-prev.y;
+    game.stick.x=Math.abs(dx)<.05?0:Math.sign(dx);game.stick.y=Math.abs(dy)<.05?0:Math.sign(dy);
+    for(let k=0;k<5;k++)game.move(1/(4.35*5));
+    assert.ok(Math.hypot(game.save.dungeon.x-next.x,game.save.dungeon.y-next.y)<.05,'physical crypt route blocked');
+   }game.resetJoystick();
+  };
+  for(const eventId of [1,2,3,4,5,7]){
+   const event=game.save.dungeon.events[eventId];walkCrypt(event);game.dungeonInteract();
+   if(game.battle)doBattle();
+   settle();
+  }
+  assert.ok(game.save.dungeon.finished,'crypt was not completed by ordinary movement');
+  walkCrypt(game.save.dungeon.events[0]);game.dungeonInteract();
+  game.interactNpc('archivist');settle();
+  assert.ok(game.save.flags.includes('arken-vow-restored'),'Chapter I conclusion missing');
+  saveReload('Arken');
+  portal(43);portal(43);portal(43);
+  assert.equal(game.save.zone,'marsh','unlocked Marsh portal');
+  game.interactNpc('nael');settle();
+  for(const npcId of ['bell','lantern']){game.interactLandmark({kind:'memory',npcId,x:20,y:16,label:npcId});settle();}
+  for(const event of game.roamers()){heal();game.startBattle(event.speciesId,event.level,'wild',event.id);doBattle();assert.ok(game.save.flags.includes('roamer-'+event.id));}
+  game.interactLandmark({kind:'verdict',x:36,y:16,label:'Tribunal'});
+  assert.ok(game.modalOpen,'Marsh moral fork missing');game.chooseMarsh(marsh);settle();
+  game.interactNpc('nael');settle();
+  assert.ok(game.save.flags.includes('marsh-chapter-complete'),'Chapter II conclusion missing');
+  saveReload('Marsh');
+  portal(43);assert.equal(game.save.zone,'spire','unlocked Crown');
+  game.interactNpc('oriel');settle();
+  for(const npcId of ['flame','archive']){game.interactLandmark({kind:'memory',npcId,x:20,y:16,label:npcId});settle();}
+  for(const event of game.roamers()){heal();game.startBattle(event.speciesId,event.level,'wild',event.id);doBattle();assert.ok(game.save.flags.includes('roamer-'+event.id));}
+  heal();game.interactLandmark({kind:'guardian',npcId:'nullscribe',x:35,y:15,label:'Nullscribe'});
+  assert.ok(game.modalOpen,'legitimate Nullscribe preflight missing');
+  dom.get('crownProceed').onclick();assert.equal(game.battle.enemy.speciesId,'nullscribe');
+  doBattle();assert.ok(game.save.flags.includes('crown-nullscribe-fallen'),'final boss missing');
+  game.interactLandmark({kind:'verdict',x:40,y:24,label:'Telar'});
+  assert.ok(game.modalOpen,'final verdict missing');
+  game.chooseCrown(ending);settle();game.interactNpc('oriel');settle();
+  assert.ok(game.save.flags.includes('crown-trilogy-complete'),'final outcome missing');
+  assert.ok(game.save.flags.includes('marsh-choice-'+marsh));
+  assert.ok(game.save.flags.includes('crown-choice-'+ending));
+  const finalE=game.economy.echoes;saveReload('Final');
+  game.interactNpc('oriel');settle();assert.equal(game.economy.echoes,finalE,'duplicated completion reward');
+  cases.push({starter,marsh,ending,world:seed,captured:caught,battles,actions,heals,level:game.save.team[0].level});
+ }
+ assert.equal(cases.length,12);
+ console.log('Q3_TRILOGY_ACCEPTANCE '+JSON.stringify({sessions:cases.length,starters:3,marshEndings:2,crownEndings:2,worlds:new Set(cases.map(c=>c.world)).size,
+  battles:cases.reduce((a,c)=>a+c.battles,0),captures:cases.reduce((a,c)=>a+c.captured,0),actions:cases.reduce((a,c)=>a+c.actions,0),cases}));
+});
