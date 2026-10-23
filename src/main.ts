@@ -1,7 +1,7 @@
 import {AsciiRenderer,drawWorld,drawBattle,drawEvolution} from './render.js';
 import {navigateMenuKey,focusMenuFirst,isTypingTarget,menuButtons} from './ui/menu-navigation.js';
 import {readGraphics,DEFAULT_GRAPHICS,glyphCell,canvasGlyphCell,glyphCount,type GraphicsProfile} from './render/graphics-profile.js';
-import {visibleEncounters,nearbyEncounter,firstRoamerVictoryBonus,recoverTrailParty,BIOME_DUEL_SPECIES,drawBiomeWild,biomeDuelLevel,biomeWildLevel,VILLAGE_TRAINING_XP,VILLAGE_TRAINING_SPECIES,VILLAGE_TRAINING_REWARD_FLAG,villageTrainingBonus,villageTrainingProgress,type RoamingEncounter} from './world/encounters.js';
+import {visibleEncounters,nearbyEncounter,firstRoamerVictoryBonus,recoverTrailParty,BIOME_DUEL_SPECIES,activeWildBiome,drawBiomeWild,biomeDuelLevel,biomeWildLevel,VILLAGE_TRAINING_XP,VILLAGE_TRAINING_SPECIES,VILLAGE_TRAINING_REWARD_FLAG,villageTrainingBonus,villageTrainingProgress,type RoamingEncounter} from './world/encounters.js';
 import {drawDungeon} from './dungeons/draw-dungeon.js';
 import {chamberAt,chamberProgress} from './dungeons/room-art.js';
 import {generateDungeon,nearbyDungeonEvent,completeDungeonEvent,dungeonGateOpen,revealDungeon,dungeonSweep} from './dungeons/labyrinth.js';
@@ -954,7 +954,7 @@ class AzurGame {
         if(this.stepCounter>.95){this.stepCounter=0;
           if(this.encounterCooldown<=0&&isWild(this.save.zone as ZoneId,Math.floor(this.save.x),Math.floor(this.save.y))){
             const chance=this.save.zone==='forest'?.22:.12;
-            if(Math.random()<chance){const zone=this.save.zone as ZoneId;const id=drawBiomeWild(zone,Math.random());
+            if(Math.random()<chance){const zone=activeWildBiome(this.save.zone as ZoneId,this.save.flags);const id=drawBiomeWild(zone,Math.random());
               const level=biomeWildLevel(zone,Math.random());
               if(id)this.startBattle(id,level,'wild');
             }

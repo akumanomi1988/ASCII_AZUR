@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {SPECIES,MOVES,SIGNATURE_MOVES,createCreature,gainExp,learnableMoves,validateSave,maxHp,damage} from '../dist/domain.js';
 import {MOVE_EFFECTS,skillUtility} from '../dist/combat/tactics.js';
-import {BIOME_WILD_SPECIES,BIOME_DUEL_SPECIES,drawBiomeWild,biomeDuelLevel,biomeWildLevel,visibleEncounters} from '../dist/world/encounters.js';
+import {BIOME_WILD_SPECIES,BIOME_DUEL_SPECIES,activeWildBiome,drawBiomeWild,biomeDuelLevel,biomeWildLevel,visibleEncounters} from '../dist/world/encounters.js';
 import {RIGS,rigFor,performanceChecksum} from '../dist/actors/creature-performance.js';
 
 test('P2: four authored identities cover distinct tactical archetypes and rigs',()=>{
@@ -65,6 +65,10 @@ test('P2: each new region has distinct capturable wild and direct challenge popu
  assert.equal(biomeDuelLevel('marsh',2),13);
  assert.equal(biomeDuelLevel('spire',0),13);
  assert.equal(biomeWildLevel('spire',.99),16);
+ assert.equal(activeWildBiome('marsh',[]),'sanctuary');
+ assert.equal(activeWildBiome('spire',[]),'sanctuary');
+ assert.equal(activeWildBiome('marsh',['marsh-chapter-complete']),'marsh');
+ assert.equal(activeWildBiome('spire',['crown-trilogy-complete']),'spire');
 });
 
 test('P2: compulsory story witnesses remain compatible with legacy seeded encounters',()=>{

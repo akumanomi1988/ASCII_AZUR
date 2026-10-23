@@ -69,6 +69,13 @@ export const BIOME_DUEL_SPECIES:Readonly<Record<ZoneId,readonly string[]>>={
  marsh:['bellroot','mourveil','rillfin'],
  spire:['ashglass','mnemoshade','cinderwulf']
 };
+/** Higher-level rare ecology joins random travel after its chapter, avoiding
+ * difficulty spikes while players are still resolving compulsory witnesses. */
+export function activeWildBiome(zone:ZoneId,flags:readonly string[]):ZoneId{
+ if(zone==='marsh'&&!flags.includes('marsh-chapter-complete'))return 'sanctuary';
+ if(zone==='spire'&&!flags.includes('crown-trilogy-complete'))return 'sanctuary';
+ return zone;
+}
 export function drawBiomeWild(zone:ZoneId,roll:number):string|undefined{
  const pool=BIOME_WILD_SPECIES[zone];
  if(!pool.length||!Number.isFinite(roll))return undefined;
