@@ -1,6 +1,6 @@
 # ASCII AZUR — Autonomous Evolution State
 
-Updated: 2026-10-23. **STATUS: IN PROGRESS.** Last verified source release: **v0.42.0 — sparse semantic glyph terrain and pixel-art clarity**. Repository: `akumanomi1988/ASCII_AZUR`, production branch `main`. Release source `aec5376ffaaf4216d815e410b140e7f0cc94e243`. Main CI `40009658573` SUCCESS; Pages workflow `40010050518` SUCCESS; `gh-pages/build-info.json.source_commit` matches. Source/build provenance is verified; independent public visual acceptance and physical-device FPS are not. Cloud Canvas2D fallback FPS is not an Android benchmark.
+Updated: 2026-10-23. **STATUS: IN PROGRESS.** Last verified source release: **v0.43.0 — durable multi-slot saves and accessible combat**. Repository: `akumanomi1988/ASCII_AZUR`, production branch `main`. Release source `1575f680064e95254498cbbbdc820d9adf9596fc`; main CI `40012039385` SUCCESS; public `gh-pages/build-info.json.source_commit` matched. Candidate v0.44 expands the procedural score and nonvisual navigation; acceptance and main publication remain pending. Independent premium visual, player and physical-device approval remain unverified.
 
 ## Product vision and hard constraints
 
@@ -42,7 +42,7 @@ Each row states observable evidence, outstanding deficiency and measurable premi
 
 ## Roadmap continuation
 
-`docs/AAA_ROADMAP.md` defines 32 fixed binary milestones and fixed phase weights. **v0.36 verified: 17/32, weighted 58.75%. v0.37 W3 verified: 18/32, weighted 62.50% (+3.75 percentage points).** Raw 18/32 is not the weighted percentage. Currently complete: C1–C3, W1–W3, N1–N3, P1–P3, G1/G3, U1, A1 and Q1/Q3. Remaining: C4, W4, N4, P4, G2/G4, U2–U4, A2–A4, Q2/Q4.
+`docs/AAA_ROADMAP.md` defines 32 fixed binary milestones and fixed phase weights. **v0.36 verified: 17/32, weighted 58.75%. v0.37 W3 verified: 18/32, weighted 62.50% (+3.75 percentage points).** Raw 18/32 is not the weighted percentage. Currently verified on v0.43: C1–C3, W1–W3, N1–N3, P1–P3, G1/G3, U1, A1 and Q1/Q3. v0.44 candidate closes Q2 and U3 upon CI/browser/publication verification (projected 20/32, 67.50% weighted). Remaining then: C4, W4, N4, P4, G2/G4, U2/U4, A2–A4 and Q4.
 
 ## Most recent integrated macroiterations and acceptance
 
@@ -120,3 +120,11 @@ The next production-risk slice targets stale browser tabs and quota/interrupted 
 - Programmatic Q2 acceptance expands to 9,000 interleaved three-slot rotations with quota faults, torn primary writes and stale-tab conflicts, plus five-seed legacy three-region → seven-region snapshot restart/replay. Existing browser quota/import and old-save flows remain covered.
 - U3 input/feedback improvements: modal dialogue focus and restoration, first-starter focus, semantic enemy/ally progressbars with current/max HP, labelled battle action group, keyboard focus continuity after combat turns, audible-independent status feedback and exposed mute state. Chromium exercises the core semantics on both graphics modes and backends.
 - The official 32-milestone global score remains 18/32 and 62.50% until all fixed acceptance gates close. This implementation is a candidate; neither independent screen-reader/device signoff nor physical multi-tab race testing is claimed.
+
+
+## v0.44 implementation candidate — engineered score and nonvisual guidance
+
+- Ten authored procedural scene themes now vary over an eight-phrase harmonic arc, with a counter-melody, register movement, intensity-dependent combat fills, safe shared echo and high-pass/dynamics processing for combined music/SFX.
+- H gives explicit screen-reader-friendly orientation, passable cardinal directions and current story guidance without unsolicited continuous motion chatter.
+- Additional pure/graph audio tests, semantic keyboard checks and four Chromium backend/mode navigation checks are part of the release gate.
+- Q2 and U3 are proposed as technical acceptance milestones following the already verified v0.43 long-run save evidence and the v0.44 accessibility audit. External mobile, audio, playtest and premium review are not assumed; report the score as accepted only after all required CI/Pages evidence exists.

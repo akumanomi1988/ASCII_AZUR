@@ -6,7 +6,7 @@ import {drawDungeon} from './dungeons/draw-dungeon.js';
 import {chamberAt,chamberProgress} from './dungeons/room-art.js';
 import {generateDungeon,nearbyDungeonEvent,completeDungeonEvent,dungeonGateOpen,revealDungeon,dungeonSweep} from './dungeons/labyrinth.js';
 import {SPECIES,MOVES,createCreature,damage,maxHp,validateSave,type Creature,type SaveGame,type BattleCheckpoint} from './domain.js';
-import {ZONES,sweepMove,isWild,nearbyLandmark,configureWorld,captureWorldSnapshot,freshWorldSeed,seedFromText,terrain,WORLD_W,WORLD_H,ZONE_IDS,type ZoneId,type Landmark} from './world.js';
+import {ZONES,sweepMove,isBlocked,isWild,nearbyLandmark,configureWorld,captureWorldSnapshot,freshWorldSeed,seedFromText,terrain,WORLD_W,WORLD_H,ZONE_IDS,type ZoneId,type Landmark} from './world.js';
 import {SHOP,NPCS,QUESTS,buy,claimQuests,normalizeEconomy,newEconomy,type ShopItem,type NpcId} from './rpg.js';
 import {Sound,themeForZone} from './audio.js';
 import {FrameMetrics} from './core/frame-metrics.js';
@@ -133,6 +133,7 @@ class AzurGame {
     if(key==='e'||e.key===' '||e.key==='Enter')this.interact();
     if(key==='t')this.openTeam();
     if(key==='b')this.openBag();
+    if(key==='h'&&!e.repeat){e.preventDefault();this.describeCurrentRoute();}
   }
   /** Trapping Tab in a real modal prevents focus escaping behind an overlay. */
   private trapModalTab(e:KeyboardEvent):boolean{
@@ -1048,6 +1049,23 @@ class AzurGame {
   private hideModal(){this.modalOpen=false;this.modalBack=null;byId('modal').classList.add('hidden');this.keys.clear();this.modalInvoking?.focus?.();this.modalInvoking=null;}
   private updateHealthMeter(id:string,name:string,current:number,maximum:number){
     const node=byId(id);node.setAttribute('aria-label',`Vida de ${name}`);node.setAttribute('aria-valuemax',String(maximum));node.setAttribute('aria-valuenow',String(Math.max(0,current)));node.setAttribute('aria-valuetext',`${current} de ${maximum} puntos de vida`);
+  }
+  /** Explicit nonvisual world scan: no continual announcements while walking. */
+  private describeCurrentRoute(){
+    if(!this.started||this.battle||this.dialogOpen||this.modalOpen)return;
+    this.updateStoryCompass();
+    const direction=['norte','este','sur','oeste'][this.facing]??'sur';
+    const objective=byId('storyCompass').textContent?.trim()||'Consulta el diario';
+    const where=this.save.dungeon?.active?'Cripta de los Ecos':ZONES[this.save.zone as ZoneId].name;
+    let passages='Consulta el mapa de la cripta';
+    if(!this.save.dungeon?.active){
+      const x=this.save.x,y=this.save.y,zone=this.save.zone as ZoneId;
+      const open=[['norte',0,-1],['este',1,0],['sur',0,1],['oeste',-1,0]]
+        .filter(([,dx,dy])=>!isBlocked(zone,x+(dx as number)*.85,y+(dy as number)*.85))
+        .map(([name])=>name);
+      passages=open.length?'Salidas cercanas: '+open.join(', '):'No hay salidas inmediatas';
+    }
+    this.announceAccessibility(`Orientación. ${where}. Mirando al ${direction}. ${passages}. Guía: ${objective}. Pulsa H para repetir la orientación.`);
   }
   private announceAccessibility(message:string){
     if(this.lastAccessibleMessage===message)return;

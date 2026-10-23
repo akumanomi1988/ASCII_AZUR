@@ -73,6 +73,10 @@ window.addEventListener('load',()=>setTimeout(async()=>{
   for(let i=0;i<4;i++)$('closeDialogue').click();
   check($('dialogue').classList.contains('hidden'),'Intro dialogue not dismissed');
   check(document.activeElement?.id==='viewport','Closing dialogue did not restore game focus');
+  document.dispatchEvent(new KeyboardEvent('keydown',{key:'h',bubbles:true,cancelable:true}));
+  check($('accessibilityStatus').textContent.includes('Orientación.'),'Nonvisual route scan did not announce location');
+  check(/Salidas cercanas:|No hay salidas inmediatas/.test($('accessibilityStatus').textContent),'Nonvisual route scan did not announce passage state');
+  check($('accessibilityStatus').textContent.includes('Guía:'),'Nonvisual route scan omitted quest guidance');
   // Allow an actual animation frame after scene transition before capturing pixels.
   await new Promise(resolve=>setTimeout(resolve,180));
   const saved=localStorage.getItem('ascii-azur-save-v1');

@@ -33,6 +33,25 @@ export function ambienceForScene(scene:MusicScene):AmbienceProfile{
  default:return{gain:.035,lowpassHz:600,modulation:.15};}
 }
 export type ScoreMix={lead:number;bass:number;pad:number;percussion:number;ambient:number};
+export type ScoreArrangement={leadRegister:number;counterVoice:boolean;counterDegree:number;percussionFill:boolean;leadGain:number};
+/**
+ * Eight-phrase score arc. Harmony stays on the scene's authored scale/chord.
+ * The returned state is deterministic, including after a save or scene restart.
+ */
+export function scoreArrangement(scene:MusicScene,phrase:number,intensity:number):ScoreArrangement{
+  const bar=Number.isFinite(phrase)?((Math.floor(phrase)%8)+8)%8:0;
+  const energy=Number.isFinite(intensity)?Math.max(0,Math.min(1,intensity)):0;
+  const combat=scene==='battle'||scene==='boss';
+  const registers=[0,0,12,0,-12,0,12,0] as const;
+  return {
+    leadRegister:registers[bar]!,
+    counterVoice:[false,true,false,true,true,false,true,false][bar]!,
+    counterDegree:bar%2===0?4:2,
+    percussionFill:combat&&bar>=3&&energy>=.45,
+    leadGain:bar===0?.82:bar===3?1.06:bar===7?.75:bar===6?1.12:1
+  };
+}
+export const MASTERING={highpassHz:28,thresholdDb:-18,kneeDb:12,ratio:7,attackSeconds:.003,releaseSeconds:.24,outputGain:.84} as const;
 /** Deterministic adaptive balance. Clamped to avoid runaway gain or invalid Web Audio parameters. */
 export function scoreMix(scene:MusicScene,intensity:number):ScoreMix{
   const x=Number.isFinite(intensity)?Math.max(0,Math.min(1,intensity)):0;
@@ -60,6 +79,7 @@ export class Sound {
   private master:GainNode|null=null;
   private musicMaster:GainNode|null=null;
   private fxMaster:GainNode|null=null;
+  private echoInput:GainNode|null=null;
   private bus:GainNode|null=null;
   private ambience:GainNode|null=null;private ambientFilter:BiquadFilterNode|null=null;
   private ambientSource:AudioBufferSourceNode|null=null;private windLfo:OscillatorNode|null=null;private windDepth:GainNode|null=null;
@@ -82,10 +102,30 @@ export class Sound {
   private init(){
     if(this.ctx)return;
     this.ctx=new AudioContext();
-    this.master=this.ctx.createGain();this.master.gain.value=this.enabled?1:0;
-    this.master.connect(this.ctx.destination);
+    this.master=this.ctx.createGain();this.master.gain.value=this.enabled?MASTERING.outputGain:0;
+    // Fixed headroom and a gentle brickwall-style compressor protect mobile speakers
+    // from simultaneous elemental FX, bass, and score transients.
+    const highpass=this.ctx.createBiquadFilter();highpass.type='highpass';highpass.frequency.value=MASTERING.highpassHz;
+    this.master.connect(highpass);
+    if(typeof this.ctx.createDynamicsCompressor==='function'){
+      const limiter=this.ctx.createDynamicsCompressor();
+      limiter.threshold.value=MASTERING.thresholdDb;limiter.knee.value=MASTERING.kneeDb;
+      limiter.ratio.value=MASTERING.ratio;limiter.attack.value=MASTERING.attackSeconds;
+      limiter.release.value=MASTERING.releaseSeconds;
+      highpass.connect(limiter).connect(this.ctx.destination);
+    }else highpass.connect(this.ctx.destination);
     this.musicMaster=this.ctx.createGain();this.musicMaster.gain.value=this.musicVolume;
     this.musicMaster.connect(this.master);
+    // Shared low-feedback spatial tail prevents a dry, repetitive chiptune texture.
+    // A single delay is cheaper than a convolution impulse on low-end mobile GPUs/CPUs.
+    if(typeof this.ctx.createDelay==='function'){
+      const delay=this.ctx.createDelay(.5),feedback=this.ctx.createGain(),wet=this.ctx.createGain();
+      delay.delayTime.value=.21;feedback.gain.value=.14;wet.gain.value=.12;
+      delay.connect(feedback).connect(delay);
+      delay.connect(wet).connect(this.musicMaster);
+      this.echoInput=this.ctx.createGain();this.echoInput.gain.value=.20;
+      this.echoInput.connect(delay);
+    }
     this.fxMaster=this.ctx.createGain();this.fxMaster.gain.value=this.fxVolume;
     this.fxMaster.connect(this.master);
     this.newBus(true);this.startAmbience();
@@ -94,7 +134,7 @@ export class Sound {
   }
   /** Must be called by a tap/click/keypress; browsers block automatic audio. */
   unlock(){try{this.init();if(this.ctx?.state==='suspended')void this.ctx.resume().catch(()=>{});this.tick();}catch{/* unavailable audio must not interrupt gameplay */}}
-  setEnabled(v:boolean){this.enabled=v;if(v&&this.ctx)this.unlock();if(this.ctx&&this.master){this.master.gain.setTargetAtTime(v?1:0,this.ctx.currentTime,.07);}}
+  setEnabled(v:boolean){this.enabled=v;if(v&&this.ctx)this.unlock();if(this.ctx&&this.master){this.master.gain.setTargetAtTime(v?MASTERING.outputGain:0,this.ctx.currentTime,.07);}}
   setMusicVolume(v:number){this.musicVolume=Math.max(0,Math.min(1,v));if(this.ctx&&this.musicMaster){this.musicMaster.gain.setTargetAtTime(this.musicVolume,this.ctx.currentTime,.05);if(this.musicVolume>0)this.nextAt=Math.max(this.nextAt,this.ctx.currentTime+.06);}}
   setEffectsVolume(v:number){this.fxVolume=Math.max(0,Math.min(1,v));if(this.ctx&&this.fxMaster)this.fxMaster.gain.setTargetAtTime(this.fxVolume,this.ctx.currentTime,.05);}
   setIntensity(value:number){
@@ -138,7 +178,7 @@ export class Sound {
     const now=this.ctx.currentTime,old=this.bus;
     const next=this.ctx.createGain();next.gain.setValueAtTime(initial?1:0,now);
     if(!initial)next.gain.linearRampToValueAtTime(1,now+.65);
-    next.connect(this.musicMaster);this.bus=next;
+    next.connect(this.musicMaster);if(this.echoInput)next.connect(this.echoInput);this.bus=next;
     if(old){old.gain.cancelScheduledValues(now);old.gain.setValueAtTime(old.gain.value,now);old.gain.linearRampToValueAtTime(0,now+.65);
       // Disconnect only after previously scheduled notes have released.
       setTimeout(()=>{try{old.disconnect();}catch{/* already disposed */}},2200);
@@ -171,9 +211,10 @@ export class Sound {
       const t=themes[this.scene],step=this.step,idx=step%16,stepDuration=60/t.bpm/2;
       const chord=t.chords[Math.floor(idx/4)]!;
       const mix=scoreMix(this.scene,this.intensity);
+      const arrangement=scoreArrangement(this.scene,Math.floor(step/16),this.intensity);
       const lead=t.melody[idx],bass=t.bass[idx];
       if(lead!=null){
-        this.note(t.root+24+degreeSemitone(lead,t.mode),this.nextAt,stepDuration*(this.scene==='battle'?.83:1.55),'lead',(t.texture==='percussion'?.045:.032)*mix.lead);
+        this.note(t.root+24+arrangement.leadRegister+degreeSemitone(lead,t.mode),this.nextAt,stepDuration*(this.scene==='battle'?.83:1.55),'lead',(t.texture==='percussion'?.045:.032)*mix.lead*arrangement.leadGain);
       }
       if(bass!=null)this.note(t.root-12+degreeSemitone(bass,t.mode),this.nextAt,stepDuration*3.5,'bass',.048*mix.bass);
       if(idx%4===0){
@@ -181,6 +222,8 @@ export class Sound {
       }
       if(t.texture==='percussion'&&idx%2===0)this.note(t.root-24,this.nextAt,.035,'perc',.014*mix.percussion);
       if(t.texture==='percussion'&&this.intensity>=.55&&idx%4===2)this.note(t.root+12+degreeSemitone(chord[2]!,t.mode),this.nextAt,stepDuration*.75,'bell',.012*this.intensity);
+      if(arrangement.counterVoice&&idx===10)this.note(t.root+24+degreeSemitone(chord[arrangement.counterDegree===4?2:1]!,t.mode),this.nextAt,stepDuration*2,'bell',.009*mix.lead);
+      if(arrangement.percussionFill&&idx===15)this.note(t.root-12,this.nextAt,stepDuration*.22,'perc',.011*mix.percussion);
       if(t.texture==='mist'&&idx%8===6)this.note(t.root+36+degreeSemitone(chord[1]!,t.mode),this.nextAt,stepDuration*2.1,'bell',.017);
       this.step++;this.nextAt+=stepDuration;
     }
@@ -211,5 +254,5 @@ export class Sound {
   portal(){this.tone(160,.35,'triangle',.032);this.tone(320,.45,'sine',.020,.13);}
   pause(){if(this.ctx&&this.ctx.state==='running')void this.ctx.suspend().catch(()=>{});}
   resume(){if(this.ctx&&this.enabled&&this.ctx.state==='suspended'){void this.ctx.resume().then(()=>{this.nextAt=this.ctx!.currentTime+.08;this.tick();}).catch(()=>{});}}
-  dispose(){if(this.timer)clearInterval(this.timer);this.timer=null;try{this.windLfo?.stop();this.ambientSource?.stop();}catch{/* already stopped */}this.windLfo=null;this.windDepth=null;this.ambientSource=null;this.ambience=null;this.ambientFilter=null;if(this.ctx)void this.ctx.close().catch(()=>{});this.ctx=null;}
+  dispose(){if(this.timer)clearInterval(this.timer);this.timer=null;try{this.windLfo?.stop();this.ambientSource?.stop();}catch{/* already stopped */}this.windLfo=null;this.windDepth=null;this.echoInput=null;this.ambientSource=null;this.ambience=null;this.ambientFilter=null;if(this.ctx)void this.ctx.close().catch(()=>{});this.ctx=null;}
 }
