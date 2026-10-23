@@ -1157,15 +1157,19 @@ test('Q3 journey: new-game to all four finale branches with earned captures, bat
    path.reverse();
    let moved=0;
    for(const point of path.slice(1)){
-    const dx=point.x-Math.round(game.save.x),dy=point.y-Math.round(game.save.y);
+    const before={x:game.save.x,y:game.save.y},dx=point.x-Math.round(game.save.x),dy=point.y-Math.round(game.save.y);
     assert.equal(Math.abs(dx)+Math.abs(dy),1,'surface route must move 1 tile at a time');
+    let prediction={...before};
+    for(let frame=0;frame<5;frame++)prediction=sweepMove(zone,prediction.x,prediction.y,dx*.2,dy*.2,.19);
     game.stick.x=dx;game.stick.y=dy;
+    const frames=[];
     for(let frame=0;frame<5;frame++){
      game.move(1/(4.35*5));moved++;
+     frames.push([game.save.x,game.save.y,game.stick.x,game.stick.y]);
      if(game.battle){doBattle();assert.equal(game.save.zone,zone,'random battle lost exploration position');game.stick.x=dx;game.stick.y=dy;}
     }
     assert.ok(Math.hypot(game.save.x-point.x,game.save.y-point.y)<.085,
-     'physical surface route blocked: '+zone+'/'+seed+' expected '+JSON.stringify(point)+' got '+game.save.x+','+game.save.y);
+     'physical surface route blocked: '+JSON.stringify({zone,seed,from:before,expected:point,actual:{x:game.save.x,y:game.save.y},prediction,frames,keys:[...game.keys],pad:game.padStick,landmarks:ZONES[zone].landmarks.map(l=>[l.kind,l.x,l.y])}));
    }
    game.resetJoystick();settle();
    assert.ok(Math.hypot(game.save.x-target.x,game.save.y-target.y)<=1.65,
