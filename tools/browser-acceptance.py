@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Dependency-free Chromium acceptance for glyph renderer and nested in-game menus."""
 import http.server
+import os
+import signal
 import base64
 import hashlib
 import struct
@@ -349,19 +351,23 @@ try:
   for fallback in (False,True):
    query=urllib.parse.urlencode({'mode':mode,**({'fallback':'1'} if fallback else {})})
    url=f'http://127.0.0.1:{server.server_port}/{QA.name}?{query}'
-   with tempfile.TemporaryDirectory() as profile:
+   with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as profile:
     args=[CHROME,'--headless=new','--no-sandbox','--enable-unsafe-swiftshader','--disable-dev-shm-usage','--disable-background-networking','--no-first-run','--window-size=1280,850',f'--user-data-dir={profile}',url]
     QA_DONE.clear();QA_RESULTS.clear()
-    process=subprocess.Popen(args,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+    process=subprocess.Popen(args,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,start_new_session=True)
     try:
      for _ in range(90):
       if QA_DONE.wait(1):break
       if process.poll() is not None:raise AssertionError(f'{mode} fallback={fallback}: Chromium exited before acceptance callback')
      else:raise TimeoutError(f'{mode} fallback={fallback}: no acceptance callback after 90 seconds')
     finally:
-     process.terminate()
+     try:os.killpg(process.pid,signal.SIGTERM)
+     except ProcessLookupError:pass
      try:process.wait(timeout=8)
-     except subprocess.TimeoutExpired:process.kill();process.wait(timeout=5)
+     except subprocess.TimeoutExpired:
+      try:os.killpg(process.pid,signal.SIGKILL)
+      except ProcessLookupError:pass
+      process.wait(timeout=5)
     if QA_RESULTS!=['PASS']:
      raise AssertionError(f'{mode} fallback={fallback}: {QA_RESULTS[-1] if QA_RESULTS else "no result"}')
     captures=[OUT/(zone+'-'+mode+('-canvas2d' if fallback else '-webgl2')+'.png') for zone in ('village','forest','sanctuary','marsh','spire','ossuary','garden','battle')]
