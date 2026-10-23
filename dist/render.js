@@ -6,9 +6,13 @@ import { SoftwareGlyphFrame } from './render/software-glyph.js';
 import { VISUAL_ASSETS } from './render/semantic-assets.js';
 import { biomePalette } from './render/biome-art.js';
 import { sampleHeroPose } from './actors/hero-performance.js';
-import { glyphVisible } from './render/legibility.js';
+import { materialGlyphIndex, materialColors } from './render/glyph-material.js';
+import { GroundMaterialCache } from './render/ground-material.js';
 import { readGraphics, glyphCell, canvasGlyphCell } from './render/graphics-profile.js';
 export const W = 960, H = 540;
+/** World-only camera magnification; battle composition and DOM controls are unaffected. */
+const WORLD_PRESENTATION_ZOOM = 1.16;
+const GROUND_MATERIAL_CACHE = new GroundMaterialCache();
 const GLYPHS = ' .,:;irsXA253hMHGS#9B&@░▒▓█*+o%';
 const VS = `#version 300 es
 in vec2 a_pos;out vec2 v_uv;
@@ -32,41 +36,36 @@ float glyphCoverage(vec2 pos,int index){
 }
 void main(){
  vec2 pos=vec2(gl_FragCoord.x,u_resolution.y-gl_FragCoord.y);
- vec2 cell=floor(pos/u_cell), center=(cell+.5)*u_cell/u_resolution;
+ vec2 cell=floor(pos/u_cell),center=(cell+.5)*u_cell/u_resolution;
  vec2 stepPx=max(u_cell/u_resolution,vec2(.001))*.45;
- vec3 raw=at(center), n=at(center+vec2(0.,-stepPx.y)), s=at(center+vec2(0.,stepPx.y));
- vec3 e=at(center+vec2(stepPx.x,0.)), w=at(center-vec2(stepPx.x,0.));
+ vec3 raw=at(center),n=at(center+vec2(0.,-stepPx.y)),s=at(center+vec2(0.,stepPx.y));
+ vec3 e=at(center+vec2(stepPx.x,0.)),w=at(center-vec2(stepPx.x,0.));
  vec3 smoothColor=(raw+n+s+e+w)*.2;
  float edge=(length(n-s)+length(e-w))*u_edges;
- float saturation=max(max(raw.r,raw.g),raw.b)-min(min(raw.r,raw.g),raw.b);
- float lum=clamp((dot(raw,vec3(.2126,.7152,.0722))-.5)*u_contrast+.5+u_brightness,0.,1.);
+ float chroma=max(max(raw.r,raw.g),raw.b)-min(min(raw.r,raw.g),raw.b);
+ float variation=length(raw-smoothColor);
+ float detail=clamp(edge*.88+variation*2.4+chroma*.07,0.,1.);
  float noise=fract(sin(dot(cell,vec2(12.9898,78.233)))*43758.5453);
+ int index=0;
+ vec3 bg,fg;
  if(u_pixelMode>.5){
-   // Each pixel is *always* covered by its own RGB cell background.
-   // Visible Unicode masks then supply independent foreground coloration.
-   // Semantic structure comes from local boundaries/texture, not absolute surface brightness.
-   // Flat stone and paths remain continuous RGB backgrounds instead of vertical glyph bands.
-   float structure=clamp(length(raw-smoothColor)*1.8+edge*.30+max(0.,saturation-.22)*.10,0.,1.);
-   int index=structure>.58?26:structure>.42?25:structure>.28?24:structure>.14?23:(structure>.08&&noise>.82?1:0);
-   vec3 bg=clamp(mix(raw,smoothColor,.34)*(.67+u_brightness*.15),0.,1.);
-   vec3 fg=clamp(raw*(1.3+(u_contrast-1.)*.16)+vec3(.09,.09,.085),0.,1.);
-   // Saturated, interactive-looking colors retain legibility against dark stone.
-   fg+=saturation*vec3(.07,.08,.09);
-   float coverage=glyphCoverage(pos,index);
-   outColor=vec4(mix(bg,clamp(fg,0.,1.),coverage),1.);
-   return;
+   index=detail>.57?26:detail>.40?25:detail>.24?24:detail>.12?23:(detail>.065&&noise>.72?1:0);
+   bg=clamp(raw*.72+vec3(.019,.023,.031)+vec3(u_brightness*.085),0.,1.);
+   fg=clamp(raw*1.47+vec3(.094),0.,1.);
+ }else{
+   if(detail<.085)index=noise>.91?1:0;
+   else if(detail<.16)index=noise>.37?2:1;
+   else index=clamp(int(floor(detail*17.+3.+noise*2.)),3,22);
+   // Colored negative space prevents uniform text noise from swallowing silhouettes.
+   bg=clamp(raw*.49+vec3(.020,.024,.031)+vec3(u_brightness*.085),0.,1.);
+   fg=clamp(raw*1.77+vec3(.145),0.,1.);
+   fg=mix(fg,vec3(dot(fg,vec3(.299,.587,.114))),1.-u_quality);
  }
- // Atmospheric mode: gentle punctuation on low-detail surfaces, strong glyphs at actual silhouettes.
- float detail=clamp(pow(lum*1.43,.79)+edge*.16+saturation*.13,0.,1.);
- int index=int(floor(clamp(detail*22.+(noise-.5)*.7,1.,22.)));
- if(edge>.43&&detail>.14)index=min(22,index+3);
- vec3 bg=vec3(.006,.011,.019)+raw*.20;
- vec3 fg=clamp(raw*(2.4+saturation*.35)+vec3(.12,.14,.14),0.,1.);
- fg=mix(fg,vec3(dot(fg,vec3(.299,.587,.114))),1.-u_quality);
+ float blendContrast=1.+(u_contrast-1.)*.3;
+ bg=clamp((bg-.5)*blendContrast+.5,0.,1.);
+ fg=clamp((fg-.5)*blendContrast+.5,0.,1.);
  float ink=glyphCoverage(pos,index);
- float visibility=clamp(.14+lum*2.25+edge*.27,0.,1.);
- if(lum+edge*.3<.012)visibility=0.;
- outColor=vec4(mix(bg,fg,ink*visibility),1.);
+ outColor=vec4(mix(bg,fg,ink),1.);
 }
 `;
 function shader(gl, type, src) { const s = gl.createShader(type); if (!s)
@@ -230,33 +229,19 @@ export class AsciiRenderer {
                 const i = (srcY * W + srcX) * 4, r = data[i], g = data[i + 1], b = data[i + 2];
                 const rawLevel = (r * .2126 + g * .7152 + b * .0722) / 255;
                 const level = Math.max(0, Math.min(1, (rawLevel - .5) * this.contrast + .5 + this.brightness));
-                // Brightness palette is 0..22; 23..26 are reserved for directional strokes.
                 const sample = (px, py) => { const j = (Math.max(0, Math.min(H - 1, py)) * W + Math.max(0, Math.min(W - 1, px))) * 4; return (data[j] * .2126 + data[j + 1] * .7152 + data[j + 2] * .0722) / 255; };
                 const ox = Math.max(1, Math.floor(cw * crop.w * W / this.canvas.width * .48));
                 const oy = Math.max(1, Math.floor(ch * crop.h * H / this.canvas.height * .48));
-                const gx = sample(srcX + ox, srcY) - sample(srcX - ox, srcY);
-                const gy = sample(srcX, srcY + oy) - sample(srcX, srcY - oy);
-                const edge = (Math.abs(gx) + Math.abs(gy)) * this.edgeStrength;
+                const n = sample(srcX, srcY - oy), south = sample(srcX, srcY + oy), east = sample(srcX + ox, srcY), west = sample(srcX - ox, srcY);
+                const edge = (Math.abs(n - south) + Math.abs(east - west)) * this.edgeStrength;
+                const variation = Math.abs(rawLevel - (rawLevel + n + south + east + west) * .2);
+                const chroma = (Math.max(r, g, b) - Math.min(r, g, b)) / 255;
                 const cellX = Math.floor(x / cw), cellY = Math.floor(y / ch);
                 const noise = Math.abs(Math.sin(cellX * 12.9898 + cellY * 78.233) * 43758.5453) % 1;
-                if (this.renderMode === 'glyph-pixel') {
-                    const neighborLevel = (sample(srcX + ox, srcY) + sample(srcX - ox, srcY) + sample(srcX, srcY + oy) + sample(srcX, srcY - oy)) * .25;
-                    const structure = Math.max(0, Math.min(1, edge * .30 + Math.abs(level - neighborLevel) * 1.8));
-                    // Flat materials use contiguous background pixels; glyphs mark actual detail.
-                    const index = structure > .58 ? 26 : structure > .42 ? 25 : structure > .28 ? 24 : structure > .14 ? 23 : structure > .08 && noise > .82 ? 1 : 0;
-                    const background = [r * .67, g * .67, b * .67];
-                    const foreground = [Math.min(255, r * 1.3 + 23), Math.min(255, g * 1.3 + 23), Math.min(255, b * 1.3 + 22)];
-                    this.software.putCell(index, x, y, Math.min(cw, this.canvas.width - x), Math.min(ch, this.canvas.height - y), foreground, background);
-                    continue;
-                }
-                if (!glyphVisible(level, edge, noise))
-                    continue;
-                const v = Math.max(0, Math.min(1, Math.pow(level * 1.55, .68) + edge * .30));
-                let index = Math.max(1, Math.min(22, Math.floor(v * 22 + (noise - .5) * 1.25)));
-                if (edge > .43 && v > .14)
-                    index = Math.min(22, index + 3);
-                const alpha = Math.min(1, Math.max(.22, (level + edge * .28 + .09) * 3.15));
-                this.software.put(index, x, y, cw, ch, r, g, b, alpha);
+                const mode = this.renderMode;
+                const index = materialGlyphIndex({ luminance: level, edge, localVariation: variation, chroma, noise }, mode);
+                const colors = materialColors(r, g, b, mode, this.brightness, this.contrast);
+                this.software.putCell(index, x, y, Math.min(cw, this.canvas.width - x), Math.min(ch, this.canvas.height - y), colors.foreground, colors.background);
             }
         }
         c.putImageData(this.software.data, 0, 0);
@@ -1354,6 +1339,25 @@ function drawRuin(ctx, x, y, k, zone) {
     ctx.fillRect(-2, -48, 5, 5);
     ctx.restore();
 }
+function drawDiscoveryBeacon(ctx, x, y, t, zone, kind) {
+    const palette = biomePalette(zone), glow = .62 + Math.sin(t * 1.2 + x * .03) * .12;
+    ctx.save();
+    ctx.globalAlpha = glow;
+    ctx.fillStyle = '#102029';
+    ctx.beginPath();
+    ctx.ellipse(x, y - 77, 12, 10, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = palette.accent;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.ellipse(x, y - 77, 11, 9, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = palette.accent;
+    ctx.font = 'bold 15px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(kind === 'npc' ? '◇' : '✧', x, y - 72);
+    ctx.restore();
+}
 function drawGround(ctx, zone, camX, camY, t) {
     const z = ZONES[zone], a = biomePalette(zone);
     ctx.fillStyle = z.ground;
@@ -1376,14 +1380,16 @@ function drawGround(ctx, zone, camX, camY, t) {
                 }
                 ctx.globalAlpha = 1;
                 ctx.fillStyle = a.pathRim;
+                ctx.globalAlpha = .32;
                 if (terrain(zone, x, y - 1) !== 'path')
-                    ctx.fillRect(xx, yy, TILE, 3);
+                    ctx.fillRect(xx, yy, TILE, 2);
                 if (terrain(zone, x, y + 1) !== 'path')
-                    ctx.fillRect(xx, yy + TILE - 3, TILE, 3);
+                    ctx.fillRect(xx, yy + TILE - 2, TILE, 2);
                 if (terrain(zone, x - 1, y) !== 'path')
-                    ctx.fillRect(xx, yy, 3, TILE);
+                    ctx.fillRect(xx, yy, 2, TILE);
                 if (terrain(zone, x + 1, y) !== 'path')
-                    ctx.fillRect(xx + TILE - 3, yy, 3, TILE);
+                    ctx.fillRect(xx + TILE - 2, yy, 2, TILE);
+                ctx.globalAlpha = 1;
             }
             else if (tile === 'water') {
                 ctx.fillStyle = a.water;
@@ -1433,6 +1439,10 @@ function drawGround(ctx, zone, camX, camY, t) {
                     ctx.fillStyle = a.canopyMid;
                     ctx.fillRect(xx + 23, yy + 12, 3, 10);
                 }
+            }
+            if (tile !== 'wall') {
+                const surface = tile === 'path' || tile === 'water' || tile === 'grass' || tile === 'stone' ? tile : 'ground';
+                GROUND_MATERIAL_CACHE.draw(ctx, zone, surface, x, y, z.seed, xx, yy, a, TILE);
             }
         }
     // Subtle world-space glow is shared by both graphics profiles.
@@ -1495,6 +1505,10 @@ export function drawWorld(ctx, zone, hero, t, flash = 0, defeated = false, camer
     const c = camera || hero;
     const camX = Math.max(0, Math.min(WORLD_W * TILE - W, (c.x + .5) * TILE - W * .5));
     const camY = Math.max(0, Math.min(WORLD_H * TILE - H, (c.y + .5) * TILE - H * .5));
+    ctx.save();
+    ctx.translate(W * .5, H * .5);
+    ctx.scale(WORLD_PRESENTATION_ZOOM, WORLD_PRESENTATION_ZOOM);
+    ctx.translate(-W * .5, -H * .5);
     drawGround(ctx, zone, camX, camY, t);
     const objects = [];
     const left = Math.max(0, Math.floor(camX / TILE) - 2), right = Math.min(WORLD_W - 1, Math.ceil((camX + W) / TILE) + 2), top = Math.max(0, Math.floor(camY / TILE) - 3), bottom = Math.min(WORLD_H - 1, Math.ceil((camY + H) / TILE) + 2);
@@ -1521,10 +1535,10 @@ export function drawWorld(ctx, zone, hero, t, flash = 0, defeated = false, camer
         if (xx < -100 || xx > W + 100 || yy < -100 || yy > H + 100)
             continue;
         if (l.kind === 'altar' || l.kind === 'portal') {
-            objects.push({ x: xx, y: yy, draw: () => { drawRuin(ctx, xx, yy, 0, zone); light(ctx, xx, yy - 29, l.kind === 'portal' ? 95 : 75, l.kind === 'portal' ? '#83d0d8' : '#f6c089', .5); ctx.fillStyle = l.kind === 'portal' ? '#91cdd9' : '#e7bc7f'; ctx.fillRect(xx - 3, yy - 34, 7, 9); } });
+            objects.push({ x: xx, y: yy, draw: () => { drawRuin(ctx, xx, yy, 0, zone); light(ctx, xx, yy - 29, l.kind === 'portal' ? 95 : 75, l.kind === 'portal' ? '#83d0d8' : '#f6c089', .5); ctx.fillStyle = l.kind === 'portal' ? '#91cdd9' : '#e7bc7f'; ctx.fillRect(xx - 3, yy - 34, 7, 9); drawDiscoveryBeacon(ctx, xx, yy, t, zone, 'relic'); } });
         }
         if (l.kind === 'npc')
-            objects.push({ x: xx, y: yy, draw: () => { drawNPC(ctx, xx, yy, t, l.npcId || 'archivist'); } });
+            objects.push({ x: xx, y: yy, draw: () => { drawNPC(ctx, xx, yy, t, l.npcId || 'archivist'); drawDiscoveryBeacon(ctx, xx, yy, t, zone, 'npc'); } });
         if (l.kind === 'memory' || l.kind === 'verdict')
             objects.push({ x: xx, y: yy, draw: () => {
                     ctx.save();
@@ -1601,6 +1615,7 @@ export function drawWorld(ctx, zone, hero, t, flash = 0, defeated = false, camer
         ctx.fillStyle = `rgba(194,175,229,${flash * .25})`;
         ctx.fillRect(0, 0, W, H);
     }
+    ctx.restore();
 }
 /** Battle direction rendered into the source canvas and then converted to genuine ASCII glpyhs. */
 function spellColor(element) {
