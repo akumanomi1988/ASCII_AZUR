@@ -193,7 +193,7 @@ class AzurGame {
       try{if(file.size>1000000)throw Error('Archivo demasiado grande');const json=JSON.parse(await file.text()) as unknown;
         if(!validateSave(json))throw Error('Partida inválida');
         if(!window.confirm('Se sustituirá la partida actual por la importada. ¿Continuar?'))return;
-        this.save=json;configureWorld(this.save.worldSeed??0,this.save.worldSnapshot);this.roamingCache.clear();this.save.rpg=normalizeEconomy(json.rpg);this.started=true;this.battle=null;this.cameraZone='';this.lastReveal=-1;this.revealPosition();
+        this.save=json;configureWorld(this.save.worldSeed??0,this.save.worldSnapshot);this.save.worldSnapshot=captureWorldSnapshot()??this.save.worldSnapshot;this.roamingCache.clear();this.save.rpg=normalizeEconomy(json.rpg);this.started=true;this.battle=null;this.cameraZone='';this.lastReveal=-1;this.revealPosition();
         this.sound.unlock();this.sound.setScene(this.save.dungeon?.active?'sanctuary':themeForZone(this.save.zone as ZoneId));
         byId('battle').classList.add('hidden');byId('viewport').classList.remove('in-battle');byId('titleScreen').classList.add('hidden');byId('starterScreen').classList.add('hidden');
         this.toggleDrawer(false);this.hideModal();this.updateUI();this.restoreBattle();this.saveNow(false);this.toast('PARTIDA IMPORTADA');
