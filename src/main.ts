@@ -16,7 +16,7 @@ import {ARKEN_STORY, ARKEN_FINALE_REWARD, arkenStoryBeat, arkenStoryIndex, concl
 import {marshChapterProgress,marshDecision,marshFinish,MARSH_REWARDS,type MarshChoice} from './story-marsh.js';
 import {crownProgress,crownChoose,crownFinish,crownEpilogue,CROWN_BOSS_FLAG,CROWN_END_FLAG,CROWN_CHOICE_REWARDS,type CrownEnding} from './story-finale.js';
 import {campaignRoadbook} from './story-roadbook.js';
-import {readSave,writeSave} from './core/save-store.js';
+import {readSave,writeSave,SaveConflictError} from './core/save-store.js';
 import {transferStoredCreature,reserveCreature,grantPartyExperience} from './party.js';
 import {createCombatCue,sampleCombatCue,guardDamage,type CombatCue,type FxKind,type CombatSide} from './actors/combat-fx.js';
 import {MOVE_EFFECTS,STATUS_INFO,applyEffect,attackWithStatuses,chooseEnemyMove,chooseGuardianMove,endTurnEffects,statusLabel,skillUtility,type StatusEffect} from './combat/tactics.js';
@@ -39,6 +39,7 @@ class AzurGame {
   private modalInvoking:HTMLElement|null=null;private modalBack:(()=>void)|null=null;private drawerInvoking:HTMLElement|null=null;
   private dialogOpen=false;private modalOpen=false;private flash=0;private last=0;private seconds=0;private stepCounter=0;
   private notifyTimer:number|undefined;private encounterCooldown=3;private timeSinceSave=0;
+  private expectedSaveRaw:string|null=null;private saveIssue:'none'|'conflict'|'storage'='none';
   private stick={x:0,y:0,pointerId:-1};private padStick={x:0,y:0};private padButtons=new Set<number>();private selectedBattleAction=0;private facing=2;private moving=false;
   private lastDungeonChamber=-1;private lastReveal=-1;private camera={x:4,y:16};private cameraZone='village';private evolution:{from:string;to:string;startedAt:number;duration:number}|null=null;
   constructor(){this.restoreAudioSettings();this.restoreMotionSettings();this.restoreGraphicSettings();this.restoreAdaptiveGraphics();this.restoreAccessibility();this.mountDrawer();this.wire();this.loadState();requestAnimationFrame(this.loop);window.addEventListener('resize',()=>this.renderer.resize());if('serviceWorker'in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('./sw.js').catch(()=>{});}
@@ -194,11 +195,14 @@ class AzurGame {
       try{if(file.size>1000000)throw Error('Archivo demasiado grande');const json=JSON.parse(await file.text()) as unknown;
         if(!validateSave(json))throw Error('Partida inválida');
         if(!window.confirm('Se sustituirá la partida actual por la importada. ¿Continuar?'))return;
-        this.save=json;configureWorld(this.save.worldSeed??0,this.save.worldSnapshot);this.save.worldSnapshot=captureWorldSnapshot()??this.save.worldSnapshot;this.roamingCache.clear();this.save.rpg=normalizeEconomy(json.rpg);this.started=true;this.battle=null;this.cameraZone='';this.lastReveal=-1;this.revealPosition();
+        // Commit the validated import before replacing the active in-memory journey.
+        // This also keeps the preceding valid local save in the backup slot.
+        const imported=writeSave(localStorage,json);
+        this.expectedSaveRaw=imported;this.saveIssue='none';this.save=json;configureWorld(this.save.worldSeed??0,this.save.worldSnapshot);this.save.worldSnapshot=captureWorldSnapshot()??this.save.worldSnapshot;this.roamingCache.clear();this.save.rpg=normalizeEconomy(json.rpg);this.started=true;this.battle=null;this.cameraZone='';this.lastReveal=-1;this.revealPosition();
         this.sound.unlock();this.sound.setScene(this.save.dungeon?.active?'sanctuary':themeForZone(this.save.zone as ZoneId));
         byId('battle').classList.add('hidden');byId('viewport').classList.remove('in-battle');byId('titleScreen').classList.add('hidden');byId('starterScreen').classList.add('hidden');
-        this.toggleDrawer(false);this.hideModal();this.updateUI();this.restoreBattle();this.saveNow(false);this.toast('PARTIDA IMPORTADA');
-      }catch{this.toast('ARCHIVO DE PARTIDA NO VÁLIDO');}finally{input.value='';}
+        this.toggleDrawer(false);this.hideModal();this.updateUI();this.restoreBattle();byId('saveStatus').textContent='PARTIDA IMPORTADA · GUARDADO LOCAL';this.toast('PARTIDA IMPORTADA');
+      }catch(error){this.toast(error instanceof Error&&(/almacenamiento|quota/i.test(error.message))?'NO SE PUDO IMPORTAR · ALMACENAMIENTO LLENO':'ARCHIVO DE PARTIDA NO VÁLIDO O SIN ESPACIO');}finally{input.value='';}
     });
     byId('drawerSidebar').append(byId('quest').closest('.sidebar')!);
     byId('viewport').append(byId('modal')); // modal must be a descendant of fullscreen element
@@ -232,8 +236,8 @@ class AzurGame {
   }
   private loadState(){try{const saved=readSave(localStorage);if(saved){byId<HTMLButtonElement>('continue').hidden=false;byId('saveStatus').textContent=saved.source==='backup'?'RESPALDO DE PARTIDA DISPONIBLE':'PARTIDA LOCAL DETECTADA';}}catch{/* blocked storage */}}
   private reset(){this.resetJoystick();this.toggleDrawer(false);this.roamingCache.clear();this.save={version:1,zone:'village',x:4,y:16,team:[],storage:[],inventory:{seals:5,tonics:3},defeatedBoss:false,flags:[],playSeconds:0,rpg:newEconomy(),worldSeed:freshWorldSeed()};configureWorld(this.save.worldSeed!);this.save.worldSnapshot=captureWorldSnapshot()!;this.battle=null;this.evolution=null;this.combatCue=null;this.keys.clear();this.encounterCooldown=4;this.camera={x:4,y:16};this.cameraZone='village';this.lastReveal=-1;}
-  private startNew(){try{if(readSave(localStorage)&&!window.confirm('Crear un viaje nuevo sustituirá tu partida actual. Puedes continuarla y exportarla antes de empezar. ¿Crear nuevo mundo?'))return;}catch{/* storage may be disabled */}this.sound.unlock();this.sound.setScene('title');const requested=(byId<HTMLInputElement>('worldSeedInput').value||'').trim();this.reset();if(requested){this.save.worldSeed=/^\d{1,10}$/.test(requested)&&Number(requested)<=4294967295?Number(requested)||1:seedFromText(requested);configureWorld(this.save.worldSeed);this.save.worldSnapshot=captureWorldSnapshot()!;} byId('titleScreen').classList.add('hidden');byId('starterScreen').classList.remove('hidden');this.renderStarters();this.sound.select();}
-  private continueGame(){try{const result=readSave(localStorage);if(!result)throw Error('Guardado inválido');const raw=result.state;this.save=raw;configureWorld(this.save.worldSeed??0,this.save.worldSnapshot);this.roamingCache.clear();this.save.rpg=normalizeEconomy(raw.rpg);this.camera={x:this.save.x,y:this.save.y};this.cameraZone=this.save.zone;this.lastReveal=-1;this.revealPosition();this.started=true;this.sound.unlock();this.sound.setScene(this.save.dungeon?.active?'sanctuary':themeForZone(this.save.zone as ZoneId));this.encounterCooldown=4;byId('titleScreen').classList.add('hidden');this.sound.portal();this.toast(result.source==='backup'?'PARTIDA RECUPERADA DESDE RESPALDO':'PARTIDA RECUPERADA');this.updateUI();this.restoreBattle();}catch{this.toast('EL GUARDADO NO SE PUDO RECUPERAR');}}
+  private startNew(){try{if(readSave(localStorage)&&!window.confirm('Crear un viaje nuevo sustituirá tu partida actual. Puedes continuarla y exportarla antes de empezar. ¿Crear nuevo mundo?'))return;this.expectedSaveRaw=localStorage.getItem(SAVE_KEY);}catch{/* storage may be disabled */}this.saveIssue='none';this.sound.unlock();this.sound.setScene('title');const requested=(byId<HTMLInputElement>('worldSeedInput').value||'').trim();this.reset();if(requested){this.save.worldSeed=/^\d{1,10}$/.test(requested)&&Number(requested)<=4294967295?Number(requested)||1:seedFromText(requested);configureWorld(this.save.worldSeed);this.save.worldSnapshot=captureWorldSnapshot()!;} byId('titleScreen').classList.add('hidden');byId('starterScreen').classList.remove('hidden');this.renderStarters();this.sound.select();}
+  private continueGame(){try{const result=readSave(localStorage);if(!result)throw Error('Guardado inválido');const raw=result.state;this.expectedSaveRaw=localStorage.getItem(SAVE_KEY);this.saveIssue='none';this.save=raw;configureWorld(this.save.worldSeed??0,this.save.worldSnapshot);this.roamingCache.clear();this.save.rpg=normalizeEconomy(raw.rpg);this.camera={x:this.save.x,y:this.save.y};this.cameraZone=this.save.zone;this.lastReveal=-1;this.revealPosition();this.started=true;this.sound.unlock();this.sound.setScene(this.save.dungeon?.active?'sanctuary':themeForZone(this.save.zone as ZoneId));this.encounterCooldown=4;byId('titleScreen').classList.add('hidden');this.sound.portal();this.toast(result.source==='backup'?'PARTIDA RECUPERADA DESDE RESPALDO':'PARTIDA RECUPERADA');this.updateUI();this.restoreBattle();}catch{this.toast('EL GUARDADO NO SE PUDO RECUPERAR');}}
   private renderStarters(){const chars:{id:string;glyph:string;title:string}[]=[{id:'cindrel',glyph:'♨',title:'EL FUEGO'},{id:'velaria',glyph:'≋',title:'LA BRUMA'},{id:'thorne',glyph:'✣',title:'LA RAÍZ'}];byId('starters').innerHTML=chars.map(c=>`<button class="starter" data-starter="${c.id}"><span class="starter-symbol" style="color:${SPECIES[c.id]!.color}">${c.glyph}</span><strong>${SPECIES[c.id]!.name}</strong><small>${c.title}</small></button>`).join('');for(const el of byId('starters').querySelectorAll<HTMLButtonElement>('[data-starter]'))el.addEventListener('click',()=>this.pickStarter(el.dataset.starter!));}
   private pickStarter(id:string){this.sound.setScene('village');this.save.team=[createCreature(id,5)];this.revealPosition();this.started=true;byId('starterScreen').classList.add('hidden');this.sound.pick();this.toast('NUEVO MUNDO · SEMILLA '+this.save.worldSeed);this.dialog([{title:'El último Portador',text:'Los nombres se están desvaneciendo. El tuyo permanece porque alguien lo recuerda.'},{title:'El último Portador',text:'Al este se extiende el Bosque de Ceniza. Encuentra el Santuario sin Voz y recupera la Primera Palabra.'},{title:'Comienza el viaje',text:'Muévete con WASD o las flechas. Pulsa E para interactuar. Busca las hogueras para recuperar la fuerza.'}]);this.updateUI();this.saveNow(false);}
   private flag(id:string){return this.save.flags.includes(id);}
@@ -888,7 +892,15 @@ class AzurGame {
   /** Escape and gamepad Back return to the parent panel before dismissing the overlay. */
   private closeModalOrBack(){const back=this.modalBack;this.modalBack=null;if(back)back();else this.hideModal();}
   private hideModal(){this.modalOpen=false;this.modalBack=null;byId('modal').classList.add('hidden');this.keys.clear();this.modalInvoking?.focus?.();this.modalInvoking=null;}
-  private saveNow(notify:boolean){if(!this.started)return;try{writeSave(localStorage,this.save);byId('saveStatus').textContent='GUARDADO LOCAL · '+new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});if(notify)this.toast('EL RECUERDO HA SIDO CONSERVADO');}catch{if(notify)this.toast('NO SE PUDO GUARDAR · ALMACENAMIENTO LLENO');}}
+  private saveNow(notify:boolean){if(!this.started)return;try{
+    this.expectedSaveRaw=writeSave(localStorage,this.save,this.expectedSaveRaw);this.saveIssue='none';
+    byId('saveStatus').textContent='GUARDADO LOCAL · '+new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
+    if(notify)this.toast('EL RECUERDO HA SIDO CONSERVADO');
+  }catch(error){const issue=error instanceof SaveConflictError?'conflict':'storage';
+    byId('saveStatus').textContent=issue==='conflict'?'CONFLICTO ENTRE PESTAÑAS · EXPORTA TU PARTIDA':'AUTOGUARDADO FALLIDO · EXPORTA TU PARTIDA';
+    if(notify||this.saveIssue!==issue)this.toast(issue==='conflict'?'OTRA PESTAÑA CAMBIÓ TU PARTIDA · EXPORTA ANTES DE RECARGAR':'NO SE PUDO GUARDAR · EXPORTA TU PARTIDA');
+    this.saveIssue=issue;
+  }}
   private updateStoryCompass(){
     const node=byId('storyCompass');
     if(!this.started){node.classList.add('hidden');return;}
