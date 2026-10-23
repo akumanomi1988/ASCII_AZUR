@@ -38,12 +38,12 @@ test('P2: inherited creatures evolve without save-schema changes or losing suppo
 test('P2: battle roles produce distinct, real combat effects',()=>{
  assert.equal(MOVES.lament.role,'cleanse');
  assert.equal(MOVES.sigilbite.role,'drain');
- assert.equal(MOVES.bellguard.role,'heal');
+ assert.equal(MOVES.bellguard.role,'cleanse');
  assert.equal(MOVE_EFFECTS.sigilbite.kind,'fracture');
  assert.equal(MOVE_EFFECTS.glassflare.kind,'scorch');
  const bell=createCreature('bellroot',13),glass=createCreature('ashglass',13);
  bell.hp-=20;
- assert.ok(skillUtility(bell,MOVES.bellguard,[]).healing>0);
+ assert.equal(skillUtility(bell,MOVES.bellguard,[{kind:'scorch',remaining:2}]).cleanse,true);
  assert.ok(damage(glass,bell,MOVES.glassflare).value>0);
  assert.ok(glass.level===bell.level&&SPECIES.ashglass.stats.speed>SPECIES.bellroot.stats.speed);
 });
@@ -65,14 +65,14 @@ test('P2: each new region has distinct capturable wild and direct challenge popu
  assert.equal(biomeWildLevel('spire',.99),16);
 });
 
-test('P2: authored Marsh and Crown witnesses visibly use the new ecology',()=>{
+test('P2: compulsory story witnesses remain compatible with legacy seeded encounters',()=>{
  for(const seed of [1,7,42,99,512]){
   const marsh=visibleEncounters('marsh',seed);
   const spire=visibleEncounters('spire',seed);
   assert.equal(marsh.length,3);assert.equal(spire.length,3);
-  assert.equal(marsh[0].speciesId,'bellroot');
-  assert.equal(spire[0].speciesId,'ashglass');
-  assert.equal(spire[1].speciesId,'mnemoshade');
+  assert.ok(['rillfin','mireling'].includes(marsh[0].speciesId));
+  assert.ok(['ashboar','cinderwulf'].includes(spire[0].speciesId));
+  assert.ok(['rillfin','mireling'].includes(spire[1].speciesId));
   assert.equal(new Set([...marsh,...spire].map(e=>e.id)).size,6);
  }
 });

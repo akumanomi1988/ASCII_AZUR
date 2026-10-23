@@ -14,11 +14,11 @@ const FOREST_TRAIL_POOLS:readonly (readonly string[])[]=[
  * elemental opponent (Ash > Root, Root > Mist, Mist > Ether). Identity and
  * placement remain seed-dependent, while v1 roamer IDs and XP stay stable. */
 const MARSH_TRAIL_POOLS:readonly (readonly string[])[]=[
- ['bellroot'], // The rooted bell guards the drowned memory
- ['mourveil','rillfin'], // The mourning veil wanders the mist
- ['gravemoth','runeowl'] // Echo predators circle the drowned bell
+ ['rillfin','mireling'], // Fog dwellers in the sinking reeds
+ ['gravemoth','runeowl'], // Echo predators circle the drowned bell
+ ['ashboar','cinderwulf'] // Embers trapped within the flooded causeway
 ];
-const SPIRE_TRAIL_POOLS:readonly (readonly string[])[]=[['ashglass'],['mnemoshade'],['bellroot','mourveil']];
+const SPIRE_TRAIL_POOLS:readonly (readonly string[])[]=[['ashboar','cinderwulf'],['rillfin','mireling'],['gravemoth','runeowl']];
 const SANCTUARY_TRAIL_POOLS:readonly (readonly string[])[]=[
  ['briarling','thorne'],              // Root: Ash counterplay
  ['mireling','rillfin','velaria'],    // Mist: Root counterplay

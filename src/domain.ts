@@ -53,7 +53,7 @@ export const MOVES: Record<string,Move> = {
  starlash:{id:'starlash',name:'Látigo de estrellas',element:'Éter',power:25,description:'Un haz que escribe heridas en el aire.'},
  lament:{id:'lament',name:'Lamento de la viuda',element:'Bruma',power:15,role:'cleanse',description:'Una canción de lluvia que purifica el vínculo.'},
  sigilbite:{id:'sigilbite',name:'Mordedura del signo',element:'Éter',power:20,role:'drain',description:'Roba vigor y abre una grieta en el nombre rival.'},
- bellguard:{id:'bellguard',name:'Campanada vital',element:'Raíz',power:0,role:'heal',description:'Una resonancia profunda restaura el cuerpo de piedra.'},
+ bellguard:{id:'bellguard',name:'Campanada del umbral',element:'Raíz',power:14,role:'cleanse',description:'Una resonancia rompe los estados que encadenan el cuerpo de piedra.'},
  glassflare:{id:'glassflare',name:'Ascua de cristal',element:'Ceniza',power:23,description:'Cuchillas ígneas que dejan ardor persistente.'},
 
 };
@@ -71,7 +71,7 @@ export const SPECIES:Record<string,Species>={
  briarling:{id:'briarling',name:'Briarling',title:'Semilla errante',element:'Raíz',color:'#c0d78d',stats:{hp:36,attack:12,defense:14,speed:12},evo:{id:'thorne',level:8},desc:'Cada amanecer le crece una hoja que no recuerda.',shape:10},
  mourveil:{id:'mourveil',name:'Mourveil',title:'Viuda del rocío',element:'Bruma',color:'#a6dfe0',stats:{hp:59,attack:17,defense:18,speed:18},desc:'Su velo recoge las lágrimas de quienes aún recuerdan.',shape:12,role:'SOPORTE · CURA Y PURIFICACIÓN'},
  mnemoshade:{id:'mnemoshade',name:'Mnemoshade',title:'Sombra del nombre partido',element:'Éter',color:'#baa2ee',stats:{hp:47,attack:25,defense:13,speed:23},desc:'Habita entre los glifos que dejaron de pronunciarse.',shape:13,role:'HOSTIGADOR · DRENAJE Y FRACTURA'},
- bellroot:{id:'bellroot',name:'Bellroot',title:'Campana de raíces',element:'Raíz',color:'#a8cb88',stats:{hp:62,attack:13,defense:23,speed:6},desc:'Bajo la marisma, cada tañido suyo protege una memoria.',shape:14,role:'GUARDIÁN · RESISTENCIA Y CURACIÓN'},
+ bellroot:{id:'bellroot',name:'Bellroot',title:'Campana de raíces',element:'Raíz',color:'#a8cb88',stats:{hp:62,attack:13,defense:23,speed:6},desc:'Bajo la marisma, cada tañido suyo protege una memoria.',shape:14,role:'GUARDIÁN · RESISTENCIA Y PURIFICACIÓN'},
  ashglass:{id:'ashglass',name:'Ashglass',title:'Ave del vidrio ardiente',element:'Ceniza',color:'#f4b67d',stats:{hp:39,attack:25,defense:9,speed:25},desc:'Sus alas cortan el aire como fragmentos de sol roto.',shape:15,role:'ASALTANTE · VELOCIDAD Y ARDOR'},
  nullscribe:{id:'nullscribe',name:'Nullscribe',title:'Escriba de los nombres imposibles',element:'Éter',color:'#ddb4ff',stats:{hp:82,attack:20,defense:17,speed:14},desc:'Su cuerpo contiene las páginas vacías que sostuvieron el cielo.',shape:11},
  hollowhart:{id:'hollowhart',name:'Hollowhart',title:'Ciervo del silencio',element:'Raíz',color:'#d9bd9c',stats:{hp:66,attack:22,defense:20,speed:12},desc:'Último guardián de las palabras originales.',shape:6}
