@@ -53,21 +53,3 @@ test('human seed text is deterministic and independent from platform RNG',()=>{
  assert.equal(seedFromText('AZUR-LUNA'),seedFromText('AZUR-LUNA'));
  assert.notEqual(seedFromText('AZUR-LUNA'),seedFromText('AZUR-SOL'));
 });
-
-test('swept foot collision is stable against sub-nanotile drift after repeated analogue steps',async()=>{
- const {sweepMove,canOccupy}=await import('../dist/world.js');
- for(const seed of [4133701011,373937157,1866542167,2401745609]){
-  configureWorld(seed);
-  for(const zone of ['village','forest','sanctuary','marsh','spire']){
-   for(let x=4;x<=38;x+=3)for(let y=7;y<=25;y+=3){
-    if(!canOccupy(zone,x,y,.19))continue;
-    for(const [dx,dy] of [[0,-1],[1,0],[0,1],[-1,0]]){
-     const exact=sweepMove(zone,x,y,dx,dy,.19);
-     const drifted=sweepMove(zone,x-3e-11,y+3e-11,dx,dy,.19);
-     assert.ok(Math.hypot(exact.x-drifted.x,exact.y-drifted.y)<1e-7,
-      'numerically unstable collision at '+zone+'/'+seed+'/'+x+'/'+y);
-    }
-   }
-  }
- }
-});

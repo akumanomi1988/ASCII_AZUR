@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import {dungeonTilePath} from './helpers/dungeon-path.mjs';
-import {ZONES,canOccupy,sweepMove,WORLD_W,WORLD_H} from '../dist/world.js';
+// Read generated topology from the game's own VM, never a separate Node module.
 import {damage, MOVES, maxHp} from '../dist/domain.js';
 import {createCreature as createCharacter} from '../dist/domain.js';
 import {generateDungeon as makeCrypt} from '../dist/dungeons/labyrinth.js';
@@ -44,10 +44,10 @@ function mount({virtualTime=false,seed=1,priorSave=null}={}){
  const win={devicePixelRatio:1,addEventListener(){},setTimeout:virtualTime?virtualSetTimeout:setTimeout};
  const storage={setItem:(k,v)=>store.set(k,v),getItem:(k)=>store.get(k)||null};
  const html=fs.readFileSync(new URL('../play.html',import.meta.url),'utf8');
- const source=html.split('<script>\n').at(-1).split('\n</script>')[0].replace(/new AzurGame\(\);\s*$/, 'globalThis.GAME = new AzurGame();');
+ const source=html.split('<script>\n').at(-1).split('\n</script>')[0].replace(/new AzurGame\(\);\s*$/, 'globalThis.GAME = new AzurGame(); globalThis.AZUR_TEST_WORLD = {ZONES,canOccupy,sweepMove,WORLD_W,WORLD_H};');
  const sandbox={document:doc,window:win,localStorage:storage,navigator:{},performance,console,AudioContext:class{constructor(){throw new Error('audio unavailable')}},ImageData:class{constructor(width,height){this.width=width;this.height=height;this.data=new Uint8ClampedArray(width*height*4)}},requestAnimationFrame(){},setTimeout:virtualTime?virtualSetTimeout:setTimeout,clearTimeout:virtualTime?virtualClearTimeout:clearTimeout,Math:virtualTime?randomMath:Math};
  vm.runInNewContext(source,sandbox,{timeout:5000});
- return{game:sandbox.GAME,dom,storage,flushTimers};
+ return{game:sandbox.GAME,dom,storage,flushTimers,world:sandbox.AZUR_TEST_WORLD};
 }
 test('runtime: start a game, select creature, dismiss story, save',()=>{
  const {game,dom,storage}=mount();
@@ -1091,7 +1091,7 @@ test('Q3 journey: new-game to all four finale branches with earned captures, bat
  const cases=[];
  for(const starter of ['cindrel','velaria','thorne'])for(const marsh of ['keep','release'])for(const ending of ['remember','renew']){
   const seed=Math.imul(starter.length*17+(marsh==='keep'?1:5)+(ending==='remember'?11:29),2654435761)>>>0;
-  let {game,dom,storage,flushTimers}=mount({virtualTime:true,seed:seed^0x5A5AA5A5});
+  let {game,dom,storage,flushTimers,world}=mount({virtualTime:true,seed:seed^0x5A5AA5A5});
   dom.set('worldSeedInput',{value:String(seed)});
   game.startNew();game.pickStarter(starter);
   let battles=0,caught=0,actions=0,heals=0;
@@ -1106,7 +1106,7 @@ test('Q3 journey: new-game to all four finale branches with earned captures, bat
    assert.deepEqual(JSON.parse(JSON.stringify(reread.game.save.flags)),before.flags,label+' progression flags lost');
    assert.deepEqual(JSON.parse(JSON.stringify(reread.game.save.team)),before.team,label+' creatures tampered');
    assert.equal(reread.game.save.worldSeed,seed,label+' seed changed');
-   ({game,dom,storage,flushTimers}=reread);
+   ({game,dom,storage,flushTimers,world}=reread);
    settle();
   };
   const doBattle=(bind=false)=>{
@@ -1138,6 +1138,7 @@ test('Q3 journey: new-game to all four finale branches with earned captures, bat
   const approach=(target)=>{
    settle();
    const zone=game.save.zone,from={x:Math.round(game.save.x),y:Math.round(game.save.y)};
+   const {ZONES,canOccupy,sweepMove,WORLD_W,WORLD_H}=world;
    const key=(x,y)=>y*WORLD_W+x;
    const goal=(x,y)=>Math.hypot(x-target.x,y-target.y)<=1.5;
    const queue=[from],previous=new Map([[key(from.x,from.y),null]]);
@@ -1177,13 +1178,13 @@ test('Q3 journey: new-game to all four finale branches with earned captures, bat
    return moved;
   };
   const site=(kind,npcId)=>{
-   const item=ZONES[game.save.zone].landmarks.find(l=>l.kind===kind&&(npcId===undefined||l.npcId===npcId));
+   const item=world.ZONES[game.save.zone].landmarks.find(l=>l.kind===kind&&(npcId===undefined||l.npcId===npcId));
    assert.ok(item,'missing authored site '+kind+'/'+npcId);
    approach(item);return item;
   };
   const visitNpc=id=>{game.interactLandmark(site('npc',id));settle();};
   const heal=()=>{settle();game.interactLandmark(site('altar'));heals++;};
-  const portal=x=>{settle();const p=ZONES[game.save.zone].landmarks.find(l=>l.kind==='portal'&&(x<10?l.x<10:l.x>20));assert.ok(p);approach(p);game.interactLandmark(p);settle();};
+  const portal=x=>{settle();const p=world.ZONES[game.save.zone].landmarks.find(l=>l.kind==='portal'&&(x<10?l.x<10:l.x>20));assert.ok(p);approach(p);game.interactLandmark(p);settle();};
   const witness=e=>{approach({...e,label:e.id});game.interact();assert.equal(game.battle?.enemy.speciesId,e.speciesId,'visible roaming encounter skipped');doBattle();assert.ok(game.save.flags.includes('roamer-'+e.id),'witness not resolved');};
   settle();visitNpc('archivist');
   // Legitimately recruit at least one companion from ordinary wild duels.
