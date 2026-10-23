@@ -126,7 +126,7 @@ window.addEventListener('load',()=>setTimeout(async()=>{
   localStorage.setItem('ascii-azur-save-v1',JSON.stringify(crownSave));
   $('continue').click();
   check($('zoneName').textContent==='Corona de lo No Escrito','Crown resume did not restore its distinct zone');
-  check($('missionChip').textContent.includes('RELIQUIAS'),'The authored Chapter III objective is missing from HUD');
+  check($('zoneSubtitle').textContent.includes('última palabra'),'The authored Crown region subtitle is missing');
   check(!$('titleScreen').classList.contains('hidden'),'Crown resume unexpectedly reopened title');
   check(window.__azurErrors.length===0,'JS errors: '+window.__azurErrors.join(' | '));
   document.body.dataset.azurQa='PASS';
