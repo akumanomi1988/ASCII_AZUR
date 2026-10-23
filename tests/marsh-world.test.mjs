@@ -5,7 +5,7 @@ import {createCreature,validateSave,validateBattleCheckpoint} from '../dist/doma
 import {visibleEncounters} from '../dist/world/encounters.js';
 const tilemap=z=>Array.from({length:WORLD_W*WORLD_H},(_,i)=>terrain(z,i%WORLD_W,Math.floor(i/WORLD_W))).join(',');
 test('new Marsh is a fourth procedural biome with original quest landmarks, music, portal and reachable loop',()=>{
- assert.deepEqual(ZONE_IDS,['village','forest','sanctuary','marsh']);
+ assert.deepEqual(ZONE_IDS,['village','forest','sanctuary','marsh','spire']);
  for(let n=1;n<=200;n++){
   const seed=Math.imul(n,2654435761)>>>0;configureWorld(seed);
   const reach=getReachableTiles('marsh');
