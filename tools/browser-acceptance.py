@@ -127,7 +127,7 @@ window.addEventListener('load',()=>setTimeout(async()=>{
   $('continue').click();
   check($('zoneName').textContent==='Corona de lo No Escrito','Crown resume did not restore its distinct zone');
   check($('zoneSubtitle').textContent.includes('última palabra'),'The authored Crown region subtitle is missing');
-  check(!$('titleScreen').classList.contains('hidden'),'Crown resume unexpectedly reopened title');
+  check($('titleScreen').classList.contains('hidden'),'Crown resume unexpectedly reopened title');
   check(window.__azurErrors.length===0,'JS errors: '+window.__azurErrors.join(' | '));
   document.body.dataset.azurQa='PASS';
  }catch(error){document.body.dataset.azurQa='FAIL: '+error.message;console.error(error)}
