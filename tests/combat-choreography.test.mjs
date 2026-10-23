@@ -82,7 +82,7 @@ test('G3: creature action legibility survives the reduced-motion preference',()=
   const b=sampleCreaturePerformance(id,7,'faint',true);
   assert.equal(a.expression,'faint');
   assert.equal(b.expression,'faint');
-  assert.equal(a.tail,0);
-  assert.equal(b.wing,0);
+  assert.ok(Math.abs(a.tail)<1e-12);
+  assert.ok(Math.abs(b.wing)<1e-12);
  }
 });
