@@ -16,7 +16,7 @@ test('P2: four authored identities cover distinct tactical archetypes and rigs',
   const c=createCreature(id,14,()=>.42);
   assert.equal(c.hp,maxHp(c));assert.ok(c.moves.includes(SIGNATURE_MOVES[id]));
  }
- assert.equal(Object.keys(SPECIES).length,17);
+ assert.equal(Object.keys(SPECIES).length,19);
 });
 
 test('P2: inherited creatures evolve without save-schema changes or losing support skills',()=>{

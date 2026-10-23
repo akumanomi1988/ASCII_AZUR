@@ -44,7 +44,8 @@ window.addEventListener('load',()=>setTimeout(async()=>{
    await new Promise(resolve=>setTimeout(resolve,160));
    check($('zoneName').textContent===({
     village:'Velo de Arken',forest:'Bosque de Ceniza',sanctuary:'Santuario sin Voz',
-    marsh:'Marismas del Espejo Roto',spire:'Corona de lo No Escrito'
+    marsh:'Marismas del Espejo Roto',spire:'Corona de lo No Escrito',
+    ossuary:'Osario de las Mareas',garden:'Jardín de la Última Escarcha'
    })[zone],'Wrong region before screenshot: '+zone);
    const params=new URLSearchParams(location.search);
    const capture=await fetch('/__qa_capture?mode='+encodeURIComponent(params.get('mode')||'ascii')+
@@ -164,6 +165,46 @@ window.addEventListener('load',()=>setTimeout(async()=>{
   check($('zoneSubtitle').textContent.includes('última palabra'),'The authored Crown region subtitle is missing');
   check($('titleScreen').classList.contains('hidden'),'Crown resume unexpectedly reopened title');
   await captureZone('spire');
+  // Post-campaign macro: both new regions render, restore and expose their
+  // authored pilgrimage through the actual in-game journal.
+  for(const [zone,flags] of [
+    ['ossuary',['crown-trilogy-complete','zone-ossuary']],
+    ['garden',['crown-trilogy-complete','afterlight-ossuary-choice-anchor','afterlight-ossuary-complete','zone-garden']]
+  ]){
+    const afterlightSave=JSON.parse(saved);afterlightSave.zone=zone;afterlightSave.x=4;afterlightSave.y=16;
+    afterlightSave.flags=[...new Set([...afterlightSave.flags,...flags])];
+    localStorage.setItem('ascii-azur-save-v1',JSON.stringify(afterlightSave));
+    $('continue').click();
+    check($('zoneName').textContent===(zone==='ossuary'?'Osario de las Mareas':'Jardín de la Última Escarcha'),'Afterlight region resume failed: '+zone);
+    $('drawerToggle').click();$('questsBtn').click();
+    check($('modalContent').textContent.includes('LA MAREA DE LOS NOMBRES'),'Afterlight quest journal missing');
+    check($('modalContent').textContent.includes('LA SEMILLA BAJO EL INVIERNO'),'Second Afterlight quest missing');
+    $('closeModal').click();
+    await captureZone(zone);
+  }
+  // Exercise a real persistent irreversible Afterlight choice through DOM
+  // controls, with deterministic saved-story prerequisites as a fixture.
+  const verdictSave=JSON.parse(saved);verdictSave.zone='ossuary';
+  const verdict=verdictSave.worldSnapshot.poi.ossuary[4];
+  verdictSave.x=verdict[0];verdictSave.y=verdict[1];
+  verdictSave.flags=[...new Set([...verdictSave.flags,'crown-trilogy-complete','afterlight-ossuary-met','afterlight-ossuary-memory-shell','afterlight-ossuary-memory-beacon',
+    'roamer-ossuary-0','roamer-ossuary-1','roamer-ossuary-2'])];
+  localStorage.setItem('ascii-azur-save-v1',JSON.stringify(verdictSave));
+  $('continue').click();$('touchInteract').click();
+  check(!$('modal').classList.contains('hidden'),'Ready Afterlight verdict did not open');
+  check(document.querySelectorAll('[data-afterlight-choice]').length===2,'Afterlight decision is not selectable');
+  document.querySelector('[data-afterlight-choice="anchor"]').click();
+  const afterChoice=JSON.parse(localStorage.getItem('ascii-azur-save-v1'));
+  check(afterChoice.flags.includes('afterlight-ossuary-complete'),'Afterlight completion not saved');
+  check(afterChoice.flags.includes('afterlight-ossuary-choice-anchor'),'Afterlight outcome not saved');
+  check(afterChoice.inventory.seals===verdictSave.inventory.seals+4,'Afterlight reward not applied exactly once');
+  for(let i=0;i<2;i++)$('closeDialogue').click();
+  $('touchInteract').click();
+  check($('modal').classList.contains('hidden'),'Completed Afterlight verdict offered repeat choice');
+  // The completed shrine returns a short story dialogue; dismiss it before
+  // rehydrating an independent save fixture for the Forest bond test.
+  for(let i=0;i<4&&!$('dialogue').classList.contains('hidden');i++)$('closeDialogue').click();
+  check($('dialogue').classList.contains('hidden'),'Completed Afterlight dialogue remained open');
   // P3 complete optional creature-bond loop: saved evolution + memory + altar
   // -> irreversible choice -> combat trait persistence -> no duplicate claim.
   const bondSave=JSON.parse(saved);
@@ -222,7 +263,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
   if request.path!='/__qa_capture': self.send_error(404);return
   query=urllib.parse.parse_qs(request.query)
   mode=query.get('mode',[''])[0];fallback=query.get('fallback',[''])[0];zone=query.get('zone',[''])[0]
-  if mode not in ('ascii','glyph-pixel') or fallback not in ('0','1') or zone not in ('village','forest','sanctuary','marsh','spire','battle'):self.send_error(400);return
+  if mode not in ('ascii','glyph-pixel') or fallback not in ('0','1') or zone not in ('village','forest','sanctuary','marsh','spire','ossuary','garden','battle'):self.send_error(400);return
   body=self.rfile.read(int(self.headers.get('Content-Length','0'))).decode('ascii')
   if not body.startswith('data:image/png;base64,'):self.send_error(415);return
   png=base64.b64decode(body.split(',',1)[1],validate=True)
@@ -245,10 +286,10 @@ try:
     if result.returncode or 'data-azur-qa="PASS"' not in result.stdout:
      marker=result.stdout.split('data-azur-qa=')[-1][:170] if 'data-azur-qa=' in result.stdout else 'MISSING QA MARKER'
      raise AssertionError(f'{mode} fallback={fallback} failed ({result.returncode}): {marker}\n{result.stderr[-1000:]}')
-    captures=[OUT/(zone+'-'+mode+('-canvas2d' if fallback else '-webgl2')+'.png') for zone in ('village','forest','sanctuary','marsh','spire','battle')]
+    captures=[OUT/(zone+'-'+mode+('-canvas2d' if fallback else '-webgl2')+'.png') for zone in ('village','forest','sanctuary','marsh','spire','ossuary','garden','battle')]
     if not all(path.exists() for path in captures):raise AssertionError('Missing one or more biome visual captures')
-    if len({hashlib.sha256(path.read_bytes()).hexdigest() for path in captures})!=6:raise AssertionError('World/combat screenshots are stale or indistinguishable')
-    print(f'PASS {mode} {"Canvas2D" if fallback else "WebGL2"} · 5 biomes + combat VFX screenshot',flush=True)
+    if len({hashlib.sha256(path.read_bytes()).hexdigest() for path in captures})!=8:raise AssertionError('World/combat screenshots are stale or indistinguishable')
+    print(f'PASS {mode} {"Canvas2D" if fallback else "WebGL2"} · 7 biomes + combat VFX screenshot',flush=True)
 finally:
  server.shutdown()
  QA.unlink(missing_ok=True)

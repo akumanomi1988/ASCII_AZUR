@@ -52,6 +52,22 @@ export const BIOME_ART:Readonly<Record<ZoneId,BiomePalette>>={
     trunk:'#25243b',canopyDark:'#2f294b',canopyMid:'#66518f',canopyLight:'#ad83d5',rim:'#e0c5ff',
     stoneDark:'#28243d',stoneMid:'#74659d',stoneLight:'#c8b0ef',
     accent:'#f0c7ff',atmosphere:'#c5a4f3'
+  },
+  ossuary:{
+    id:'ossuary',silhouette:'mangrove',soil:['#122932','#1a4047'],soilMark:'#42777d',
+    path:'#648f8b',pathRim:'#a8d9c9',pathMark:'#e0f2db',
+    water:'#124b59',waterRim:'#9eebde',grass:'#3c797a',grassLight:'#b0d9bb',
+    trunk:'#34565d',canopyDark:'#1b4853',canopyMid:'#36777d',canopyLight:'#74b4aa',rim:'#ddf6d9',
+    stoneDark:'#254753',stoneMid:'#6fa6a8',stoneLight:'#cce4d8',
+    accent:'#c8fff0',atmosphere:'#8bd8c7'
+  },
+  garden:{
+    id:'garden',silhouette:'reliquary',soil:['#27303e','#384355'],soilMark:'#71819a',
+    path:'#9bacc3',pathRim:'#dce5f2',pathMark:'#f4f9fd',
+    water:'#33465f',waterRim:'#c5eaff',grass:'#617b87',grassLight:'#bbd5dd',
+    trunk:'#536273',canopyDark:'#425363',canopyMid:'#7695a8',canopyLight:'#b8d3e2',rim:'#f4fcff',
+    stoneDark:'#4b5d73',stoneMid:'#9cb6c8',stoneLight:'#e6f4ff',
+    accent:'#f5fbff',atmosphere:'#d6e8fa'
   }
 };
 export function biomePalette(id:ZoneId):BiomePalette{return BIOME_ART[id];}

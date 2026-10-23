@@ -3,7 +3,7 @@ export type DiscoveryState=Partial<Record<ZoneId,string>>;
 export const DISCOVERY_CELLS=WORLD_W*WORLD_H;
 export function validDiscovery(v:unknown):v is DiscoveryState{
  if(!v||typeof v!=='object'||Array.isArray(v))return false;
- return Object.entries(v).every(([k,value])=>['village','forest','sanctuary','marsh','spire'].includes(k)
+ return Object.entries(v).every(([k,value])=>['village','forest','sanctuary','marsh','spire','ossuary','garden'].includes(k)
   &&typeof value==='string'&&value.length===DISCOVERY_CELLS&&/^[01]+$/.test(value));
 }
 export function isDiscovered(discovered:DiscoveryState|undefined,zone:ZoneId,x:number,y:number,legacy=false):boolean{

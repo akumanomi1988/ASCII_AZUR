@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {BIOME_ART,biomePalette,stableVisualVariant,contrastRatio} from '../dist/render/biome-art.js';
 import {ZONE_IDS,configureWorld,captureWorldSnapshot,terrain,WORLD_W,WORLD_H} from '../dist/world.js';
 
-test('all five regions have a unique readable visual language',()=>{
+test('all seven regions have readable and distinct palettes',()=>{
  const families=new Set(),palettes=new Set();
  for(const id of ZONE_IDS){
   const p=biomePalette(id);
@@ -20,7 +20,7 @@ test('all five regions have a unique readable visual language',()=>{
   assert.ok(contrastRatio(p.accent,p.soil[0])>=4.0,id+' interactive accents are invisible');
  }
  assert.equal(families.size,5);
- assert.equal(palettes.size,5);
+ assert.equal(palettes.size,7);
  assert.equal(Object.keys(BIOME_ART).length,ZONE_IDS.length);
 });
 
