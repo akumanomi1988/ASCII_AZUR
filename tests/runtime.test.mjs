@@ -1263,3 +1263,32 @@ test('Q3 journey: new-game to all four finale branches with earned captures, bat
  console.log('Q3_TRILOGY_ACCEPTANCE '+JSON.stringify({sessions:cases.length,starters:3,marshEndings:2,crownEndings:2,worlds:new Set(cases.map(c=>c.world)).size,
   battles:cases.reduce((a,c)=>a+c.battles,0),captures:cases.reduce((a,c)=>a+c.captured,0),actions:cases.reduce((a,c)=>a+c.actions,0),cases}));
 });
+
+test('runtime: encounter sightings persist and research rewards are claimable once through the Codex',()=>{
+ const {game,dom,storage}=mount({virtualTime:true,seed:47});
+ game.startNew();game.pickStarter('cindrel');
+ while(game.dialogOpen)game.nextDialog();
+ game.openCodex();
+ assert.match(dom.get('modalContent').innerHTML,/INVESTIGACIÓN/);
+ assert.match(dom.get('modalContent').innerHTML,/1\/17 VÍNCULOS/);
+ game.hideModal();
+ game.startBattle('mireling',6,'wild');
+ const during=JSON.parse(storage.getItem('ascii-azur-save-v1'));
+ assert.ok(during.flags.includes('research-seen-mireling'),'sighting saved with combat checkpoint');
+ game.finishBattle();
+ game.save.team.push(createCharacter('velaria',5,()=>.31),createCharacter('thorne',5,()=>.39));
+ const seals=game.save.inventory.seals,tonics=game.save.inventory.tonics,echoes=game.economy.echoes;
+ game.claimResearch('first-names');
+ assert.ok(game.save.flags.includes('research-reward-first-names'));
+ assert.equal(game.save.inventory.seals,seals+1);assert.equal(game.save.inventory.tonics,tonics+1);
+ assert.equal(game.economy.echoes,echoes+20);
+ assert.equal(game.claimResearch('first-names'),undefined);
+ assert.equal(game.save.inventory.seals,seals+1,'repeated claim must not duplicate supply');
+ const restored=JSON.parse(storage.getItem('ascii-azur-save-v1'));
+ assert.ok(restored.flags.includes('research-reward-first-names'));
+ assert.ok(restored.flags.includes('research-seen-mireling'));
+ assert.equal(restored.rpg.echoes,echoes+20);
+ game.openCodex();
+ assert.match(dom.get('modalContent').innerHTML,/RECLAMADO/);
+ assert.match(dom.get('modalContent').innerHTML,/Mireling/);
+});
