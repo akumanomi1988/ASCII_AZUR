@@ -16,6 +16,7 @@ import { ZONES, sweepMove, isBlocked, isWild, nearbyLandmark, configureWorld, ca
 import { SHOP, QUESTS, buy, claimQuests, normalizeEconomy, newEconomy } from './rpg.js';
 import { Sound, themeForZone } from './audio.js';
 import { FrameMetrics } from './core/frame-metrics.js';
+import { EnduranceLab } from './core/endurance-lab.js';
 import { AdaptiveGlyphs } from './core/adaptive-glyphs.js';
 import { storyGuidance, guidanceToTarget, walkableRouteToTarget } from './story-navigation.js';
 import { ARKEN_STORY, ARKEN_FINALE_REWARD, arkenStoryBeat, arkenStoryIndex, concludeArken, canConcludeArken, guardianPreparation, guardianRecommendedLead, sanctuaryRoutePlan, sanctuaryOathProgress, SANCTUARY_OATHS_FLAG, SANCTUARY_OATHS_REWARD } from './story-campaign.js';
@@ -42,6 +43,7 @@ const htmlEscape = (v) => v.replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt
 class AzurGame {
     renderer = new AsciiRenderer(byId('game'));
     frameMetrics = new FrameMetrics();
+    endurance = new EnduranceLab();
     adaptiveGlyphs = new AdaptiveGlyphs();
     lastAdaptiveUpdate = 0;
     debugPerformance = false;
@@ -511,7 +513,7 @@ class AzurGame {
             byId('saveSlotSummary').textContent = 'ALMACENAMIENTO LOCAL NO DISPONIBLE';
         }
     }
-    reset() { this.atlasTarget = null; this.resetJoystick(); this.toggleDrawer(false); this.roamingCache.clear(); this.save = { version: 1, zone: 'village', x: 4, y: 16, team: [], storage: [], inventory: { seals: 5, tonics: 3 }, defeatedBoss: false, flags: [], playSeconds: 0, rpg: newEconomy(), worldSeed: freshWorldSeed() }; configureWorld(this.save.worldSeed); this.save.worldSnapshot = captureWorldSnapshot(); this.battle = null; this.evolution = null; this.combatCue = null; this.keys.clear(); this.encounterCooldown = 4; this.camera = { x: 4, y: 16 }; this.cameraZone = 'village'; this.lastReveal = -1; }
+    reset() { this.endurance.reset(); this.atlasTarget = null; this.resetJoystick(); this.toggleDrawer(false); this.roamingCache.clear(); this.save = { version: 1, zone: 'village', x: 4, y: 16, team: [], storage: [], inventory: { seals: 5, tonics: 3 }, defeatedBoss: false, flags: [], playSeconds: 0, rpg: newEconomy(), worldSeed: freshWorldSeed() }; configureWorld(this.save.worldSeed); this.save.worldSnapshot = captureWorldSnapshot(); this.battle = null; this.evolution = null; this.combatCue = null; this.keys.clear(); this.encounterCooldown = 4; this.camera = { x: 4, y: 16 }; this.cameraZone = 'village'; this.lastReveal = -1; }
     startNew() { try {
         if (readSave(localStorage, this.activeSlot) && !window.confirm(`Crear un viaje nuevo sustituirá la partida del espacio ${this.activeSlot}. Los otros viajes se conservarán. ¿Continuar?`))
             return;
@@ -2472,6 +2474,42 @@ class AzurGame {
     }
     openBag() { if (!this.started || this.evolution || this.battle || this.dialogOpen || !byId('starterScreen').classList.contains('hidden'))
         return; this.showModal('MOCHILA DEL PORTADOR', `<div class="modal-content-block">Objetos recuperados entre las ruinas de Azur. · ✦ ${this.economy.echoes} ECOS</div><div class="modal-option"><div><strong>◇ Sellos de Vínculo</strong> × ${this.save.inventory.seals}<small>Permiten capturar criaturas debilitadas durante el combate.</small></div></div><div class="modal-option"><div><strong>✚ Tónicos</strong> × ${this.save.inventory.tonics}<small>Recuperan 28 HP en combate, o 33 con Cuenta de Lumbre.</small></div></div><div class="modal-content-block">Descansa en las Lumbres para curar al equipo. Cada región entrega un sello solo en la primera visita. Los cofres contienen suministros y reliquias finitos.</div>` + RELIC_IDS.map(id => `<div class="modal-option"><div><strong>${RELICS[id].name} × ${this.save.relics?.[id] ?? 0}</strong><small>${RELICS[id].description}</small><small>${freeRelicCopies(this.save, id)} LIBRES · EQUIPAR EN VÍNCULOS</small></div></div>`).join('')); }
+    /** Measurement begins only after explicit player consent and stays in memory. */
+    openEnduranceLab() {
+        const report = this.endurance.report();
+        const rows = Object.entries(report.phases)
+            .map(([phase, data]) => `<div class="modal-option"><div><strong>${htmlEscape(phase.toUpperCase())}</strong><small>${data.frames} frames · ${data.sampledSeconds}s medidos · ${data.averageFps} FPS promedio · p95 ≤${data.p95UpperBoundMs}ms (histograma) · ${data.slowPercent}% lentos</small></div></div>`).join('');
+        this.showModal('LABORATORIO DE ESTABILIDAD', `
+      <div class="modal-content-block"><strong>MEDICIÓN LOCAL Y VOLUNTARIA</strong><p>Prueba una partida durante varios minutos recorriendo regiones, abriendo menús, entrando en combate y usando la cripta. El registro mide intervalos de fotogramas visibles (hilo principal), no tiempos GPU, temperatura, consumo de batería ni rendimiento Android certificado. No se envía ningún dato.</p><p>Estado: ${report.status === 'recording' ? 'REGISTRANDO' : 'DETENIDO'} · ${report.totalFrames} frames · ${report.sampledSeconds}s de intervalos observados · ${report.orientationChanges} cambios de orientación · ${report.ignoredFrames} intervalos descartados.</p></div>
+      ${rows}
+      <div class="modal-content-block">La medición permanece solo en memoria durante esta sesión. Puedes reiniciarla o exportar el resultado manualmente. No cambia el guardado ni necesita permisos adicionales.</div>
+      <div class="settings-row"><button id="labStart">${report.status === 'recording' ? 'REINICIAR MEDICIÓN' : 'INICIAR MEDICIÓN'}</button><button id="labStop" ${report.status !== 'recording' ? 'disabled' : ''}>DETENER</button><button id="labExport" ${report.totalFrames === 0 ? 'disabled' : ''}>EXPORTAR JSON LOCAL</button></div>
+      <div class="settings-row"><button id="labBack">← VOLVER A OPCIONES</button></div>`, true, true);
+        byId('labStart').onclick = () => { this.endurance.start(); this.openEnduranceLab(); };
+        byId('labStop').onclick = () => { this.endurance.stop(); this.openEnduranceLab(); };
+        byId('labExport').onclick = () => this.exportEndurance();
+        byId('labBack').onclick = () => this.settings();
+        this.modalBack = () => this.settings();
+    }
+    exportEndurance() {
+        const r = this.endurance.report();
+        if (!r.totalFrames) {
+            this.toast('INICIA UNA MEDICIÓN PRIMERO');
+            return;
+        }
+        const payload = { ...r, graphics: this.renderer.getGraphics().renderMode, renderer: this.renderer.mode,
+            adaptiveGlyphs: this.adaptiveGlyphs.active, reducedMotion: this.reducedMotion,
+            touchPoints: Math.min(20, Math.max(0, Number(navigator.maxTouchPoints) || 0)),
+            recordedAt: new Date().toISOString(),
+            disclaimer: 'Local voluntary performance evidence. No device identity, game seed, save data, battery or temperature collected. Hardware and human verification required.' };
+        const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob), anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = 'ascii-azur-endurance.json';
+        anchor.click();
+        window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+        this.toast('REGISTRO EXPORTADO · SIN TELEMETRÍA REMOTA');
+    }
     settings() {
         if (this.dialogOpen || this.evolution || !byId('starterScreen').classList.contains('hidden'))
             return;
@@ -2489,6 +2527,7 @@ class AzurGame {
       <div class="settings-row"><label for="adaptiveFps">FPS estables · ajustar detalle automáticamente</label><input id="adaptiveFps" type="checkbox"></div>
       <div class="modal-content-block" id="adaptiveFpsStats" aria-live="polite"></div>
       <div class="settings-row"><button id="resetGraphics" class="settings-reset">Restablecer gráficos</button></div>
+      <div class="settings-row"><button id="openEnduranceLab">LABORATORIO DE ESTABILIDAD · FPS Y ORIENTACIÓN</button></div>
       <div class="modal-content-block">En GLYPH PIXEL ART cada celda pinta un fondo continuo y un glifo con color propio. El modo atmosférico reduce trazos direccionales repetitivos. WebGL2 ofrece la trama más fina; Canvas2D limita el trabajo para mantener la partida fluida.</div>
       <div class="settings-row"><label for="audioEnabled">Audio activado</label><input id="audioEnabled" type="checkbox"></div>
        <div class="settings-row"><label for="musicVolume">Música</label><input id="musicVolume" type="range" min="0" max="100" step="1"></div>
@@ -2537,6 +2576,7 @@ class AzurGame {
         for (const [id, key] of sliders)
             byId(id).oninput = () => change({ [key]: Number(byId(id).value) });
         byId('resetGraphics').onclick = () => change({ ...DEFAULT_GRAPHICS });
+        byId('openEnduranceLab').onclick = () => this.openEnduranceLab();
         const adaptive = byId('adaptiveFps');
         adaptive.checked = this.adaptiveGlyphs.active;
         adaptive.onchange = () => { this.setAdaptiveGraphics(adaptive.checked); sync(); };
@@ -2776,8 +2816,12 @@ class AzurGame {
     }
     loop = (now) => {
         this.pollGamepad();
-        if (this.last > 0)
-            this.frameMetrics.add(now - this.last);
+        if (this.last > 0) {
+            const frame = now - this.last;
+            this.frameMetrics.add(frame);
+            const phase = this.modalOpen || !this.started || this.dialogOpen ? 'menu' : this.battle ? 'battle' : this.save.dungeon?.active ? 'crypt' : 'explore';
+            this.endurance.sample(frame, phase, !document.hidden, window.innerWidth || 960, window.innerHeight || 540);
+        }
         const dt = Math.min(.055, (now - this.last) / 1000 || 0);
         this.last = now;
         this.seconds += dt;
