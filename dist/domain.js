@@ -1,3 +1,4 @@
+import { validFieldTarget } from './world/field-journal.js';
 import { individualStat, validPotential, potentialFromUid } from './creatures/attributes.js';
 import { relicAttackFactor, relicGuardFactor, validRelicOwnership, isRelicId } from './creatures/equipment.js';
 import { validJourneyMetrics } from './core/journey-metrics.js';
@@ -159,6 +160,7 @@ export function validateSave(data) {
         && new Set([...v.team, ...v.storage].map(c => c.uid)).size === v.team.length + v.storage.length
         && (v.primaryUid === undefined || (typeof v.primaryUid === 'string' && v.team.some(c => c.uid === v.primaryUid)))
         && (v.fallen === undefined || (Array.isArray(v.fallen) && v.fallen.length <= 200 && new Set(v.fallen.map(c => c?.uid)).size === v.fallen.length && v.fallen.every(c => c && typeof c.uid === 'string' && c.uid.length <= 80 && typeof c.speciesId === 'string' && Object.hasOwn(SPECIES, c.speciesId) && Number.isInteger(c.level) && c.level >= 1 && c.level <= 30 && ![...v.team, ...v.storage].some(live => live.uid === c.uid))))
+        && (v.fieldTarget === undefined || validFieldTarget(v.fieldTarget))
         && validRelicOwnership(v.relics, [...v.team, ...v.storage]) && validJourneyMetrics(v.journey)
         && !!v.inventory && Number.isInteger(v.inventory.seals) && v.inventory.seals >= 0 && v.inventory.seals <= 9999
         && Number.isInteger(v.inventory.tonics) && v.inventory.tonics >= 0 && v.inventory.tonics <= 9999
