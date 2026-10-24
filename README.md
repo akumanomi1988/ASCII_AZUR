@@ -117,3 +117,8 @@ The Q3 candidate now attempts a continuous from-new-game trilogy path on all thr
 The Marsh and Crown now have distinct optional wild populations and level-appropriate direct challenges. Higher-level random wildlife appears after each region's chapter concludes, protecting the first-time campaign difficulty curve; compulsory saved witness lineages remain unchanged. Four original, collectable identities enrich late-campaign team construction: **Bellroot** (Root guardian/fracture tank), **Mourveil** (Mist support/cleanser), **Ashglass** (Ash speed/scorch striker), and **Mnemoshade** (Ether drain/fracture skirmisher). Mourveil evolves from Velaria at level 12; Mnemoshade evolves from Wispawn at level 13. Their four unique glyph silhouettes, performance rigs and signature moves are integrated across battle, overworld encounters and the Codex.
 
 The Codex now measures capture progress against capturable species only; Hollowhart and Nullscribe remain unique, uncapturable bosses. No save-schema migration is required: old version-1 saves remain valid and seeded visible-roamer identifiers, coordinates and one-time rewards remain stable. Species/role balance and visual quality still require human playtesting on real devices.
+
+
+### v0.48 — Authored Pixel World
+
+The world uses five authored voxel-like foliage families, stepped cottage silhouettes, low-noise continuous terrain, and faithful source colors in Glyph Pixel Art. Both rendering modes share the same deterministic world art. The pixel profile is the default for new players; saved settings and existing games remain compatible. Run `npm run verify` for TypeScript, standalone and Node gates, and the GitHub CI for WebGL2/Canvas2D screenshots.
