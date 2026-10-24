@@ -112,7 +112,8 @@ export function treePixelCells(family:SilhouetteFamily,variant=0):readonly TreeP
       const sparkle=stableVisualVariant(x,y,variant+family.length*43);
       // Rare single-block mineral/flower highlights, never random line texture.
       const tone:Tone=symbol==='l'&&sparkle>.967?'a':symbol as Tone;
-      cells.push({x:(x-9)*CELL,y:-114+y*CELL,tone});
+      const branchShift=variant===1&&y<6?1:variant===2&&y>7?-1:0;
+      cells.push({x:(x-9+branchShift)*CELL,y:-114+y*CELL,tone});
     }
   }
   return cells;
@@ -152,7 +153,10 @@ function treeSprite(zone:ZoneId,variant:number):HTMLCanvasElement{
 /** Reusable source asset; does not depend on renderer profile, animation or save state. */
 export function paintPixelTree(ctx:CanvasRenderingContext2D,x:number,y:number,zone:ZoneId,seed:number):void{
   const variant=Math.min(2,Math.floor(stableVisualVariant(7,11,Math.floor(seed*1000000))*3));
-  ctx.drawImage(treeSprite(zone,variant),Math.round(x-SPRITE_W/2),Math.round(y-SPRITE_H+8));
+  const scale=variant===0?.93:variant===1?1:1.08;
+  ctx.save();ctx.imageSmoothingEnabled=false;
+  ctx.drawImage(treeSprite(zone,variant),Math.round(x-SPRITE_W*scale/2),Math.round(y-(SPRITE_H-8)*scale),Math.round(SPRITE_W*scale),Math.round(SPRITE_H*scale));
+  ctx.restore();
 }
 /** Cozy village homes with roof tiles, recessed entrance, masonry and warm windows. */
 export function paintPixelCottage(ctx:CanvasRenderingContext2D,x:number,y:number,variant:number,time:number):void{
