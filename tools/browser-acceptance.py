@@ -212,6 +212,14 @@ window.addEventListener('load',()=>setTimeout(async()=>{
   check($('modalContent').textContent.includes('0/19 HITOS'),'Brand-new journey is not 0/19');
   check($('modalContent').textContent.includes('Equipo: 1/1'),'Real starting party not reported');
   check($('modalContent').textContent.includes('CRIPTA')||$('modalContent').textContent.includes('ARKEN'),'Chapter roadmap missing');
+  check($('modalContent').textContent.includes('CRÓNICA'),'Authored five-chapter chronicle missing from quest journal');
+  check(document.querySelectorAll('[data-chronicle]').length===1,'Unvisited chapters leaked into new-game chronicle');
+  document.querySelector('[data-chronicle="arken"]').click();
+  check($('modalTitle').textContent.includes('CRÓNICA'),'Chronicle replay did not open');
+  check($('modalContent').textContent.includes('Los nombres desaparecen'),'Unfinished chapter revealed the wrong narrative');
+  check(localStorage.getItem('ascii-azur-save-v1')===saved,'Chronicle replay must not write flags or rewards');
+  $('closeModal').click();
+  check($('modalTitle').textContent.includes('DIARIO'),'Chronicle close did not return to the journal');
   $('closeModal').click();
   check(localStorage.getItem('ascii-azur-save-v1')===saved,'Read-only roadbook changed saved gameplay');
   $('teamBtn').click();
