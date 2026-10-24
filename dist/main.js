@@ -1,11 +1,16 @@
+import { individualRange, ATTRIBUTE_KEYS } from './creatures/attributes.js';
+import { establishPrimary, loseCryptCompanion } from './creatures/crypt-mortality.js';
+import { RELICS, RELIC_IDS, CACHE_RELICS, RELIC_COPY_LIMIT, freeRelicCopies, setCreatureRelic, buyRelic, grantRelic } from './creatures/equipment.js';
+import { newJourneyMetrics, recordJourney, journeyReport } from './core/journey-metrics.js';
+import { suggestBattleAction } from './combat/planning.js';
 import { AsciiRenderer, drawWorld, drawBattle, drawEvolution } from './render.js';
-import { navigateMenuKey, focusMenuFirst, isTypingTarget, menuButtons } from './ui/menu-navigation.js';
+import { navigateMenuKey, navigateBattleMenuKey, focusMenuFirst, isTypingTarget, menuButtons } from './ui/menu-navigation.js';
 import { DEFAULT_GRAPHICS, glyphCell, canvasGlyphCell, glyphCount } from './render/graphics-profile.js';
 import { visibleEncounters, nearbyEncounter, firstRoamerVictoryBonus, recoverTrailParty, BIOME_DUEL_SPECIES, activeWildBiome, drawBiomeWild, biomeDuelLevel, biomeWildLevel, VILLAGE_TRAINING_XP, VILLAGE_TRAINING_REWARD_FLAG, villageTrainingBonus, villageTrainingProgress } from './world/encounters.js';
 import { drawDungeon } from './dungeons/draw-dungeon.js';
 import { chamberAt, chamberProgress } from './dungeons/room-art.js';
 import { generateDungeon, nearbyDungeonEvent, completeDungeonEvent, dungeonGateOpen, revealDungeon, dungeonSweep } from './dungeons/labyrinth.js';
-import { SPECIES, MOVES, createCreature, maxHp, validateSave } from './domain.js';
+import { SPECIES, MOVES, createCreature, maxHp, attackValue, defenseValue, speedValue, escapeChance, validateSave } from './domain.js';
 import { ZONES, sweepMove, isBlocked, isWild, nearbyLandmark, configureWorld, captureWorldSnapshot, freshWorldSeed, seedFromText, terrain, WORLD_W, WORLD_H, ZONE_IDS } from './world.js';
 import { SHOP, QUESTS, buy, claimQuests, normalizeEconomy, newEconomy } from './rpg.js';
 import { Sound, themeForZone } from './audio.js';
@@ -21,7 +26,7 @@ import { readSave, writeSave, SaveConflictError, saveKeyForSlot, ACTIVE_SAVE_SLO
 import { transferStoredCreature, reserveCreature, grantPartyExperience } from './party.js';
 import { BOND_ARCS, bondAtZone, bondProgress, bondFlag, bondChoice, bondAttackDamage, bondIncomingDamage } from './creatures/bond-quests.js';
 import { createCombatCue, sampleCombatCue, guardDamage } from './actors/combat-fx.js';
-import { MOVE_EFFECTS, STATUS_INFO, applyEffect, attackWithStatuses, chooseEnemyMove, chooseGuardianMove, endTurnEffects, statusLabel, skillUtility } from './combat/tactics.js';
+import { MOVE_EFFECTS, STATUS_INFO, applyEffect, attackWithStatuses, chooseEnemyMove, chooseGuardianMove, endTurnEffects, statusLabel, skillUtility, effectiveHealing, drainHealing, recoveryCastsLeft } from './combat/tactics.js';
 import { previewMove } from './combat/move-preview.js';
 import { capturePreview } from './combat/capture-odds.js';
 import { RESEARCH_TIERS, RESEARCH_REWARD_PREFIX, recordSpeciesResearch, researchCatalogue, claimResearchTier } from './creatures/field-research.js';
@@ -59,6 +64,7 @@ class AzurGame {
     modalBack = null;
     drawerInvoking = null;
     battleKeyboardFocus = false;
+    battleMenu = 'commands';
     dialogOpen = false;
     modalOpen = false;
     flash = 0;
@@ -157,10 +163,8 @@ class AzurGame {
                 this.nextDialog();
             else if (drawerOpen)
                 this.toggleDrawer(false);
-            else if (this.battle?.selecting) {
-                this.battle.selecting = false;
-                this.refreshBattle();
-            }
+            else if (this.battle && (this.battle.selecting || this.battleMenu !== 'commands'))
+                this.openBattleMenu('commands');
             else if (this.started && !this.battle && !this.evolution)
                 this.toggleDrawer(true);
             else
@@ -199,7 +203,11 @@ class AzurGame {
             return;
         }
         if (this.battle) {
-            if (!this.battle.busy && navigateMenuKey(byId('battleActions'), e.key))
+            if (e.repeat && (e.key === 'Enter' || e.key === ' ')) {
+                e.preventDefault();
+                return;
+            }
+            if (!this.battle.busy && navigateBattleMenuKey(byId('battleActions'), e.key))
                 e.preventDefault();
             return;
         }
@@ -256,30 +264,20 @@ class AzurGame {
                 this.closeModalOrBack();
             else if (this.dialogOpen)
                 this.nextDialog();
-            else if (this.battle?.selecting) {
-                this.battle.selecting = false;
-                this.refreshBattle();
-            }
+            else if (this.battle && (this.battle.selecting || this.battleMenu !== 'commands'))
+                this.openBattleMenu('commands');
         }
         if ((pressed(12) || pressed(14) || pressed(13) || pressed(15)) && (this.modalOpen || byId('gameDrawer').classList.contains('open'))) {
             const root = this.modalOpen ? byId('modal') : byId('gameDrawer');
             navigateMenuKey(root, pressed(12) || pressed(14) ? 'ArrowUp' : 'ArrowDown');
         }
         if (pressed(12) || pressed(14) || pressed(13) || pressed(15)) {
-            if (this.battle && !this.battle.busy) {
-                const buttons = Array.from(byId('battleActions').querySelectorAll('button')).filter(b => !b.disabled);
-                if (buttons.length) {
-                    const delta = pressed(14) || pressed(12) ? -1 : 1;
-                    this.selectedBattleAction = (this.selectedBattleAction + buttons.length + delta) % buttons.length;
-                    buttons[this.selectedBattleAction]?.focus();
-                }
-            }
+            if (this.battle && !this.battle.busy)
+                navigateBattleMenuKey(byId('battleActions'), pressed(12) ? 'ArrowUp' : pressed(13) ? 'ArrowDown' : pressed(14) ? 'ArrowLeft' : 'ArrowRight');
         }
         if (pressed(0)) {
-            if (this.battle && !this.battle.busy) {
-                const buttons = Array.from(byId('battleActions').querySelectorAll('button')).filter(b => !b.disabled);
-                buttons[Math.min(this.selectedBattleAction, buttons.length - 1)]?.click();
-            }
+            if (this.battle && !this.battle.busy)
+                navigateBattleMenuKey(byId('battleActions'), 'Enter');
             else if (this.modalOpen || byId('gameDrawer').classList.contains('open')) {
                 const root = this.modalOpen ? byId('modal') : byId('gameDrawer');
                 const buttons = menuButtons(root);
@@ -395,6 +393,7 @@ class AzurGame {
                 this.saveBaseline = writeSave(localStorage, json, this.saveBaseline, this.activeSlot);
                 this.atlasTarget = null;
                 this.save = json;
+                establishPrimary(this.save);
                 configureWorld(this.save.worldSeed ?? 0, this.save.worldSnapshot);
                 this.save.worldSnapshot = captureWorldSnapshot() ?? this.save.worldSnapshot;
                 this.roamingCache.clear();
@@ -527,6 +526,12 @@ class AzurGame {
         const raw = result.state;
         this.atlasTarget = null;
         this.save = raw;
+        this.battle = null;
+        this.combatCue = null;
+        this.battleMenu = 'commands';
+        byId('battle').classList.add('hidden');
+        byId('viewport').classList.remove('in-battle');
+        const primaryEstablished = establishPrimary(this.save);
         const storedSnapshot = this.save.worldSnapshot;
         configureWorld(this.save.worldSeed ?? 0, storedSnapshot);
         const expandSnapshot = !!this.save.worldSeed && (!storedSnapshot || ZONE_IDS.some(id => !storedSnapshot.tiles[id] || !storedSnapshot.poi[id]));
@@ -539,7 +544,7 @@ class AzurGame {
         this.lastReveal = -1;
         this.revealPosition();
         this.started = true;
-        if (expandSnapshot)
+        if (expandSnapshot || primaryEstablished)
             this.saveNow(false);
         this.sound.unlock();
         this.sound.setScene(this.save.dungeon?.active ? 'sanctuary' : themeForZone(this.save.zone));
@@ -555,7 +560,7 @@ class AzurGame {
     } }
     renderStarters() { const chars = [{ id: 'cindrel', glyph: '♨', title: 'EL FUEGO' }, { id: 'velaria', glyph: '≋', title: 'LA BRUMA' }, { id: 'thorne', glyph: '✣', title: 'LA RAÍZ' }]; byId('starters').innerHTML = chars.map(c => `<button class="starter" data-starter="${c.id}"><span class="starter-symbol" style="color:${SPECIES[c.id].color}">${c.glyph}</span><strong>${SPECIES[c.id].name}</strong><small>${c.title}</small></button>`).join(''); for (const el of byId('starters').querySelectorAll('[data-starter]'))
         el.addEventListener('click', () => this.pickStarter(el.dataset.starter)); focusMenuFirst(byId('starterScreen')); }
-    pickStarter(id) { this.sound.setScene('village'); this.save.team = [createCreature(id, 5)]; this.revealPosition(); this.started = true; byId('starterScreen').classList.add('hidden'); this.sound.pick(); this.toast('NUEVO MUNDO · SEMILLA ' + this.save.worldSeed); this.dialog([{ title: 'El último Portador', text: 'Los nombres se están desvaneciendo. El tuyo permanece porque alguien lo recuerda.' }, { title: 'El último Portador', text: 'Al este se extiende el Bosque de Ceniza. Encuentra el Santuario sin Voz y recupera la Primera Palabra.' }, { title: 'Comienza el viaje', text: 'Muévete con WASD o las flechas. Pulsa E para interactuar. Busca las hogueras para recuperar la fuerza.' }]); this.updateUI(); this.saveNow(false); }
+    pickStarter(id) { this.sound.setScene('village'); this.save.team = [createCreature(id, 5)]; this.save.journey = newJourneyMetrics(id); this.save.primaryUid = this.save.team[0].uid; this.revealPosition(); this.started = true; byId('starterScreen').classList.add('hidden'); this.sound.pick(); this.toast('NUEVO MUNDO · SEMILLA ' + this.save.worldSeed); this.dialog([{ title: 'El último Portador', text: 'Los nombres se están desvaneciendo. El tuyo permanece porque alguien lo recuerda.' }, { title: 'El último Portador', text: 'Al este se extiende el Bosque de Ceniza. Encuentra el Santuario sin Voz y recupera la Primera Palabra.' }, { title: 'Comienza el viaje', text: 'Muévete con WASD o las flechas. Pulsa E para interactuar. Busca las hogueras para recuperar la fuerza.' }]); this.updateUI(); this.saveNow(false); }
     flag(id) { return this.save.flags.includes(id); }
     get storyState() { return { flags: this.save.flags, defeatedBoss: this.save.defeatedBoss, dungeonFinished: !!this.save.dungeon?.finished }; }
     storyBeat() { return arkenStoryBeat(this.storyState); }
@@ -631,6 +636,7 @@ class AzurGame {
                 this.openRune(this.save.zone);
                 break;
             case 'altar': {
+                recordJourney(this.save, 'rests');
                 const firstVisit = !this.flag('altar-' + this.save.zone);
                 const awarded = firstVisit && this.save.inventory.seals < 9;
                 this.save.team.forEach(c => c.hp = maxHp(c));
@@ -645,17 +651,24 @@ class AzurGame {
                 break;
             }
             case 'chest': {
+                const relicId = CACHE_RELICS[this.save.zone];
+                const relicFound = relicId && grantRelic(this.save, relicId, 'relic-cache-' + this.save.zone);
+                if (relicFound) {
+                    this.toast('RELIQUIA · ' + RELICS[relicId].name.toUpperCase());
+                    this.saveNow(false);
+                }
                 const id = `chest-${this.save.zone}-${l.x}`;
                 if (this.flag(id)) {
-                    this.toast('EL COFRE ESTÁ VACÍO');
+                    if (!relicFound)
+                        this.toast('EL COFRE ESTÁ VACÍO');
                     break;
                 }
                 this.addFlag(id);
-                this.save.inventory.seals += 3;
-                this.save.inventory.tonics += 2;
-                this.economy.echoes += 25;
+                this.save.inventory.seals = Math.min(9999, this.save.inventory.seals + 3);
+                this.save.inventory.tonics = Math.min(9999, this.save.inventory.tonics + 2);
+                this.economy.echoes = Math.min(999999, this.economy.echoes + 25);
                 this.sound.pick();
-                this.dialog([{ title: 'Un juramento olvidado', text: 'Encuentras 3 Sellos de Vínculo, 2 Tónicos y 25 Ecos. El metal conserva una inscripción: «Nadie desaparece mientras alguien lo recuerde».' }]);
+                this.dialog([{ title: 'Un juramento olvidado', text: `${relicFound ? 'También encuentras ' + RELICS[relicId].name + '. ' : ''}Encuentras 3 Sellos de Vínculo, 2 Tónicos y 25 Ecos. El metal conserva una inscripción: «Nadie desaparece mientras alguien lo recuerde».` }]);
                 break;
             }
             case 'memory': {
@@ -902,7 +915,7 @@ class AzurGame {
         const b = this.battle;
         if (!b || !this.started)
             return;
-        const record = { enemy: { ...b.enemy, moves: [...b.enemy.moves] }, type: b.type, ally: b.ally, guarding: b.guarding, bossPhase: b.bossPhase, chargeStage: b.chargeStage, encounterId: b.encounterId, pending: b.pending, effects: Object.fromEntries(Object.entries(b.effects).map(([uid, arr]) => [uid, arr.map(a => ({ ...a }))])) };
+        const record = { recoveryUses: { ...b.recoveryUses }, enemy: { ...b.enemy, moves: [...b.enemy.moves] }, type: b.type, ally: b.ally, guarding: b.guarding, bossPhase: b.bossPhase, chargeStage: b.chargeStage, encounterId: b.encounterId, pending: b.pending, effects: Object.fromEntries(Object.entries(b.effects).map(([uid, arr]) => [uid, arr.map(a => ({ ...a }))])) };
         this.save.activeBattle = record;
         this.saveNow(false);
     }
@@ -910,7 +923,9 @@ class AzurGame {
         const b = this.save.activeBattle;
         if (!b || !this.started)
             return;
-        this.battle = { enemy: { ...b.enemy, moves: [...b.enemy.moves] }, type: b.type, ally: b.ally, guarding: b.guarding, bossPhase: b.bossPhase, chargeStage: b.chargeStage, encounterId: b.encounterId, pending: b.pending, effects: Object.fromEntries(Object.entries(b.effects).map(([id, arr]) => [id, arr.map(s => ({ ...s }))])), busy: !!b.pending, selecting: false, log: b.pending ? 'La acción anterior sigue resolviéndose. El turno no puede repetirse.' : 'El combate continúa donde lo dejaste. El silencio no ha ganado.' };
+        this.battleMenu = 'commands';
+        this.battleKeyboardFocus = true;
+        this.battle = { recoveryUses: { ...b.recoveryUses }, enemy: { ...b.enemy, moves: [...b.enemy.moves] }, type: b.type, ally: b.ally, guarding: b.guarding, bossPhase: b.bossPhase, chargeStage: b.chargeStage, encounterId: b.encounterId, pending: b.pending, effects: Object.fromEntries(Object.entries(b.effects).map(([id, arr]) => [id, arr.map(s => ({ ...s }))])), busy: !!b.pending, selecting: false, log: b.pending ? 'La acción anterior sigue resolviéndose. El turno no puede repetirse.' : 'El combate continúa donde lo dejaste. El silencio no ha ganado.' };
         const available = this.save.team.findIndex(c => c.hp > 0);
         if (available < 0) {
             this.defeat();
@@ -942,7 +957,7 @@ class AzurGame {
         ally = leadIndex; if (ally < 0) {
         this.defeat();
         return;
-    } recordSpeciesResearch(this.save.flags, id, 'seen'); this.sound.setScene(type === 'boss' ? 'boss' : 'battle'); this.battle = { enemy: createCreature(id, level), type, encounterId, busy: false, ally, guarding: false, selecting: false, bossPhase: 1, chargeStage: 0, effects: {}, log: type === 'boss' ? `${SPECIES[id].name.toUpperCase()}, EL ESCRIBA DEL SILENCIO, DESPIERTA.` : type === 'expedition' ? `LA GRIETA SE ABRE: ${SPECIES[id].name.toUpperCase()} TE DESAFÍA.` : `¡UN ${SPECIES[id].name.toUpperCase()} SALVAJE APARECE!` }; this.combatCue = null; this.encounterCooldown = 9; byId('battle').classList.remove('hidden'); byId('viewport').classList.add('in-battle'); byId('prompt').classList.add('hidden'); this.sound.portal(); this.refreshBattle(); }
+    } recordJourney(this.save, 'battles'); recordSpeciesResearch(this.save.flags, id, 'seen'); this.sound.setScene(type === 'boss' ? 'boss' : 'battle'); this.battleMenu = 'commands'; this.battleKeyboardFocus = true; this.battle = { recoveryUses: {}, enemy: createCreature(id, level), type, encounterId, busy: false, ally, guarding: false, selecting: false, bossPhase: 1, chargeStage: 0, effects: {}, log: type === 'boss' ? `${SPECIES[id].name.toUpperCase()}, EL ESCRIBA DEL SILENCIO, DESPIERTA.` : type === 'expedition' ? `LA GRIETA SE ABRE: ${SPECIES[id].name.toUpperCase()} TE DESAFÍA.` : `¡UN ${SPECIES[id].name.toUpperCase()} SALVAJE APARECE!` }; this.combatCue = null; this.encounterCooldown = 9; byId('battle').classList.remove('hidden'); byId('viewport').classList.add('in-battle'); byId('prompt').classList.add('hidden'); this.sound.portal(); this.refreshBattle(); }
     /** Explicit warning and tactical plan before the point-of-no-return boss encounter.
      * Players may still challenge the boss underlevelled; this never gates progression. */
     prepareGuardianBattle() {
@@ -967,6 +982,29 @@ class AzurGame {
     tickBurn(c) { const out = endTurnEffects(c, this.statuses(c)); this.setStatuses(c, out.statuses); c.hp = Math.max(0, c.hp - out.damage); return out.damage; }
     applyCombatStatus(target, id) { const effect = MOVE_EFFECTS[id]; if (!effect || target.hp <= 0)
         return ''; const applied = applyEffect(this.statuses(target), effect, Math.random()); this.setStatuses(target, applied.statuses); return applied.applied ? ` · ${STATUS_INFO[effect.kind].name}!` : ''; }
+    recordCryptLoss(victim) {
+        if (!loseCryptCompanion(this.save, victim))
+            return;
+        if (this.battle) {
+            delete this.battle.effects[victim.uid];
+            delete this.battle.recoveryUses[victim.uid];
+            this.battle.ally = Math.max(0, this.save.team.findIndex(c => c.hp > 0));
+        }
+        const text = SPECIES[victim.speciesId].name + ' HA MUERTO EN LA CRIPTA · VÍNCULO PERDIDO';
+        if (this.battle)
+            this.battle.log += ' ' + text;
+        this.toast(text);
+        this.announceAccessibility(text);
+    }
+    openBattleMenu(menu) {
+        if (!this.battle || this.battle.busy)
+            return;
+        this.battle.selecting = false;
+        this.battleMenu = menu;
+        this.selectedBattleAction = 0;
+        this.battleKeyboardFocus = true;
+        this.refreshBattle();
+    }
     setCombatCue(kind, actor, element, damageValue = 0, effective = false) {
         this.combatCue = createCombatCue(kind, actor, element, this.seconds, damageValue, effective);
     }
@@ -998,16 +1036,20 @@ class AzurGame {
         byId('enemyHpText').textContent = `${b.enemy.hp}/${maxHp(b.enemy)}`;
         byId('enemyHealth').style.width = Math.max(0, b.enemy.hp / maxHp(b.enemy) * 100) + '%';
         this.updateHealthMeter('enemyHealthTrack', es.name, b.enemy.hp, maxHp(b.enemy));
-        byId('allyName').textContent = as.name;
+        byId('allyName').textContent = as.name + (ally.equipment ? ' · ' + RELICS[ally.equipment].name : '');
         byId('allyLv').textContent = 'NV. ' + ally.level + (this.statuses(ally).length ? ' · ' + statusLabel(this.statuses(ally)) : '');
         byId('allyHpText').textContent = `${ally.hp}/${maxHp(ally)}`;
         byId('allyHealth').style.width = Math.max(0, ally.hp / maxHp(ally) * 100) + '%';
         this.updateHealthMeter('allyHealthTrack', as.name, ally.hp, maxHp(ally));
         byId('battleLog').textContent = b.log;
+        const suggestion = suggestBattleAction(ally, b.enemy, this.statuses(ally), this.statuses(b.enemy), this.save.inventory.tonics, b.chargeStage, b.bossPhase, recoveryCastsLeft(b.recoveryUses, ally.uid));
+        byId('battleAdvice').textContent = b.busy ? '' : `${suggestion.kind === 'move' ? MOVES[suggestion.moveId]?.name : suggestion.kind === 'guard' ? 'GUARDIA' : 'TÓNICO'} · ${suggestion.reason}`;
         this.sound.setIntensity(Math.max(b.type === 'boss' ? .65 : .30, 1 - ally.hp / maxHp(ally), b.type === 'boss' && b.bossPhase === 2 ? 1 : 0));
         this.announceAccessibility(`Combate contra ${es.name}. Enemigo ${b.enemy.hp} de ${maxHp(b.enemy)} puntos de vida. ${as.name} ${ally.hp} de ${maxHp(ally)} puntos de vida. ${b.log}`);
         const actions = byId('battleActions');
-        const previousAction = Array.from(actions.querySelectorAll('button')).indexOf(document.activeElement);
+        const mode = b.selecting ? 'party' : this.battleMenu;
+        const previousAction = actions.dataset.menu === mode ? Array.from(actions.querySelectorAll('button')).indexOf(document.activeElement) : -1;
+        actions.dataset.menu = mode;
         if (previousAction >= 0) {
             this.selectedBattleAction = previousAction;
             this.battleKeyboardFocus = true;
@@ -1015,7 +1057,7 @@ class AzurGame {
         actions.replaceChildren();
         const restoreActionFocus = () => { if (b.busy || !this.battleKeyboardFocus)
             return; const buttons = Array.from(actions.querySelectorAll('button:not([disabled])')); buttons[Math.min(this.selectedBattleAction, buttons.length - 1)]?.focus(); this.battleKeyboardFocus = false; };
-        const add = (name, func, special = false, disabled = false, detail = '', preview) => { const button = document.createElement('button'); button.textContent = name; button.disabled = b.busy || disabled; if (special)
+        const add = (name, func, special = false, disabled = false, detail = '', preview) => { const button = document.createElement('button'); button.dataset.battleCell = String(actions.children.length); button.textContent = name; button.disabled = b.busy || disabled; if (special)
             button.classList.add('special'); if (detail) {
             button.title = detail;
             if (!preview)
@@ -1043,30 +1085,53 @@ class AzurGame {
                 const sp = SPECIES[c.speciesId];
                 add(`↻ ${sp.name} · NV ${c.level} · ${c.hp}/${maxHp(c)}`, () => this.switchTo(i), false, c.hp <= 0, sp.desc);
             }
-            add('← VOLVER', () => { b.selecting = false; this.refreshBattle(); });
+            add('← COMANDOS', () => this.openBattleMenu('commands'));
             restoreActionFocus();
             return;
         }
-        this.selectedBattleAction = Math.min(this.selectedBattleAction, Math.max(0, ally.moves.length + 3));
-        for (const id of ally.moves) {
-            const m = MOVES[id];
-            if (m)
-                add(`✦ ${m.name} · ${m.element}`, () => this.useMove(id), false, (m.role === 'heal' && ally.hp === maxHp(ally)) || (m.role === 'cleanse' && !this.statuses(ally).length), `${m.description} · Potencia ${m.power}${MOVE_EFFECTS[id] ? ' · ' + STATUS_INFO[MOVE_EFFECTS[id].kind].description : ''}`, previewMove(ally, b.enemy, m, this.statuses(ally), this.statuses(b.enemy)));
+        if (this.battleMenu === 'commands') {
+            actions.setAttribute('aria-label', 'Comandos de combate');
+            add('✦ TÉCNICAS', () => this.openBattleMenu('moves'));
+            add('▣ OBJETOS', () => this.openBattleMenu('items'));
+            add('↻ VÍNCULOS', () => this.switchCreature(), false, !this.save.team.some((c, i) => c.hp > 0 && i !== b.ally));
+            add('⛨ GUARDIA', () => this.defend(), false, false, 'Reduce el próximo ataque un 55 %. Consume el turno.');
         }
-        add('⛨ GUARDIA · -55% DAÑO', () => this.defend());
-        const captureChance = capturePreview(ally, b.enemy, this.statuses(b.enemy));
-        const bindingLabel = b.type === 'wild' ? `◇ VINCULAR ${captureChance.percent}% (${this.save.inventory.seals})` : `◇ VINCULAR (${this.save.inventory.seals})`;
-        add(bindingLabel, () => this.capture(), true, b.type !== 'wild' || this.save.inventory.seals === 0, b.type === 'wild' ? captureChance.accessible : 'El guardián no se puede capturar.');
-        add(`✚ TÓNICO (${this.save.inventory.tonics})`, () => this.tonic(), false, this.save.inventory.tonics === 0 || ally.hp === maxHp(ally));
-        add('↻ CAMBIAR', () => this.switchCreature(), false, !this.save.team.some((c, i) => c.hp > 0 && i !== b.ally));
-        if (b.type === 'wild')
-            add('↗ HUIR', () => this.escape());
+        else if (this.battleMenu === 'moves') {
+            actions.setAttribute('aria-label', 'Cuatro técnicas activas');
+            for (let slot = 0; slot < 4; slot++) {
+                const id = ally.moves[slot], m = id ? MOVES[id] : undefined;
+                if (!m) {
+                    add('— RANURA VACÍA', () => { }, false, true, 'Activa técnicas desde Vínculos, fuera de combate.');
+                    continue;
+                }
+                const left = recoveryCastsLeft(b.recoveryUses, ally.uid), forecast = previewMove(ally, b.enemy, m, this.statuses(ally), this.statuses(b.enemy));
+                if (m.role === 'heal') {
+                    forecast.extra += ' · ' + left + '/3 USOS';
+                    forecast.accessible += '; ' + left + ' de 3 curaciones disponibles';
+                }
+                add(m.name, () => this.useMove(id), false, m.role === 'heal' && (ally.hp === maxHp(ally) || left === 0), '', forecast);
+            }
+            add('← COMANDOS', () => this.openBattleMenu('commands'));
+        }
+        else {
+            actions.setAttribute('aria-label', 'Objetos y retirada');
+            const captureChance = capturePreview(ally, b.enemy, this.statuses(b.enemy));
+            add(`◇ VINCULAR ${captureChance.percent}% (${this.save.inventory.seals})`, () => this.capture(), true, b.type !== 'wild' || this.save.inventory.seals === 0 || (this.save.team.length >= 6 && this.save.storage.length >= 500), b.type === 'wild' ? captureChance.accessible : 'Los guardianes no se pueden capturar.');
+            add(`✚ TÓNICO +${effectiveHealing(ally, 28)} (${this.save.inventory.tonics})`, () => this.tonic(), false, this.save.inventory.tonics === 0 || ally.hp === maxHp(ally), 'Consume el turno y limpia ARDOR.');
+            add(`↗ HUIR · ${Math.round(escapeChance(ally, b.enemy) * 100)}%`, () => this.escape(), false, b.type !== 'wild', 'La velocidad influye en la retirada. Si falla, el enemigo actúa.');
+            add('← COMANDOS', () => this.openBattleMenu('commands'));
+        }
         restoreActionFocus();
     }
     useMove(id) {
         const b = this.battle, ally = this.getAlly(), m = MOVES[id];
-        if (!b || !ally || !m || b.busy)
+        if (!b || !ally || !m || b.busy || !ally.moves.includes(id) || (m.role === 'heal' && (ally.hp === maxHp(ally) || recoveryCastsLeft(b.recoveryUses, ally.uid) === 0)))
             return;
+        if (m.role === 'heal')
+            b.recoveryUses[ally.uid] = (b.recoveryUses[ally.uid] ?? 0) + 1;
+        this.battleMenu = 'commands';
+        this.selectedBattleAction = 0;
+        recordJourney(this.save, 'actions');
         b.busy = true;
         b.guarding = false;
         const utility = skillUtility(ally, m, this.statuses(ally));
@@ -1074,12 +1139,13 @@ class AzurGame {
         this.setStatuses(ally, result.attackerStatuses);
         this.setStatuses(b.enemy, result.defenderStatuses);
         const dealt = m.role === 'heal' ? 0 : bondAttackDamage(result.value, this.save.flags, ally.speciesId);
+        const actualDealt = Math.min(b.enemy.hp, dealt);
         b.enemy.hp = Math.max(0, b.enemy.hp - dealt);
         let restored = 0;
         if (m.role === 'heal')
             restored = utility.healing;
         else if (m.role === 'drain')
-            restored = Math.min(maxHp(ally) - ally.hp, Math.ceil(dealt * .35));
+            restored = drainHealing(ally, actualDealt);
         ally.hp = Math.min(maxHp(ally), ally.hp + restored);
         if (utility.cleanse)
             this.setStatuses(ally, []);
@@ -1098,6 +1164,7 @@ class AzurGame {
             this.flash = .72;
         }
         if (ally.hp <= 0) {
+            this.recordCryptLoss(ally);
             const next = this.save.team.findIndex(c => c.hp > 0);
             if (next >= 0)
                 b.ally = next;
@@ -1119,6 +1186,9 @@ class AzurGame {
         const b = this.battle, ally = this.getAlly();
         if (!b || !ally || b.busy)
             return;
+        this.battleMenu = 'commands';
+        this.selectedBattleAction = 0;
+        recordJourney(this.save, 'actions');
         b.busy = true;
         b.guarding = true;
         b.log = `${SPECIES[ally.speciesId].name} protege sus recuerdos. El próximo ataque hará un 55% menos de daño.`;
@@ -1128,6 +1198,7 @@ class AzurGame {
         if (burn)
             b.log += ` ${burn} de daño por ARDOR.`;
         if (ally.hp <= 0) {
+            this.recordCryptLoss(ally);
             const next = this.save.team.findIndex(c => c.hp > 0);
             if (next >= 0)
                 b.ally = next;
@@ -1156,17 +1227,20 @@ class AzurGame {
         }
         const charged = b.chargeStage === 2;
         b.chargeStage = 0;
+        const enemyOptions = { ...b.enemy, moves: b.enemy.moves.filter(id => MOVES[id]?.role !== 'heal' || recoveryCastsLeft(b.recoveryUses, b.enemy.uid) > 0) };
         const moveId = b.type === 'boss' && (b.enemy.speciesId === 'hollowhart' || b.enemy.speciesId === 'nullscribe')
-            ? chooseGuardianMove(b.enemy, ally, this.statuses(b.enemy), this.statuses(ally), charged ? 2 : 0, Math.random())
-            : chooseEnemyMove(b.enemy, ally, this.statuses(b.enemy), this.statuses(ally), Math.random());
+            ? chooseGuardianMove(enemyOptions, ally, this.statuses(b.enemy), this.statuses(ally), charged ? 2 : 0, Math.random())
+            : chooseEnemyMove(enemyOptions, ally, this.statuses(b.enemy), this.statuses(ally), Math.random());
         const m = MOVES[moveId] || MOVES.pulse;
+        if (m.role === 'heal')
+            b.recoveryUses[b.enemy.uid] = (b.recoveryUses[b.enemy.uid] ?? 0) + 1;
         const enemyUtility = skillUtility(b.enemy, m, this.statuses(b.enemy));
         const result = attackWithStatuses(b.enemy, ally, m, this.statuses(b.enemy), this.statuses(ally), .86 + Math.random() * .21);
         this.setStatuses(b.enemy, result.attackerStatuses);
         this.setStatuses(ally, result.defenderStatuses);
         const raw = m.role === 'heal' ? 0 : Math.ceil(result.value * (charged ? 1.65 : b.bossPhase === 2 ? 1.15 : 1));
         const actual = raw ? bondIncomingDamage(guardDamage(raw, b.guarding), this.save.flags, ally.speciesId) : 0;
-        const recovered = m.role === 'heal' ? enemyUtility.healing : m.role === 'drain' ? Math.min(maxHp(b.enemy) - b.enemy.hp, Math.ceil(actual * .35)) : 0;
+        const recovered = m.role === 'heal' ? enemyUtility.healing : m.role === 'drain' ? drainHealing(b.enemy, Math.min(ally.hp, actual)) : 0;
         b.enemy.hp = Math.min(maxHp(b.enemy), b.enemy.hp + recovered);
         if (enemyUtility.cleanse)
             this.setStatuses(b.enemy, []);
@@ -1181,6 +1255,7 @@ class AzurGame {
         this.sound.hitElement(charged ? 'Éter' : m.element);
         this.flash = charged ? .4 : .18;
         if (ally.hp <= 0) {
+            this.recordCryptLoss(ally);
             const next = this.save.team.findIndex(c => c.hp > 0);
             if (next < 0) {
                 b.pending = 'defeat';
@@ -1204,6 +1279,7 @@ class AzurGame {
         const b = this.battle, ally = this.getAlly();
         if (!b || !ally)
             return;
+        recordJourney(this.save, 'wins');
         const bonus = firstRoamerVictoryBonus(b.type, b.encounterId, this.save.flags);
         const mastery = villageTrainingBonus(b.type, this.save.zone, b.enemy.speciesId, this.save.flags, b.encounterId);
         const amount = (b.type === 'boss' ? 95 : 11 + b.enemy.level * 3) + bonus + mastery;
@@ -1248,9 +1324,9 @@ class AzurGame {
         }
         else {
             if (!evolution)
-                this.toast(`${originalName.toUpperCase()} VENCIDO · +${amount} EXP${bonus ? ' · RASTRO +' + bonus + ' EXP · REPOSO +25% PS' : ''}${mastery ? ' · LECCIÓN +' + mastery + ' EXP' : ''}${gain.levelUp ? ' · ¡NIVEL!' : ''}${supporters.length ? ' · ' + supporters.length + ' ALIADOS +' + supporters[0].amount + ' EXP' : ''}`);
+                this.toast(`${originalName.toUpperCase()} VENCIDO · +${amount} EXP${bonus ? ' · RASTRO +' + bonus + ' EXP · REPOSO +25% PS' : ''}${mastery ? ' · LECCIÓN +' + mastery + ' EXP' : ''}${gain.levelUp ? ' · ¡NIVEL! · REVISA HABILIDADES' : ''}${supporters.length ? ' · ' + supporters.length + ' ALIADOS +' + supporters[0].amount + ' EXP' : ''}`);
             if (Math.random() < .25)
-                this.save.inventory.seals++;
+                this.save.inventory.seals = Math.min(9999, this.save.inventory.seals + 1);
             this.economy.echoes = Math.min(999999, this.economy.echoes + 4 + Math.floor(b.enemy.level * .9));
         }
         if (evolution)
@@ -1272,9 +1348,12 @@ class AzurGame {
     }
     capture() {
         const b = this.battle;
-        if (!b || b.busy || b.type !== 'wild' || this.save.inventory.seals < 1)
+        if (!b || b.busy || b.type !== 'wild' || this.save.inventory.seals < 1 || (this.save.team.length >= 6 && this.save.storage.length >= 500))
             return;
         // Debit and save a single attempt before rolling asynchronously.
+        this.battleMenu = 'commands';
+        this.selectedBattleAction = 0;
+        recordJourney(this.save, 'actions');
         this.save.inventory.seals--;
         b.busy = true;
         b.pending = 'capture';
@@ -1293,6 +1372,7 @@ class AzurGame {
             return;
         const chance = capturePreview(ally, b.enemy, this.statuses(b.enemy)).chance;
         if (Math.random() < chance) {
+            recordJourney(this.save, 'captures');
             const captured = b.enemy;
             let stored = false;
             if (this.save.team.length < 6)
@@ -1320,8 +1400,26 @@ class AzurGame {
             this.enemyTurn();
         }
     }
-    tonic() { const b = this.battle, ally = this.getAlly(); if (!b || !ally || b.busy || this.save.inventory.tonics < 1)
-        return; this.save.inventory.tonics--; const beforeHp = ally.hp; ally.hp = Math.min(maxHp(ally), ally.hp + 28); this.setStatuses(ally, this.statuses(ally).filter(s => s.kind !== 'scorch')); b.busy = true; b.pending = 'enemy'; this.setCombatCue('heal', 'ally', SPECIES[ally.speciesId].element, ally.hp - beforeHp); b.log = `${SPECIES[ally.speciesId].name} recupera 28 puntos de salud y limpia el ARDOR.`; this.sound.pick(); this.refreshBattle(); window.setTimeout(() => this.enemyTurn(), 550); }
+    tonic() {
+        const b = this.battle, ally = this.getAlly();
+        if (!b || !ally || b.busy || this.save.inventory.tonics < 1 || ally.hp === maxHp(ally))
+            return;
+        this.battleMenu = 'commands';
+        this.selectedBattleAction = 0;
+        recordJourney(this.save, 'actions');
+        recordJourney(this.save, 'tonics');
+        this.save.inventory.tonics--;
+        const restored = effectiveHealing(ally, 28);
+        ally.hp += restored;
+        this.setStatuses(ally, this.statuses(ally).filter(s => s.kind !== 'scorch'));
+        b.busy = true;
+        b.pending = 'enemy';
+        this.setCombatCue('heal', 'ally', SPECIES[ally.speciesId].element, restored);
+        b.log = `${SPECIES[ally.speciesId].name} recupera ${restored} puntos de salud y limpia el ARDOR.`;
+        this.sound.pick();
+        this.refreshBattle();
+        window.setTimeout(() => this.enemyTurn(), 550);
+    }
     switchCreature() {
         const b = this.battle;
         if (!b || b.busy)
@@ -1340,6 +1438,7 @@ class AzurGame {
         const selected = this.save.team[index];
         if (!selected || selected.hp <= 0)
             return;
+        recordJourney(this.save, 'actions');
         b.ally = index;
         b.selecting = false;
         b.guarding = false;
@@ -1352,8 +1451,10 @@ class AzurGame {
         window.setTimeout(() => this.enemyTurn(), 700);
     }
     escape() { if (!this.battle || this.battle.busy || this.battle.type === 'boss')
-        return; if (Math.random() < .86) {
+        return; recordJourney(this.save, 'actions'); if (Math.random() < escapeChance(this.getAlly(), this.battle.enemy)) {
+        recordJourney(this.save, 'escapes');
         this.finishBattle();
+        this.saveNow(false);
         this.toast('ESCAPAS ENTRE LA NIEBLA');
     }
     else {
@@ -1363,7 +1464,8 @@ class AzurGame {
         this.refreshBattle();
         window.setTimeout(() => this.enemyTurn(), 400);
     } }
-    defeat() { if (this.save.dungeon?.active) {
+    defeat() { if (this.battle)
+        recordJourney(this.save, 'losses'); if (this.save.dungeon?.active) {
         this.save.dungeon.active = false;
         this.save.dungeon.pending = null;
     } if (this.save.expedition?.pending) {
@@ -1372,7 +1474,7 @@ class AzurGame {
         this.expeditionMessage = `La expedición terminó en derrota. Recuperaste ${consolation.echoes} Ecos.`;
         delete this.save.expedition;
     } this.finishBattle(); this.save.zone = 'village'; this.cameraZone = ''; this.sound.setScene('village'); this.save.x = 15; this.save.y = 14; this.lastReveal = -1; this.revealPosition(); this.save.team.forEach(c => c.hp = maxHp(c)); this.encounterCooldown = 6; this.sound.portal(); this.dialog([{ title: 'Regresas a la Lumbre', text: 'La oscuridad te ha vencido, pero tus vínculos no se han roto. Descansas y recuperas fuerzas en Velo de Arken.' }]); this.saveNow(false); this.updateUI(); }
-    finishBattle() { this.sound.setScene(themeForZone(this.save.zone)); delete this.save.activeBattle; this.battle = null; this.combatCue = null; byId('battle').classList.add('hidden'); byId('viewport').classList.remove('in-battle'); this.encounterCooldown = 7; }
+    finishBattle() { this.battleMenu = 'commands'; this.sound.setScene(themeForZone(this.save.zone)); delete this.save.activeBattle; this.battle = null; this.combatCue = null; byId('battle').classList.add('hidden'); byId('viewport').classList.remove('in-battle'); this.encounterCooldown = 7; }
     interactNpc(id) {
         const e = this.economy;
         if (!e.visitedNpcs.includes(id))
@@ -1520,14 +1622,19 @@ class AzurGame {
         if (!this.started || this.battle || this.dialogOpen)
             return;
         const e = this.economy;
-        this.showModal('MARA · MERCADO DE ECOS', `<div class="shop-balance">✦ ${e.echoes} ECOS DISPONIBLES</div>` + Object.entries(SHOP).map(([id, item]) => `<div class="modal-option"><div><strong>${htmlEscape(item.name)}</strong><small>${htmlEscape(item.description)}</small><small>EN MOCHILA · ${this.save.inventory[id]}</small></div><button data-buy="${id}" ${e.echoes < item.cost ? 'disabled' : ''}>${item.cost} ECOS</button></div>`).join('') + `<div class="modal-content-block">Los Ecos se consiguen venciendo criaturas y completando misiones.</div>`);
+        this.showModal('MARA · MERCADO DE ECOS', this.relicShopMarkup() + `<div class="shop-balance">✦ ${e.echoes} ECOS DISPONIBLES</div>` + Object.entries(SHOP).map(([id, item]) => `<div class="modal-option"><div><strong>${htmlEscape(item.name)}</strong><small>${htmlEscape(item.description)}</small><small>EN MOCHILA · ${this.save.inventory[id]}</small></div><button data-buy="${id}" ${e.echoes < item.cost ? 'disabled' : ''}>${item.cost} ECOS</button></div>`).join('') + `<div class="modal-content-block">Los Ecos se consiguen venciendo criaturas y completando misiones.</div>`);
+        const gift = byId('modalContent').querySelector('#relicGift');
+        if (gift)
+            gift.onclick = () => this.claimRelicGift();
+        for (const button of byId('modalContent').querySelectorAll('[data-buy-relic]'))
+            button.onclick = () => this.purchaseRelic(button.dataset.buyRelic);
         for (const btn of byId('modalContent').querySelectorAll('[data-buy]'))
             btn.onclick = () => { this.purchaseItem(btn.dataset.buy); };
     }
     purchaseItem(id) { if (!buy(this.economy, this.save.inventory, id)) {
         this.toast('ECOS INSUFICIENTES');
         return false;
-    } this.sound.pick(); this.saveNow(false); this.updateUI(); this.openShop(); return true; }
+    } recordJourney(this.save, 'echoesSpent', SHOP[id].cost); this.sound.pick(); this.saveNow(false); this.updateUI(); this.openShop(); return true; }
     addExpeditionReward(reward) {
         this.economy.echoes = Math.min(999999, this.economy.echoes + reward.echoes);
         this.save.inventory.seals = Math.min(9999, this.save.inventory.seals + reward.seals);
@@ -1661,7 +1768,7 @@ class AzurGame {
             return;
         }
         const intro = d?.finished ? 'Ya descubriste el Último Signo. Puedes volver a explorar la cripta o iniciar otra con un nuevo trazado.' : d ? 'Tu cripta anterior sigue exactamente como la dejaste.' : 'Ocho salas conectadas, dos enemigos, tesoros, una inscripción y una puerta sellada. El recorrido es distinto en cada partida y permanece fijo al guardar.';
-        this.showModal('CRIPTA DE LOS ECOS', `<div class="modal-content-block">${intro}</div><div class="modal-option"><button id="enterDungeon">${d ? 'CONTINUAR CRIPTA' : 'GENERAR Y ENTRAR'}</button></div>${d?.finished ? '<div class="modal-option"><button id="regenerateDungeon">NUEVA CRIPTA · REINICIAR RECORRIDO</button></div>' : ''}`);
+        this.showModal('CRIPTA DE LOS ECOS', `<div class="modal-content-block crypt-warning"><strong>MUERTE PERMANENTE</strong><p>Todo compañero que caiga en la cripta se pierde definitivamente. Solo tu compañero principal está protegido, aunque cambies de líder. Las reliquias regresan a la mochila. Las bajas se guardan al resolver cada turno.</p></div><div class="modal-content-block">${intro}</div><div class="modal-option"><button id="enterDungeon">${d ? 'CONTINUAR CRIPTA' : 'GENERAR Y ENTRAR'}</button></div>${d?.finished ? '<div class="modal-option"><button id="regenerateDungeon">NUEVA CRIPTA · REINICIAR RECORRIDO</button></div>' : ''}`);
         byId('enterDungeon').onclick = () => this.enterDungeon(false);
         if (d?.finished)
             byId('regenerateDungeon').onclick = () => this.enterDungeon(true);
@@ -1671,6 +1778,7 @@ class AzurGame {
             return;
         if (!this.save.dungeon || newRun)
             this.save.dungeon = generateDungeon(freshWorldSeed());
+        establishPrimary(this.save);
         this.save.dungeon.active = true;
         this.hideModal();
         this.toggleDrawer(false);
@@ -1679,7 +1787,7 @@ class AzurGame {
         this.lastDungeonChamber = -1;
         this.updateUI();
         this.saveNow(false);
-        this.toast('ENTRAS EN LA CRIPTA · EL PLANO PERSISTE');
+        this.toast('CRIPTA · LOS COMPAÑEROS CAÍDOS MUEREN PARA SIEMPRE; TU PRINCIPAL ESTÁ PROTEGIDO');
     }
     dungeonInteract() {
         const d = this.save.dungeon;
@@ -1882,8 +1990,10 @@ class AzurGame {
         }).join('');
         const travel = campaignRoadbook(this.storyState, this.save.team, this.save.inventory);
         const progressPanel = `<div class="modal-content-block"><strong>ATLAS DEL VIAJE · ${travel.completed}/${travel.total} HITOS · ${travel.percentage}%</strong><p>${travel.chapters.map(c => `${htmlEscape(c.name)}: ${c.done}/${c.total} ${c.status === 'done' ? '✓' : c.status === 'active' ? '◆' : '○'}`).join(' · ')}</p><p>OBJETIVO · ${htmlEscape(travel.objective)}</p><p>Equipo: ${this.save.team.filter(c => c.hp > 0).length}/${this.save.team.length} conscientes · ${this.save.inventory.tonics} Tónicos · ${this.save.inventory.seals} Sellos${travel.counter ? ' · Contraataque: ' + htmlEscape(travel.counter) : ''}.</p>${travel.advice.map(t => `<p>✦ ${htmlEscape(t)}</p>`).join('')}<p>Este atlas no cambia el guardado ni concede recursos.</p></div>`;
-        this.showModal('DIARIO · MISIONES', progressPanel + mainQuest + chapter + finale + afterlight + `<div class="modal-content-block"><strong>JURAMENTOS DE VÍNCULO · ${BOND_ARCS.filter(a => bondProgress(a, this.save.flags, [...this.save.team, ...this.save.storage]).stage === 'claimed').length}/${BOND_ARCS.length}</strong><p>Despierta a tus criaturas, descubre memorias y regresa a cada Lumbre para elegir un don permanente.</p></div>` + bonds + `<div class="shop-balance">${this.economy.echoes} ECOS · ${this.economy.completed.length}/${QUESTS.length} ENCARGOS SECUNDARIOS</div>` + QUESTS.map(q => `<div class="modal-option"><div><strong>${htmlEscape(q.name)}</strong><small>${htmlEscape(q.description)}</small><small>RECOMPENSA · ${q.reward} ECOS</small></div><span class="quest-state ${this.economy.completed.includes(q.id) ? 'done' : ''}">${this.economy.completed.includes(q.id) ? '✓ HECHA' : 'PENDIENTE'}</span></div>`).join(''));
+        this.showModal('DIARIO · MISIONES', `<div class="modal-content-block"><strong>REGISTRO DEL VIAJE</strong><p>${this.save.journey?.counters.wins ?? 0} victorias · ${this.save.journey?.counters.losses ?? 0} derrotas · ${this.save.journey?.counters.tonics ?? 0} tónicos usados. Datos locales desde ${this.save.journey?.starter === 'unknown' || !this.save.journey ? 'esta actualización' : 'el inicio de este viaje'}.</p><button id="exportPlaytest">EXPORTAR REGISTRO DE PRUEBAS</button></div>` + progressPanel + mainQuest + chapter + finale + afterlight + `<div class="modal-content-block"><strong>JURAMENTOS DE VÍNCULO · ${BOND_ARCS.filter(a => bondProgress(a, this.save.flags, [...this.save.team, ...this.save.storage]).stage === 'claimed').length}/${BOND_ARCS.length}</strong><p>Despierta a tus criaturas, descubre memorias y regresa a cada Lumbre para elegir un don permanente.</p></div>` + bonds + `<div class="shop-balance">${this.economy.echoes} ECOS · ${this.economy.completed.length}/${QUESTS.length} ENCARGOS SECUNDARIOS</div>` + QUESTS.map(q => `<div class="modal-option"><div><strong>${htmlEscape(q.name)}</strong><small>${htmlEscape(q.description)}</small><small>RECOMPENSA · ${q.reward} ECOS</small></div><span class="quest-state ${this.economy.completed.includes(q.id) ? 'done' : ''}">${this.economy.completed.includes(q.id) ? '✓ HECHA' : 'PENDIENTE'}</span></div>`).join(''));
+        byId('exportPlaytest').onclick = () => this.exportPlaytest();
     }
+    exportPlaytest() { const blob = new Blob([JSON.stringify(journeyReport(this.save), null, 2)], { type: 'application/json' }); const url = URL.createObjectURL(blob); const anchor = document.createElement('a'); anchor.href = url; anchor.download = 'ascii-azur-playtest.json'; anchor.click(); window.setTimeout(() => URL.revokeObjectURL(url), 1000); }
     openCodex() {
         if (!this.started)
             return;
@@ -2013,12 +2123,14 @@ class AzurGame {
     openTeam() {
         if (!this.started || this.evolution || this.battle || this.dialogOpen || !byId('starterScreen').classList.contains('hidden'))
             return;
-        const display = (c) => { const sp = SPECIES[c.speciesId], bond = bondChoice(this.save.flags, c.speciesId); return `<strong style="color:${sp.color}">${htmlEscape(sp.name)}</strong> · NV ${c.level}<small>${htmlEscape(sp.element)} · HP ${c.hp}/${maxHp(c)} · ${htmlEscape(sp.title)}</small>${bond ? `<small>✦ JURAMENTO · ${bond === 'fang' ? 'FILO +4 DAÑO' : 'VELO −15% DAÑO'}</small>` : ''}`; };
+        const display = (c) => { const sp = SPECIES[c.speciesId], bond = bondChoice(this.save.flags, c.speciesId); return `<strong style="color:${sp.color}">${htmlEscape(sp.name)}</strong> · NV ${c.level}<small>${htmlEscape(sp.element)} · HP ${c.hp}/${maxHp(c)} · ${htmlEscape(sp.title)}</small><small>${c.uid === this.save.primaryUid ? "COMPAÑERO PRINCIPAL · PROTEGIDO EN LA CRIPTA" : "COMPAÑERO · MUERTE PERMANENTE EN LA CRIPTA"}</small>${this.creatureStatsMarkup(c)}<small>RELIQUIA · ${c.equipment ? htmlEscape(RELICS[c.equipment].name) : 'SIN EQUIPAR'}</small>${bond ? `<small>✦ JURAMENTO · ${bond === 'fang' ? 'FILO +4 DAÑO' : 'VELO −15% DAÑO'}</small>` : ''}`; };
         this.showModal('VÍNCULOS Y RESERVA', `<div class="modal-content-block">Selecciona un líder, devuelve criaturas a la reserva o intercámbialas. ${this.save.team.length}/6 en equipo · ${this.save.storage.length} en reserva.</div>` +
-            this.save.team.map((c, i) => `<div class="modal-option"><div>${display(c)}</div><div class="roster-buttons">${`<button data-skills="${htmlEscape(c.uid)}">HABILIDADES</button>`}${i ? `<button data-lead="${htmlEscape(c.uid)}">LÍDER</button>` : '<span class="eyebrow">LÍDER</span>'}${this.save.team.length > 1 ? `<button data-deposit="${htmlEscape(c.uid)}">RESERVAR</button>` : ''}</div></div>`).join('') +
+            this.save.team.map((c, i) => `<div class="modal-option"><div>${display(c)}</div><div class="roster-buttons">${`<button data-skills="${htmlEscape(c.uid)}">HABILIDADES</button><button data-relics="${htmlEscape(c.uid)}">RELIQUIA</button>`}${i ? `<button data-lead="${htmlEscape(c.uid)}">LÍDER</button>` : '<span class="eyebrow">LÍDER</span>'}${this.save.team.length > 1 && c.uid !== this.save.primaryUid ? `<button data-deposit="${htmlEscape(c.uid)}">RESERVAR</button>` : ''}</div></div>`).join('') +
             `<div class="modal-content-block">RESERVA · ${this.save.storage.length} VÍNCULOS</div>` +
-            (this.save.storage.length ? this.save.storage.map(c => `<div class="modal-option"><div>${display(c)}</div><button data-withdraw="${htmlEscape(c.uid)}">${this.save.team.length < 6 ? 'INCORPORAR' : 'INTERCAMBIAR'}</button></div>`).join('') : '<div class="modal-content-block">No hay criaturas en reserva.</div>'));
+            (this.save.storage.length ? this.save.storage.map(c => `<div class="modal-option"><div>${display(c)}</div><button data-withdraw="${htmlEscape(c.uid)}">${this.save.team.length < 6 ? 'INCORPORAR' : 'INTERCAMBIAR'}</button></div>`).join('') : '<div class="modal-content-block">No hay criaturas en reserva.</div>') + this.fallenMarkup());
         const content = byId('modalContent');
+        for (const button of content.querySelectorAll('[data-relics]'))
+            button.onclick = () => this.openRelics(button.dataset.relics);
         for (const button of content.querySelectorAll('[data-skills]'))
             button.onclick = () => this.openSkills(button.dataset.skills);
         for (const button of content.querySelectorAll('[data-lead]'))
@@ -2072,6 +2184,62 @@ class AzurGame {
                 }
             };
     }
+    creatureStatsMarkup(c) {
+        const species = SPECIES[c.speciesId], values = { hp: maxHp(c), attack: attackValue(c), defense: defenseValue(c), speed: speedValue(c) };
+        const bases = { hp: species.stats.hp + (c.level - 1) * 4, attack: species.stats.attack + Math.floor(c.level * 1.6), defense: species.stats.defense + Math.floor(c.level * 1.2), speed: species.stats.speed + c.level };
+        const names = { hp: 'VIDA', attack: 'ATAQUE', defense: 'DEFENSA', speed: 'VELOCIDAD' };
+        return '<small>ATRIBUTOS · POTENCIAL INDIVIDUAL FIJO 0–31</small>' + ATTRIBUTE_KEYS.map(k => { const range = individualRange(bases[k]); return `<small>${names[k]} ${values[k]} · RANGO ${range.min}–${range.max} · POTENCIAL ${c.potential?.[k] ?? 16}/31</small>`; }).join('');
+    }
+    fallenMarkup() { return this.save.fallen?.length ? '<div class="modal-content-block"><strong>MEMORIAL · VÍNCULOS PERDIDOS EN LA CRIPTA</strong>' + this.save.fallen.map(c => `<p>${htmlEscape(SPECIES[c.speciesId].name)} · NV ${c.level} · PÉRDIDA DEFINITIVA</p>`).join('') + '</div>' : ''; }
+    relicShopMarkup() {
+        return `<div class="modal-content-block"><strong>RELIQUIAS · UNA POR CRIATURA</strong><p>Equipa en Vínculos → Reliquia. Las copias equipadas también cuentan como propiedad; no se consumen ni se acumulan sus efectos.</p>${!this.flag('relic-mara-gift') ? '<button id="relicGift">REGALO DE MARA · AMPARO DEL PEREGRINO</button>' : ''}</div>` +
+            RELIC_IDS.map(id => `<div class="modal-option"><div><strong>${RELICS[id].name}</strong><small>${RELICS[id].description}</small><small>${this.save.relics?.[id] ?? 0} EN PROPIEDAD · ${freeRelicCopies(this.save, id)} LIBRES</small></div><button data-buy-relic="${id}" ${this.economy.echoes < RELICS[id].cost || (this.save.relics?.[id] ?? 0) >= RELIC_COPY_LIMIT ? 'disabled' : ''}>${RELICS[id].cost} ECOS</button></div>`).join('');
+    }
+    claimRelicGift() {
+        if (!this.started || this.battle || this.dialogOpen || this.evolution)
+            return false;
+        if (!grantRelic(this.save, 'pilgrim-ward', 'relic-mara-gift'))
+            return false;
+        this.sound.pick();
+        this.saveNow(false);
+        this.openShop();
+        this.updateUI();
+        return true;
+    }
+    purchaseRelic(id) {
+        if (!this.started || this.battle || this.dialogOpen || this.evolution || !buyRelic(this.save, id))
+            return false;
+        recordJourney(this.save, 'echoesSpent', RELICS[id].cost);
+        this.sound.pick();
+        this.saveNow(false);
+        this.openShop();
+        this.updateUI();
+        return true;
+    }
+    equipRelic(uid, id) {
+        if (!this.started || this.battle || this.dialogOpen || this.evolution || !setCreatureRelic(this.save, uid, id))
+            return false;
+        this.sound.select();
+        this.saveNow(false);
+        this.openRelics(uid);
+        this.updateUI();
+        return true;
+    }
+    openRelics(uid) {
+        if (!this.started || this.battle || this.dialogOpen || this.evolution)
+            return;
+        const creature = this.save.team.find(c => c.uid === uid);
+        if (!creature)
+            return;
+        this.showModal('RELIQUIA · ' + SPECIES[creature.speciesId].name.toUpperCase(), `<div class="modal-content-block">Una ranura; cambios gratuitos fuera de combate. Las reliquias se encuentran en cofres o se compran a Mara. Actual: <strong>${creature.equipment ? RELICS[creature.equipment].name : 'NINGUNA'}</strong>.</div>` +
+            RELIC_IDS.map(id => `<div class="modal-option"><div><strong>${RELICS[id].name}</strong><small>${RELICS[id].description}</small><small>${freeRelicCopies(this.save, id)} COPIAS LIBRES</small></div><button data-equip-relic="${id}" ${creature.equipment !== id && freeRelicCopies(this.save, id) < 1 ? 'disabled' : ''}>${creature.equipment === id ? 'EQUIPADA' : 'EQUIPAR'}</button></div>`).join('') +
+            `<div class="modal-option"><button id="unequipRelic" ${creature.equipment ? '' : 'disabled'}>RETIRAR RELIQUIA</button><button id="relicBack">← EQUIPO</button></div>`);
+        for (const button of byId('modalContent').querySelectorAll('[data-equip-relic]'))
+            button.onclick = () => this.equipRelic(uid, button.dataset.equipRelic);
+        byId('unequipRelic').onclick = () => this.equipRelic(uid, null);
+        byId('relicBack').onclick = () => this.openTeam();
+        this.modalBack = () => this.openTeam();
+    }
     openSkills(uid) {
         const creature = this.save.team.find(c => c.uid === uid);
         if (!creature)
@@ -2079,19 +2247,34 @@ class AzurGame {
         const sp = SPECIES[creature.speciesId];
         const unlocked = unlockedMoves(creature);
         this.showModal(`HABILIDADES · ${sp.name.toUpperCase()}`, `<div class="modal-content-block">NV ${creature.level} · ${sp.element} · Elige cuatro técnicas como máximo. Cambiar tu repertorio fuera de combate no consume Ecos.</div>` +
-            creature.moves.map((id, index) => `<div class="modal-option"><div><strong>${htmlEscape(MOVES[id].name)}</strong><small>${htmlEscape(MOVES[id].description)}</small></div><button data-skill-slot="${index}">CAMBIAR</button></div>`).join('') +
-            `<div class="modal-content-block">Técnicas conocidas: ${unlocked.length}. Nuevas habilidades se desbloquean al ganar niveles.</div><div class="modal-option"><button id="skillBack">← EQUIPO</button></div>`);
+            Array.from({ length: 4 }, (_, index) => { const id = creature.moves[index]; return `<div class="modal-option"><div><strong>${id ? htmlEscape(MOVES[id].name) : "RANURA VACÍA"}</strong><small>${id ? htmlEscape(MOVES[id].description) : "Activa una técnica del repertorio."}</small></div><button data-skill-slot="${index}" ${index > creature.moves.length ? 'disabled' : ''}>CAMBIAR</button></div>`; }).join('') +
+            `<div class="modal-content-block">Técnicas conocidas: ${unlocked.length}. Las técnicas aprendidas no se olvidan. Elige hasta cuatro activas; puedes cambiarlas gratis fuera de combate.</div><div class="modal-option"><button id="skillBack">← EQUIPO</button></div>`);
         for (const button of byId('modalContent').querySelectorAll('[data-skill-slot]'))
             button.onclick = () => this.openSkillChoices(uid, Number(button.dataset.skillSlot));
         byId('skillBack').onclick = () => { this.hideModal(); this.openTeam(); };
         this.modalBack = () => this.openTeam();
     }
+    activateTechnique(uid, index, id) {
+        if (!this.started || this.battle || this.dialogOpen || this.evolution)
+            return false;
+        const at = this.save.team.findIndex(c => c.uid === uid);
+        if (at < 0)
+            return false;
+        try {
+            this.save.team[at] = equipMove(this.save.team[at], index, id);
+            this.saveNow(false);
+            return true;
+        }
+        catch {
+            return false;
+        }
+    }
     openSkillChoices(uid, index) {
         const creature = this.save.team.find(c => c.uid === uid);
-        if (!creature || !Number.isInteger(index) || index < 0 || index >= creature.moves.length)
+        if (!creature || !Number.isInteger(index) || index < 0 || index > creature.moves.length || index >= 4)
             return;
         const known = unlockedMoves(creature);
-        this.showModal('CAMBIAR TÉCNICA', `<div class="modal-content-block">Ranura ${index + 1} · Técnica actual: ${htmlEscape(MOVES[creature.moves[index]].name)}. Algunas técnicas curan, drenan salud o limpian alteraciones.</div>` +
+        this.showModal('CAMBIAR TÉCNICA', `<div class="modal-content-block">Ranura ${index + 1} · Técnica actual: ${(creature.moves[index] ? htmlEscape(MOVES[creature.moves[index]].name) : 'VACÍA')}. Algunas técnicas curan, drenan salud o limpian alteraciones.</div>` +
             known.map(id => `<div class="modal-option"><div><strong>${htmlEscape(MOVES[id].name)}</strong><small>${htmlEscape(MOVES[id].description)} · ${MOVES[id].role || 'ATAQUE'} · PODER ${MOVES[id].power}</small></div><button data-equip-move="${id}" ${creature.moves.includes(id) && creature.moves[index] !== id ? 'disabled' : ''}>${creature.moves[index] === id ? 'EQUIPADA' : 'EQUIPAR'}</button></div>`).join('') +
             '<div class="modal-option"><button id="skillChoicesBack">← VOLVER</button></div>');
         for (const button of byId('modalContent').querySelectorAll('[data-equip-move]'))
@@ -2099,16 +2282,13 @@ class AzurGame {
                 const at = this.save.team.findIndex(c => c.uid === uid);
                 if (at < 0)
                     return;
-                try {
-                    this.save.team[at] = equipMove(this.save.team[at], index, button.dataset.equipMove);
+                if (this.activateTechnique(uid, index, button.dataset.equipMove)) {
                     this.sound.select();
-                    this.saveNow(false);
                     this.openSkills(uid);
                     this.updateUI();
                 }
-                catch {
+                else
                     this.toast('HABILIDAD NO DISPONIBLE');
-                }
             };
         byId('skillChoicesBack').onclick = () => this.openSkills(uid);
         this.modalBack = () => this.openSkills(uid);
@@ -2118,7 +2298,7 @@ class AzurGame {
         if (!stored)
             return;
         this.showModal('INTERCAMBIAR VÍNCULO', `<div class="modal-content-block">El equipo está completo. Elige quién regresará a la reserva para incorporar a ${htmlEscape(SPECIES[stored.speciesId].name)}.</div>` +
-            this.save.team.map(c => `<div class="modal-option"><div><strong>${htmlEscape(SPECIES[c.speciesId].name)}</strong><small>NV ${c.level} · ${c.hp}/${maxHp(c)} HP</small></div><button data-swap-for="${htmlEscape(c.uid)}">CAMBIAR</button></div>`).join('') + '<div class="modal-option"><button id="rosterBack">← VOLVER</button></div>', true);
+            this.save.team.map(c => `<div class="modal-option"><div><strong>${htmlEscape(SPECIES[c.speciesId].name)}</strong><small>NV ${c.level} · ${c.hp}/${maxHp(c)} HP</small></div><button data-swap-for="${htmlEscape(c.uid)}" ${c.uid === this.save.primaryUid ? 'disabled' : ''}>${c.uid === this.save.primaryUid ? 'PRINCIPAL' : 'CAMBIAR'}</button></div>`).join('') + '<div class="modal-option"><button id="rosterBack">← VOLVER</button></div>', true);
         for (const button of byId('modalContent').querySelectorAll('[data-swap-for]'))
             button.onclick = () => {
                 try {
@@ -2139,7 +2319,7 @@ class AzurGame {
         this.modalBack = () => this.openTeam();
     }
     openBag() { if (!this.started || this.evolution || this.battle || this.dialogOpen || !byId('starterScreen').classList.contains('hidden'))
-        return; this.showModal('MOCHILA DEL PORTADOR', `<div class="modal-content-block">Objetos recuperados entre las ruinas de Azur. · ✦ ${this.economy.echoes} ECOS</div><div class="modal-option"><div><strong>◇ Sellos de Vínculo</strong> × ${this.save.inventory.seals}<small>Permiten capturar criaturas debilitadas durante el combate.</small></div></div><div class="modal-option"><div><strong>✚ Tónicos</strong> × ${this.save.inventory.tonics}<small>Recuperan 28 HP de una criatura durante el combate.</small></div></div><div class="modal-content-block">Descansa en las Lumbres para curar al equipo y recuperar un sello. Los cofres contienen suministros limitados.</div>`); }
+        return; this.showModal('MOCHILA DEL PORTADOR', `<div class="modal-content-block">Objetos recuperados entre las ruinas de Azur. · ✦ ${this.economy.echoes} ECOS</div><div class="modal-option"><div><strong>◇ Sellos de Vínculo</strong> × ${this.save.inventory.seals}<small>Permiten capturar criaturas debilitadas durante el combate.</small></div></div><div class="modal-option"><div><strong>✚ Tónicos</strong> × ${this.save.inventory.tonics}<small>Recuperan 28 HP en combate, o 33 con Cuenta de Lumbre.</small></div></div><div class="modal-content-block">Descansa en las Lumbres para curar al equipo. Cada región entrega un sello solo en la primera visita. Los cofres contienen suministros y reliquias finitos.</div>` + RELIC_IDS.map(id => `<div class="modal-option"><div><strong>${RELICS[id].name} × ${this.save.relics?.[id] ?? 0}</strong><small>${RELICS[id].description}</small><small>${freeRelicCopies(this.save, id)} LIBRES · EQUIPAR EN VÍNCULOS</small></div></div>`).join('')); }
     settings() {
         if (this.dialogOpen || this.evolution || !byId('starterScreen').classList.contains('hidden'))
             return;

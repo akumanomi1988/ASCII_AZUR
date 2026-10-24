@@ -1,5 +1,8 @@
+import { relicHealingFactor } from '../creatures/equipment.js';
 /** Deterministic tactical effects. No DOM, animation or mutable global state. */
 import { MOVES, damage, maxHp } from '../domain.js';
+export const RECOVERY_CAST_LIMIT = 3;
+export function recoveryCastsLeft(uses, uid) { return Math.max(0, RECOVERY_CAST_LIMIT - (uses[uid] ?? 0)); }
 export const STATUS_INFO = {
     scorch: { name: 'ARDOR', description: 'Pierde vida al terminar sus turnos.' },
     weaken: { name: 'DEBILIDAD', description: 'Inflige un 25 % menos de daño durante sus próximos ataques.' },
@@ -25,6 +28,8 @@ export function afterAttack(statuses, kind) {
 }
 export function attackWithStatuses(attacker, defender, move, attackStatuses, defenseStatuses, roll = 1) {
     const base = damage(attacker, defender, move, roll);
+    if (move.role === 'heal' || move.power <= 0)
+        return { ...base, attackerStatuses: attackStatuses.map(s => ({ ...s })), defenderStatuses: defenseStatuses.map(s => ({ ...s })) };
     const weak = attackStatuses.some(s => s.kind === 'weaken');
     const exposed = defenseStatuses.some(s => s.kind === 'fracture');
     const multiplier = (weak ? .75 : 1) * (exposed ? 1.25 : 1);
@@ -41,9 +46,12 @@ export function endTurnEffects(creature, statuses) {
 /** Deterministic skill utility. Healing and cleansing never directly damage a target. */
 export function skillUtility(attacker, move, statuses) {
     const missing = maxHp(attacker) - attacker.hp;
-    const healing = move.role === 'heal' ? Math.min(missing, Math.max(9, Math.floor(maxHp(attacker) * .22) + Math.floor(attacker.level * .8))) : 0;
+    const healing = move.role === 'heal' ? effectiveHealing(attacker, Math.max(9, Math.floor(maxHp(attacker) * .28) + Math.floor(attacker.level * .6))) : 0;
     return { healing, cleanse: move.role === 'cleanse' && statuses.length > 0 };
 }
+/** Drain uses actual HP removed, never theoretical overkill damage. */
+export function effectiveHealing(creature, base) { return creature.hp <= 0 ? 0 : Math.max(0, Math.min(maxHp(creature) - creature.hp, Math.floor(base * relicHealingFactor(creature)))); }
+export function drainHealing(creature, actualDamage) { return effectiveHealing(creature, Math.ceil(Math.max(0, actualDamage) * .35)); }
 export function statusLabel(statuses) {
     return statuses.map(s => `${STATUS_INFO[s.kind].name} ${s.remaining}`).join(' · ');
 }

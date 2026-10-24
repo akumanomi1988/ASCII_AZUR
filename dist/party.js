@@ -11,6 +11,8 @@ export function transferStoredCreature(state, storedUid, replaceUid) {
         throw Error('Duplicate creature identity');
     const team = [...t], storage = [...s], creature = storage[source];
     if (replaceUid !== undefined) {
+        if (replaceUid === state.primaryUid)
+            throw Error('Primary companion cannot enter reserve');
         const target = team.findIndex(c => c.uid === replaceUid);
         if (target < 0)
             throw Error('Replacement missing from team');
@@ -28,6 +30,8 @@ export function transferStoredCreature(state, storedUid, replaceUid) {
     return { team, storage };
 }
 export function reserveCreature(state, uid) {
+    if (uid === state.primaryUid)
+        throw Error('Primary companion cannot enter reserve');
     const i = state.team.findIndex(c => c.uid === uid);
     if (i < 0)
         throw Error('Creature missing from team');

@@ -22,7 +22,7 @@ export function normalizeEconomy(value) {
 }
 export function buy(economy, inventory, id) {
     const item = SHOP[id];
-    if (!item || economy.echoes < item.cost || inventory[id] >= 9999)
+    if (!Object.hasOwn(SHOP, id) || !item || !Number.isSafeInteger(economy.echoes) || economy.echoes < item.cost || !Number.isSafeInteger(inventory[id]) || inventory[id] < 0 || inventory[id] >= 9999)
         return false;
     economy.echoes -= item.cost;
     inventory[id]++;

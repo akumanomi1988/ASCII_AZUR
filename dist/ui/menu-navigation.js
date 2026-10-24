@@ -51,3 +51,37 @@ export function navigateMenuKey(root, key, trapTab = false) {
     nodes[next]?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
     return true;
 }
+/** Two-column turn menu. Disabled/empty slots never shift another slot's position. */
+export function nextBattleCell(available, current, key) {
+    if (!available.length)
+        return -1;
+    if (!available.includes(current) || key === 'Home')
+        return available[0];
+    if (key === 'End')
+        return available[available.length - 1];
+    const row = Math.floor(current / 2), col = current % 2;
+    const directions = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1], w: [-1, 0], s: [1, 0], a: [0, -1], d: [0, 1] };
+    const delta = directions[key];
+    if (!delta)
+        return current;
+    const choices = available.filter(i => delta[0] ? Math.sign(Math.floor(i / 2) - row) === delta[0] : Math.floor(i / 2) === row && Math.sign(i % 2 - col) === delta[1]);
+    choices.sort((a, b) => Math.abs(Math.floor(a / 2) - row) - Math.abs(Math.floor(b / 2) - row) || Math.abs(a % 2 - col) - Math.abs(b % 2 - col));
+    return choices[0] ?? current;
+}
+export function navigateBattleMenuKey(root, key) {
+    const nodes = menuButtons(root);
+    if (!nodes.length)
+        return false;
+    if (key === 'Enter' || key === ' ') {
+        const selected = nodes.find(n => n === document.activeElement) ?? nodes[0];
+        selected?.click();
+        return true;
+    }
+    if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End', 'w', 'a', 's', 'd'].includes(key))
+        return false;
+    const cells = nodes.map(n => Number(n.dataset.battleCell));
+    const current = nodes.find(n => n === document.activeElement);
+    const next = nextBattleCell(cells, current ? Number(current.dataset.battleCell) : -1, key);
+    nodes.find(n => Number(n.dataset.battleCell) === next)?.focus();
+    return true;
+}
