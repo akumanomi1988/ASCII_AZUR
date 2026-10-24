@@ -16,6 +16,7 @@ import {ZONES,sweepMove,isBlocked,isWild,nearbyLandmark,configureWorld,captureWo
 import {SHOP,NPCS,QUESTS,buy,claimQuests,normalizeEconomy,newEconomy,type ShopItem,type NpcId} from './rpg.js';
 import {Sound,themeForZone} from './audio.js';
 import {FrameMetrics} from './core/frame-metrics.js';
+import {EnduranceLab,type EndurancePhase} from './core/endurance-lab.js';
 import {AdaptiveGlyphs} from './core/adaptive-glyphs.js';
 import {storyGuidance,guidanceToTarget,walkableRouteToTarget} from './story-navigation.js';
 import {ARKEN_STORY, ARKEN_FINALE_REWARD, arkenStoryBeat, arkenStoryIndex, concludeArken, canConcludeArken, guardianPreparation, guardianRecommendedLead, sanctuaryRoutePlan, sanctuaryOathProgress, SANCTUARY_OATHS_FLAG, SANCTUARY_OATHS_REWARD, type ArkenStoryState} from './story-campaign.js';
@@ -41,7 +42,7 @@ const htmlEscape=(v:string)=>v.replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','
 type Battle={recoveryUses:Record<string,number>;encounterId?:string;enemy:Creature;type:'wild'|'boss'|'expedition';pending?:BattleCheckpoint['pending'];busy:boolean;ally:number;log:string;guarding:boolean;selecting:boolean;bossPhase:1|2;chargeStage:0|1|2;effects:Record<string,StatusEffect[]>;};
 class AzurGame {
   private renderer=new AsciiRenderer(byId<HTMLCanvasElement>('game'));
-  private frameMetrics=new FrameMetrics();private adaptiveGlyphs=new AdaptiveGlyphs();private lastAdaptiveUpdate=0;private debugPerformance=false;private lastDebugUpdate=0;private lastCompassUpdate=0;
+  private frameMetrics=new FrameMetrics();private endurance=new EnduranceLab();private adaptiveGlyphs=new AdaptiveGlyphs();private lastAdaptiveUpdate=0;private debugPerformance=false;private lastDebugUpdate=0;private lastCompassUpdate=0;
   private sound=new Sound();private soundEnabled=true;private reducedMotion=false;private combatCue:CombatCue|null=null;
   private saveBaseline:string|null|undefined;
   private activeSlot:SaveSlot=1;
@@ -292,7 +293,7 @@ class AzurGame {
       byId('saveSlotSummary').textContent='ALMACENAMIENTO LOCAL NO DISPONIBLE';
     }
   }
-  private reset(){this.atlasTarget=null;this.resetJoystick();this.toggleDrawer(false);this.roamingCache.clear();this.save={version:1,zone:'village',x:4,y:16,team:[],storage:[],inventory:{seals:5,tonics:3},defeatedBoss:false,flags:[],playSeconds:0,rpg:newEconomy(),worldSeed:freshWorldSeed()};configureWorld(this.save.worldSeed!);this.save.worldSnapshot=captureWorldSnapshot()!;this.battle=null;this.evolution=null;this.combatCue=null;this.keys.clear();this.encounterCooldown=4;this.camera={x:4,y:16};this.cameraZone='village';this.lastReveal=-1;}
+  private reset(){this.endurance.reset();this.atlasTarget=null;this.resetJoystick();this.toggleDrawer(false);this.roamingCache.clear();this.save={version:1,zone:'village',x:4,y:16,team:[],storage:[],inventory:{seals:5,tonics:3},defeatedBoss:false,flags:[],playSeconds:0,rpg:newEconomy(),worldSeed:freshWorldSeed()};configureWorld(this.save.worldSeed!);this.save.worldSnapshot=captureWorldSnapshot()!;this.battle=null;this.evolution=null;this.combatCue=null;this.keys.clear();this.encounterCooldown=4;this.camera={x:4,y:16};this.cameraZone='village';this.lastReveal=-1;}
   private startNew(){try{if(readSave(localStorage,this.activeSlot)&&!window.confirm(`Crear un viaje nuevo sustituirá la partida del espacio ${this.activeSlot}. Los otros viajes se conservarán. ¿Continuar?`))return;this.saveBaseline=localStorage.getItem(saveKeyForSlot(this.activeSlot));}catch{/* storage may be disabled */}this.sound.unlock();this.sound.setScene('title');const requested=(byId<HTMLInputElement>('worldSeedInput').value||'').trim();this.reset();if(requested){this.save.worldSeed=/^\d{1,10}$/.test(requested)&&Number(requested)<=4294967295?Number(requested)||1:seedFromText(requested);configureWorld(this.save.worldSeed);this.save.worldSnapshot=captureWorldSnapshot()!;} byId('titleScreen').classList.add('hidden');byId('starterScreen').classList.remove('hidden');this.renderStarters();this.sound.select();}
   private continueGame(){try{const result=readSave(localStorage,this.activeSlot);if(!result)throw Error('Guardado inválido');this.saveBaseline=localStorage.getItem(saveKeyForSlot(this.activeSlot));const raw=result.state;this.atlasTarget=null;this.save=raw;this.battle=null;this.combatCue=null;this.battleMenu='commands';byId('battle').classList.add('hidden');byId('viewport').classList.remove('in-battle');const primaryEstablished=establishPrimary(this.save);const storedSnapshot=this.save.worldSnapshot;configureWorld(this.save.worldSeed??0,storedSnapshot);const expandSnapshot=!!this.save.worldSeed&&(!storedSnapshot||ZONE_IDS.some(id=>!storedSnapshot.tiles[id]||!storedSnapshot.poi[id]));if(expandSnapshot)this.save.worldSnapshot=captureWorldSnapshot()??storedSnapshot;this.roamingCache.clear();this.save.rpg=normalizeEconomy(raw.rpg);this.camera={x:this.save.x,y:this.save.y};this.cameraZone=this.save.zone;this.lastReveal=-1;this.revealPosition();this.started=true;if(expandSnapshot||primaryEstablished)this.saveNow(false);this.sound.unlock();this.sound.setScene(this.save.dungeon?.active?'sanctuary':themeForZone(this.save.zone as ZoneId));this.encounterCooldown=4;byId('titleScreen').classList.add('hidden');this.sound.portal();this.toast(result.source==='backup'?'PARTIDA RECUPERADA DESDE RESPALDO':'PARTIDA RECUPERADA');this.updateUI();this.restoreBattle();}catch{this.toast('EL GUARDADO NO SE PUDO RECUPERAR');}}
   private renderStarters(){const chars:{id:string;glyph:string;title:string}[]=[{id:'cindrel',glyph:'♨',title:'EL FUEGO'},{id:'velaria',glyph:'≋',title:'LA BRUMA'},{id:'thorne',glyph:'✣',title:'LA RAÍZ'}];byId('starters').innerHTML=chars.map(c=>`<button class="starter" data-starter="${c.id}"><span class="starter-symbol" style="color:${SPECIES[c.id]!.color}">${c.glyph}</span><strong>${SPECIES[c.id]!.name}</strong><small>${c.title}</small></button>`).join('');for(const el of byId('starters').querySelectorAll<HTMLButtonElement>('[data-starter]'))el.addEventListener('click',()=>this.pickStarter(el.dataset.starter!));focusMenuFirst(byId('starterScreen'));}
@@ -1211,6 +1212,37 @@ class AzurGame {
     this.modalBack=()=>this.openTeam();
   }
   private openBag(){if(!this.started||this.evolution||this.battle||this.dialogOpen||!byId('starterScreen').classList.contains('hidden'))return;this.showModal('MOCHILA DEL PORTADOR',`<div class="modal-content-block">Objetos recuperados entre las ruinas de Azur. · ✦ ${this.economy.echoes} ECOS</div><div class="modal-option"><div><strong>◇ Sellos de Vínculo</strong> × ${this.save.inventory.seals}<small>Permiten capturar criaturas debilitadas durante el combate.</small></div></div><div class="modal-option"><div><strong>✚ Tónicos</strong> × ${this.save.inventory.tonics}<small>Recuperan 28 HP en combate, o 33 con Cuenta de Lumbre.</small></div></div><div class="modal-content-block">Descansa en las Lumbres para curar al equipo. Cada región entrega un sello solo en la primera visita. Los cofres contienen suministros y reliquias finitos.</div>`+RELIC_IDS.map(id=>`<div class="modal-option"><div><strong>${RELICS[id].name} × ${this.save.relics?.[id]??0}</strong><small>${RELICS[id].description}</small><small>${freeRelicCopies(this.save,id)} LIBRES · EQUIPAR EN VÍNCULOS</small></div></div>`).join(''));}
+  /** Measurement begins only after explicit player consent and stays in memory. */
+  private openEnduranceLab(){
+    const report=this.endurance.report();
+    const rows=(Object.entries(report.phases) as [EndurancePhase,typeof report.phases.explore][])
+      .map(([phase,data])=>`<div class="modal-option"><div><strong>${htmlEscape(phase.toUpperCase())}</strong><small>${data.frames} frames · ${data.sampledSeconds}s medidos · ${data.averageFps} FPS promedio · p95 ≤${data.p95UpperBoundMs}ms (histograma) · ${data.slowPercent}% lentos</small></div></div>`).join('');
+    this.showModal('LABORATORIO DE ESTABILIDAD',`
+      <div class="modal-content-block"><strong>MEDICIÓN LOCAL Y VOLUNTARIA</strong><p>Prueba una partida durante varios minutos recorriendo regiones, abriendo menús, entrando en combate y usando la cripta. El registro mide intervalos de fotogramas visibles (hilo principal), no tiempos GPU, temperatura, consumo de batería ni rendimiento Android certificado. No se envía ningún dato.</p><p>Estado: ${report.status==='recording'?'REGISTRANDO':'DETENIDO'} · ${report.totalFrames} frames · ${report.sampledSeconds}s de intervalos observados · ${report.orientationChanges} cambios de orientación · ${report.ignoredFrames} intervalos descartados.</p></div>
+      ${rows}
+      <div class="modal-content-block">La medición permanece solo en memoria durante esta sesión. Puedes reiniciarla o exportar el resultado manualmente. No cambia el guardado ni necesita permisos adicionales.</div>
+      <div class="settings-row"><button id="labStart">${report.status==='recording'?'REINICIAR MEDICIÓN':'INICIAR MEDICIÓN'}</button><button id="labStop" ${report.status!=='recording'?'disabled':''}>DETENER</button><button id="labExport" ${report.totalFrames===0?'disabled':''}>EXPORTAR JSON LOCAL</button></div>
+      <div class="settings-row"><button id="labBack">← VOLVER A OPCIONES</button></div>`,true,true);
+    byId('labStart').onclick=()=>{this.endurance.start();this.openEnduranceLab();};
+    byId('labStop').onclick=()=>{this.endurance.stop();this.openEnduranceLab();};
+    byId('labExport').onclick=()=>this.exportEndurance();
+    byId('labBack').onclick=()=>this.settings();
+    this.modalBack=()=>this.settings();
+  }
+  private exportEndurance(){
+    const r=this.endurance.report();
+    if(!r.totalFrames){this.toast('INICIA UNA MEDICIÓN PRIMERO');return;}
+    const payload={...r,graphics:this.renderer.getGraphics().renderMode,renderer:this.renderer.mode,
+      adaptiveGlyphs:this.adaptiveGlyphs.active,reducedMotion:this.reducedMotion,
+      touchPoints:Math.min(20,Math.max(0,Number(navigator.maxTouchPoints)||0)),
+      recordedAt:new Date().toISOString(),
+      disclaimer:'Local voluntary performance evidence. No device identity, game seed, save data, battery or temperature collected. Hardware and human verification required.'};
+    const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+    const url=URL.createObjectURL(blob),anchor=document.createElement('a');
+    anchor.href=url;anchor.download='ascii-azur-endurance.json';anchor.click();
+    window.setTimeout(()=>URL.revokeObjectURL(url),1000);
+    this.toast('REGISTRO EXPORTADO · SIN TELEMETRÍA REMOTA');
+  }
   private settings(){
     if(this.dialogOpen||this.evolution||!byId('starterScreen').classList.contains('hidden'))return;
     this.sound.unlock();
@@ -1227,6 +1259,7 @@ class AzurGame {
       <div class="settings-row"><label for="adaptiveFps">FPS estables · ajustar detalle automáticamente</label><input id="adaptiveFps" type="checkbox"></div>
       <div class="modal-content-block" id="adaptiveFpsStats" aria-live="polite"></div>
       <div class="settings-row"><button id="resetGraphics" class="settings-reset">Restablecer gráficos</button></div>
+      <div class="settings-row"><button id="openEnduranceLab">LABORATORIO DE ESTABILIDAD · FPS Y ORIENTACIÓN</button></div>
       <div class="modal-content-block">En GLYPH PIXEL ART cada celda pinta un fondo continuo y un glifo con color propio. El modo atmosférico reduce trazos direccionales repetitivos. WebGL2 ofrece la trama más fina; Canvas2D limita el trabajo para mantener la partida fluida.</div>
       <div class="settings-row"><label for="audioEnabled">Audio activado</label><input id="audioEnabled" type="checkbox"></div>
        <div class="settings-row"><label for="musicVolume">Música</label><input id="musicVolume" type="range" min="0" max="100" step="1"></div>
@@ -1260,6 +1293,7 @@ class AzurGame {
     den.onchange=()=>change({density:Number(den.value)});qual.onchange=()=>change({quality:Number(qual.value)});
     for(const [id,key] of sliders)byId<HTMLInputElement>(id).oninput=()=>change({[key]:Number(byId<HTMLInputElement>(id).value)});
     byId('resetGraphics').onclick=()=>change({...DEFAULT_GRAPHICS});
+    byId('openEnduranceLab').onclick=()=>this.openEnduranceLab();
     const adaptive=byId<HTMLInputElement>('adaptiveFps');adaptive.checked=this.adaptiveGlyphs.active;adaptive.onchange=()=>{this.setAdaptiveGraphics(adaptive.checked);sync();};sync();
     const motion=byId<HTMLInputElement>('motionReduced');motion.checked=this.reducedMotion;
     motion.onchange=()=>{this.reducedMotion=motion.checked;try{localStorage.setItem('ascii-azur-reduced-motion',String(this.reducedMotion));}catch{/* storage blocked */}};
@@ -1412,7 +1446,11 @@ class AzurGame {
     }
   }
 
-  private loop=(now:number)=>{this.pollGamepad();if(this.last>0)this.frameMetrics.add(now-this.last);const dt=Math.min(.055,(now-this.last)/1000||0);this.last=now;this.seconds+=dt;this.flash=Math.max(0,this.flash-dt*1.7);if(this.started&&!this.dialogOpen&&!this.modalOpen&&!this.battle&&!this.evolution&&!byId('gameDrawer').classList.contains('open')){this.move(dt);this.save.playSeconds+=dt;this.timeSinceSave+=dt;if(this.timeSinceSave>90){this.timeSinceSave=0;this.saveNow(false);}}
+  private loop=(now:number)=>{this.pollGamepad();if(this.last>0){
+      const frame=now-this.last;this.frameMetrics.add(frame);
+      const phase:EndurancePhase=this.modalOpen||!this.started||this.dialogOpen?'menu':this.battle?'battle':this.save.dungeon?.active?'crypt':'explore';
+      this.endurance.sample(frame,phase,!document.hidden,window.innerWidth||960,window.innerHeight||540);
+    }const dt=Math.min(.055,(now-this.last)/1000||0);this.last=now;this.seconds+=dt;this.flash=Math.max(0,this.flash-dt*1.7);if(this.started&&!this.dialogOpen&&!this.modalOpen&&!this.battle&&!this.evolution&&!byId('gameDrawer').classList.contains('open')){this.move(dt);this.save.playSeconds+=dt;this.timeSinceSave+=dt;if(this.timeSinceSave>90){this.timeSinceSave=0;this.saveNow(false);}}
     if(this.evolution&&this.seconds-this.evolution.startedAt>=this.evolution.duration){const newSpecies=this.evolution.to;this.evolution=null;byId('viewport').classList.remove('in-evolution');byId('evolutionBanner').classList.add('hidden');this.sound.setScene(themeForZone(this.save.zone as ZoneId));this.toast(`${SPECIES[newSpecies]!.name.toUpperCase()} HA DESPERTADO`);}
     byId('viewport').classList.toggle('in-dungeon',!!this.save.dungeon?.active&&!this.battle);const ctx=this.renderer.ctx;ctx.clearRect(0,0,960,540);if(this.evolution){drawEvolution(ctx,this.evolution.from,this.evolution.to,this.seconds-this.evolution.startedAt,this.reducedMotion);}else if(this.battle&&this.save.team.length){drawBattle(ctx,this.battle.enemy,this.getAlly()!,this.seconds,this.flash,sampleCombatCue(this.combatCue,this.seconds,this.reducedMotion),this.reducedMotion,{enemy:this.statuses(this.battle.enemy).map(e=>e.kind),ally:this.statuses(this.getAlly()!).map(e=>e.kind)});}else if(this.save.dungeon?.active){const d=this.save.dungeon;drawDungeon(ctx,d,{x:d.x,y:d.y,facing:this.facing,walking:this.moving&&!this.dialogOpen},this.seconds,this.reducedMotion);}else{if(this.cameraZone!==this.save.zone){this.camera={x:this.save.x,y:this.save.y};this.cameraZone=this.save.zone;}const follow=1-Math.exp(-dt*9);this.camera.x+=(this.save.x-this.camera.x)*follow;this.camera.y+=(this.save.y-this.camera.y)*follow;drawWorld(ctx,this.save.zone as ZoneId,{x:this.save.x,y:this.save.y,facing:this.facing,walking:this.moving&&!this.dialogOpen},this.seconds,this.flash,this.save.defeatedBoss,this.camera,this.reducedMotion,this.roamers(),this.flag(CROWN_BOSS_FLAG));}this.renderer.present(now);if(now-this.lastAdaptiveUpdate>1900){this.lastAdaptiveUpdate=now;if(this.adaptiveGlyphs.observe(this.frameMetrics.report(),now,this.started&&!document.hidden&&!this.modalOpen)){this.renderer.setPerformanceScale(this.adaptiveGlyphs.scale);this.frameMetrics.reset();}const d=document.getElementById('adaptiveFpsStats');if(d&&this.modalOpen)d.textContent=this.adaptiveGlyphs.active?`Objetivo 30 FPS · escala temporal ×${this.renderer.performanceScale.toFixed(2)} · ajustes artísticos originales conservados`:'Máxima fidelidad manual. Activa FPS estables solo si el dispositivo pierde fluidez.';}if(this.started&&now-this.lastCompassUpdate>180){this.lastCompassUpdate=now;this.updateStoryCompass();}if(now-this.lastDebugUpdate>750){this.lastDebugUpdate=now;const perf=this.frameMetrics.report();byId('fps').textContent=this.debugPerformance?`${this.renderer.mode.toUpperCase()} · ${this.renderer.fps} FPS · MAIN p95 ${perf.p95Ms.toFixed(1)}ms · ${perf.overBudget}/${perf.samples} >33ms`:`${this.renderer.mode.toUpperCase()} · ${this.renderer.fps} FPS${this.adaptiveGlyphs.active?' · AUTO ×'+this.renderer.performanceScale.toFixed(2):''}`;}requestAnimationFrame(this.loop);};
   private move(dt:number){

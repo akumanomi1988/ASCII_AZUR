@@ -1120,3 +1120,25 @@ test('runtime: a chapter milestone cues a title once, without extra rewards or p
  assert.deepEqual({...game.save.inventory},items);
  assert.ok(storage.getItem('ascii-azur-save-v1'),'game save remains available');
 });
+
+test('runtime: local endurance laboratory is opt-in and never affects game state',()=>{
+ const {game,dom,storage}=mount({virtualTime:true});
+ game.startNew();game.pickStarter('thorne');
+ while(game.dialogOpen)game.nextDialog();
+ const base=storage.getItem('ascii-azur-save-v1');
+ game.openEnduranceLab();
+ assert.match(dom.get('modalContent').innerHTML,/MEDICIÓN LOCAL Y VOLUNTARIA/);
+ assert.equal(game.endurance.report().totalFrames,0);
+ dom.get('labStart').onclick();
+ assert.equal(game.endurance.recording,true);
+ game.endurance.sample(16,'explore',true,915,412);
+ game.endurance.sample(48,'battle',true,412,915);
+ game.openEnduranceLab();
+ assert.match(dom.get('modalContent').innerHTML,/2 frames/);
+ assert.match(dom.get('modalContent').innerHTML,/FPS promedio/);
+ dom.get('labStop').onclick();
+ assert.equal(game.endurance.recording,false);
+ assert.equal(game.endurance.report().orientationChanges,1);
+ assert.equal(storage.getItem('ascii-azur-save-v1'),base,'local recording must never alter save');
+ game.reset();assert.equal(game.endurance.report().totalFrames,0,'new journey resets volatile measurement');
+});

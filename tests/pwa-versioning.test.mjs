@@ -23,7 +23,7 @@ function serviceWorker(){
  };
  const caches={
   open:async()=>cache,
-  keys:async()=>['ascii-azur-v052-q1','ascii-azur-v053-q1'],
+  keys:async()=>['unrelated-app-cache','ascii-azur-v054-q1','ascii-azur-v053-q1'],
   delete:async()=>true,
   match:async url=>cached.get(url)
  };
@@ -79,4 +79,29 @@ test('PWA does not intercept cross-origin or mutating requests',async()=>{
  const write=await sw.fire('fetch',{method:'POST',url:'https://azur.example/ASCII_AZUR/save'});
  assert.equal(cross,undefined);assert.equal(write,undefined);
  assert.equal(sw.requests.length,0);
+});
+
+// Offline release safety: activation may evict only this game's own old caches,
+// never other PWAs on the same host. A transient 503 can recover only same-release data.
+test('PWA avoids rewriting other same-origin project paths',async()=>{
+ const sw=serviceWorker();
+ const external=await sw.fire('fetch',{method:'GET',url:'https://azur.example/OTHER_GAME/dist/main.js'});
+ assert.equal(external,undefined);
+ assert.equal(sw.requests.length,0);
+});
+
+// Activation must not erase other PWA caches on a shared Pages origin.
+test('PWA install and activation retain unrelated caches while expiring ASCII AZUR versions',async()=>{
+ const listeners=new Map(),deleted=[];
+ const self={location:{href:'https://azur.example/ASCII_AZUR/sw.js'},addEventListener:(n,cb)=>listeners.set(n,cb),
+  skipWaiting:async()=>{},clients:{claim:async()=>{}}};
+ const caches={open:async()=>({addAll:async()=>{}}),
+  keys:async()=>['other-pwa-v4','ascii-azur-v054-q1','ascii-azur-v055-q1','ascii-azur-v053-q1'],
+  delete:async key=>{deleted.push(key);return true;}};
+ const sandbox={self,caches,URL,location:{origin:'https://azur.example'}};
+ vm.runInNewContext(fs.readFileSync('sw.js','utf8'),sandbox);
+ const pending=[];
+ listeners.get('activate')({waitUntil:p=>pending.push(p)});
+ await Promise.all(pending);
+ assert.deepEqual(deleted,['ascii-azur-v054-q1','ascii-azur-v053-q1']);
 });
