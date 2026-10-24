@@ -22,17 +22,6 @@ jobs:
         run: npm install --ignore-scripts --no-audit --no-fund
       - name: Compile and test source and offline dependencies
         run: npm run verify
-      - name: Browser integration acceptance — both modes and backends
-        if: (github.ref == 'refs/heads/main' || github.event_name == 'pull_request')
-        run: python3 tools/browser-acceptance.py
-      - name: Retain browser-rendered screenshots
-        if: always() && (github.ref == 'refs/heads/main' || github.event_name == 'pull_request')
-        uses: actions/upload-artifact@v4
-        with:
-          name: ascii-azur-renderer-evidence
-          path: artifacts/browser-acceptance/*.png
-          retention-days: 14
-          if-no-files-found: warn
       - name: Bundle standalone playable game
         run: python3 tools/build-standalone.py
       - name: Package release assets
@@ -56,10 +45,37 @@ jobs:
             dist/**
           retention-days: 3
 
+  browser:
+    name: Browser and turn-menu acceptance
+    if: github.ref == 'refs/heads/main' || github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Compile exact source for browser acceptance
+        run: npm install --ignore-scripts --no-audit --no-fund && npm run build
+      - name: Browser integration acceptance — both modes and backends
+        run: python3 tools/browser-acceptance.py
+      - name: Retain browser-rendered screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ascii-azur-renderer-evidence
+          path: artifacts/browser-acceptance/*.png
+          retention-days: 14
+          if-no-files-found: warn
+
   publish-pages:
     name: Publish validated game
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: verify
+    needs: [verify, browser]
     runs-on: ubuntu-latest
     permissions:
       contents: write
