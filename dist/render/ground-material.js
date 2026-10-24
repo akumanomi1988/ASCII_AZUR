@@ -3,7 +3,7 @@ import { stableVisualVariant } from './biome-art.js';
 const PATH_MOTIFS = {
     village: 'cobble', forest: 'leaf', sanctuary: 'sigil', marsh: 'reed', spire: 'shard', ossuary: 'shell', garden: 'frost'
 };
-const MOTIF_RATE = { path: .46, grass: .56, water: .40, stone: .28, ground: 0 };
+const MOTIF_RATE = { path: .24, grass: .29, water: .18, stone: .17, ground: 0 };
 export function pathMotif(zone) { return PATH_MOTIFS[zone]; }
 /** Landmarks get a clear visual apron; interaction silhouettes outrank texture. */
 export function isFocalGroundTile(zone, x, y) {
@@ -45,7 +45,7 @@ export function paintGroundMotifs(ctx, zone, surface, tileX, tileY, seed, screen
         ctx.save();
         ctx.translate(m.x, m.y);
         ctx.rotate(m.turn);
-        const s = m.scale;
+        const s = m.kind === 'cobble' ? m.scale * 1.65 : m.scale;
         ctx.globalAlpha = .22 + m.shade * .27;
         switch (m.kind) {
             case 'cobble':

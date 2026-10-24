@@ -1,6 +1,6 @@
 export const DEFAULT_GRAPHICS = {
     density: .32, glyphScale: .8, contrast: 1.18, edgeStrength: 1.2, brightness: .02, quality: 1,
-    renderMode: 'ascii', pixelDetail: 'balanced'
+    renderMode: 'glyph-pixel', pixelDetail: 'balanced'
 };
 const LIMITS = {
     density: [.18, 1.5], glyphScale: [.5, 1.85], contrast: [.65, 1.8],
@@ -17,7 +17,7 @@ export function readGraphics(raw) {
     const numbers = Object.fromEntries(Object.keys(LIMITS)
         .map(key => [key, boundGraphic(key, settings[key])]));
     return { ...numbers,
-        renderMode: settings.renderMode === 'glyph-pixel' ? 'glyph-pixel' : 'ascii',
+        renderMode: raw === null || raw === undefined ? 'glyph-pixel' : settings.renderMode === 'glyph-pixel' ? 'glyph-pixel' : 'ascii',
         pixelDetail: settings.pixelDetail === 'fine' || settings.pixelDetail === 'chunky' ? settings.pixelDetail : 'balanced'
     };
 }
