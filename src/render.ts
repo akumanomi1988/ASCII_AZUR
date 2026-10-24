@@ -574,6 +574,14 @@ function drawGround(ctx:CanvasRenderingContext2D,zone:ZoneId,camX:number,camY:nu
     }else if(tile==='grass'){
       // Full bleed: isolated transparent inner-tile rectangles looked like a grid.
       ctx.fillStyle=a.grass;ctx.globalAlpha=.44;ctx.fillRect(xx,yy,TILE+1,TILE+1);ctx.globalAlpha=1;
+    }else if(tile==='ground'){
+      // Rare calm low-frequency stone clusters break up large fields without text noise.
+      if(k>.95&&!isFocalGroundTile(zone,x,y)){
+        const px=xx+8+Math.floor(hash(x*9,y,z.seed+194)*22),py=yy+15+Math.floor(hash(x,y*13,z.seed+207)*16);
+        ctx.fillStyle=a.soilMark;ctx.globalAlpha=.32;
+        ctx.fillRect(px,py,13,5);ctx.fillRect(px+3,py-3,7,3);
+        ctx.globalAlpha=1;
+      }
     }else if(tile==='stone'){
       ctx.fillStyle=a.stoneDark;ctx.globalAlpha=.67;ctx.fillRect(xx,yy,TILE+1,TILE+1);
       ctx.fillStyle=a.stoneMid;ctx.globalAlpha=.26;
