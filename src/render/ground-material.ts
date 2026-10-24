@@ -11,7 +11,7 @@ export interface GroundMotif {
 const PATH_MOTIFS:Readonly<Record<ZoneId,GroundMotifKind>>={
   village:'cobble',forest:'leaf',sanctuary:'sigil',marsh:'reed',spire:'shard',ossuary:'shell',garden:'frost'
 };
-const MOTIF_RATE:Readonly<Record<GroundSurface,number>>={path:.24,grass:.29,water:.18,stone:.17,ground:0};
+const MOTIF_RATE:Readonly<Record<GroundSurface,number>>={path:0,grass:.14,water:.12,stone:.08,ground:0};
 export function pathMotif(zone:ZoneId):GroundMotifKind{return PATH_MOTIFS[zone];}
 /** Landmarks get a clear visual apron; interaction silhouettes outrank texture. */
 export function isFocalGroundTile(zone:ZoneId,x:number,y:number):boolean{
