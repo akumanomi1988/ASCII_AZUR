@@ -140,3 +140,8 @@ Path and bare soil no longer produce tiny disconnected source primitives that be
 ### v0.50 ground performance architecture
 
 Static world terrain now uses a bounded 24-entry, 8×8-tile LRU of offscreen Canvas2D chunks. Visible soil and path shapes are rasterized once per world revision, while moving characters, atmospheric effects and lighting continue to render live. Reconfiguring or loading a saved world invalidates the cache, preserving deterministic generated worlds and the existing v1 saves. The cache is presentation-only and does not change gameplay or imply physical-device FPS certification.
+
+
+### v0.55 — Local release endurance laboratory (opt-in)
+
+From **Settings → LABORATORIO DE ESTABILIDAD**, manually start a frame-cadence test, explore and fight, then stop and export `ascii-azur-endurance.json`. The report is local-only, constant-memory and separates exploration, battle, crypt and menus with viewport/orientation changes. It measures visible browser frame intervals, **not** GPU time, true phone power/heat or independent game-quality approval. Restarting a campaign or reloading clears the volatile measurement, never a saved journey. The exact real Android and external-player acceptance checklist lives in `docs/ANDROID_RELEASE_ACCEPTANCE.md`. All existing saves remain version 1.
