@@ -19,6 +19,7 @@ test('five hand-authored tree families have distinct and bounded solid-pixel sil
  }
  assert.equal(signatures.size,5);
  assert.equal(treePixelCells('ash-oak',2).length,treePixelCells('ash-oak',0).length);
+ assert.notDeepEqual(treePixelCells('ash-oak',2).map(p=>p.x),treePixelCells('ash-oak',0).map(p=>p.x),'per-tree shape variants should break tiled repetition');
 });
 
 test('every biome retains a unique palette and correct authored object family',()=>{
