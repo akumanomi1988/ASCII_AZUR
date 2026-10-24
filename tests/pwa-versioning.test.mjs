@@ -57,7 +57,7 @@ test('PWA fetch bypasses stale unversioned JS cache and restores offline from ma
  const first=await sw.fire('fetch',request);
  assert.ok(first?.ok);
  const last=sw.requests.at(-1);
- assert.equal(new URL(last.url).searchParams.get('__azur_release'),'047');
+ assert.equal(new URL(last.url).searchParams.get('__azur_release'),'048');
  assert.equal(last.cache,'reload');
  assert.ok(sw.cached.has(last.url));
  sw.setOffline(true);
