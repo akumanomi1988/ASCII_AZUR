@@ -76,7 +76,10 @@ test('ground-decoration budget preserves clear routes and authored focal aprons 
     assert.equal(groundMotifs(zone,'path',x,y,ZONES[zone].seed).length,count);
     assert.equal(groundMotifs(zone,'ground',x,y,412).length,0);
    }
-   assert.ok(decorated>180&&decorated<540,zone+' path needs restrained but visible authored accents: '+decorated);
+   assert.equal(decorated,0,zone+' paths must not contain isolated glyph-like debris');
+   let natural=0;
+   for(let y=3;y<29;y++)for(let x=3;x<43;x++)natural+=groundMotifBudget(zone,'grass',x,y,ZONES[zone].seed);
+   assert.ok(natural>30&&natural<220,zone+' greenery should retain sparse authored motifs: '+natural);
    for(const landmark of ZONES[zone].landmarks){
     for(let dy=-2;dy<=2;dy++)for(let dx=-2;dx<=2;dx++){
      const x=landmark.x+dx,y=landmark.y+dy;
