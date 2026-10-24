@@ -72,3 +72,14 @@ The existing fixed quality score and **20/32, 67.50% weighted** milestone
 baseline cannot be raised merely for producing source, simulated gestures or
 more synthetic frames. This is technical delivery of the instrumentation/
 emulation portion of closure block 4, not completion of all external gates.
+
+
+## Observed v0.55.0 engineering release acceptance — 2026-10-24
+
+- [PR #32](https://github.com/akumanomi1988/ASCII_AZUR/pull/32) merged as `3b974f429c418dc5c8c32964f20c9ea73cefc4af`. The public production source is `9de648b85ad52014bf591379f9d9a5cd43258e18` (includes documentation acceptance only after the squash merge).
+- Final feature PR [CI 40109745839](https://github.com/akumanomi1988/ASCII_AZUR/actions/runs/40109745839) **SUCCESS**; final main [CI 40110024127](https://github.com/akumanomi1988/ASCII_AZUR/actions/runs/40110024127) **SUCCESS**, with `verify`, `Browser and turn-menu acceptance` and `Publish validated game` all successful.
+- **375/375 Node tests, zero failures**; 150 complete real-command scripted trilogy sessions / 450 chapter reloads, 12 earned-progression Afterlight journeys, 180,000-frame lab simulation, save/PWA regressions; TS and standalone package (620,165 bytes) PASS; audit **54 reachable compiled JS modules, 57 offline assets cached**.
+- Four desktop renderer/backend combinations PASS (32 scene/battle captures), plus real Chromium portrait and landscape viewport with synthetic pointer movement, controls, local report export, save reload and settings persistence; zero JS errors, separate `ascii-azur-mobile-viewport-evidence` JSON artifacts. This is **not real Android digitizer/GPU/thermal evidence**.
+- [Pages workflow 40110405907](https://github.com/akumanomi1988/ASCII_AZUR/actions/runs/40110405907) **SUCCESS**. `gh-pages` at `287755cf567f572b47db07f8d0efa8520a1cfabb` publishes HTML `WORLD ENGINE v0.55.0`, cache `ascii-azur-v055-q1`, compiled EnduranceLab and exact `build-info.json.source_commit=9de648b85ad52014bf591379f9d9a5cd43258e18`.
+- Direct external `github.io` HTTP/client smoke from this environment: **NOT VERIFIED** (host inaccessible). GitHub Actions success is separately verified, not mistaken for browser boot.
+- Milestones remain **20/32, weighted 67.50%**, quality mean 2.5/5. Block 4's engineering components are shipped, but G4/U2/A3 and external human release gates remain **OPEN** until real test records exist.
