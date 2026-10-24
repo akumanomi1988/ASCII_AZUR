@@ -166,3 +166,8 @@ Scope: authored biome silhouettes, cached pixel scenery, stepped cottages, clean
 ## v0.48.1 — Ground artifact follow-up
 
 Player visual feedback: Atmospheric ASCII microscopic is preferred, with well-articulated objects but stray letter clusters on the floor. Reproduced visually in Arken. Remedy: avoid small isolated path/soil primitives, soften edge bands and reduce natural debris budget. Keep asset silhouettes/palettes/legacy settings unchanged. Gate: verified unit/browser CI, public Pages exact source hash and visual smoke.
+
+
+## MACROITERATION v0.49 — Glyph grammar, paths and six landmark families (2026-10-24)
+
+Feature candidate on `agent/v049-glyph-architecture-world-icons` from verified main `8c2fb74bff75f1ef24533afbca9df7733bb319e0`. The world path uses deterministic stepped corner geometry; terrain/boundary ink no longer emits random letters or numbers; six cached hand-authored landmarks are palette-derived across seven regions. Pure tests guard contour/path semantics, glyph-index compatibility and 42 biome/asset combinations. World movement and save-v1 data are untouched. Release evidence (CI, Chromium, Pages provenance) must be attached after execution, never assumed. No G2 human approval nor Android G4 hardware measurement is claimed; weighted global **67.50%** remains unchanged.

@@ -1,4 +1,6 @@
-# ASCII AZUR v0.47.0 — The Unwritten
+# ASCII AZUR v0.49.0 — The Unwritten
+
+> **v0.49 candidate — Authored world landmarks:** six interactive pixel silhouettes, seven biome palettes, neighbor-connected stepped path edges and a punctuation-only Atmospheric ASCII micro-glyph ramp remove pseudo-text on terrain. Four renderer/backend checks and independent visual acceptance remain separate gates.
 
 > **v0.45 released — Glyph Pixel Art fallback clarity:** Canvas2D now composites a contiguous semantic pixel scene at a bounded 192–480-pixel internal width, preserving full actor and landmark silhouettes rather than reducing each to oversized abstract glyph cells. Sparse foreground glyph accents appear only at meaningful high-contrast edges. This avoids a full output-sized software ImageData write each frame. The original Atmospheric ASCII path, world topology, gameplay and save format are untouched. Automated browser/Node CI and Pages provenance have passed; real minimum Android hardware evaluation remains outstanding.
 

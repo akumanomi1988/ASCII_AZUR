@@ -43,3 +43,10 @@ This update is **visual-only**: no collision, terrain, encounters, save schema o
 ## v0.48.1 — Ground legibility correction
 
 Microscopic Atmospheric ASCII revealed spurious floating characters caused by tiny isolated source-painted cobbles and pebbles. Roads and bare ground now carry **no incidental micro-motifs**, and their boundary rim is subdued. Grass, water and stone retain fewer deliberate motifs so the world does not become sterile. Authored trees, buildings, characters and world geometry are unchanged. The mode still displays glyph ink for genuine scene boundaries; renderer-level semantic segmentation remains a separate art-direction opportunity.
+
+## v0.49 — Scene landmark atlas and non-verbal microscopic glyph grammar
+
+- All six interactive world landmarks (portal, altar, memory, verdict, rune and chest) now use authored, cached, pixel-aligned masks with a shared six-tone material language. The same geometry is recolored through each of the seven existing biome palettes. Beacons remain legible and all positions, activation rules, collisions and saves stay unchanged.
+- Microscopic Atmospheric ASCII now uses abstract punctuation and architectural glyphs for its low/middle ink ramp. Incidental alphanumeric clusters can no longer spell misleading words or numbers across path boundaries. The original four contiguous Unicode block glyphs are untouched for Glyph Pixel Art.
+- Navigable path tiles receive deterministic neighbor-aware stepped corner cuts at true isolated corners. Continuous straight corridors have no cuts; the traversability model remains authoritative. There are no random path/soil decorations.
+- Acceptance: authored shape/budget/contour/ramp tests, full TypeScript + Node + PWA release audit, all four browser renderer/mode configurations with seven-region screenshots. G2 still requires independent visual signoff; physical Android GPU/Canvas2D FPS and battery are G4.
