@@ -242,3 +242,8 @@ Individual potential, permanent learned techniques/four active slots, classic co
 ## v0.53 — World/exploration closure block
 
 Regional objective truth, finite recognitions, persistent fog-respecting tracking, visited-only Lumbre travel and full Afterlight epilogues are implemented as closure block 2. The 200-seed objective/snapshot gate and 12 earned-progression main-plus-Afterlight branch journeys strengthen W4 and Q3 evidence. W4 remains OPEN for its fixed independent human mobile navigation criterion; other external/hardware gates retain their definitions. No fixed milestone or phase weight changes. **20/32, weighted 67.50%** until the remaining acceptance evidence exists.
+
+
+## v0.55 — opt-in release endurance laboratory and simulated mobile QA (2026-10-24)
+
+Local, bounded phase-specific rAF frame-cadence capture and player-directed JSON export, two real Chromium viewport end-to-end runs (portrait/landscape, synthetic touch, reload, settings), same-origin PWA scope safety and long-running deterministic Node regressions are now implemented and published. Main Actions 40110024127 and Pages 40110405907 both SUCCESS, with 375 Node tests and full campaign/Afterlight regression matrix. Hardware G4/U2/A3, external W4/C4/P4/N4/U4, artistic G2/A2/A4 and Q4 independent release acceptance are **not complete**; this code does not reclassify them. **20/32, weighted 67.50%** remains the fixed verified project progress.
