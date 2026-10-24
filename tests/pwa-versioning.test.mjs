@@ -23,7 +23,7 @@ function serviceWorker(){
  };
  const caches={
   open:async()=>cache,
-  keys:async()=>['ascii-azur-v052-q1','ascii-azur-v053-q1'],
+  keys:async()=>['unrelated-app-cache','ascii-azur-v054-q1','ascii-azur-v053-q1'],
   delete:async()=>true,
   match:async url=>cached.get(url)
  };
@@ -78,5 +78,14 @@ test('PWA does not intercept cross-origin or mutating requests',async()=>{
  const cross=await sw.fire('fetch',{method:'GET',url:'https://other.example/main.js'});
  const write=await sw.fire('fetch',{method:'POST',url:'https://azur.example/ASCII_AZUR/save'});
  assert.equal(cross,undefined);assert.equal(write,undefined);
+ assert.equal(sw.requests.length,0);
+});
+
+// Offline release safety: activation may evict only this game's own old caches,
+// never other PWAs on the same host. A transient 503 can recover only same-release data.
+test('PWA avoids rewriting other same-origin project paths',async()=>{
+ const sw=serviceWorker();
+ const external=await sw.fire('fetch',{method:'GET',url:'https://azur.example/OTHER_GAME/dist/main.js'});
+ assert.equal(external,undefined);
  assert.equal(sw.requests.length,0);
 });
