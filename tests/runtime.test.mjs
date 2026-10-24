@@ -1084,3 +1084,39 @@ test('runtime: encounter sightings persist and research rewards are claimable on
  assert.match(dom.get('modalContent').innerHTML,/RECLAMADO/);
  assert.match(dom.get('modalContent').innerHTML,/Mireling/);
 });
+
+test('runtime: first regional chapter title is nonblocking, transient and never repeats on return',()=>{
+ const {game,dom,storage,flushTimers}=mount({virtualTime:true,seed:27});
+ game.startNew();game.pickStarter('velaria');while(game.dialogOpen)game.nextDialog();
+ game.openQuests();
+ assert.match(dom.get('modalContent').innerHTML,/CRÓNICA/);
+ assert.match(dom.get('modalContent').innerHTML,/data-chronicle="arken"/);
+ const saveBefore=storage.getItem('ascii-azur-save-v1');
+ game.hideModal();
+ assert.equal(storage.getItem('ascii-azur-save-v1'),saveBefore,'read-only chronicle must never write');
+ game.interactLandmark({x:43,y:16,kind:'portal',label:'Bosque'});
+ assert.equal(game.save.zone,'forest');
+ assert.match(dom.get('chapterHeading').textContent,/ceniza aprende a hablar/);
+ assert.equal(dom.get('chapterCard').classList.contains('hidden'),false);
+ assert.equal(dom.get('chapterCard').dataset.tone,'arrival');
+ flushTimers();
+ assert.equal(dom.get('chapterCard').classList.contains('hidden'),true);
+ game.interactLandmark({x:4,y:16,kind:'portal',label:'Arken'});
+ game.interactLandmark({x:43,y:16,kind:'portal',label:'Bosque'});
+ assert.equal(dom.get('chapterCard').classList.contains('hidden'),true,'revisiting a known region cannot replay first-visit scene');
+});
+test('runtime: a chapter milestone cues a title once, without extra rewards or persistent presentation flags',()=>{
+ const {game,dom,storage,flushTimers}=mount({virtualTime:true,seed:14});
+ game.startNew();game.pickStarter('cindrel');while(game.dialogOpen)game.nextDialog();
+ game.addFlag('marsh-chapter-complete');
+ assert.match(dom.get('chapterHeading').textContent,/mapa de las vidas posibles/);
+ assert.equal(dom.get('chapterCard').dataset.tone,'memory');
+ const flagsBefore=[...game.save.flags];
+ const echoes=game.economy.echoes,items={...game.save.inventory};
+ flushTimers();game.addFlag('marsh-chapter-complete');
+ assert.equal(dom.get('chapterCard').classList.contains('hidden'),true);
+ assert.deepEqual([...game.save.flags],flagsBefore);
+ assert.equal(game.economy.echoes,echoes);
+ assert.deepEqual({...game.save.inventory},items);
+ assert.ok(storage.getItem('ascii-azur-save-v1'),'game save remains available');
+});
