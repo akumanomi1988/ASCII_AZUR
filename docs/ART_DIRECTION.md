@@ -38,3 +38,8 @@ Automated tests prove deterministic budgets and renderer stability; they do not 
 - **QA:** all five sprite masks and all seven biome palettes need deterministic tests, four browser rendering configurations, screenshots and original v1 save compatibility. Visual/art director acceptance still requires independent inspection; a green visual smoke test does not automatically close G2.
 
 This update is **visual-only**: no collision, terrain, encounters, save schema or RPG mechanics may be changed.
+
+
+## v0.48.1 — Ground legibility correction
+
+Microscopic Atmospheric ASCII revealed spurious floating characters caused by tiny isolated source-painted cobbles and pebbles. Roads and bare ground now carry **no incidental micro-motifs**, and their boundary rim is subdued. Grass, water and stone retain fewer deliberate motifs so the world does not become sterile. Authored trees, buildings, characters and world geometry are unchanged. The mode still displays glyph ink for genuine scene boundaries; renderer-level semantic segmentation remains a separate art-direction opportunity.

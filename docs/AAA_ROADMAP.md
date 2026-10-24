@@ -211,3 +211,8 @@ The authored three-chapter storyline now has a scripted conclusion and automated
 Implemented in source: five authored pixel-aligned foliage silhouette families with cached 5px sprite masks; stepped village architecture; continuous and less cluttered soil/grass/water/stone materials; distinct seven-zone palettes retained; brighter shape-first WebGL2/Canvas2D glyph composition; new players default to Glyph Pixel Art while saved settings preserve old choices. New deterministic visual regression tests protect assets, shared modes, compatibility and world snapshots.
 
 **G2 remains [ ]** until independent desktop/mobile before-and-after screenshot approval. **G4 remains [ ]** pending sustained >=30 FPS on the designated physical Android minimum device. No graphical implementation by itself changes the fixed weighted 67.50% score. Reference: v0.48 implementation branch and CI/Pages proof recorded in the delivery report.
+
+
+## v0.48.1 — Microscopic ASCII ground artifact remediation (2026-10-24)
+
+Ground micro-motifs created unintended clusters of random alphanumeric glyphs in microscopic Atmospheric ASCII. Source terrain now omits all path/soil pebble marks, renders gentler path rims and conservatively retains natural water/grass/stone accents. Deterministic motif-budget tests and the four Chromium renderer/browser checks are release criteria. World generation, movement, battle and save-v1 data remain untouched. G2 independent art acceptance and G4 Android hardware measurements remain OPEN; weighted score stays 67.50%.

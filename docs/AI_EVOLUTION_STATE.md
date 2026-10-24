@@ -161,3 +161,8 @@ The next production-risk slice targets stale browser tabs and quota/interrupted 
 ## MACROITERATION v0.48 — G2 visual art system (2026-10-24)
 
 Scope: authored biome silhouettes, cached pixel scenery, stepped cottages, clean terrain materials, less dense glyph compositor in both profiles, Glyph Pixel Art first-run preference, preserved legacy graphics and save v1, new deterministic tests and four-renderer CI acceptance. Track G2 as OPEN pending independent visual approval and G4 OPEN pending physical device data. Weighted project completion remains 67.50%, 20/32 gates.
+
+
+## v0.48.1 — Ground artifact follow-up
+
+Player visual feedback: Atmospheric ASCII microscopic is preferred, with well-articulated objects but stray letter clusters on the floor. Reproduced visually in Arken. Remedy: avoid small isolated path/soil primitives, soften edge bands and reduce natural debris budget. Keep asset silhouettes/palettes/legacy settings unchanged. Gate: verified unit/browser CI, public Pages exact source hash and visual smoke.
