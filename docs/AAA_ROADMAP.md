@@ -216,3 +216,7 @@ Implemented in source: five authored pixel-aligned foliage silhouette families w
 ## v0.48.1 — Microscopic ASCII ground artifact remediation (2026-10-24)
 
 Ground micro-motifs created unintended clusters of random alphanumeric glyphs in microscopic Atmospheric ASCII. Source terrain now omits all path/soil pebble marks, renders gentler path rims and conservatively retains natural water/grass/stone accents. Deterministic motif-budget tests and the four Chromium renderer/browser checks are release criteria. World generation, movement, battle and save-v1 data remain untouched. G2 independent art acceptance and G4 Android hardware measurements remain OPEN; weighted score stays 67.50%.
+
+## v0.49 — Authored landmark scenery and readable microscopic edge grammar (2026-10-24)
+
+The six interactive landmark categories receive pixel-authored cached silhouettes, colored by all seven existing biomes; path corners use neighbor-aware stepped contours and Atmospheric ASCII no longer prints random letters or digits along mid-frequency edges. This is visual-only: procedural world topology, game rules, collisions, combat and save-v1 remain intact. Automated acceptance includes asset uniqueness, seven-biome palette validity, path connectivity invariants, compositor glyph contracts, four Chromium renderer configurations, TypeScript/Node/release checks and screenshot review. **G2 human art-quality and G4 physical Android criteria remain OPEN.** The fixed global baseline remains **20/32 gates, 67.50% weighted** until independently verified acceptance is obtained.
