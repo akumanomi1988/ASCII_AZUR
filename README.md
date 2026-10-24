@@ -1,4 +1,4 @@
-# ASCII AZUR v0.46.0 — The Unwritten
+# ASCII AZUR v0.47.0 — The Unwritten
 
 > **v0.45 released — Glyph Pixel Art fallback clarity:** Canvas2D now composites a contiguous semantic pixel scene at a bounded 192–480-pixel internal width, preserving full actor and landmark silhouettes rather than reducing each to oversized abstract glyph cells. Sparse foreground glyph accents appear only at meaningful high-contrast edges. This avoids a full output-sized software ImageData write each frame. The original Atmospheric ASCII path, world topology, gameplay and save format are untouched. Automated browser/Node CI and Pages provenance have passed; real minimum Android hardware evaluation remains outstanding.
 
@@ -14,6 +14,10 @@ RPG de captura de criaturas y fantasía oscura, con mundo ASCII generado mediant
 
 
 > **v0.46 candidate — Atlas wayfinding and seven-region traversal QA:** Discovered landmarks can now be selected from the in-game Atlas as temporary destinations. The story compass gives collision-aware walking directions, and the map draws only already revealed route segments. A deterministic 200-saved-seed test checks paths to every authored landmark and roaming witness across all seven regions, with swept-movement samples. These gates do not replace human mobile acceptance.
+
+## v0.47.0 — Investigación de vínculos
+
+El Bestiario conserva los avistamientos obtenidos al entrar en combate y registra vínculos a través de capturas, criaturas del equipo y reserva, y evoluciones futuras. Cada criatura muestra pistas de los hábitats donde puede encontrarse; las especies no identificadas conservan su identidad oculta. Cuatro hitos de colección (3, 7, 12 y 17 especies distintas) ofrecen recursos y Ecos limitados, reclamables exactamente una vez por campaña y sin modificar las reglas base de combate ni el formato de guardado v1. Los guardianes no cuentan como capturables. El progreso se mantiene al reanudar una partida, con pruebas de idempotencia, capacidad y Chromium. **La validación humana de ritmo y economía continúa pendiente.**
 
 ## v0.39.0 — Protección de partidas
 
