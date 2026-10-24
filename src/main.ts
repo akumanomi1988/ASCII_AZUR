@@ -1,3 +1,4 @@
+import {regionalSurvey,regionalObjectives,regionKnown,regionUnlocked,resolveFieldTarget,planFieldTarget,planSurveyClaim,planLumbreTravel,travelRefusal,nextFieldPortal,afterlightOverview,type FieldTarget} from './world/field-journal.js';
 import {individualRange,ATTRIBUTE_KEYS} from './creatures/attributes.js';
 import {establishPrimary,loseCryptCompanion} from './creatures/crypt-mortality.js';
 import {RELICS,RELIC_IDS,CACHE_RELICS,RELIC_COPY_LIMIT,freeRelicCopies,setCreatureRelic,buyRelic,grantRelic,type RelicId} from './creatures/equipment.js';
@@ -202,10 +203,11 @@ class AzurGame {
   private mountDrawer(){
     // Reparent existing controls; same DOM nodes and event listeners, including in fullscreen.
     byId('drawerActions').append(byId('teamBtn'),byId('bagBtn'),byId('saveBtn'));
-    const extra=document.createElement('div');extra.className='drawer-actions extended';extra.innerHTML='<button id="questsBtn">✧ MISIONES</button><button id="codexBtn">❖ BESTIARIO</button><button id="mapBtn">◇ MAPA</button><button id="routeBtn">♧ RUTA ELEMENTAL</button><button id="expeditionsBtn">✦ EXPEDICIONES</button><button id="dungeonBtn">♜ CRIPTA EXPLORABLE</button><button id="duelBtn">⚔ COMBATE DIRECTO</button><button id="graphicsBtn">⚙ OPCIONES GRÁFICAS</button>';
+    const extra=document.createElement('div');extra.className='drawer-actions extended';extra.innerHTML='<button id="questsBtn">✧ MISIONES</button><button id="codexBtn">❖ BESTIARIO</button><button id="mapBtn">◇ MAPA</button><button id="fieldJournalBtn">✧ DIARIO DE CAMPO</button><button id="routeBtn">♧ RUTA ELEMENTAL</button><button id="expeditionsBtn">✦ EXPEDICIONES</button><button id="dungeonBtn">♜ CRIPTA EXPLORABLE</button><button id="duelBtn">⚔ COMBATE DIRECTO</button><button id="graphicsBtn">⚙ OPCIONES GRÁFICAS</button>';
     byId('drawerActions').after(extra);
     extra.querySelector('#questsBtn')?.addEventListener('click',()=>this.openQuests());
     extra.querySelector('#codexBtn')?.addEventListener('click',()=>this.openCodex());
+    extra.querySelector('#fieldJournalBtn')?.addEventListener('click',()=>this.openFieldJournal());
     extra.querySelector('#mapBtn')?.addEventListener('click',()=>this.openMap());
     extra.querySelector('#routeBtn')?.addEventListener('click',()=>this.openRoutePlan());
     extra.querySelector('#expeditionsBtn')?.addEventListener('click',()=>this.openExpedition());
@@ -315,7 +317,7 @@ class AzurGame {
   private nearRoamer(){return nearbyEncounter(this.roamers(),this.save.flags,this.save.x,this.save.y,1.8);}
   private interactLandmark(l:Landmark){switch(l.kind){case 'npc':if(this.save.zone==='ossuary'||this.save.zone==='garden')this.interactAfterlightNpc(this.save.zone);else this.interactNpc(l.npcId as NpcId||'archivist');break;
     case 'rune':this.openRune(this.save.zone as RuneLocation);break;
-    case 'altar':{recordJourney(this.save,'rests');const firstVisit=!this.flag('altar-'+this.save.zone);const awarded=firstVisit&&this.save.inventory.seals<9;this.save.team.forEach(c=>c.hp=maxHp(c));if(awarded)this.save.inventory.seals++;this.encounterCooldown=4;this.addFlag('altar-'+this.save.zone);this.sound.pick();this.toast(awarded?'VÍNCULOS SANADOS · +1 SELLO POR DESCUBRIR LA LUMBRE':'VÍNCULOS SANADOS · SIN NUEVO SELLO');this.saveNow(false);this.offerBondTrial();break;}
+    case 'altar':{recordJourney(this.save,'rests');const firstVisit=!this.flag('altar-'+this.save.zone);const awarded=firstVisit&&this.save.inventory.seals<9;this.save.team.forEach(c=>c.hp=maxHp(c));if(awarded)this.save.inventory.seals++;this.encounterCooldown=4;this.addFlag('altar-'+this.save.zone);this.sound.pick();this.toast((awarded?'VÍNCULOS SANADOS · +1 SELLO POR DESCUBRIR LA LUMBRE':'VÍNCULOS SANADOS · SIN NUEVO SELLO')+' · VIAJES EN DIARIO DE CAMPO');this.saveNow(false);this.offerBondTrial();break;}
     case 'chest':{const relicId=CACHE_RELICS[this.save.zone];const relicFound=relicId&&grantRelic(this.save,relicId,'relic-cache-'+this.save.zone);if(relicFound){this.toast('RELIQUIA · '+RELICS[relicId].name.toUpperCase());this.saveNow(false);}const id=`chest-${this.save.zone}-${l.x}`;if(this.flag(id)){if(!relicFound)this.toast('EL COFRE ESTÁ VACÍO');break;}this.addFlag(id);this.save.inventory.seals=Math.min(9999,this.save.inventory.seals+3);this.save.inventory.tonics=Math.min(9999,this.save.inventory.tonics+2);this.economy.echoes=Math.min(999999,this.economy.echoes+25);this.sound.pick();this.dialog([{title:'Un juramento olvidado',text:`${relicFound?'También encuentras '+RELICS[relicId!].name+'. ':''}Encuentras 3 Sellos de Vínculo, 2 Tónicos y 25 Ecos. El metal conserva una inscripción: «Nadie desaparece mientras alguien lo recuerde».`} ]);break;}
     case 'memory':{
       if(this.save.zone==='ossuary'||this.save.zone==='garden'){this.interactAfterlightMemory(this.save.zone,l);break;}
@@ -370,6 +372,7 @@ class AzurGame {
       this.dialog([{title:chapter.keeper,text:chapter.intro[0]!},{title:chapter.title.toUpperCase(),text:chapter.intro[1]!}]);return;
     }
     if(progress.complete){
+      const epilogue=afterlightFlag(zone,'epilogue');if(!this.flag(epilogue)&&this.save.flags.length<200){this.addFlag(epilogue);this.saveNow(false);}
       const lines=zone==='garden'?afterlightEpilogue(this.save.flags):['Los nombres han elegido su lugar en la marea. El Jardín de la Última Escarcha ya puede abrirse.'];
       this.dialog(lines.map((text,i)=>({title:i===0?chapter.keeper:'LA VIGILIA CONTINÚA',text})));return;
     }
@@ -922,12 +925,15 @@ class AzurGame {
       const state=p.stage==='claimed'?'✓ '+(p.path==='fang'?'FILO':'VELO'):p.stage==='ready'?'DISPONIBLE':p.creatureReady?'BUSCA RECUERDOS':'DESPIERTA';
       return `<div class="modal-option"><div><strong>${htmlEscape(arc.title)}</strong><small>${htmlEscape(arc.hint)}</small><small>${p.memories}/${arc.prerequisiteFlags.length} recuerdos · ${p.creatureReady?'CRIATURA LISTA':'CRIATURA PENDIENTE'}</small></div><span class="quest-state ${p.stage==='claimed'?'done':''}">${state}</span></div>`;
     }).join('');
+    const pilgrimage=afterlightOverview(this.save);
+    const pilgrimagePanel=this.flag('crown-trilogy-complete')?`<div class="modal-content-block"><strong>VIGILIA DE LAS DOS AUSENCIAS · ${pilgrimage.done}/${pilgrimage.total}</strong><p>La historia principal está cerrada. Quedan dos capítulos completos de exploración, decisiones y epílogos.</p><button id="followPilgrimage">CONTINUAR LA VIGILIA</button></div>`:'';
     const travel=campaignRoadbook(this.storyState,this.save.team,this.save.inventory);
     const progressPanel=`<div class="modal-content-block"><strong>ATLAS DEL VIAJE · ${travel.completed}/${travel.total} HITOS · ${travel.percentage}%</strong><p>${travel.chapters.map(c=>`${htmlEscape(c.name)}: ${c.done}/${c.total} ${c.status==='done'?'✓':c.status==='active'?'◆':'○'}`).join(' · ')}</p><p>OBJETIVO · ${htmlEscape(travel.objective)}</p><p>Equipo: ${this.save.team.filter(c=>c.hp>0).length}/${this.save.team.length} conscientes · ${this.save.inventory.tonics} Tónicos · ${this.save.inventory.seals} Sellos${travel.counter?' · Contraataque: '+htmlEscape(travel.counter):''}.</p>${travel.advice.map(t=>`<p>✦ ${htmlEscape(t)}</p>`).join('')}<p>Este atlas no cambia el guardado ni concede recursos.</p></div>`;
-    this.showModal('DIARIO · MISIONES',`<div class="modal-content-block"><strong>REGISTRO DEL VIAJE</strong><p>${this.save.journey?.counters.wins??0} victorias · ${this.save.journey?.counters.losses??0} derrotas · ${this.save.journey?.counters.tonics??0} tónicos usados. Datos locales desde ${this.save.journey?.starter==='unknown'||!this.save.journey?'esta actualización':'el inicio de este viaje'}.</p><button id="exportPlaytest">EXPORTAR REGISTRO DE PRUEBAS</button></div>`+progressPanel+mainQuest+chapter+finale+afterlight+`<div class="modal-content-block"><strong>JURAMENTOS DE VÍNCULO · ${BOND_ARCS.filter(a=>bondProgress(a,this.save.flags,[...this.save.team,...this.save.storage]).stage==='claimed').length}/${BOND_ARCS.length}</strong><p>Despierta a tus criaturas, descubre memorias y regresa a cada Lumbre para elegir un don permanente.</p></div>`+bonds+`<div class="shop-balance">${this.economy.echoes} ECOS · ${this.economy.completed.length}/${QUESTS.length} ENCARGOS SECUNDARIOS</div>`+QUESTS.map(q=>`<div class="modal-option"><div><strong>${htmlEscape(q.name)}</strong><small>${htmlEscape(q.description)}</small><small>RECOMPENSA · ${q.reward} ECOS</small></div><span class="quest-state ${this.economy.completed.includes(q.id)?'done':''}">${this.economy.completed.includes(q.id)?'✓ HECHA':'PENDIENTE'}</span></div>`).join(''));
-    byId('exportPlaytest').onclick=()=>this.exportPlaytest();
+    this.showModal('DIARIO · MISIONES',`<div class="modal-content-block"><strong>REGISTRO DEL VIAJE</strong><p>${this.save.journey?.counters.wins??0} victorias · ${this.save.journey?.counters.losses??0} derrotas · ${this.save.journey?.counters.tonics??0} tónicos usados. Datos locales desde ${this.save.journey?.starter==='unknown'||!this.save.journey?'esta actualización':'el inicio de este viaje'}.</p><button id="exportPlaytest">EXPORTAR REGISTRO DE PRUEBAS</button></div>`+`<div class="modal-content-block"><button id="openFieldFromQuests">DIARIO DE CAMPO · OBJETIVOS Y RECOMPENSAS</button></div>`+progressPanel+mainQuest+chapter+finale+pilgrimagePanel+afterlight+`<div class="modal-content-block"><strong>JURAMENTOS DE VÍNCULO · ${BOND_ARCS.filter(a=>bondProgress(a,this.save.flags,[...this.save.team,...this.save.storage]).stage==='claimed').length}/${BOND_ARCS.length}</strong><p>Despierta a tus criaturas, descubre memorias y regresa a cada Lumbre para elegir un don permanente.</p></div>`+bonds+`<div class="shop-balance">${this.economy.echoes} ECOS · ${this.economy.completed.length}/${QUESTS.length} ENCARGOS SECUNDARIOS</div>`+QUESTS.map(q=>`<div class="modal-option"><div><strong>${htmlEscape(q.name)}</strong><small>${htmlEscape(q.description)}</small><small>RECOMPENSA · ${q.reward} ECOS</small></div><span class="quest-state ${this.economy.completed.includes(q.id)?'done':''}">${this.economy.completed.includes(q.id)?'✓ HECHA':'PENDIENTE'}</span></div>`).join(''));
+    byId('exportPlaytest').onclick=()=>this.exportPlaytest();byId('openFieldFromQuests').onclick=()=>this.openFieldJournal();
+    const follow=byId('modalContent').querySelector<HTMLButtonElement>('#followPilgrimage');if(follow)follow.onclick=()=>{this.hideModal();this.atlasTarget=null;this.clearFieldTarget();this.updateStoryCompass();};
   }
-  private exportPlaytest(){const blob=new Blob([JSON.stringify(journeyReport(this.save),null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const anchor=document.createElement('a');anchor.href=url;anchor.download='ascii-azur-playtest.json';anchor.click();window.setTimeout(()=>URL.revokeObjectURL(url),1000);}
+  private exportPlaytest(){const blob=new Blob([JSON.stringify({...journeyReport(this.save),exploration:ZONE_IDS.filter(z=>regionKnown(this.save,z)).map(zone=>{const r=regionalSurvey(this.save,zone);return{zone,done:r.done,total:r.total,claimed:r.claimed};}),pilgrimage:afterlightOverview(this.save)},null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const anchor=document.createElement('a');anchor.href=url;anchor.download='ascii-azur-playtest.json';anchor.click();window.setTimeout(()=>URL.revokeObjectURL(url),1000);}
   private openCodex(){
     if(!this.started)return;
     const research=researchCatalogue(this.save.team,this.save.storage,this.save.flags);
@@ -986,6 +992,54 @@ class AzurGame {
   /** Fog-respecting Atlas: select any discovered landmark as a temporary
    * walking objective. The shortest route uses player-footprint collisions,
    * never teleports and never persists synthetic map information to saves. */
+  /** These world actions commit a validated snapshot before replacing the live session. */
+  private commitFieldState(next:SaveGame):boolean{
+    if(!this.started||this.battle||this.dialogOpen||this.evolution)return false;
+    try{const raw=writeSave(localStorage,next,this.saveBaseline,this.activeSlot);this.saveBaseline=raw;this.save=next;this.updateUI();return true;}
+    catch(error){byId('saveStatus').textContent=error instanceof SaveConflictError?'CONFLICTO ENTRE PESTAÑAS · EXPORTA TU PARTIDA':'GUARDADO FALLIDO · EXPORTA TU PARTIDA';this.toast('NO SE PUDO CONFIRMAR EL CAMBIO · PARTIDA CONSERVADA');return false;}
+  }
+  private setFieldTarget(target:FieldTarget):boolean{
+    const next=planFieldTarget(this.save,target);if(!next||!this.commitFieldState(next))return false;
+    this.atlasTarget=null;this.hideModal();this.updateStoryCompass();this.toast('OBJETIVO GUARDADO EN EL DIARIO');return true;
+  }
+  private clearFieldTarget():boolean{
+    const next=planFieldTarget(this.save,null);if(!next||!this.commitFieldState(next))return false;
+    this.updateStoryCompass();return true;
+  }
+  private claimSurvey(zone:ZoneId):boolean{
+    const next=planSurveyClaim(this.save,zone);if(!next||!this.commitFieldState(next)){this.toast('RECONOCIMIENTO NO DISPONIBLE · REVISA OBJETIVOS Y CAPACIDAD');return false;}
+    this.sound.pick();this.toast('REGIÓN DOCUMENTADA · RECOMPENSA ÚNICA');this.openFieldJournal(zone);return true;
+  }
+  private openFieldJournal(requested:ZoneId=this.save.zone as ZoneId){
+    if(!this.started||this.battle||this.dialogOpen||this.evolution)return;
+    const zone=ZONE_IDS.includes(requested)&&regionKnown(this.save,requested)?requested:this.save.zone as ZoneId;
+    const survey=regionalSurvey(this.save,zone),knownRegions=ZONE_IDS.filter(z=>regionKnown(this.save,z));
+    const rows=survey.entries.map(o=>`<div class="modal-option"><div><strong>${o.done?'✓ ':o.known?'◇ ':'? '}${htmlEscape(o.label)}</strong><small>${htmlEscape(o.hint)}</small></div>${o.trackable?`<button data-field-target="${o.id}" ${this.save.fieldTarget?.zone===zone&&this.save.fieldTarget.id===o.id?'aria-pressed="true"':''}>SEGUIR</button>`:`<span class="quest-state ${o.done?'done':''}">${o.done?'RESUELTO':o.known?'REQUISITOS PENDIENTES':'POR DESCUBRIR'}</span>`}</div>`).join('');
+    this.showModal('DIARIO DE CAMPO · '+ZONES[zone].name.toUpperCase(),
+      `<div class="field-regions">${knownRegions.map(z=>`<button data-field-region="${z}" aria-pressed="${z===zone}">${htmlEscape(ZONES[z].name)}</button>`).join('')}</div>`+
+      `<div class="modal-content-block"><strong>${survey.done}/${survey.total} OBJETIVOS RESUELTOS</strong><p>Los lugares sin descubrir ocultan su identidad y su posición. Seguir un objetivo conserva la selección al recargar y guía por portales transitables.</p>${this.save.fieldTarget?'<button id="clearFieldTarget">CANCELAR OBJETIVO GUARDADO</button>':''}</div>`+rows+
+      `<div class="modal-content-block"><strong>RECONOCIMIENTO DE ${htmlEscape(ZONES[zone].name.toUpperCase())}</strong><p>Completa los objetivos de esta región: +${survey.reward.echoes} Ecos, +${survey.reward.seals} Sello y +${survey.reward.tonics} Tónico. Una vez por viaje.</p><button id="claimRegionSurvey" ${survey.ready?'':'disabled'}>${survey.claimed?'✓ RECOMPENSA RECLAMADA':'RECLAMAR RECONOCIMIENTO'}</button></div>`+
+      `<div class="modal-option"><button id="fieldMap">VER MAPA ACTUAL</button><button id="fieldLumbres">RED DE LUMBRES</button></div>`);
+    for(const b of byId('modalContent').querySelectorAll<HTMLButtonElement>('[data-field-region]'))b.onclick=()=>this.openFieldJournal(b.dataset.fieldRegion as ZoneId);
+    for(const b of byId('modalContent').querySelectorAll<HTMLButtonElement>('[data-field-target]'))b.onclick=()=>this.setFieldTarget({zone,id:b.dataset.fieldTarget!});
+    const clear=byId('modalContent').querySelector<HTMLButtonElement>('#clearFieldTarget');if(clear)clear.onclick=()=>{if(this.clearFieldTarget())this.openFieldJournal(zone);};
+    byId('claimRegionSurvey').onclick=()=>this.claimSurvey(zone);byId('fieldMap').onclick=()=>this.openMap();byId('fieldLumbres').onclick=()=>this.openLumbreNetwork();
+    this.modalBack=()=>this.openQuests();
+  }
+  private openLumbreNetwork(){
+    if(!this.started||this.battle||this.dialogOpen||this.evolution||this.save.dungeon?.active)return;
+    const known=ZONE_IDS.filter(z=>this.flag('altar-'+z)&&regionUnlocked(this.save,z));
+    this.showModal('RED DE LUMBRES',`<div class="modal-content-block"><strong>VIAJE ENTRE LUMBRES VISITADAS</strong><p>Viaja gratis desde una Lumbre en la que hayas descansado. Primero debes alcanzar cada destino caminando y superar sus puertas narrativas. Viajar no cura, concede suministros ni permite escapar de una expedición o cripta.</p></div>`+
+      known.map(zone=>{const reason=travelRefusal(this.save,zone);return `<div class="modal-option"><div><strong>${htmlEscape(ZONES[zone].name)}</strong><small>${reason??'LUMBRE VISITADA · VIAJE DISPONIBLE'}</small></div><button data-lumbre-travel="${zone}" ${reason?'disabled':''}>VIAJAR</button></div>`;}).join('')+
+      '<div class="modal-option"><button id="lumbreJournal">← DIARIO DE CAMPO</button></div>');
+    for(const b of byId('modalContent').querySelectorAll<HTMLButtonElement>('[data-lumbre-travel]'))b.onclick=()=>this.travelLumbre(b.dataset.lumbreTravel as ZoneId);
+    byId('lumbreJournal').onclick=()=>this.openFieldJournal();this.modalBack=()=>this.openFieldJournal();
+  }
+  private travelLumbre(destination:ZoneId):boolean{
+    const next=planLumbreTravel(this.save,destination);if(!next||!this.commitFieldState(next))return false;
+    this.atlasTarget=null;this.cameraZone='';this.lastReveal=-1;this.encounterCooldown=5;this.resetJoystick();this.keys.clear();this.hideModal();
+    this.sound.setScene(themeForZone(destination));this.sound.portal();this.updateUI();this.toast('LUMBRE · '+ZONES[destination].name.toUpperCase());return true;
+  }
   private openMap(){if(!this.started)return;if(this.save.dungeon?.active){this.openDungeonAtlas();return;}
     const zone=this.save.zone as ZoneId;
     const known=(x:number,y:number)=>isDiscovered(this.save.discovered,zone,x,y,!this.save.worldSeed);
@@ -997,8 +1051,10 @@ class AzurGame {
     }
     const visibleSites=ZONES[zone].landmarks.filter(l=>known(l.x,l.y));
     const landmarkIcons:Record<string,string>={npc:'◆',altar:'✦',portal:'⇨',chest:'▣',rune:'✧',guardian:'♜',memory:'◇',verdict:'⚖'};
-    const pins=visibleSites.map(l=>'<text x="'+((l.x+.5)*8)+'" y="'+((l.y+.5)*8+3)+'" text-anchor="middle" font-size="13" font-weight="bold" fill="#f2d9ac" stroke="#101820" stroke-width=".8" paint-order="stroke">'+(landmarkIcons[l.kind]||'•')+'</text>').join('');
-    const selected=this.atlasTarget?.zone===zone?this.atlasTarget:null;
+    const completedSites=new Set(regionalObjectives(this.save,zone).filter(o=>o.done&&o.x!==undefined).map(o=>o.x+':'+o.y));
+    const pins=visibleSites.map(l=>'<text x="'+((l.x+.5)*8)+'" y="'+((l.y+.5)*8+3)+'" text-anchor="middle" font-size="13" font-weight="bold" fill="#f2d9ac" stroke="#101820" stroke-width=".8" paint-order="stroke">'+(completedSites.has(l.x+':'+l.y)?'✓':landmarkIcons[l.kind]||'•')+'</text>').join('');
+    const tracked=resolveFieldTarget(this.save);
+    const selected=this.atlasTarget?.zone===zone?this.atlasTarget:tracked?.zone===zone&&tracked.x!==undefined?{x:tracked.x,y:tracked.y!,label:tracked.label}:null;
     const route=selected?walkableRouteToTarget({zone,x:this.save.x,y:this.save.y,inDungeon:false},selected):null;
     const routeInk=(route??[]).slice(1).map((p,i)=>{
       const prior=route![i]!;
@@ -1016,14 +1072,22 @@ class AzurGame {
       '<svg class="azur-cartography" viewBox="0 0 '+(WORLD_W*8)+' '+(WORLD_H*8)+'" role="img" aria-label="Mapa de caminos, obstáculos, lugares, ruta y posición del jugador">'+rects.join('')+routeInk+pins+targetPin+avatar+'</svg>'+
       '<div class="azur-map-legend"><span>● TU POSICIÓN</span><span>━ SENDERO</span><span>◆ PERSONAJES</span><span>✦ PUNTOS DE INTERÉS</span></div>'+
       routeState+choices+clear+
+      '<div class="modal-option"><button id="atlasFieldJournal">DIARIO REGIONAL · OBJETIVOS Y RECOMPENSAS</button></div>'+
       '<div class="azur-map-seed">SEMILLA DEL MUNDO: <strong>'+seed+'</strong><br><small>El mapa permanece idéntico al continuar o importar esta partida.</small></div>');
     for(const button of byId('modalContent').querySelectorAll<HTMLButtonElement>('[data-atlas-target]'))button.onclick=()=>{
       const index=Number(button.dataset.atlasTarget),site=visibleSites[index];if(!site)return;
       this.atlasTarget={zone,x:site.x,y:site.y,label:site.label};
       this.hideModal();this.updateStoryCompass();this.toast('RUTA PERSONALIZADA ACTIVADA');
     };
+    byId('atlasFieldJournal').onclick=()=>this.openFieldJournal(zone);
     const cancel=byId('modalContent').querySelector<HTMLButtonElement>('[data-atlas-clear]');
-    if(cancel)cancel.onclick=()=>{this.atlasTarget=null;this.hideModal();this.updateStoryCompass();this.toast('GUÍA DE HISTORIA RESTAURADA');};
+    if(cancel)cancel.onclick=()=>{if(!this.atlasTarget&&this.save.fieldTarget&&!this.clearFieldTarget())return;this.atlasTarget=null;this.hideModal();this.updateStoryCompass();this.toast('GUÍA DE HISTORIA RESTAURADA');};
+  }
+  private chooseLeader(uid:string):boolean{
+    if(!this.started||this.battle||this.dialogOpen||this.evolution)return false;
+    const at=this.save.team.findIndex(c=>c.uid===uid);if(at<0||this.save.team[at]!.hp<=0)return false;
+    const next={...this.save,team:[this.save.team[at]!,...this.save.team.filter((_,i)=>i!==at)]};
+    return this.commitFieldState(next);
   }
   private openTeam(){
     if(!this.started||this.evolution||this.battle||this.dialogOpen||!byId('starterScreen').classList.contains('hidden'))return;
@@ -1037,8 +1101,7 @@ class AzurGame {
     for(const button of content.querySelectorAll<HTMLButtonElement>('[data-relics]'))button.onclick=()=>this.openRelics(button.dataset.relics!);
     for(const button of content.querySelectorAll<HTMLButtonElement>('[data-skills]'))button.onclick=()=>this.openSkills(button.dataset.skills!);
     for(const button of content.querySelectorAll<HTMLButtonElement>('[data-lead]'))button.onclick=()=>{
-      const at=this.save.team.findIndex(c=>c.uid===button.dataset.lead);if(at<=0)return;
-      const [c]=this.save.team.splice(at,1);if(c)this.save.team.unshift(c);this.saveNow(false);this.hideModal();this.openTeam();this.updateUI();
+      if(!this.chooseLeader(button.dataset.lead!))return;this.hideModal();this.openTeam();this.updateUI();
     };
     for(const button of content.querySelectorAll<HTMLButtonElement>('[data-deposit]'))button.onclick=()=>{
       try{const result=reserveCreature(this.save,button.dataset.deposit!);this.save.team=result.team;this.save.storage=result.storage;
@@ -1225,6 +1288,7 @@ class AzurGame {
   private saveNow(notify:boolean):boolean{
     if(!this.started)return false;
     try{
+      if(this.save.fieldTarget&&!resolveFieldTarget(this.save))delete this.save.fieldTarget;
       this.saveBaseline=writeSave(localStorage,this.save,this.saveBaseline,this.activeSlot);
       byId('saveStatus').textContent=`VIAJE ${this.activeSlot} GUARDADO · `+new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
       if(notify)this.toast('EL RECUERDO HA SIDO CONSERVADO');
@@ -1259,6 +1323,18 @@ class AzurGame {
         if(node.textContent!==content)node.textContent=content;
         node.classList.remove('hidden');node.classList.toggle('is-near',cue.kind==='interaction');return;
       }
+    }
+    const field=resolveFieldTarget(this.save);
+    if(field&&!this.save.dungeon?.active){
+      const portal=nextFieldPortal(this.save,field.zone),target=this.save.zone===field.zone?field:portal;
+      const cue=target&&target.x!==undefined?guidanceToTarget({zone:this.save.zone as ZoneId,x:this.save.x,y:this.save.y,inDungeon:false},{x:target.x,y:target.y!,label:this.save.zone===field.zone?field.label:'HACIA '+ZONES[field.zone].name}):null;
+      const text='DIARIO · '+(cue?.text??(field.kind==='crypt'?'MENÚ → CRIPTA EXPLORABLE':'CONSULTA EL DIARIO REGIONAL'));
+      if(node.textContent!==text)node.textContent=text;node.classList.remove('hidden');node.classList.toggle('is-near',cue?.kind==='interaction');return;
+    }
+    if(this.flag('crown-trilogy-complete')&&!this.save.dungeon?.active){
+      const overview=afterlightOverview(this.save),destination=overview.chapters.find(c=>c.done<c.total)?.zone;
+      if(destination&&this.save.zone!==destination){const portal=nextFieldPortal(this.save,destination);const cue=portal?guidanceToTarget({zone:this.save.zone as ZoneId,x:this.save.x,y:this.save.y,inDungeon:false},portal,'VIGILIA · '+ZONES[destination].name.toUpperCase()):null;
+        node.textContent=cue?.text??'VIGILIA · CONSULTA EL DIARIO';node.classList.remove('hidden');node.classList.toggle('is-near',cue?.kind==='interaction');return;}
     }
     if(this.save.zone==='ossuary'||this.save.zone==='garden'){
       const zone=this.save.zone,progress=afterlightProgress(zone,this.save.flags),chapter=AFTERLIGHT[zone];

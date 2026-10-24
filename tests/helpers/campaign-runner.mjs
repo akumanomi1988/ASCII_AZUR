@@ -2,11 +2,11 @@ import {unlockedMoves} from '../../dist/creatures/loadout.js';
 import assert from 'node:assert/strict';
 import {mount} from './game-runtime.mjs';
 import {dungeonTilePath} from './dungeon-path.mjs';
-import {MOVES,damage,maxHp} from '../../dist/domain.js';
+import {MOVES,damage,maxHp,createCreature} from '../../dist/domain.js';
 import {suggestBattleAction} from '../../dist/combat/planning.js';
 import {recoveryCastsLeft,attackWithStatuses} from '../../dist/combat/tactics.js';
 /** Physical, new-game-to-finale command driver; never grants wins, XP or resources. */
-export function runCampaign({starter,seed,marsh='keep',ending='remember',policy='offense'}){
+export function runCampaign({starter,seed,marsh='keep',ending='remember',policy='offense',afterlight=null}){
   let {game,dom,storage,flushTimers,world}=mount({virtualTime:true,seed:seed^0x5A5AA5A5});
   dom.set('worldSeedInput',{value:String(seed)});
   game.startNew();game.pickStarter(starter);
@@ -200,6 +200,45 @@ export function runCampaign({starter,seed,marsh='keep',ending='remember',policy=
   assert.ok(game.save.flags.includes('crown-choice-'+ending));
   const finalE=game.economy.echoes;saveReload('Final');
   visitNpc('oriel');assert.equal(game.economy.echoes,finalE,'duplicated completion reward');
-  return {starter,marsh,ending,policy,world:seed,captured:caught,battles,actions,heals,level:game.save.team[0].level,
+  let optionalResult=null;
+  if(afterlight){
+   const optional=[];
+   assert.ok(game.save.flags.includes('crown-trilogy-complete'));
+   portal(43);assert.equal(game.save.zone,'ossuary');
+   for(const [zone,keeper,memories,choice] of [
+    ['ossuary','edda',['shell','beacon'],afterlight.sea],
+    ['garden','silas',['seed','tree'],afterlight.garden]
+   ]){
+    assert.equal(game.save.zone,zone);visitNpc(keeper);heal();
+    game.interactLandmark(site('chest'));settle();
+    for(const id of memories){game.interactLandmark(site('memory',id));settle();}
+    for(const event of game.roamers()){
+     heal();
+     const foe=createCreature(event.speciesId,event.level,()=>.123);
+     const ranked=game.save.team.filter(c=>c.hp>0).map(c=>({uid:c.uid,value:Math.max(...c.moves.filter(id=>MOVES[id]?.power>0).map(id=>damage(c,foe,MOVES[id]).value))})).sort((a,b)=>b.value-a.value);
+     assert.ok(ranked.length);assert.equal(game.chooseLeader(ranked[0].uid),true);witness(event);
+    }
+    game.interactLandmark(site('verdict'));assert.equal(game.modalOpen,true);
+    game.chooseAfterlightVerdict(zone,choice);settle();visitNpc(keeper);
+    assert.ok(game.save.flags.includes('afterlight-'+zone+'-epilogue'),'post-campaign epilogue not heard');
+    const before=game.economy.echoes;assert.equal(game.claimSurvey(zone),true,'all region objectives should be genuinely resolved');
+    const reward=game.economy.echoes-before;assert.ok(reward>0);assert.equal(game.claimSurvey(zone),false);game.hideModal();
+    saveReload('Afterlight '+zone);assert.equal(game.claimSurvey(zone),false);game.hideModal();
+    optional.push({zone,choice,reward});
+    if(zone==='ossuary')portal(43);
+   }
+   heal();const oldMap=JSON.stringify(game.save.worldSnapshot),bag=JSON.stringify(game.save.inventory),hp=game.save.team.map(c=>c.hp);
+   const siteIndex=world.ZONES.ossuary.landmarks.findIndex(l=>l.kind==='altar');
+   assert.equal(game.setFieldTarget({zone:'ossuary',id:'site:'+siteIndex}),true);saveReload('Persistent Afterlight objective');
+   assert.ok(dom.get('storyCompass').textContent.startsWith('DIARIO ·'));
+   assert.equal(game.travelLumbre('ossuary'),true);assert.equal(game.save.zone,'ossuary');
+   assert.equal(game.travelLumbre('garden'),true);assert.equal(game.save.zone,'garden');
+   assert.equal(JSON.stringify(game.save.inventory),bag,'travel granted supplies');assert.equal(JSON.stringify(game.save.team.map(c=>c.hp)),JSON.stringify(hp),'travel healed or modified the roster');
+   assert.equal(JSON.stringify(game.save.worldSnapshot),oldMap,'travel rerolled frozen world');
+   assert.equal(game.clearFieldTarget(),true);saveReload('Closed pilgrimage');
+   assert.ok(!game.save.fieldTarget);assert.ok(game.save.flags.includes('afterlight-garden-epilogue'));
+   optionalResult={chapters:optional,travelRoundTrip:true,objectiveReload:true};
+  }
+  return {starter,marsh,ending,policy,afterlight:optionalResult,world:seed,captured:caught,battles,actions,heals,level:game.save.team[0].level,
     metrics:JSON.parse(JSON.stringify(game.save.journey)),equipment:game.save.team.map(c=>c.equipment??null),echoes:game.economy.echoes,inventory:{...game.save.inventory}};
 }

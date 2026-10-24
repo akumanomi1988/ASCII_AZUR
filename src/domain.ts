@@ -1,3 +1,4 @@
+import {validFieldTarget,type FieldTarget} from './world/field-journal.js';
 import {individualStat,validPotential,potentialFromUid,type Potential} from './creatures/attributes.js';
 import type {FallenCompanion} from './creatures/crypt-mortality.js';
 import {relicAttackFactor,relicGuardFactor,validRelicOwnership,isRelicId,type RelicId,type RelicInventory} from './creatures/equipment.js';
@@ -21,7 +22,7 @@ export interface BattleCheckpoint {
  bossPhase:1|2;chargeStage:0|1|2;
  effects:Record<string,{kind:'scorch'|'weaken'|'fracture';remaining:number}[]>;
 }
-export interface SaveGame {primaryUid?:string;fallen?:FallenCompanion[];relics?:RelicInventory;journey?:JourneyMetrics;version:1; zone:string;x:number;y:number;team:Creature[];storage:Creature[];inventory:{seals:number;tonics:number};defeatedBoss:boolean;flags:string[];playSeconds:number;rpg?:EconomyState;worldSeed?:number;worldSnapshot?:WorldSnapshot;discovered?:DiscoveryState;expedition?:Expedition;activeBattle?:BattleCheckpoint;dungeon?:DungeonRun;}
+export interface SaveGame {fieldTarget?:FieldTarget;primaryUid?:string;fallen?:FallenCompanion[];relics?:RelicInventory;journey?:JourneyMetrics;version:1; zone:string;x:number;y:number;team:Creature[];storage:Creature[];inventory:{seals:number;tonics:number};defeatedBoss:boolean;flags:string[];playSeconds:number;rpg?:EconomyState;worldSeed?:number;worldSnapshot?:WorldSnapshot;discovered?:DiscoveryState;expedition?:Expedition;activeBattle?:BattleCheckpoint;dungeon?:DungeonRun;}
 export const MOVES: Record<string,Move> = {
  ember:{id:'ember', name:'Chispa fúnebre',element:'Ceniza',power:12,description:'Brasas que nunca se extinguen'},
  smolder:{id:'smolder',name:'Hoguera rota',element:'Ceniza',power:19,description:'Un fuego que consume recuerdos'},
@@ -147,6 +148,7 @@ export function validateSave(data:unknown):data is SaveGame {
  &&new Set([...v.team,...v.storage].map(c=>c.uid)).size===v.team.length+v.storage.length
  &&(v.primaryUid===undefined||(typeof v.primaryUid==='string'&&v.team.some(c=>c.uid===v.primaryUid)))
  &&(v.fallen===undefined||(Array.isArray(v.fallen)&&v.fallen.length<=200&&new Set(v.fallen.map(c=>c?.uid)).size===v.fallen.length&&v.fallen.every(c=>c&&typeof c.uid==='string'&&c.uid.length<=80&&typeof c.speciesId==='string'&&Object.hasOwn(SPECIES,c.speciesId)&&Number.isInteger(c.level)&&c.level>=1&&c.level<=30&&![...v.team!,...v.storage!].some(live=>live.uid===c.uid))))
+ &&(v.fieldTarget===undefined||validFieldTarget(v.fieldTarget))
  &&validRelicOwnership(v.relics,[...v.team,...v.storage])&&validJourneyMetrics(v.journey)
  &&!!v.inventory&&Number.isInteger(v.inventory.seals)&&v.inventory.seals>=0&&v.inventory.seals<=9999
  &&Number.isInteger(v.inventory.tonics)&&v.inventory.tonics>=0&&v.inventory.tonics<=9999

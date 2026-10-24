@@ -208,3 +208,10 @@ Initial focused checks passed 13 equipment/progression tests and 10 identity/cry
 ### v0.52 deployment and public smoke
 
 [Pages run 40080606243](https://github.com/akumanomi1988/ASCII_AZUR/actions/runs/40080606243) observed **SUCCESS**. The published branch's build provenance exactly matches code source `ea85f86a71d0a83b029a05021df8e060e843adc6`. A live cloud-browser reload of `https://akumanomi1988.github.io/ASCII_AZUR/` displayed **WORLD ENGINE v0.52.0**, bootstrapped the title/HUD and enumerated the existing campaign slot. This is public boot acceptance; the full gameplay/stat/equipment/crypt-loss acceptance is the separately passed Chromium job. It is not a physical Android performance claim. This evidence-only documentation commit deliberately skips CI and changes no playable source.
+
+
+## MACROITERATION v0.53 — The connected pilgrimage (2026-10-24)
+
+Closure block 2 integrates six related world/exploration capabilities: truthful regional objectives; persistent, fog-respecting cross-region tracking; seven finite recognition rewards; visited-Lumbre travel; completed-site Atlas and journal integration; and full Afterlight keeper-epilogue continuity. Transactions commit a validated snapshot before replacing live state, and the frozen world/save-v1 contract stays stable. Detailed scope/acceptance: `docs/RELEASE_v0.53.0.md`; independent human navigation protocol: `docs/WORLD_PLAYTEST_TASKS.md`.
+
+Focused verification observed **13/13 field-journal tests PASS**, including 200 saved seeds/1,400 known altar objectives, storage fault/optimistic conflict refusal and all seven finite reward paths. **12/12 full new-game-to-both-Afterlight journeys PASS** with three starters and four choice combinations, 24 completed optional regions and 24 round-trip travel operations. The existing 12-route Q3 regression also passed during integration. Complete release-source regressions/Chromium/main/Pages/public boot remain pending until their observed evidence is recorded. Official accepted gates stay **20/32, weighted 67.50%**; no human/mobile/art/music signoff is inferred.

@@ -4,8 +4,8 @@ The user's target is to reach a finished product within five prompts, counting t
 
 | Block | Deliverable | Completion evidence |
 |---|---|---|
-| 1 — current | Creature identity; four active techniques/permanent repertoire; classic turn commands; one-slot relics; crypt mortality; bounded campaign progression and local playtest report | Source/runtime/Chromium checks, 150 physical trilogy journeys, compatible saves, main/Pages source provenance |
-| 2 | World/exploration completion pass: discovery/reward usefulness, optional objective clarity, seven-region wayfinding, crypt/Afterlight integration and content consistency | Full seeded traversal, complete optional loops, no inaccessible story/resource gate, documented human navigation tasks |
+| 1 — delivered v0.52 | Creature identity; four active techniques/permanent repertoire; classic turn commands; one-slot relics; crypt mortality; bounded campaign progression and local playtest report | Source/runtime/Chromium checks, 150 physical trilogy journeys, compatible saves, main/Pages source provenance |
+| 2 — current v0.53 | World/exploration completion pass: discovery/reward usefulness, optional objective clarity, seven-region wayfinding, crypt/Afterlight integration and content consistency | Full seeded traversal, complete optional loops, no inaccessible story/resource gate, documented human navigation tasks |
 | 3 | Presentation/content finalization: authored battle/world scene readability, narrative continuity, final audio mix and accessibility consistency | Before/after scene evidence, complete narrative review, measured audio transitions, independent visual/listening review |
 | 4 | Release candidate: performance and endurance, offline/update recovery, physical Android controls/orientation/fullscreen, save/loss/reload stress and external playtest tuning | Named minimum device with measured sustained FPS/heat, real touch tasks, external gameplay sessions and no unresolved high-severity defects |
 | 5 | Final acceptance and distribution | Every fixed milestone and premium quality domain accepted, final end-to-end/Pages exact-source checks, release instructions and known-limitations decision |
@@ -20,3 +20,8 @@ The local playtest export introduced in block 1 supports structured evidence col
 ## Block 1 observed disposition — 2026-10-24
 
 Technical implementation and automated/publication acceptance are **COMPLETE for v0.52.0**: [main quality/browser/publish 40080264568](https://github.com/akumanomi1988/ASCII_AZUR/actions/runs/40080264568), [Pages 40080606243](https://github.com/akumanomi1988/ASCII_AZUR/actions/runs/40080606243), 346/346 tests, 150 complete simulated physical campaigns, 450 chapter reloads, four renderer/backend Chromium configurations and live public v0.52.0 boot. The code source is `ea85f86a71d0a83b029a05021df8e060e843adc6`. Two bounded recoverable preparation defeats were observed and reported across the entire matrix; every campaign completed. Next development block: world/exploration/reward coherence. The fixed premium acceptance dependencies above are unchanged.
+
+
+## Block 2 implementation scope — v0.53
+
+The complete connected-pilgrimage epic is defined in `RELEASE_v0.53.0.md`: regional task truth/finite recognitions, persistent known-objective routing, visited-Lumbre transactions, Atlas/journal integration and both full optional chapters through keeper epilogues. `WORLD_PLAYTEST_TASKS.md` records the independent wayfinding/mobile tasks still needed by W4/U4. Source/regression/browser/publication evidence is recorded in `AI_EVOLUTION_STATE.md` after observation. Next development block: presentation/content finalization, without adding unplanned gameplay systems.

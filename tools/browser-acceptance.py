@@ -107,6 +107,38 @@ window.addEventListener('load',()=>setTimeout(async()=>{
   await new Promise(resolve=>setTimeout(resolve,180));
   const saved=localStorage.getItem('ascii-azur-save-v1');
   check(!!saved,'No game save');
+  // Isolated stored-state fixture for the regional journal/network UI. The Node
+  // journey gate separately earns all unlocks by physical exploration and combat.
+  const {ZONES:fieldZones}=await import('./dist/world.js');
+  const fieldSave=JSON.parse(saved),villageCamp=fieldSave.worldSnapshot.poi.village[3];
+  fieldSave.x=villageCamp[0];fieldSave.y=villageCamp[1];
+  fieldSave.flags=[...new Set([...fieldSave.flags,'altar-village','altar-forest','altar-marsh','zone-forest','rune-forest','pilgrim-met',
+    ...fieldZones.forest.landmarks.filter(l=>l.kind==='chest').map(l=>'chest-forest-'+l.x),...Array.from({length:3},(_,i)=>'roamer-forest-'+i)])];
+  fieldSave.rpg.visitedNpcs.push('pilgrim');
+  localStorage.setItem('ascii-azur-save-v1',JSON.stringify(fieldSave));$('continue').click();
+  $('drawerToggle').click();$('fieldJournalBtn').click();
+  check($('modalTitle').textContent.includes('DIARIO DE CAMPO'),'Regional journal entry point failed');
+  check($('modalContent').textContent.includes('OBJETIVOS RESUELTOS'),'Regional completion summary missing');
+  check($('claimRegionSurvey').disabled,'Unfinished village survey can be claimed');
+  const campGoal=document.querySelector('[data-field-target="site:3"]');check(!!campGoal,'Visited Lumbre cannot be tracked');campGoal.click();
+  check(JSON.parse(localStorage.getItem('ascii-azur-save-v1')).fieldTarget.id==='site:3','Journal target was not persisted');
+  $('continue').click();check($('storyCompass').textContent.startsWith('DIARIO ·'),'Saved objective did not resume');
+  $('drawerToggle').click();$('fieldJournalBtn').click();$('fieldLumbres').click();
+  check(!document.querySelector('[data-lumbre-travel="marsh"]'),'Lumbre network bypasses the Arken story gate');
+  const travelBefore=JSON.parse(localStorage.getItem('ascii-azur-save-v1'));
+  document.querySelector('[data-lumbre-travel="forest"]').click();
+  const travelled=JSON.parse(localStorage.getItem('ascii-azur-save-v1'));
+  check(travelled.zone==='forest'&&$('zoneName').textContent==='Bosque de Ceniza','Visited Lumbre travel failed');
+  check(JSON.stringify(travelled.inventory)===JSON.stringify(travelBefore.inventory),'Travel granted consumables');
+  check(JSON.stringify(travelled.team)===JSON.stringify(travelBefore.team),'Travel healed or changed the party');
+  $('drawerToggle').click();$('fieldJournalBtn').click();
+  check(!$('claimRegionSurvey').disabled,'Completed forest objectives do not offer recognition');
+  $('claimRegionSurvey').click();const surveySave=JSON.parse(localStorage.getItem('ascii-azur-save-v1'));
+  check(surveySave.rpg.echoes===travelled.rpg.echoes+45,'Forest survey Echo reward mismatch');
+  check(surveySave.flags.filter(f=>f==='survey-forest').length===1,'Survey reward flag duplicated');
+  check($('claimRegionSurvey').disabled,'Claimed survey remains actionable');
+  $('clearFieldTarget').click();check(!JSON.parse(localStorage.getItem('ascii-azur-save-v1')).fieldTarget,'Persistent goal could not be cancelled');
+  $('closeModal').click();localStorage.setItem('ascii-azur-save-v1',saved);$('continue').click();
   // P4 research: browser Codex shows truthful discovery state and one-time rewards.
   $('drawerToggle').click();$('codexBtn').click();
   check($('modalTitle').textContent.includes('INVESTIGACIÓN'),'Research Codex missing from game drawer');

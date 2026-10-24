@@ -21,3 +21,12 @@
 - Import baseline tagged `v0.11.0`; v0.12 is an incremental feature + quality-pipeline commit.
 - Active GitHub repository: public `akumanomi1988/ASCII_AZUR`. Use exclusively the linked personal account `akumanomi1988` for all writes; verify expected branch heads, never force-push. `main` contains source; `gh-pages` contains build assets and `build-info.json` naming the exact source commit.
 - No scheduled jobs or unattended work is configured.
+
+
+## v0.53 regional field journal and world transactions
+
+`src/world/field-journal.ts` projects semantic objectives from the existing frozen world, discovered mask, chapter/encounter flags and crypt state. Its region/seed/revision encounter cache is capped at one entry per seven regions. Objectives hide unknown identity/coordinates and never mutate saves during inspection. Optional `fieldTarget` stores only a zone and semantic objective ID; normal route fields handle local paths and story-gated region portals.
+
+Survey recognitions, pinned objectives, Lumbre travel and leader selection prepare a snapshot and call the existing `writeSave` optimistic/backup adapter before changing the live session. Failure leaves resources/position untouched. Travel needs two visited Lumbres, source proximity and an unlocked destination, and is unavailable in active combat/crypt/expedition states. Existing temporary Atlas overrides stay ephemeral.
+
+Two new Afterlight epilogue flags distinguish opening a verdict from returning to the keeper. The main roadbook retains 19 steps; a separate eight-per-region/16-total pilgrimage summary avoids conflating main story and optional completion. Unit/runtime, 200-seed snapshot, 12 full physical Afterlight branch journeys, existing 150-campaign and four Chromium mode/backend gates cover the shared paths.

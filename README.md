@@ -1,4 +1,6 @@
-# ASCII AZUR v0.52.0 — The Unwritten
+# ASCII AZUR v0.53.0 — The Unwritten
+
+> **v0.53 — The connected pilgrimage:** regional field objectives and finite recognitions, persistent cross-region tracking, visited-Lumbre travel, completed-site Atlas markers, and full keeper-epilogue continuity after the main ending. Travel cannot bypass undiscovered destinations, story gates, crypts or expeditions, and commits storage before moving the party. See `docs/RELEASE_v0.53.0.md`.
 
 > **v0.52 — Creature identity and classic turn commands:** persistent bounded individual stats, a permanent learned repertoire with four swappable active techniques, six one-slot relics from Mara/chests, permanent non-principal crypt casualties with a memorial, two-dimensional battle submenus, and exportable local journey metrics. The original starter remains protected even after changing leaders. See `docs/RELEASE_v0.52.0.md` and the five-block closure plan.
 

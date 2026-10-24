@@ -237,3 +237,8 @@ The continuous-score macroiteration targets A3's transition/mixing implementatio
 ## v0.52 — Integrated gameplay completion pass
 
 Individual potential, permanent learned techniques/four active slots, classic command/submenus, six lightweight relics, permanent non-principal crypt losses and local campaign metrics are integrated under the existing core/creature/UX/release phases. Acceptance is defined in `RELEASE_v0.52.0.md`; the user's five-prompt target is tracked in `FIVE_ITERATION_CLOSURE_PLAN.md`. This adds implementation evidence without changing any fixed milestone definition or weight. External C4/P4/N4/U4, physical Android and production visual/audio approvals remain OPEN. **20/32, weighted 67.50%** until their required evidence exists.
+
+
+## v0.53 — World/exploration closure block
+
+Regional objective truth, finite recognitions, persistent fog-respecting tracking, visited-only Lumbre travel and full Afterlight epilogues are implemented as closure block 2. The 200-seed objective/snapshot gate and 12 earned-progression main-plus-Afterlight branch journeys strengthen W4 and Q3 evidence. W4 remains OPEN for its fixed independent human mobile navigation criterion; other external/hardware gates retain their definitions. No fixed milestone or phase weight changes. **20/32, weighted 67.50%** until the remaining acceptance evidence exists.
