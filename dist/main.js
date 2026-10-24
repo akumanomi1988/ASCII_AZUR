@@ -24,6 +24,7 @@ import { createCombatCue, sampleCombatCue, guardDamage } from './actors/combat-f
 import { MOVE_EFFECTS, STATUS_INFO, applyEffect, attackWithStatuses, chooseEnemyMove, chooseGuardianMove, endTurnEffects, statusLabel, skillUtility } from './combat/tactics.js';
 import { previewMove } from './combat/move-preview.js';
 import { capturePreview } from './combat/capture-odds.js';
+import { RESEARCH_TIERS, RESEARCH_REWARD_PREFIX, recordSpeciesResearch, researchCatalogue, claimResearchTier } from './creatures/field-research.js';
 import { reveal, isDiscovered, discoveredPercent } from './world/discovery.js';
 import { RUNE_PUZZLES, RUNE_SYMBOLS, submitRune, claimRune } from './puzzles/runes.js';
 import { unlockedMoves, equipMove } from './creatures/loadout.js';
@@ -911,6 +912,7 @@ class AzurGame {
         }
         if (!this.save.team[this.battle.ally]?.hp)
             this.battle.ally = available;
+        recordSpeciesResearch(this.save.flags, b.enemy.speciesId, 'seen');
         this.sound.setScene(b.type === 'boss' ? 'boss' : 'battle');
         this.toggleDrawer(false);
         byId('battle').classList.remove('hidden');
@@ -934,7 +936,7 @@ class AzurGame {
         ally = leadIndex; if (ally < 0) {
         this.defeat();
         return;
-    } this.sound.setScene(type === 'boss' ? 'boss' : 'battle'); this.battle = { enemy: createCreature(id, level), type, encounterId, busy: false, ally, guarding: false, selecting: false, bossPhase: 1, chargeStage: 0, effects: {}, log: type === 'boss' ? `${SPECIES[id].name.toUpperCase()}, EL ESCRIBA DEL SILENCIO, DESPIERTA.` : type === 'expedition' ? `LA GRIETA SE ABRE: ${SPECIES[id].name.toUpperCase()} TE DESAFÍA.` : `¡UN ${SPECIES[id].name.toUpperCase()} SALVAJE APARECE!` }; this.combatCue = null; this.encounterCooldown = 9; byId('battle').classList.remove('hidden'); byId('viewport').classList.add('in-battle'); byId('prompt').classList.add('hidden'); this.sound.portal(); this.refreshBattle(); }
+    } recordSpeciesResearch(this.save.flags, id, 'seen'); this.sound.setScene(type === 'boss' ? 'boss' : 'battle'); this.battle = { enemy: createCreature(id, level), type, encounterId, busy: false, ally, guarding: false, selecting: false, bossPhase: 1, chargeStage: 0, effects: {}, log: type === 'boss' ? `${SPECIES[id].name.toUpperCase()}, EL ESCRIBA DEL SILENCIO, DESPIERTA.` : type === 'expedition' ? `LA GRIETA SE ABRE: ${SPECIES[id].name.toUpperCase()} TE DESAFÍA.` : `¡UN ${SPECIES[id].name.toUpperCase()} SALVAJE APARECE!` }; this.combatCue = null; this.encounterCooldown = 9; byId('battle').classList.remove('hidden'); byId('viewport').classList.add('in-battle'); byId('prompt').classList.add('hidden'); this.sound.portal(); this.refreshBattle(); }
     /** Explicit warning and tactical plan before the point-of-no-return boss encounter.
      * Players may still challenge the boss underlevelled; this never gates progression. */
     prepareGuardianBattle() {
@@ -1200,6 +1202,11 @@ class AzurGame {
         const mastery = villageTrainingBonus(b.type, this.save.zone, b.enemy.speciesId, this.save.flags, b.encounterId);
         const amount = (b.type === 'boss' ? 95 : 11 + b.enemy.level * 3) + bonus + mastery;
         const awards = grantPartyExperience(this.save.team, b.ally, amount);
+        for (const growth of awards)
+            if (growth.evolved) {
+                recordSpeciesResearch(this.save.flags, growth.from, 'bonded');
+                recordSpeciesResearch(this.save.flags, growth.to, 'bonded');
+            }
         if (bonus > 0)
             this.save.team = recoverTrailParty(this.save.team);
         const gain = awards.find(a => a.active);
@@ -1288,6 +1295,7 @@ class AzurGame {
                 this.save.storage.push(captured);
                 stored = true;
             }
+            recordSpeciesResearch(this.save.flags, captured.speciesId, 'bonded');
             this.finishBattle();
             if (b.encounterId)
                 this.addFlag('roamer-' + b.encounterId);
@@ -1873,11 +1881,51 @@ class AzurGame {
     openCodex() {
         if (!this.started)
             return;
-        const known = new Set([...this.save.team, ...this.save.storage].map(c => c.speciesId));
-        const capturable = Object.values(SPECIES).filter(sp => sp.id !== 'hollowhart' && sp.id !== 'nullscribe');
-        const collected = capturable.filter(sp => known.has(sp.id)).length;
-        this.showModal('CÓDICE · VÍNCULOS', `<div class="modal-content-block">${collected} / ${capturable.length} especies vinculables. Hollowhart y Nullscribe son guardianes únicos, no capturables.</div>` +
-            capturable.map(sp => `<div class="modal-option"><div><strong style="color:${sp.color}">${known.has(sp.id) ? htmlEscape(sp.name) : '??????'}</strong><small>${known.has(sp.id) ? htmlEscape(sp.title + ' · ' + sp.element + ' · ' + sp.desc) : 'Esta criatura aún no ha compartido su nombre.'}</small>${known.has(sp.id) && sp.role ? `<small>ROL TÁCTICO · ${htmlEscape(sp.role)}</small>` : ''}${bondChoice(this.save.flags, sp.id) ? `<small>JURAMENTO ACTIVO · ${bondChoice(this.save.flags, sp.id) === 'fang' ? 'FILO DEL RECUERDO' : 'VELO PROTECTOR'}</small>` : ''}</div></div>`).join(''));
+        const research = researchCatalogue(this.save.team, this.save.storage, this.save.flags);
+        const stages = RESEARCH_TIERS.map(tier => {
+            const completed = this.save.flags.includes(RESEARCH_REWARD_PREFIX + tier.id);
+            const ready = !completed && research.bonded >= tier.count;
+            const button = completed ? '<span class="quest-state done">✓ RECLAMADO</span>' : ready
+                ? '<button data-research-claim="' + tier.id + '">RECLAMAR</button>'
+                : '<span class="quest-state">' + research.bonded + '/' + tier.count + '</span>';
+            return '<div class="modal-option"><div><strong>' + htmlEscape(tier.title) + '</strong><small>' + tier.count + ' especies distintas · +' + tier.echoes + ' Ecos · +' + tier.seals + ' Sellos · +' + tier.tonics + ' Tónicos</small></div>' + button + '</div>';
+        }).join('');
+        const entries = research.entries.map(entry => {
+            const species = SPECIES[entry.id];
+            const identified = entry.status !== 'unknown';
+            const habitat = entry.habitats.length ? entry.habitats.map(zone => ZONES[zone].name).join(' / ') : 'SIN HÁBITAT SALVAJE';
+            const status = entry.status === 'bonded' ? '✓ VINCULADA' : entry.status === 'seen' ? 'AVISTADA' : 'POR DESCUBRIR';
+            const detail = entry.status === 'bonded' ? species.title + ' · ' + species.element + ' · ' + species.desc
+                : entry.status === 'seen' ? species.title + ' · ' + species.element
+                    : 'Investiga su hábitat y establece un vínculo para descubrir su historia.';
+            const extra = entry.status === 'bonded' && species.role ? '<small>ROL TÁCTICO · ' + htmlEscape(species.role) + '</small>' : '';
+            const oath = bondChoice(this.save.flags, entry.id);
+            return '<div class="modal-option"><div><strong style="color:' + (identified ? species.color : '#a0adb7') + '">' + (identified ? htmlEscape(entry.name) : '??????') + '</strong><small>' + htmlEscape(detail) + '</small><small>RASTRO · ' + htmlEscape(habitat) + '</small>' + extra + (oath ? '<small>JURAMENTO · ' + (oath === 'fang' ? 'FILO' : 'VELO') + '</small>' : '') + '</div><span class="quest-state ' + (entry.status === 'bonded' ? 'done' : '') + '">' + status + '</span></div>';
+        }).join('');
+        this.showModal('CÓDICE · INVESTIGACIÓN', '<div class="modal-content-block"><strong>' + research.bonded + '/' + research.total + ' VÍNCULOS · ' + research.seen + '/' + research.total + ' AVISTAMIENTOS</strong><p>Los encuentros dejan un rastro permanente. Investiga las regiones indicadas y vincula especies diferentes para restaurar los cuatro fragmentos del códice.</p><p>Las recompensas son únicas por partida y se reclaman voluntariamente. Los guardianes no son capturables; evolucionar conserva los vínculos anteriores.</p></div>' +
+            '<div class="modal-content-block"><strong>HITOS DE INVESTIGACIÓN</strong></div>' + stages +
+            '<div class="modal-content-block"><strong>CRIATURAS Y HÁBITATS</strong></div>' + entries);
+        for (const btn of byId('modalContent').querySelectorAll('[data-research-claim]'))
+            btn.onclick = () => this.claimResearch(btn.dataset.researchClaim);
+    }
+    claimResearch(id) {
+        const previous = { flags: [...this.save.flags], inventory: { ...this.save.inventory }, echoes: this.economy.echoes };
+        const outcome = claimResearchTier({ flags: this.save.flags, team: this.save.team, storage: this.save.storage, inventory: this.save.inventory, rpg: this.economy }, id);
+        if (outcome !== 'claimed') {
+            this.toast(outcome === 'full' ? 'INVENTARIO O REGISTRO COMPLETO · LIBERA ESPACIO' : outcome === 'locked' ? 'INVESTIGACIÓN INCOMPLETA' : 'RECOMPENSA NO DISPONIBLE');
+            return;
+        }
+        if (!this.saveNow(false)) {
+            this.save.flags = previous.flags;
+            this.save.inventory = previous.inventory;
+            this.economy.echoes = previous.echoes;
+            this.toast('NO SE PUDO CONSERVAR LA RECOMPENSA');
+            return;
+        }
+        this.sound.pick();
+        this.updateUI();
+        this.openCodex();
+        this.toast('INVESTIGACIÓN RECOMPENSADA · UNA SOLA VEZ');
     }
     revealPosition() { if (!this.save.worldSeed)
         return; const x = Math.floor(this.save.x), y = Math.floor(this.save.y); const mark = x + y * WORLD_W + (ZONE_IDS.indexOf(this.save.zone) * WORLD_W * WORLD_H); if (this.lastReveal === mark)
