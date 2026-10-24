@@ -7,6 +7,7 @@ import {SoftwareGlyphFrame} from './render/software-glyph.js';
 import {GlyphPixelPresentation} from './render/glyph-pixel-presentation.js';
 import {VISUAL_ASSETS} from './render/semantic-assets.js';
 import {biomePalette} from './render/biome-art.js';
+import {paintPixelTree,paintPixelCottage} from './render/pixel-scenery.js';
 import {sampleHeroPose} from './actors/hero-performance.js';
 import {materialGlyphIndex,materialColors} from './render/glyph-material.js';
 import {GroundMaterialCache,isFocalGroundTile,type GroundSurface} from './render/ground-material.js';
@@ -52,18 +53,18 @@ void main(){
  int index=0;
  vec3 bg,fg;
  if(u_pixelMode>.5){
-   index=detail>.58?26:detail>.42?25:detail>.28?24:detail>.16?23:0;
-   // Five-bit color and stronger filled backgrounds preserve contiguous pixel-art forms.
+   index=detail>.78?26:detail>.60?25:detail>.43?24:detail>.26?23:0;
+   // Preserve contiguous authored source colors; glyphs only trace real boundaries.
    vec3 base=floor(raw*31.+.5)/31.;
-   bg=clamp(base*.86+vec3(.019,.023,.031)+vec3(u_brightness*.085),0.,1.);
-   fg=clamp(base*1.27+vec3(.063),0.,1.);
+   bg=clamp(base+vec3(.012,.014,.019)+vec3(u_brightness*.085),0.,1.);
+   fg=clamp(base*1.16+vec3(.031),0.,1.);
  }else{
-   if(detail<.12)index=0;
-   else if(detail<.21)index=noise>.75?2:1;
-   else index=clamp(int(floor(detail*17.+3.+noise*2.)),3,22);
-   // Colored negative space prevents uniform text noise from swallowing silhouettes.
-   bg=clamp(raw*.49+vec3(.020,.024,.031)+vec3(u_brightness*.085),0.,1.);
-   fg=clamp(raw*1.77+vec3(.145),0.,1.);
+   if(detail<.18)index=0;
+   else if(detail<.27)index=noise>.85?2:0;
+   else index=clamp(int(floor(detail*15.+3.+noise*1.5)),3,22);
+   // Atmospheric mode shares the artwork, with restrained high-contrast ink.
+   bg=clamp(raw*.76+vec3(.016,.019,.024)+vec3(u_brightness*.085),0.,1.);
+   fg=clamp(raw*1.45+vec3(.094),0.,1.);
    fg=mix(fg,vec3(dot(fg,vec3(.299,.587,.114))),1.-u_quality);
  }
  float blendContrast=1.+(u_contrast-1.)*.3;
@@ -421,75 +422,14 @@ function drawShadow(ctx:CanvasRenderingContext2D,x:number,y:number,rx:number,ry=
  ctx.save();ctx.globalAlpha=.48;ctx.fillStyle='#060d17';ctx.beginPath();ctx.ellipse(x,y,rx,ry,0,0,Math.PI*2);ctx.fill();ctx.restore();
 }
 function drawTree(ctx:CanvasRenderingContext2D,x:number,y:number,k:number,t:number,zone:ZoneId){
- const a=biomePalette(zone),sw=Math.sin(t*.7+k*7)*1.4;
- drawShadow(ctx,x,y,27);
- ctx.save();ctx.translate(x,y);
- if(a.silhouette==='cypress'){
-   ctx.fillStyle=a.trunk;poly(ctx,[[-5,5],[-7,-48],[7,-48],[6,5]],a.trunk);
-   for(let j=0;j<3;j++){
-     const width=27-j*5,top=-94+j*19,bottom=-22+j*10;
-     poly(ctx,[[-width+sw, bottom],[sw-4,top],[sw+5,top+3],[width+sw,bottom]],j===0?a.canopyDark:j===1?a.canopyMid:a.canopyLight);
-   }
-   poly(ctx,[[sw-6,-78],[sw-3,-98],[sw+5,-81],[sw+1,-57]],a.rim);
-   ctx.fillStyle=a.accent;ctx.fillRect(-15,-39,3,3);ctx.fillRect(13,-26,3,3);
- }else if(a.silhouette==='ash-oak'){
-   poly(ctx,[[-9,5],[-14,-40],[-8,-62],[2,-59],[7,-29],[10,5]],a.trunk);
-   poly(ctx,[[-12,-40],[-39,-65],[-35,-72],[-5,-54]],a.trunk);
-   poly(ctx,[[2,-51],[28,-76],[34,-68],[7,-37]],a.trunk);
-   poly(ctx,[[-42+sw,-49],[-34,-78],[-9+sw,-94],[10,-74],[5,-43]],a.canopyDark);
-   poly(ctx,[[-7+sw,-64],[5,-94],[32+sw,-88],[42,-60],[21,-44]],a.canopyMid);
-   poly(ctx,[[-19,-83],[2,-98],[20,-84],[4,-69]],a.canopyLight);
-   poly(ctx,[[-15,-31],[-31,-3],[-13,-11],[-4,-25]],a.trunk);
-   poly(ctx,[[7,-31],[25,-2],[10,-10],[1,-21]],a.trunk);
-   ctx.fillStyle=a.rim;ctx.fillRect(19,-74,6,3);ctx.fillRect(-34,-58,5,3);
-   ctx.fillStyle=a.accent;ctx.fillRect(-6,-54,3,8);
- }else if(a.silhouette==='reliquary'){
-   poly(ctx,[[-10,4],[-22,-47],[-5,-95],[10,-45],[13,4]],a.canopyDark);
-   poly(ctx,[[-8,-1],[-13,-43],[-1,-88],[5,-41],[4,-2]],a.canopyMid);
-   poly(ctx,[[-2,-85],[2,-45],[3,-7],[9,-45]],a.canopyLight);
-   poly(ctx,[[10,-2],[17,-50],[31,-75],[37,-34],[24,-3]],a.canopyMid);
-   poly(ctx,[[18,-48],[31,-75],[30,-36],[23,-10]],a.rim);
-   poly(ctx,[[-23,0],[-35,-35],[-24,-63],[-12,-30],[-13,0]],a.canopyMid);
-   ctx.fillStyle=a.accent;ctx.fillRect(-3,-92,6,8);ctx.fillRect(24,-65,4,7);
-   ctx.fillStyle=a.stoneLight;ctx.fillRect(-16,-1,32,5);
- }else if(a.silhouette==='mangrove'){
-   poly(ctx,[[-6,5],[-7,-39],[-21,-59],[-15,-63],[2,-48],[8,-19],[6,5]],a.trunk);
-   poly(ctx,[[-1,-32],[14,-61],[21,-64],[12,-33]],a.trunk);
-   poly(ctx,[[-5,-30],[-26,6],[-15,0],[3,-14]],a.trunk);
-   poly(ctx,[[4,-25],[26,6],[14,1],[-2,-14]],a.trunk);
-   poly(ctx,[[-37+sw,-52],[-27,-83],[5+sw,-88],[19,-67],[3,-43]],a.canopyDark);
-   poly(ctx,[[-2+sw,-57],[14,-91],[36+sw,-82],[43,-51],[23,-41]],a.canopyMid);
-   poly(ctx,[[-23,-72],[-6,-88],[9,-76],[5,-62]],a.canopyLight);
-   ctx.fillStyle=a.rim;for(let j=0;j<5;j++){const xx=-30+j*14;ctx.fillRect(xx,-48+(j%2)*5,2,15+j%3*6);}
-   ctx.fillStyle=a.accent;ctx.fillRect(23,-74,4,3);ctx.fillRect(-20,-65,3,3);
- }else{
-   poly(ctx,[[-12,5],[-19,-38],[-10,-81],[0,-104],[15,-75],[11,-17],[18,5]],a.canopyDark);
-   poly(ctx,[[-4,-93],[1,-103],[9,-74],[5,-19],[11,3],[0,-5]],a.canopyMid);
-   poly(ctx,[[1,-102],[6,-78],[2,-51],[-2,-82]],a.rim);
-   poly(ctx,[[-30,-22],[-34,-62],[-26,-76],[-18,-55],[-17,-18]],a.canopyMid);
-   poly(ctx,[[23,-33],[30,-75],[38,-56],[33,-20]],a.canopyMid);
-   ctx.fillStyle=a.accent;ctx.fillRect(-5,-59,10,3);ctx.fillRect(-4,-46,8,3);
-   poly(ctx,[[21+sw,-95],[27+sw,-109],[33+sw,-91]],a.canopyLight);
-   poly(ctx,[[-33-sw,-92],[-26-sw,-105],[-20-sw,-86]],a.rim);
- }
- ctx.restore();
+  drawShadow(ctx,x,y,30,8);
+  paintPixelTree(ctx,x,y,zone,k);
+  void t;
 }
 function drawCottage(ctx:CanvasRenderingContext2D,x:number,y:number,k:number,t:number){
- drawShadow(ctx,x,y,30);
- ctx.save();ctx.translate(x,y);
- const m=VISUAL_ASSETS.cottage.materials;
- poly(ctx,[[-24,2],[-24,-41],[25,-41],[25,2]],k>.5?'#605a56':m.wall);
- ctx.fillStyle='#3d3333';ctx.fillRect(-23,-38,5,39);ctx.fillRect(19,-38,5,39);
- poly(ctx,[[-34,-38],[-2,-72],[33,-38]],'#5a474f');
- poly(ctx,[[-24,-43],[-2,-65],[24,-43]],'#866e69');
- ctx.strokeStyle='#c7a088';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(-30,-40);ctx.lineTo(-2,-70);ctx.lineTo(29,-40);ctx.stroke();
- ctx.fillStyle='#271f24';ctx.fillRect(-9,-23,17,24);
- ctx.fillStyle='#947256';ctx.fillRect(-7,-20,13,21);
- ctx.fillStyle='#edca87';ctx.fillRect(14,-29,8,9);ctx.fillRect(-20,-29,7,9);
- ctx.fillStyle='#4f3c37';ctx.fillRect(15,-27,3,6);
- ctx.fillStyle='#f6dc9b';ctx.fillRect(3,-11,2,2);
- light(ctx,17,-26,40,'#ffc985',.18+Math.sin(t*1.3+k)*.035);
- ctx.restore();
+  drawShadow(ctx,x,y,31,8);
+  paintPixelCottage(ctx,x,y,k,t);
+  light(ctx,x+16,y-23,48,'#ffc985',.14+Math.sin(t*1.3+k)*.025);
 }
 function drawMasonry(ctx:CanvasRenderingContext2D,x:number,y:number,k:number,zone:ZoneId){
  const a=biomePalette(zone);drawShadow(ctx,x,y,27);
@@ -601,52 +541,55 @@ function drawDiscoveryBeacon(ctx:CanvasRenderingContext2D,x:number,y:number,t:nu
  ctx.restore();
 }
 function drawGround(ctx:CanvasRenderingContext2D,zone:ZoneId,camX:number,camY:number,t:number){
- const z=ZONES[zone],a=biomePalette(zone);
- ctx.fillStyle=z.ground;ctx.fillRect(0,0,W,H);
- const left=Math.max(0,Math.floor(camX/TILE)-1),right=Math.min(WORLD_W-1,Math.ceil((camX+W)/TILE)+1);
- const top=Math.max(0,Math.floor(camY/TILE)-1),bottom=Math.min(WORLD_H-1,Math.ceil((camY+H)/TILE)+2);
- for(let y=top;y<=bottom;y++)for(let x=left;x<=right;x++){
-   const k=hash(x,y,z.seed),xx=x*TILE-camX,yy=y*TILE-camY,tile=terrain(zone,x,y);
-   ctx.fillStyle=a.soil[0];ctx.fillRect(xx,yy,TILE+1,TILE+1);
-   if(k>.77){ctx.fillStyle=a.soil[1];ctx.globalAlpha=.24;ctx.fillRect(xx,yy,TILE+1,TILE+1);ctx.globalAlpha=1;}
-   if(tile==='path'){
-     ctx.fillStyle=a.path;ctx.fillRect(xx,yy,TILE+1,TILE+1);
-     // Sparse authored markings; flat route color must carry navigation.
-     if(k>.90&&!isFocalGroundTile(zone,x,y)){
-       const px=xx+8+hash(x*7,y,z.seed+211)*30,py=yy+8+hash(x,y*7,z.seed+213)*30;
-       ctx.fillStyle=a.pathMark;ctx.globalAlpha=.25;ctx.fillRect(px,py,5,2);ctx.globalAlpha=1;
-     }
-     ctx.fillStyle=a.pathRim;ctx.globalAlpha=.32;
-     if(terrain(zone,x,y-1)!=='path')ctx.fillRect(xx,yy,TILE,2);
-     if(terrain(zone,x,y+1)!=='path')ctx.fillRect(xx,yy+TILE-2,TILE,2);
-     if(terrain(zone,x-1,y)!=='path')ctx.fillRect(xx,yy,2,TILE);
-     if(terrain(zone,x+1,y)!=='path')ctx.fillRect(xx+TILE-2,yy,2,TILE);
-     ctx.globalAlpha=1;
-   }else if(tile==='water'){
-     ctx.fillStyle=a.water;ctx.fillRect(xx,yy,TILE+1,TILE+1);
-     ctx.strokeStyle=a.waterRim;ctx.globalAlpha=.33;ctx.lineWidth=2;
-     const wave=yy+22+Math.sin(t*1.1+k)*2;
-     ctx.beginPath();ctx.moveTo(xx+10,wave);ctx.quadraticCurveTo(xx+22,wave-3,xx+35,wave);ctx.stroke();
-     ctx.globalAlpha=1;
-   }else if(tile==='grass'){
-     ctx.fillStyle=a.grass;ctx.globalAlpha=.18;ctx.fillRect(xx+2,yy+3,43,41);ctx.globalAlpha=1;
-     if(k>.52&&!isFocalGroundTile(zone,x,y)){
-       ctx.strokeStyle=a.grassLight;ctx.lineWidth=2;ctx.globalAlpha=.34;
-       const gx=xx+12+hash(x,y,z.seed+23)*26,gy=yy+17+hash(x,y,z.seed+25)*20;
-       ctx.beginPath();ctx.moveTo(gx,gy+6);ctx.lineTo(gx-4,gy-2);ctx.moveTo(gx,gy+6);ctx.lineTo(gx+4,gy-4);ctx.stroke();ctx.globalAlpha=1;
-     }
-   }else if(tile==='ground'||tile==='stone'){
-     if(k>.93&&!isFocalGroundTile(zone,x,y)){ctx.fillStyle=a.soilMark;ctx.globalAlpha=.32;ctx.fillRect(xx+19,yy+22,4,2);ctx.globalAlpha=1;}
-     if(zone==='sanctuary'&&k>.91){ctx.fillStyle=a.stoneMid;ctx.fillRect(xx+19,yy+15,8,2);}
-     if(zone==='spire'&&k>.92){ctx.fillStyle=a.canopyMid;ctx.fillRect(xx+23,yy+12,3,10);}
-   }
-   if(tile!=='wall'){
-     const surface:GroundSurface=tile==='path'||tile==='water'||tile==='grass'||tile==='stone'?tile:'ground';
-     GROUND_MATERIAL_CACHE.draw(ctx,zone,surface,x,y,z.seed,xx,yy,a,TILE);
-   }
- }
- // Subtle world-space glow is shared by both graphics profiles.
- for(let i=0;i<6;i++){const xx=((i*271+Math.sin(t*.2+i)*90-camX*.09)%1250+1250)%1250-150,yy=70+i*76+Math.sin(t*.34+i*2)*24;light(ctx,xx,yy,230,z.glow,.02);}
+  const z=ZONES[zone],a=biomePalette(zone);
+  ctx.fillStyle=a.soil[0];ctx.fillRect(0,0,W,H);
+  const left=Math.max(0,Math.floor(camX/TILE)-1),right=Math.min(WORLD_W-1,Math.ceil((camX+W)/TILE)+1);
+  const top=Math.max(0,Math.floor(camY/TILE)-1),bottom=Math.min(WORLD_H-1,Math.ceil((camY+H)/TILE)+2);
+  for(let y=top;y<=bottom;y++)for(let x=left;x<=right;x++){
+    const k=hash(x,y,z.seed),xx=x*TILE-camX,yy=y*TILE-camY,tile=terrain(zone,x,y);
+    ctx.fillStyle=a.soil[0];ctx.fillRect(xx,yy,TILE+1,TILE+1);
+    if(k>.83){ctx.fillStyle=a.soil[1];ctx.globalAlpha=.28;ctx.fillRect(xx,yy,TILE+1,TILE+1);ctx.globalAlpha=1;}
+    if(tile==='path'){
+      // Navigation is a single legible ribbon. Edges are continuous across tiles.
+      ctx.fillStyle=a.path;ctx.fillRect(xx,yy,TILE+1,TILE+1);
+      ctx.fillStyle=a.pathRim;ctx.globalAlpha=.40;
+      if(terrain(zone,x,y-1)!=='path')ctx.fillRect(xx,yy,TILE,3);
+      if(terrain(zone,x,y+1)!=='path')ctx.fillRect(xx,yy+TILE-3,TILE,3);
+      if(terrain(zone,x-1,y)!=='path')ctx.fillRect(xx,yy,3,TILE);
+      if(terrain(zone,x+1,y)!=='path')ctx.fillRect(xx+TILE-3,yy,3,TILE);
+      ctx.globalAlpha=1;
+    }else if(tile==='water'){
+      // Broad pools and occasional deliberate specular pixels; no line per tile.
+      ctx.fillStyle=a.water;ctx.fillRect(xx,yy,TILE+1,TILE+1);
+      if(k>.80&&!isFocalGroundTile(zone,x,y)){
+        const ry=yy+12+Math.floor(hash(x,y,z.seed+216)*4)*6;
+        ctx.fillStyle=a.waterRim;ctx.globalAlpha=.36;
+        ctx.fillRect(xx+9,ry,19,3);ctx.fillRect(xx+23,ry+5,11,2);
+        ctx.globalAlpha=1;
+      }
+      ctx.fillStyle=a.waterRim;ctx.globalAlpha=.55;
+      if(terrain(zone,x,y-1)!=='water')ctx.fillRect(xx,yy,TILE,3);
+      if(terrain(zone,x-1,y)!=='water')ctx.fillRect(xx,yy,3,TILE);
+      ctx.globalAlpha=1;
+    }else if(tile==='grass'){
+      // Full bleed: isolated transparent inner-tile rectangles looked like a grid.
+      ctx.fillStyle=a.grass;ctx.globalAlpha=.44;ctx.fillRect(xx,yy,TILE+1,TILE+1);ctx.globalAlpha=1;
+    }else if(tile==='stone'){
+      ctx.fillStyle=a.stoneDark;ctx.globalAlpha=.67;ctx.fillRect(xx,yy,TILE+1,TILE+1);
+      ctx.fillStyle=a.stoneMid;ctx.globalAlpha=.26;
+      ctx.fillRect(xx+5,yy+6,TILE-10,TILE-12);ctx.globalAlpha=1;
+    }
+    if(tile!=='wall'){
+      const surface:GroundSurface=tile==='path'||tile==='water'||tile==='grass'||tile==='stone'?tile:'ground';
+      GROUND_MATERIAL_CACHE.draw(ctx,zone,surface,x,y,z.seed,xx,yy,a,TILE);
+    }
+  }
+  // Slow ambient light is subtle; broad material masses always remain legible.
+  for(let i=0;i<6;i++){
+    const xx=((i*271+Math.sin(t*.2+i)*90-camX*.09)%1250+1250)%1250-150;
+    const yy=70+i*76+Math.sin(t*.34+i*2)*24;
+    light(ctx,xx,yy,230,z.glow,.018);
+  }
 }
 function drawClimate(ctx:CanvasRenderingContext2D,zone:ZoneId,t:number,seed:number,reduced=false){
  const speed=reduced?0:t;
