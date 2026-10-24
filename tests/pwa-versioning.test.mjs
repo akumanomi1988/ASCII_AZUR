@@ -19,7 +19,7 @@ function serviceWorker(){
  };
  const caches={
   open:async()=>cache,
-  keys:async()=>['ascii-azur-v045-q1','ascii-azur-v046-q2'],
+  keys:async()=>['ascii-azur-v046-q2','ascii-azur-v047-q1'],
   delete:async()=>true,
   match:async url=>cached.get(url)
  };
@@ -43,9 +43,10 @@ test('PWA release cache preloads every asset under a versioned URL',async()=>{
  const urls=sw.getPrecache();
  assert.ok(urls.length>=40,'Precache shrank below essential modules');
  assert.ok(urls.every(url=>url.startsWith('https://azur.example/ASCII_AZUR/')));
- assert.ok(urls.every(url=>new URL(url).searchParams.get('__azur_release')==='046'));
+ assert.ok(urls.every(url=>new URL(url).searchParams.get('__azur_release')==='047'));
  assert.ok(urls.some(url=>url.includes('/dist/main.js?')));
  assert.ok(urls.some(url=>url.includes('/dist/story-navigation.js?')));
+ assert.ok(urls.some(url=>url.includes('/dist/creatures/field-research.js?')));
 });
 
 test('PWA fetch bypasses stale unversioned JS cache and restores offline from matching release',async()=>{
@@ -55,7 +56,7 @@ test('PWA fetch bypasses stale unversioned JS cache and restores offline from ma
  const first=await sw.fire('fetch',request);
  assert.ok(first?.ok);
  const last=sw.requests.at(-1);
- assert.equal(new URL(last.url).searchParams.get('__azur_release'),'046');
+ assert.equal(new URL(last.url).searchParams.get('__azur_release'),'047');
  assert.equal(last.cache,'reload');
  assert.ok(sw.cached.has(last.url));
  sw.setOffline(true);
