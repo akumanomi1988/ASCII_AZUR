@@ -31,3 +31,18 @@ Local and remote evidence is recorded in `docs/AI_EVOLUTION_STATE.md` as it beco
 A3 advances technically but stays OPEN: actual device performance is still part of its fixed acceptance. A2 mastering and A4 independent listening acceptance are also open. Physical Android, human wayfinding, visual/narrative/usability signoff and starter/economy tuning cannot be certified from automated audio tests. The fixed roadmap remains 20/32, weighted 67.50%.
 
 Baseline regression balance probes (scripted fixed policy, not human optimal play) report 46/72 Cindrel, 36/72 Velaria and 71/72 Thorne encounter wins. A future combat/progression macroiteration should investigate that disparity before external C4/P4 acceptance; this release deliberately does not silently change combat balance.
+
+
+## Observed release evidence — 2026-10-24
+
+| Gate | Observed result |
+|---|---|
+| Local and remote TypeScript/Node/standalone/PWA | PASS, 322 tests, zero failures, 46 imports / 49 cached modules |
+| Real Chromium game + audio lifecycle | PASS, ASCII/Pixel × WebGL2/Canvas2D, 32 biome/combat screenshots |
+| Main quality + publish | SUCCESS, run `40076494825`, source `1a91a4ac033e601e2b608763e1866555aff69054` |
+| Pages deployment | SUCCESS, run `40076644089`, distribution commit `9b561823f509e84188a2878d2a29c138b9341b78` |
+| Distribution source provenance | Exact `build-info.json.source_commit` match to the release source above |
+| Independent public HTTP smoke | UNVERIFIED, proxy CONNECT timeout from this execution environment |
+| Physical Android / independent player or listener approval | UNVERIFIED, not available in this iteration |
+
+The evidence-only documentation follow-up changes no game source and intentionally skips a redundant build. The playable release remains the exact verified source above.
