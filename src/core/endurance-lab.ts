@@ -13,7 +13,7 @@ export interface EnduranceReport {
  orientationChanges:number;orientationFrames:Record<EnduranceOrientation,number>;
  orientation:'portrait'|'landscape'|'unobserved';
  viewport:{minWidth:number;maxWidth:number;minHeight:number;maxHeight:number}|null;
- ENDURANCE_PHASES:Record<EndurancePhase,EndurancePhaseReport>;
+ phases:Record<EndurancePhase,EndurancePhaseReport>;
  meaning:string;
 }
 const ENDURANCE_PHASES:readonly EndurancePhase[]=['explore','battle','crypt','menu'];
@@ -77,7 +77,7 @@ export class EnduranceLab {
    sampledSeconds:Number(ENDURANCE_PHASES.reduce((sum,p)=>sum+this.stats[p].sumMs,0).toFixed(0))/1000,
    ignoredFrames:this.dropped,orientationChanges:this.orientationChanges,
    orientationFrames:{...this.orientationFrames},orientation:this.orientation??'unobserved',
-   viewport:this.viewport?{...this.viewport}:null,ENDURANCE_PHASES:out,
+   viewport:this.viewport?{...this.viewport}:null,phases:out,
    meaning:'Visible requestAnimationFrame main-thread pacing only. P95 is an upper histogram bound. Not GPU time, energy, temperature, physical device, human acceptance or play-duration proof.'};
  }
 }
