@@ -204,3 +204,10 @@ The authored three-chapter storyline now has a scripted conclusion and automated
 - The Bestiary becomes an actionable collection loop: true sighting history, legacy-safe bonded histories, authentic biome hints and four bounded one-time research claims. Claims deliberately require distinct capturable species and preserve save-v1 compatibility.
 - Automated candidate: full-species habitat audit, reward cap/idempotence/immutability tests, battle-checkpoint sighting replay, Codex browser claim/reload across render modes and backends, followed by main/Pages provenance verification.
 - **P4 remains unchecked**: external players must still assess collection pacing, agency, balance and economy. Global is unchanged at **67.50% (20/32)**; never count unit-test coverage as player acceptance.
+
+
+## v0.48 — Pixel world artwork and material clarity (2026-10-24)
+
+Implemented in source: five authored pixel-aligned foliage silhouette families with cached 5px sprite masks; stepped village architecture; continuous and less cluttered soil/grass/water/stone materials; distinct seven-zone palettes retained; brighter shape-first WebGL2/Canvas2D glyph composition; new players default to Glyph Pixel Art while saved settings preserve old choices. New deterministic visual regression tests protect assets, shared modes, compatibility and world snapshots.
+
+**G2 remains [ ]** until independent desktop/mobile before-and-after screenshot approval. **G4 remains [ ]** pending sustained >=30 FPS on the designated physical Android minimum device. No graphical implementation by itself changes the fixed weighted 67.50% score. Reference: v0.48 implementation branch and CI/Pages proof recorded in the delivery report.
