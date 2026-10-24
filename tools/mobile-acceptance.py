@@ -147,6 +147,9 @@ try:
                     process.wait(timeout=5)
         if len(reports)!=1 or reports[0].get('status')!='PASS':
             raise AssertionError(f'{orientation}: {reports}')
+        evidence=ROOT/'artifacts'/'mobile-acceptance'
+        evidence.mkdir(parents=True,exist_ok=True)
+        (evidence/(orientation+'.json')).write_text(json.dumps(reports[0],indent=2,sort_keys=True)+'\\n',encoding='utf-8')
         print('MOBILE_VIEWPORT_PASS '+json.dumps(reports[0],sort_keys=True),flush=True)
 finally:
     server.shutdown();server.server_close()
