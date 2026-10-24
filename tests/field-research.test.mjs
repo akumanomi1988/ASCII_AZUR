@@ -9,7 +9,7 @@ const capturable=['cindrel','cinderwulf','velaria','thorne','wispawn','gravemoth
 function state(count=0){
  const team=capturable.slice(0,Math.min(6,count)).map(creature);
  const storage=capturable.slice(6,count).map(creature);
- return{team,storage,flags:[],inventory:{seals:2,tonics:1},rpg:{echoes:35}};
+ return{team,storage,flags:[],inventory:{seals:2,tonics:1},rpg:{echoes:35,completed:[],visitedNpcs:[]}};
 }
 
 test('field research lists 17 capturable species and excludes the two bosses from rewards',()=>{
