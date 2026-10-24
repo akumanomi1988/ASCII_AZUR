@@ -47,7 +47,7 @@ export function paintGroundMotifs(ctx:CanvasRenderingContext2D,zone:ZoneId,surfa
   ctx.save();ctx.translate(screenX,screenY);
   for(const m of motifs){
     ctx.save();ctx.translate(m.x,m.y);ctx.rotate(m.turn);
-    const s=m.scale;
+    const s=m.kind==='cobble'?m.scale*1.65:m.scale;
     ctx.globalAlpha=.22+m.shade*.27;
     switch(m.kind){
       case 'cobble':
