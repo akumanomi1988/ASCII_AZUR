@@ -76,7 +76,9 @@ class AzurGame {
     document.addEventListener('keydown',e=>this.handleKeyDown(e));
     document.addEventListener('keyup',e=>this.keys.delete(e.key.toLowerCase()));
     window.addEventListener('blur',()=>{this.keys.clear();this.resetJoystick();this.padStick={x:0,y:0};this.padButtons.clear();});
-    document.addEventListener('visibilitychange',()=>{if(document.hidden){this.frameMetrics.reset();this.resetJoystick();this.sound.pause();if(this.started)this.saveNow(false);}else this.sound.resume();});
+    document.addEventListener('visibilitychange',()=>{if(document.hidden){this.keys.clear();this.padStick={x:0,y:0};this.padButtons.clear();this.frameMetrics.reset();this.resetJoystick();this.sound.pause();if(this.started)this.saveNow(false);}else this.sound.resume();});
+    window.addEventListener('pagehide',()=>this.sound.pause());
+    window.addEventListener('pageshow',()=>{if(!document.hidden)this.sound.resume();});
     window.addEventListener('storage',event=>{
       if(event.key!==saveKeyForSlot(this.activeSlot))return;
       if(!this.started){this.loadState();return;}

@@ -1,6 +1,6 @@
 # ASCII AZUR — Autonomous Evolution State
 
-Updated: 2026-10-23. **STATUS: IN PROGRESS.** Last verified source release: **v0.43.0 — durable multi-slot saves and accessible combat**. Repository: `akumanomi1988/ASCII_AZUR`, production branch `main`. Release source `1575f680064e95254498cbbbdc820d9adf9596fc`; main CI `40012039385` SUCCESS; public `gh-pages/build-info.json.source_commit` matched. Candidate v0.44 expands the procedural score and nonvisual navigation; acceptance and main publication remain pending. Independent premium visual, player and physical-device approval remain unverified.
+Updated: 2026-10-24. **STATUS: IN PROGRESS — 20/32 fixed milestones, weighted 67.50%.** Recovered production source: **v0.50.0**, `543308b3b5d2baf1ce57203d2e0222687fb9d96a`; main quality workflow `40072887563` observed SUCCESS. Current macroiteration: **v0.51.0 — continuous score and bounded audio lifecycle**, validation/publication recorded below. Repository: `akumanomi1988/ASCII_AZUR`, production branch `main`. Physical Android and independent player/art/music acceptance remain unverified. Historical candidate notes below are retained as history; this status and `docs/AAA_ROADMAP.md` govern the current progress count.
 
 ## Product vision and hard constraints
 
@@ -73,7 +73,7 @@ Each row states observable evidence, outstanding deficiency and measurable premi
 
 ## Current risks and blockers
 
-- The attached execution filesystem is **read-only**, so GitHub connector + remote Actions were used for source edits and validation. No local shell write/test result is claimed.
+- The 2026-10-24 preflight confirmed effective local file creation/read/delete, repository cloning and exact TypeScript dependency installation. Direct Git push lacks shell credentials; authenticated GitHub Git-data operations are available for publication. Local Chromium is unavailable; the existing GitHub Actions Chromium gate remains required.
 - Actual Android hardware, heat/battery profiling and independent player/art/music signoff are **not available here**. Browser fallback FPS is diagnostic only.
 - No automatic completion percentage is inferred from number of files or features. Latest externally verified source is recorded above; if any run/deployment fails, this state must explicitly say so.
 
@@ -175,3 +175,12 @@ Feature candidate on `agent/v049-glyph-architecture-world-icons` from verified m
 ## v0.50 — Static ground chunking (candidate)
 
 The original per-frame ground painting traversed and composed several hundred static tiles every camera frame. The new bounded ground-chunk compositor paints those tiles once per 8×8-tile region, replays finished RGBA chunks as Canvas2D images, and leaves dynamic weather, scene lights, actors and animations live. Its revision key follows actual `configureWorld` state, including same-seed snapshots. Cache entries are capped at 24 (approximately 14.2 MiB of pixel storage); retained data never enters a saved game. The five targeted Node checks plus the full renderer/browser/PWA pipeline are the completion gate. Physical minimum-Android FPS is still G4 **OPEN**, and the weighted global milestone score remains **67.50%** pending independent acceptance.
+
+
+## MACROITERATION v0.51 — Continuous score and bounded audio lifecycle (2026-10-24)
+
+- Scope/acceptance: `docs/RELEASE_v0.51.0.md`. Preserve scene themes and gameplay while solving music restarts, unbounded rapid transition graphs/effect voices, undisconnected note filters, background scheduler work and asynchronous suspend/resume races.
+- Implemented: session-local exploration phrase bookmarks; 650 ms audio-time fades with at most two retiring buses; 64 music/24 effect voice limits and complete transient-node ownership; shared music duck/recovery envelope; finite bounded cue parameters; idempotent terminal disposal; serialized audio lifecycle and visibility/page cache integration. No save schema changes.
+- Baseline: local `npm run verify` PASS, **314/314** Node tests, TypeScript/standalone and offline audit (46 imports / 49 cached modules). New focused suite initially passed **16/16** audio tests, including 2,000 rapid transitions/effect bursts and explicit graph cleanup assertions. Full local v0.51 `npm run verify`: **322/322 PASS**, TypeScript/standalone and PWA audit PASS (46 imports / 49 cached modules). Real Chromium/main/Pages evidence remains pending and must be observed before shipment is claimed.
+- Remaining gates: A3 remains OPEN pending device performance; A2/A4, C4/P4, W4, G2/G4, U2/U4, N4/Q4 still need their fixed independent/hardware evidence. **No milestone is closed; weighted progress stays 67.50%.**
+- Next high-impact technical follow-up: starter and resource pacing investigation. Baseline fixed-policy encounter probes show Cindrel 46/72, Velaria 36/72, Thorne 71/72 wins; these are automated policy results, not human win rates or proof of a dominant optimal strategy.

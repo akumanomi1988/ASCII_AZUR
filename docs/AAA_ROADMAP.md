@@ -227,3 +227,8 @@ The six interactive landmark categories receive pixel-authored cached silhouette
 - Implementation: viewport-aware 8×8 tile chunk compositor, 24-entry bounded LRU, revision invalidation even on same-seed saved world configuration, zone-safe keys, live ambient/weather/entity layers.
 - Acceptance: deterministic viewport coverage, 100-frame static cache reuse, camera scroll, LRU memory bound, same-seed reconfiguration and zone segregation. TypeScript, 314+ Node tests, standalone, PWA and four Chromium rendering combinations must pass, followed by main/Pages provenance.
 - G4 remains **OPEN** until sustained ≥30 FPS/heat/battery are measured on minimum physical Android hardware; this CI change does not close that gate. G2 still requires an independent artistic acceptance. Global weighted verified progress remains 67.50% (20/32 gates).
+
+
+## v0.51 — Audio lifecycle technical acceptance
+
+The continuous-score macroiteration targets A3's transition/mixing implementation: in-session phrase continuity, bounded audio-time crossfades and voices, shared ducking and deterministic async visibility/mute recovery. `docs/RELEASE_v0.51.0.md` defines the release checks and limitations. This does not close A3's device-performance requirement or A2/A4 listening/mastering gates. Fixed progress remains **20/32, weighted 67.50%**; no acceptance definition or phase weight changes.

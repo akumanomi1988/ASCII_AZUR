@@ -74,10 +74,16 @@ export function degreeSemitone(degree:number,mode:readonly number[]):number {
 export function getThemeSummary(scene:MusicScene):{bpm:number;steps:number;texture:string}{
   const t=themes[scene];return {bpm:t.bpm,steps:t.melody.length,texture:t.texture};
 }
+export const AUDIO_LIMITS={musicVoices:64,effectVoices:24,retiringBuses:2,crossfadeSeconds:.65} as const;
+type Voice={source:OscillatorNode;nodes:AudioNode[];bus:GainNode;end:number;kind:'music'|'effect'};
+const unitLevel=(value:number,fallback=0)=>Number.isFinite(value)?Math.max(0,Math.min(1,value)):fallback;
+/** Audio-time scheduling and resource ownership stay independent of rendering FPS. */
 export class Sound {
   private ctx:AudioContext|null=null;
   private master:GainNode|null=null;
   private musicMaster:GainNode|null=null;
+  private musicDuck:GainNode|null=null;
+  private duckUntil=0;
   private fxMaster:GainNode|null=null;
   private echoInput:GainNode|null=null;
   private bus:GainNode|null=null;
@@ -92,6 +98,20 @@ export class Sound {
   private nextAt=0;
   private step=0;
   private readonly lookAhead=.28;
+  private paused=false;
+  private disposed=false;
+  private contextTransition:Promise<void>|null=null;
+  private voices=new Set<Voice>();
+  private retiring=new Map<GainNode,number>();
+  private busStartedAt=0;
+  private busInitial=true;
+  private phraseBookmarks=new Map<MusicScene,number>();
+
+  /** Bounded engine counters for QA; no audio nodes or mutable state escape. */
+  diagnostics(){return {scene:this.scene,step:this.step,musicVoices:[...this.voices].filter(v=>v.kind==='music').length,
+    effectVoices:[...this.voices].filter(v=>v.kind==='effect').length,retiringBuses:this.retiring.size,
+    scheduling:this.timer!==null,paused:this.paused,disposed:this.disposed,contextState:this.ctx?.state??'uninitialized'};}
+
 
   get musicScene():MusicScene{return this.scene;}
   getIntensity():number{return this.intensity;}
@@ -115,7 +135,8 @@ export class Sound {
       highpass.connect(limiter).connect(this.ctx.destination);
     }else highpass.connect(this.ctx.destination);
     this.musicMaster=this.ctx.createGain();this.musicMaster.gain.value=this.musicVolume;
-    this.musicMaster.connect(this.master);
+    this.musicDuck=this.ctx.createGain();this.musicDuck.gain.value=1;
+    this.musicMaster.connect(this.musicDuck).connect(this.master);
     // Shared low-feedback spatial tail prevents a dry, repetitive chiptune texture.
     // A single delay is cheaper than a convolution impulse on low-end mobile GPUs/CPUs.
     if(typeof this.ctx.createDelay==='function'){
@@ -130,13 +151,46 @@ export class Sound {
     this.fxMaster.connect(this.master);
     this.newBus(true);this.startAmbience();
     this.nextAt=this.ctx.currentTime+.08;
-    this.timer=setInterval(()=>this.tick(),90);
+    this.ctx.onstatechange=()=>this.updateScheduler();
+    this.updateScheduler();
   }
   /** Must be called by a tap/click/keypress; browsers block automatic audio. */
-  unlock(){try{this.init();if(this.ctx?.state==='suspended')void this.ctx.resume().catch(()=>{});this.tick();}catch{/* unavailable audio must not interrupt gameplay */}}
-  setEnabled(v:boolean){this.enabled=v;if(v&&this.ctx)this.unlock();if(this.ctx&&this.master){this.master.gain.setTargetAtTime(v?MASTERING.outputGain:0,this.ctx.currentTime,.07);}}
-  setMusicVolume(v:number){this.musicVolume=Math.max(0,Math.min(1,v));if(this.ctx&&this.musicMaster){this.musicMaster.gain.setTargetAtTime(this.musicVolume,this.ctx.currentTime,.05);if(this.musicVolume>0)this.nextAt=Math.max(this.nextAt,this.ctx.currentTime+.06);}}
-  setEffectsVolume(v:number){this.fxVolume=Math.max(0,Math.min(1,v));if(this.ctx&&this.fxMaster)this.fxMaster.gain.setTargetAtTime(this.fxVolume,this.ctx.currentTime,.05);}
+  unlock(){
+    if(this.disposed||this.paused||!this.enabled)return;
+    try{this.init();this.syncContext();this.updateScheduler();}catch{/* unavailable audio must not interrupt gameplay */}
+  }
+  private updateScheduler(){
+    const active=!this.disposed&&!this.paused&&this.enabled&&this.musicVolume>0&&this.ctx?.state==='running';
+    if(!active){if(this.timer!==null)clearInterval(this.timer);this.timer=null;return;}
+    if(this.timer===null)this.timer=setInterval(()=>this.tick(),90);
+    this.tick();
+  }
+  /** Serialize browser promises so rapid hide/show/mute cannot leave a stale suspension. */
+  private syncContext(){
+    const ctx=this.ctx;if(!ctx||this.disposed||this.contextTransition)return;
+    const wantsRunning=this.enabled&&!this.paused;
+    if((wantsRunning&&ctx.state==='running')||(!wantsRunning&&ctx.state==='suspended')||ctx.state==='closed')return;
+    let operation:Promise<void>;
+    try{operation=wantsRunning?ctx.resume():ctx.suspend();}catch{return;}
+    this.contextTransition=operation.then(()=>{
+      this.contextTransition=null;
+      if(this.ctx!==ctx||this.disposed)return;
+      this.updateScheduler();
+      // A later player/visibility action may have reversed the requested state.
+      if(wantsRunning!==(this.enabled&&!this.paused))this.syncContext();
+    },()=>{this.contextTransition=null;this.updateScheduler();});
+  }
+  setEnabled(v:boolean){
+    this.enabled=v;
+    if(this.ctx&&this.master)this.master.gain.setTargetAtTime(v?MASTERING.outputGain:0,this.ctx.currentTime,.07);
+    this.syncContext();this.updateScheduler();
+  }
+  setMusicVolume(v:number){
+    this.musicVolume=unitLevel(v);
+    if(this.ctx&&this.musicMaster)this.musicMaster.gain.setTargetAtTime(this.musicVolume,this.ctx.currentTime,.05);
+    this.updateScheduler();
+  }
+  setEffectsVolume(v:number){this.fxVolume=unitLevel(v);if(this.ctx&&this.fxMaster)this.fxMaster.gain.setTargetAtTime(this.fxVolume,this.ctx.currentTime,.05);}
   setIntensity(value:number){
     const next=Number.isFinite(value)?Math.max(0,Math.min(1,value)):0;
     if(Math.abs(next-this.intensity)<.02)return;
@@ -145,9 +199,10 @@ export class Sound {
   }
   setScene(scene:MusicScene){
     if(this.scene===scene)return;
-    this.scene=scene;this.step=0;
+    if(this.scene!=='battle'&&this.scene!=='boss'&&this.scene!=='title')this.phraseBookmarks.set(this.scene,this.step);
+    this.scene=scene;this.step=this.phraseBookmarks.get(scene)??0;
     this.intensity=scene==='boss' ? .65 : scene==='battle' ? .35 : 0;
-    if(!this.ctx)return;
+    if(!this.ctx||this.disposed)return;
     this.newBus(false);this.setAmbience();
     this.nextAt=this.ctx.currentTime+.08;
     this.tick();
@@ -173,19 +228,48 @@ export class Sound {
     this.windDepth?.gain.setTargetAtTime(a.gain*a.modulation*mix.ambient,ctx.currentTime,.65);
     this.ambientFilter.frequency.setTargetAtTime(a.lowpassHz,ctx.currentTime,.6);
   }
+  private releaseVoice(voice:Voice,stop=false){
+    if(!this.voices.delete(voice))return;
+    voice.source.onended=null;
+    if(stop)try{voice.source.stop();}catch{/* already ended */}
+    for(const node of voice.nodes)node.disconnect();
+  }
+  private releaseBus(bus:GainNode){
+    for(const voice of this.voices)if(voice.bus===bus)this.releaseVoice(voice,true);
+    bus.disconnect();this.retiring.delete(bus);
+  }
+  private collect(now:number){
+    for(const voice of this.voices)if(voice.end<=now)this.releaseVoice(voice);
+    for(const [bus,end] of this.retiring)if(end<=now)this.releaseBus(bus);
+  }
+  private trackVoice(voice:Voice){
+    this.voices.add(voice);voice.source.onended=()=>this.releaseVoice(voice);
+  }
+  private hasVoiceRoom(kind:Voice['kind']){
+    if(this.ctx)this.collect(this.ctx.currentTime);
+    let count=0;for(const voice of this.voices)if(voice.kind===kind)count++;
+    return count<(kind==='music'?AUDIO_LIMITS.musicVoices:AUDIO_LIMITS.effectVoices);
+  }
   private newBus(initial:boolean){
     if(!this.ctx||!this.musicMaster)return;
     const now=this.ctx.currentTime,old=this.bus;
+    this.collect(now);
+    // Audio-time expiry survives background timer throttling. Rapid scene changes
+    // cannot accumulate hundreds of connected graphs during the crossfade window.
+    while(this.retiring.size>=AUDIO_LIMITS.retiringBuses)this.releaseBus(this.retiring.keys().next().value!);
     const next=this.ctx.createGain();next.gain.setValueAtTime(initial?1:0,now);
-    if(!initial)next.gain.linearRampToValueAtTime(1,now+.65);
+    if(!initial)next.gain.linearRampToValueAtTime(1,now+AUDIO_LIMITS.crossfadeSeconds);
     next.connect(this.musicMaster);if(this.echoInput)next.connect(this.echoInput);this.bus=next;
-    if(old){old.gain.cancelScheduledValues(now);old.gain.setValueAtTime(old.gain.value,now);old.gain.linearRampToValueAtTime(0,now+.65);
-      // Disconnect only after previously scheduled notes have released.
-      setTimeout(()=>{try{old.disconnect();}catch{/* already disposed */}},2200);
+    if(old){
+      const level=this.busInitial?1:Math.max(0,Math.min(1,(now-this.busStartedAt)/AUDIO_LIMITS.crossfadeSeconds));
+      old.gain.cancelScheduledValues(now);old.gain.setValueAtTime(level,now);
+      old.gain.linearRampToValueAtTime(0,now+AUDIO_LIMITS.crossfadeSeconds);
+      this.retiring.set(old,now+AUDIO_LIMITS.crossfadeSeconds);
     }
+    this.busStartedAt=now;this.busInitial=initial;
   }
   private note(midi:number,at:number,duration:number,kind:'lead'|'bass'|'pad'|'bell'|'perc',volume:number){
-    const c=this.ctx,bus=this.bus;if(!c||!bus||!this.enabled||this.musicVolume===0)return;
+    const c=this.ctx,bus=this.bus;if(!c||!bus||!this.enabled||this.paused||this.disposed||this.musicVolume===0||!this.hasVoiceRoom('music'))return;
     const oscillator=c.createOscillator(),gain=c.createGain();
     oscillator.type=kind==='bass'?'triangle':kind==='lead'?'sine':kind==='pad'?'triangle':kind==='bell'?'sine':'square';
     const freq=midiFrequency(midi);oscillator.frequency.setValueAtTime(freq,at);
@@ -196,15 +280,17 @@ export class Sound {
     gain.gain.linearRampToValueAtTime(volume,at+attack);
     gain.gain.setValueAtTime(volume*.72,end);
     gain.gain.exponentialRampToValueAtTime(.00001,stop);
+    const nodes:AudioNode[]=[oscillator,gain];
     let output:AudioNode=oscillator;
     if(kind==='bass'||kind==='pad'){
-      const filter=c.createBiquadFilter();filter.type='lowpass';filter.frequency.setValueAtTime(kind==='bass'?650:1100,at);output.connect(filter);output=filter;
+      const filter=c.createBiquadFilter();filter.type='lowpass';filter.frequency.setValueAtTime(kind==='bass'?650:1100,at);output.connect(filter);output=filter;nodes.push(filter);
     }
     output.connect(gain).connect(bus);oscillator.start(at);oscillator.stop(stop+.02);
-    oscillator.onended=()=>{oscillator.disconnect();gain.disconnect();};
+    this.trackVoice({source:oscillator,nodes,bus,end:stop+.02,kind:'music'});
   }
   private tick(){
-    const c=this.ctx;if(!c||c.state!=='running'||!this.enabled||this.musicVolume===0)return;
+    const c=this.ctx;if(!c||c.state!=='running'||!this.enabled||this.paused||this.disposed||this.musicVolume===0)return;
+    this.collect(c.currentTime);
     if(this.nextAt<c.currentTime-.08)this.nextAt=c.currentTime+.08;
     let queued=0;
     while(this.nextAt<c.currentTime+this.lookAhead&&queued++<12){
@@ -229,12 +315,24 @@ export class Sound {
     }
   }
   tone(freq:number,duration=.12,type:OscillatorType='sine',volume=.04,delay=0){
-    if(!this.enabled)return;try{
-      this.unlock();const c=this.ctx;if(!c||!this.fxMaster)return;
-      const at=c.currentTime+Math.max(0,delay),o=c.createOscillator(),g=c.createGain();o.type=type;o.frequency.setValueAtTime(freq,at);
-      g.gain.setValueAtTime(.00001,at);g.gain.linearRampToValueAtTime(volume,at+.008);
-      g.gain.exponentialRampToValueAtTime(.00001,at+duration);
-      o.connect(g).connect(this.fxMaster);o.start(at);o.stop(at+duration+.02);o.onended=()=>{o.disconnect();g.disconnect();};
+    if(!this.enabled||this.paused||this.disposed||this.fxVolume===0)return;
+    if(![freq,duration,volume,delay].every(Number.isFinite))return;
+    try{
+      this.unlock();const c=this.ctx;if(!c||!this.fxMaster||!this.hasVoiceRoom('effect'))return;
+      const at=c.currentTime+Math.max(0,Math.min(2,delay)),length=Math.max(.02,Math.min(3,duration));
+      const o=c.createOscillator(),g=c.createGain();o.type=type;o.frequency.setValueAtTime(Math.max(20,Math.min(20000,freq)),at);
+      g.gain.setValueAtTime(.00001,at);g.gain.linearRampToValueAtTime(Math.max(.00001,Math.min(.15,volume)),at+.008);
+      g.gain.exponentialRampToValueAtTime(.00001,at+length);
+      o.connect(g).connect(this.fxMaster);o.start(at);o.stop(at+length+.02);
+      this.trackVoice({source:o,nodes:[o,g],bus:this.fxMaster,end:at+length+.02,kind:'effect'});
+      // Shared envelope: overlapping effects extend one recovery instead of stacking gain.
+      if(this.musicDuck){
+        const gain=this.musicDuck.gain,now=c.currentTime;
+        if(typeof gain.cancelAndHoldAtTime==='function')gain.cancelAndHoldAtTime(now);
+        else{gain.cancelScheduledValues(now);gain.setValueAtTime(gain.value,now);}
+        this.duckUntil=Math.max(this.duckUntil,at+length);
+        gain.setTargetAtTime(.68,now,.025);gain.setTargetAtTime(1,this.duckUntil,.18);
+      }
     }catch{/* browser audio unavailable */}
   }
   hit(){this.tone(148,.15,'sawtooth',.028);this.tone(82,.2,'triangle',.035,.05);}
@@ -252,7 +350,21 @@ export class Sound {
   pick(){this.tone(430,.10,'sine',.04);this.tone(620,.14,'sine',.035,.09);this.tone(820,.16,'sine',.035,.18);}
   select(){this.tone(540,.07,'sine',.022);}
   portal(){this.tone(160,.35,'triangle',.032);this.tone(320,.45,'sine',.020,.13);}
-  pause(){if(this.ctx&&this.ctx.state==='running')void this.ctx.suspend().catch(()=>{});}
-  resume(){if(this.ctx&&this.enabled&&this.ctx.state==='suspended'){void this.ctx.resume().then(()=>{this.nextAt=this.ctx!.currentTime+.08;this.tick();}).catch(()=>{});}}
-  dispose(){if(this.timer)clearInterval(this.timer);this.timer=null;try{this.windLfo?.stop();this.ambientSource?.stop();}catch{/* already stopped */}this.windLfo=null;this.windDepth=null;this.echoInput=null;this.ambientSource=null;this.ambience=null;this.ambientFilter=null;if(this.ctx)void this.ctx.close().catch(()=>{});this.ctx=null;}
+  pause(){if(this.disposed)return;this.paused=true;this.updateScheduler();this.syncContext();}
+  resume(){if(this.disposed)return;this.paused=false;this.syncContext();this.updateScheduler();}
+  dispose(){
+    if(this.disposed)return;
+    this.disposed=true;this.updateScheduler();
+    for(const voice of this.voices)this.releaseVoice(voice,true);
+    for(const bus of this.retiring.keys())this.releaseBus(bus);
+    this.bus?.disconnect();this.bus=null;
+    try{this.windLfo?.stop();this.ambientSource?.stop();}catch{/* already stopped */}
+    this.windLfo?.disconnect();this.windDepth?.disconnect();this.ambientSource?.disconnect();
+    this.ambience?.disconnect();this.ambientFilter?.disconnect();
+    this.master?.disconnect();this.musicMaster?.disconnect();this.fxMaster?.disconnect();this.musicDuck?.disconnect();this.echoInput?.disconnect();
+    this.windLfo=null;this.windDepth=null;this.echoInput=null;this.ambientSource=null;this.ambience=null;this.ambientFilter=null;
+    this.master=null;this.musicMaster=null;this.fxMaster=null;this.musicDuck=null;
+    const ctx=this.ctx;this.ctx=null;
+    if(ctx){ctx.onstatechange=null;void ctx.close().catch(()=>{});}
+  }
 }

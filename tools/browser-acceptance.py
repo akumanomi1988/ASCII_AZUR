@@ -40,6 +40,32 @@ localStorage.setItem('ascii-azur-graphics-v2',JSON.stringify({renderMode:params.
 window.addEventListener('load',()=>setTimeout(async()=>{
  const check=(ok,msg)=>{if(!ok)throw Error(msg)};
  try{
+  // Real Web Audio graph lifecycle, independent of the scene-rendering frame budget.
+  // Autoplay is explicitly allowed only in this acceptance browser; production still
+  // unlocks audio through the existing player gesture handlers.
+  const {Sound,AUDIO_LIMITS}=await import('./dist/audio.js');
+  const score=new Sound();
+  try{
+   score.setScene('forest');score.unlock();
+   await new Promise(resolve=>setTimeout(resolve,100));
+   check(score.diagnostics().contextState==='running','Real AudioContext failed to unlock');
+   check(score.diagnostics().musicVoices>0,'Real score did not schedule any voices');
+   const phrase=score.diagnostics().step;
+   score.setScene('battle');score.hitElement('Éter');score.setScene('forest');
+   check(score.diagnostics().step>=phrase,'Combat restarted exploration music');
+   for(let i=0;i<120;i++){score.setScene(i%2?'boss':'garden');score.pick();}
+   check(score.diagnostics().musicVoices<=AUDIO_LIMITS.musicVoices,'Music voice budget exceeded');
+   check(score.diagnostics().effectVoices<=AUDIO_LIMITS.effectVoices,'Effect voice budget exceeded');
+   check(score.diagnostics().retiringBuses<=AUDIO_LIMITS.retiringBuses,'Scene bus budget exceeded');
+   score.pause();score.unlock();
+   await new Promise(resolve=>setTimeout(resolve,100));
+   check(score.diagnostics().contextState==='suspended'&&!score.diagnostics().scheduling,'Background audio still running');
+   score.resume();await new Promise(resolve=>setTimeout(resolve,100));
+   check(score.diagnostics().contextState==='running'&&score.diagnostics().scheduling,'Foreground score did not resume');
+   score.setEnabled(false);await new Promise(resolve=>setTimeout(resolve,100));
+   check(score.diagnostics().contextState==='suspended'&&!score.diagnostics().scheduling,'Muted score consumes scheduler');
+  }finally{score.dispose();}
+  check(score.diagnostics().musicVoices===0&&score.diagnostics().effectVoices===0,'Disposed graph retained voices');
   const $=id=>document.getElementById(id);
   let previousZoneImage='';
   const captureZone=async zone=>{
@@ -430,7 +456,7 @@ try:
    query=urllib.parse.urlencode({'mode':mode,**({'fallback':'1'} if fallback else {})})
    url=f'http://127.0.0.1:{server.server_port}/{QA.name}?{query}'
    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as profile:
-    args=[CHROME,'--headless=new','--no-sandbox','--enable-unsafe-swiftshader','--disable-dev-shm-usage','--disable-background-networking','--no-first-run','--window-size=1280,850',f'--user-data-dir={profile}',url]
+    args=[CHROME,'--headless=new','--no-sandbox','--enable-unsafe-swiftshader','--disable-dev-shm-usage','--disable-background-networking','--autoplay-policy=no-user-gesture-required','--no-first-run','--window-size=1280,850',f'--user-data-dir={profile}',url]
     QA_DONE.clear();QA_RESULTS.clear()
     process=subprocess.Popen(args,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,start_new_session=True)
     try:

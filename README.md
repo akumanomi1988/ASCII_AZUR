@@ -1,4 +1,6 @@
-# ASCII AZUR v0.49.0 — The Unwritten
+# ASCII AZUR v0.51.0 — The Unwritten
+
+> **v0.51 — Continuous score:** bounded scene crossfades and voice allocation, music phrase continuity after combat, shared effect ducking, safe background/mute/resume lifecycle, and explicit audio graph cleanup. Automated acceptance is distinct from physical-device performance and independent listening approval. See `docs/RELEASE_v0.51.0.md`.
 
 > **v0.49 candidate — Authored world landmarks:** six interactive pixel silhouettes, seven biome palettes, neighbor-connected stepped path edges and a punctuation-only Atmospheric ASCII micro-glyph ramp remove pseudo-text on terrain. Four renderer/backend checks and independent visual acceptance remain separate gates.
 
