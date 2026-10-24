@@ -6,6 +6,9 @@ import { SoftwareGlyphFrame } from './render/software-glyph.js';
 import { GlyphPixelPresentation } from './render/glyph-pixel-presentation.js';
 import { biomePalette } from './render/biome-art.js';
 import { paintPixelTree, paintPixelCottage } from './render/pixel-scenery.js';
+import { paintPixelLandmark } from './render/pixel-landmarks.js';
+import { pathCornerCuts } from './render/path-contour.js';
+import { GLYPHS } from './render/glyph-ramp.js';
 import { sampleHeroPose } from './actors/hero-performance.js';
 import { materialGlyphIndex, materialColors } from './render/glyph-material.js';
 import { GroundMaterialCache, isFocalGroundTile } from './render/ground-material.js';
@@ -14,7 +17,6 @@ export const W = 960, H = 540;
 /** World-only camera magnification; battle composition and DOM controls are unaffected. */
 const WORLD_PRESENTATION_ZOOM = 1.16;
 const GROUND_MATERIAL_CACHE = new GroundMaterialCache();
-const GLYPHS = ' .,:;irsXA253hMHGS#9B&@░▒▓█*+o%';
 const VS = `#version 300 es
 in vec2 a_pos;out vec2 v_uv;
 void main(){v_uv=a_pos*.5+.5;gl_Position=vec4(a_pos,0.,1.);}`;
@@ -1306,24 +1308,6 @@ function drawWayside(ctx, x, y, k, t, zone) {
     }
     ctx.restore();
 }
-function drawRuin(ctx, x, y, k, zone) {
-    const a = biomePalette(zone);
-    drawShadow(ctx, x, y, 29);
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.fillStyle = a.stoneDark;
-    ctx.fillRect(-19, -57, 14, 61);
-    ctx.fillRect(8, -57, 14, 61);
-    ctx.fillStyle = a.stoneMid;
-    ctx.fillRect(-25, -60, 50, 11);
-    ctx.fillStyle = a.stoneLight;
-    ctx.fillRect(-20, -62, 15, 4);
-    ctx.fillRect(7, -62, 16, 4);
-    poly(ctx, [[-15, -53], [-10, -40], [-12, 0], [-17, 0]], a.stoneMid);
-    ctx.fillStyle = a.accent;
-    ctx.fillRect(-2, -48, 5, 5);
-    ctx.restore();
-}
 function drawDiscoveryBeacon(ctx, x, y, t, zone, kind) {
     const palette = biomePalette(zone), glow = .62 + Math.sin(t * 1.2 + x * .03) * .12;
     ctx.save();
@@ -1375,6 +1359,12 @@ function drawGround(ctx, zone, camX, camY, t) {
                 if (terrain(zone, x + 1, y) !== 'path')
                     ctx.fillRect(xx + TILE - 3, yy, 3, TILE);
                 ctx.globalAlpha = 1;
+                // Continuous stepped corners keep broad pathways readable without micro-pebbles.
+                const neighbors = { north: terrain(zone, x, y - 1) === 'path', east: terrain(zone, x + 1, y) === 'path',
+                    south: terrain(zone, x, y + 1) === 'path', west: terrain(zone, x - 1, y) === 'path' };
+                ctx.fillStyle = a.soil[0];
+                for (const cut of pathCornerCuts(TILE, neighbors))
+                    ctx.fillRect(xx + cut.x, yy + cut.y, cut.width, cut.height);
             }
             else if (tile === 'water') {
                 // Broad pools and occasional deliberate specular pixels; no line per tile.
@@ -1507,47 +1497,33 @@ export function drawWorld(ctx, zone, hero, t, flash = 0, defeated = false, camer
         const xx = (l.x + .5) * TILE - camX, yy = (l.y + .75) * TILE - camY;
         if (xx < -100 || xx > W + 100 || yy < -100 || yy > H + 100)
             continue;
-        if (l.kind === 'altar' || l.kind === 'portal') {
-            objects.push({ x: xx, y: yy, draw: () => { drawRuin(ctx, xx, yy, 0, zone); light(ctx, xx, yy - 29, l.kind === 'portal' ? 95 : 75, l.kind === 'portal' ? '#83d0d8' : '#f6c089', .5); ctx.fillStyle = l.kind === 'portal' ? '#91cdd9' : '#e7bc7f'; ctx.fillRect(xx - 3, yy - 34, 7, 9); drawDiscoveryBeacon(ctx, xx, yy, t, zone, 'relic'); } });
+        const landmarkKind = l.kind;
+        if (landmarkKind === 'altar' || landmarkKind === 'portal') {
+            objects.push({ x: xx, y: yy, draw: () => {
+                    light(ctx, xx, yy - 32, landmarkKind === 'portal' ? 86 : 65, landmarkKind === 'portal' ? '#83d0d8' : '#f6c089', .26);
+                    paintPixelLandmark(ctx, xx, yy, zone, landmarkKind);
+                    drawDiscoveryBeacon(ctx, xx, yy, t, zone, 'relic');
+                } });
         }
-        if (l.kind === 'npc')
+        if (landmarkKind === 'npc')
             objects.push({ x: xx, y: yy, draw: () => { drawNPC(ctx, xx, yy, t, l.npcId || 'archivist'); drawDiscoveryBeacon(ctx, xx, yy, t, zone, 'npc'); } });
-        if (l.kind === 'memory' || l.kind === 'verdict')
+        if (landmarkKind === 'memory' || landmarkKind === 'verdict')
             objects.push({ x: xx, y: yy, draw: () => {
-                    ctx.save();
-                    ctx.translate(xx, yy);
-                    const pulse = reducedMotion ? .38 : .38 + Math.sin(t * 1.6 + l.x) * .15;
-                    ctx.fillStyle = l.kind === 'verdict' ? '#253749' : '#255059';
-                    ctx.fillRect(-17, -30, 34, 30);
-                    ctx.strokeStyle = l.kind === 'verdict' ? '#d8b68d' : '#85d5c1';
-                    ctx.lineWidth = 3;
-                    ctx.strokeRect(-19, -34, 38, 36);
-                    ctx.font = 'bold 24px monospace';
-                    ctx.textAlign = 'center';
-                    ctx.fillStyle = l.kind === 'verdict' ? '#ffdaa8' : '#a7f1da';
-                    ctx.fillText(l.kind === 'verdict' ? '◇' : '◈', 0, -10);
-                    light(ctx, 0, -17, l.kind === 'verdict' ? 88 : 64, l.kind === 'verdict' ? '#edbd83' : '#6fdac7', pulse);
-                    ctx.restore();
+                    const pulse = reducedMotion ? .23 : .23 + Math.sin(t * 1.6 + l.x) * .07;
+                    light(ctx, xx, yy - 29, landmarkKind === 'verdict' ? 78 : 62, landmarkKind === 'verdict' ? '#edbd83' : '#6fdac7', pulse);
+                    paintPixelLandmark(ctx, xx, yy, zone, landmarkKind);
                 } });
-        if (l.kind === 'rune')
+        if (landmarkKind === 'rune')
             objects.push({ x: xx, y: yy, draw: () => {
-                    ctx.save();
-                    ctx.translate(xx, yy);
-                    const glow = 0.25 + Math.sin(t * 1.7) * .09;
-                    ctx.fillStyle = '#263744';
-                    ctx.fillRect(-10, -29, 20, 30);
-                    ctx.fillStyle = '#748e9e';
-                    ctx.fillRect(-11, -33, 22, 6);
-                    ctx.fillStyle = '#e4d0a8';
-                    ctx.textAlign = 'center';
-                    ctx.font = 'bold 17px monospace';
-                    ctx.fillText('*+#', 0, -10);
-                    light(ctx, 0, -21, 42, '#e4d0a8', glow);
-                    ctx.restore();
+                    light(ctx, xx, yy - 24, 46, biomePalette(zone).accent, reducedMotion ? .23 : .23 + Math.sin(t * 1.7) * .07);
+                    paintPixelLandmark(ctx, xx, yy, zone, 'rune');
                 } });
-        if (l.kind === 'chest')
-            objects.push({ x: xx, y: yy, draw: () => { ctx.fillStyle = '#705b46'; ctx.fillRect(xx - 18, yy - 14, 36, 18); ctx.fillStyle = '#b29869'; ctx.fillRect(xx - 18, yy - 18, 36, 8); ctx.fillRect(xx - 2, yy - 18, 5, 22); light(ctx, xx, yy, 40, '#e5a778', .18); } });
-        if (l.kind === 'guardian' && (l.npcId === 'nullscribe' ? !finalBossDefeated : !defeated))
+        if (landmarkKind === 'chest')
+            objects.push({ x: xx, y: yy, draw: () => {
+                    light(ctx, xx, yy - 12, 41, biomePalette(zone).accent, .13);
+                    paintPixelLandmark(ctx, xx, yy, zone, 'chest');
+                } });
+        if (landmarkKind === 'guardian' && (l.npcId === 'nullscribe' ? !finalBossDefeated : !defeated))
             objects.push({ x: xx, y: yy, draw: () => { drawCreature(ctx, l.npcId === 'nullscribe' ? 'nullscribe' : 'hollowhart', xx, yy, l.npcId === 'nullscribe' ? 2.7 : 2.25, t); light(ctx, xx, yy - 45, 120, l.npcId === 'nullscribe' ? '#ca97ee' : '#a791d5', .3); } });
     }
     for (const e of roamers) {
