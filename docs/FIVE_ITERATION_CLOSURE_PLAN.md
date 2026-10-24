@@ -45,3 +45,10 @@ The authored retrospective chronicle, six nonspoiling regional arrival moments, 
 ## Block 4 v0.55.0 — automated release-hardening candidate
 
 A single engineering delivery unifies bounded opt-in frame/phase/orientation instrumentation, local no-PII diagnostic export, landscape and portrait Chromium touch/control/reload acceptance, scoped version-pinned offline recovery, release/offline distribution and CI artifact evidence. `docs/RELEASE_v0.55.0.md` contains exact criteria. The minimum-device and independent human obligations **cannot** be fulfilled inside a cloud GitHub Actions run, so closure block 4 stays only partially accepted until physical Android test records and real playtest sessions are provided as defined in `docs/ANDROID_RELEASE_ACCEPTANCE.md`. The fixed official score remains **20/32, 67.50%** unless gates obtain real evidence.
+
+
+## Block 4 observed engineering disposition — 2026-10-24
+
+`v0.55.0`'s local release endurance lab, scoped offline update safety, two mobile-viewport acceptance flows, regression suite and provenance pipeline are **technically delivered**. PR #32 and feature CI 40109745839 PASS. Main CI 40110024127 PASS (375/375 Node; 150 trilogy campaigns/450 reloads; 12 Afterlight journeys; 4 renderer/backend paths; 2 mobile viewport runs), Pages 40110405907 SUCCESS and exact production source `9de648b85ad52014bf591379f9d9a5cd43258e18` verified. No public client boot was possible from this execution environment.
+
+**Physical Android and external beta acceptance remain OPEN**, not passed by synthetic Chromium evidence. Fixed project completion **20/32, 67.50%**. The next block is actual hardware/session evidence, independent tuning, defect closure and final distribution acceptance; do not call the whole game finished while those obligations are outstanding.
