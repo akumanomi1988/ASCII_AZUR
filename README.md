@@ -1,4 +1,6 @@
-# ASCII AZUR v0.51.0 — The Unwritten
+# ASCII AZUR v0.52.0 — The Unwritten
+
+> **v0.52 — Creature identity and classic turn commands:** persistent bounded individual stats, a permanent learned repertoire with four swappable active techniques, six one-slot relics from Mara/chests, permanent non-principal crypt casualties with a memorial, two-dimensional battle submenus, and exportable local journey metrics. The original starter remains protected even after changing leaders. See `docs/RELEASE_v0.52.0.md` and the five-block closure plan.
 
 > **v0.51 — Continuous score:** bounded scene crossfades and voice allocation, music phrase continuity after combat, shared effect ducking, safe background/mute/resume lifecycle, and explicit audio graph cleanup. Automated acceptance is distinct from physical-device performance and independent listening approval. See `docs/RELEASE_v0.51.0.md`.
 

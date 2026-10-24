@@ -189,3 +189,12 @@ The original per-frame ground painting traversed and composed several hundred st
 ### v0.51 release evidence follow-up
 
 Code release source: `1a91a4ac033e601e2b608763e1866555aff69054`. [Quality/main publish](https://github.com/akumanomi1988/ASCII_AZUR/actions/runs/40076494825) and [Pages deployment](https://github.com/akumanomi1988/ASCII_AZUR/actions/runs/40076644089) both SUCCESS. Node job `120820831896` logs confirm 322 tests, zero failures and PASS for ASCII/Pixel × WebGL2/Canvas2D. This subsequent evidence-only documentation commit intentionally skips CI; it changes no playable source or published artifact. Public HTTP, physical-device performance and external acceptance remain separate OPEN gates.
+
+
+## MACROITERATION v0.52 — Creature identity, classic commands and crypt stakes (2026-10-24)
+
+Authorized scope combines the progression/relic macroiteration and the subsequent individual-stat, crypt mortality and classic-turn-menu request. Architecture, exact rules and acceptance: `docs/RELEASE_v0.52.0.md`. The user's five-prompt closure objective is broken into explicit deliverables and independent dependencies in `docs/FIVE_ITERATION_CLOSURE_PLAN.md`; no milestone criteria are lowered.
+
+Implemented six bounded relics and finite chest/Mara acquisition; shared preview/combat/AI modifiers; persisted individual potential with neutral legacy defaults; permanent learned repertoire and at most four active techniques; three restorative casts per battle to prevent infinite heal duels; modest early Cindrel/Velaria resilience tuning; fixed principal identity; checkpointed permanent non-principal crypt casualties and memorial; 2×2 commands/submenus; local exportable journey metrics; and stale-combat resume cleanup.
+
+Initial focused checks passed 13 equipment/progression tests and 10 identity/crypt/menu tests. Existing C3 and 12 physical trilogy routes passed during integration. The final full source regression, 150-journey matrix, Chromium and publication gates remain PENDING until their results are observed. Fixed accepted milestones remain **20/32, weighted 67.50%**.

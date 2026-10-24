@@ -24,12 +24,12 @@ test('P2: inherited creatures evolve without save-schema changes or losing suppo
  assert.ok(veil.moves.includes('drizzle'));
  const a=gainExp(veil,200);
  assert.equal(a.evolved,true);assert.equal(veil.speciesId,'mourveil');
- assert.ok(veil.moves.includes('drizzle'));assert.ok(veil.moves.includes('lament'));
+ assert.ok(veil.moves.includes('drizzle'));assert.ok(veil.knownMoves.includes('lament'));
  const shade=createCreature('wispawn',12,()=>.2);
  assert.ok(shade.moves.includes('siphon'));
  const b=gainExp(shade,200);
  assert.equal(b.evolved,true);assert.equal(shade.speciesId,'mnemoshade');
- assert.ok(shade.moves.includes('siphon'));assert.ok(shade.moves.includes('sigilbite'));
+ assert.ok(shade.moves.includes('siphon'));assert.ok(shade.knownMoves.includes('sigilbite'));
  const save={version:1,zone:'marsh',x:10,y:16,team:[veil,shade],storage:[createCreature('bellroot',13),createCreature('ashglass',15)],inventory:{seals:2,tonics:1},defeatedBoss:true,flags:[],playSeconds:10};
  assert.equal(validateSave(save),true);
  assert.ok(learnableMoves('mourveil',12).includes('lament'));

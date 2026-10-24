@@ -1,6 +1,6 @@
 import {gainExp,type Creature} from './domain.js';
 /** Pure party operations: data mutates only through an explicitly returned snapshot. */
-export interface PartyState {team:Creature[];storage:Creature[];}
+export interface PartyState {primaryUid?:string;team:Creature[];storage:Creature[];}
 export const PARTY_LIMIT=6;
 export function transferStoredCreature(state:PartyState,storedUid:string,replaceUid?:string):PartyState{
  const t=state.team,s=state.storage;
@@ -10,6 +10,7 @@ export function transferStoredCreature(state:PartyState,storedUid:string,replace
  if(new Set([...t,...s].map(c=>c.uid)).size!==t.length+s.length)throw Error('Duplicate creature identity');
  const team=[...t],storage=[...s],creature=storage[source]!;
  if(replaceUid!==undefined){
+  if(replaceUid===state.primaryUid)throw Error('Primary companion cannot enter reserve');
   const target=team.findIndex(c=>c.uid===replaceUid);
   if(target<0)throw Error('Replacement missing from team');
   storage[source]=team[target]!;team[target]=creature;
@@ -21,6 +22,7 @@ export function transferStoredCreature(state:PartyState,storedUid:string,replace
  return {team,storage};
 }
 export function reserveCreature(state:PartyState,uid:string):PartyState{
+ if(uid===state.primaryUid)throw Error('Primary companion cannot enter reserve');
  const i=state.team.findIndex(c=>c.uid===uid);
  if(i<0)throw Error('Creature missing from team');
  if(state.team.length<=1)throw Error('Cannot reserve last team member');

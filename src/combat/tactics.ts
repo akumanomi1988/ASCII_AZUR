@@ -1,6 +1,9 @@
+import {relicHealingFactor} from '../creatures/equipment.js';
 /** Deterministic tactical effects. No DOM, animation or mutable global state. */
 import {MOVES,SPECIES,damage,maxHp,type Creature,type Move} from '../domain.js';
 
+export const RECOVERY_CAST_LIMIT=3;
+export function recoveryCastsLeft(uses:Readonly<Record<string,number>>,uid:string):number{return Math.max(0,RECOVERY_CAST_LIMIT-(uses[uid]??0));}
 export type StatusKind='scorch'|'weaken'|'fracture';
 export interface StatusEffect {kind:StatusKind;remaining:number;}
 export interface StatusApplication {kind:StatusKind;chance:number;turns:number;}
@@ -28,6 +31,7 @@ export function afterAttack(statuses:StatusEffect[],kind:StatusKind):StatusEffec
 }
 export function attackWithStatuses(attacker:Creature,defender:Creature,move:Move,attackStatuses:StatusEffect[],defenseStatuses:StatusEffect[],roll=1):{value:number;effective:boolean;attackerStatuses:StatusEffect[];defenderStatuses:StatusEffect[]}{
   const base=damage(attacker,defender,move,roll);
+  if(move.role==='heal'||move.power<=0)return{...base,attackerStatuses:attackStatuses.map(s=>({...s})),defenderStatuses:defenseStatuses.map(s=>({...s}))};
   const weak=attackStatuses.some(s=>s.kind==='weaken');
   const exposed=defenseStatuses.some(s=>s.kind==='fracture');
   const multiplier=(weak?.75:1)*(exposed?1.25:1);
@@ -43,9 +47,12 @@ export function endTurnEffects(creature:Creature,statuses:StatusEffect[]):{damag
 /** Deterministic skill utility. Healing and cleansing never directly damage a target. */
 export function skillUtility(attacker:Creature,move:Move,statuses:readonly StatusEffect[]):{healing:number;cleanse:boolean}{
  const missing=maxHp(attacker)-attacker.hp;
- const healing=move.role==='heal'?Math.min(missing,Math.max(9,Math.floor(maxHp(attacker)*.22)+Math.floor(attacker.level*.8))):0;
+ const healing=move.role==='heal'?effectiveHealing(attacker,Math.max(9,Math.floor(maxHp(attacker)*.28)+Math.floor(attacker.level*.6))):0;
  return{healing,cleanse:move.role==='cleanse'&&statuses.length>0};
 }
+/** Drain uses actual HP removed, never theoretical overkill damage. */
+export function effectiveHealing(creature:Creature,base:number):number{return creature.hp<=0?0:Math.max(0,Math.min(maxHp(creature)-creature.hp,Math.floor(base*relicHealingFactor(creature))));}
+export function drainHealing(creature:Creature,actualDamage:number):number{return effectiveHealing(creature,Math.ceil(Math.max(0,actualDamage)*.35));}
 export function statusLabel(statuses:StatusEffect[]):string{
   return statuses.map(s=>`${STATUS_INFO[s.kind].name} ${s.remaining}`).join(' · ');
 }

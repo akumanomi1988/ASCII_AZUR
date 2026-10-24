@@ -232,3 +232,8 @@ The six interactive landmark categories receive pixel-authored cached silhouette
 ## v0.51 — Audio lifecycle technical acceptance
 
 The continuous-score macroiteration targets A3's transition/mixing implementation: in-session phrase continuity, bounded audio-time crossfades and voices, shared ducking and deterministic async visibility/mute recovery. `docs/RELEASE_v0.51.0.md` defines the release checks and limitations. This does not close A3's device-performance requirement or A2/A4 listening/mastering gates. Fixed progress remains **20/32, weighted 67.50%**; no acceptance definition or phase weight changes.
+
+
+## v0.52 — Integrated gameplay completion pass
+
+Individual potential, permanent learned techniques/four active slots, classic command/submenus, six lightweight relics, permanent non-principal crypt losses and local campaign metrics are integrated under the existing core/creature/UX/release phases. Acceptance is defined in `RELEASE_v0.52.0.md`; the user's five-prompt target is tracked in `FIVE_ITERATION_CLOSURE_PLAN.md`. This adds implementation evidence without changing any fixed milestone definition or weight. External C4/P4/N4/U4, physical Android and production visual/audio approvals remain OPEN. **20/32, weighted 67.50%** until their required evidence exists.

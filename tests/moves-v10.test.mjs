@@ -23,7 +23,7 @@ test('cleanse is conditional and draining is not mislabeled as healing',()=>{
 test('learning evolved species signature move without duplicated skills',()=>{
  const c=createCreature('cindrel',8,()=>.11);c.level=8;c.exp=0;
  let res=gainExp(c,200);assert.equal(res.evolved,true);assert.equal(c.speciesId,'cinderwulf');
- assert.ok(c.moves.includes(SIGNATURE_MOVES.cinderwulf));
+ assert.ok(c.knownMoves.includes(SIGNATURE_MOVES.cinderwulf));assert.ok(c.moves.includes('ashfang'),'old active signature is retained');
  assert.equal(new Set(c.moves).size,c.moves.length);
 });
 test('AI can recover itself when very weak rather than always attack',()=>{

@@ -1,54 +1,12 @@
+import {runCampaign} from './helpers/campaign-runner.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import fs from 'node:fs';
-import vm from 'node:vm';
+import {mount} from './helpers/game-runtime.mjs';
 import {dungeonTilePath} from './helpers/dungeon-path.mjs';
 // Read generated topology from the game's own VM, never a separate Node module.
 import {damage, MOVES, maxHp} from '../dist/domain.js';
 import {createCreature as createCharacter} from '../dist/domain.js';
 import {generateDungeon as makeCrypt} from '../dist/dungeons/labyrinth.js';
-const fakeContext={
- clearRect(){},fillRect(){},fillText(){},beginPath(){},moveTo(){},lineTo(){},closePath(){},fill(){},stroke(){},translate(){},scale(){},save(){},restore(){},ellipse(){},quadraticCurveTo(){},setTransform(){},rotate(){},arc(){},rect(){},strokeRect(){},putImageData(){},drawImage(){},
- createLinearGradient(){return{addColorStop(){}}},createRadialGradient(){return{addColorStop(){}}},
- getImageData(){return{data:new Uint8ClampedArray(960*540*4)}}
-};
-function mount({virtualTime=false,seed=1,priorSave=null}={}){
- const dom=new Map(),store=new Map(),timers=[];
- if(priorSave!==null)store.set('ascii-azur-save-v1',priorSave);
- let nextTimerId=0, clock=0, randomSeed=seed>>>0;
- const randomMath=Object.create(Math);
- randomMath.random=()=>{randomSeed=(Math.imul(randomSeed,1664525)+1013904223)>>>0;return randomSeed/4294967296;};
- const virtualSetTimeout=(callback,delay=0)=>{
-  const entry={id:++nextTimerId,callback,at:clock+(Number(delay)||0),cancelled:false};
-  timers.push(entry);return entry.id;
- };
- const virtualClearTimeout=(id)=>{for(const t of timers)if(t.id===id)t.cancelled=true;};
- const flushTimers=(limit=50)=>{
-  for(let steps=0;steps<limit;steps++){
-   const next=timers.filter(t=>!t.cancelled).sort((a,b)=>a.at-b.at||a.id-b.id)[0];
-   if(!next){timers.length=0;return;}
-   timers.splice(timers.indexOf(next),1);clock=next.at;next.callback();
-  }
-  if(timers.some(t=>!t.cancelled))throw new Error('Unbounded queued callbacks');
- };
- const make=(id='')=>{
-  const classes=new Set(['hidden']);
-  return {id,style:{},dataset:{},hidden:false,innerHTML:'',textContent:'',classList:{add:(x)=>classes.add(x),remove:(x)=>classes.delete(x),contains:(x)=>classes.has(x),toggle:(x,on)=>{if(on===undefined? !classes.has(x):on){classes.add(x);return true;}classes.delete(x);return false;}},
-    addEventListener(){},focus(){},attributes:{},children:[],setAttribute(k,v){this.attributes[k]=v},getAttribute(k){return this.attributes[k]||''},replaceWith(){},replaceChildren(...xs){this.children=xs},appendChild(x){this.children.push(x)},append(...xs){this.children.push(...xs)},after(){},closest(){return make('sidebar')},
-    querySelector(){return null},querySelectorAll(){return[]},getBoundingClientRect(){return{left:0,top:0,width:960,height:540}},
-    getContext:(mode)=>mode==='2d'?fakeContext:null,
-    set width(x){this._w=x},get width(){return this._w||960},set height(x){this._h=x},get height(){return this._h||540}
-  };
- };
- const doc={getElementById:(id)=>{if(!dom.has(id))dom.set(id,make(id));return dom.get(id)},createElement:(name)=>make(name),addEventListener(){},querySelectorAll(){return[]}};
- const win={devicePixelRatio:1,addEventListener(){},setTimeout:virtualTime?virtualSetTimeout:setTimeout};
- const storage={setItem:(k,v)=>store.set(k,v),getItem:(k)=>store.get(k)||null};
- const html=fs.readFileSync(new URL('../play.html',import.meta.url),'utf8');
- const source=html.split('<script>\n').at(-1).split('\n</script>')[0].replace(/new AzurGame\(\);\s*$/, 'globalThis.GAME = new AzurGame(); globalThis.AZUR_TEST_WORLD = {ZONES,canOccupy,sweepMove,WORLD_W,WORLD_H};');
- const sandbox={document:doc,window:win,localStorage:storage,navigator:{},performance,console,AudioContext:class{constructor(){throw new Error('audio unavailable')}},ImageData:class{constructor(width,height){this.width=width;this.height=height;this.data=new Uint8ClampedArray(width*height*4)}},requestAnimationFrame(){},setTimeout:virtualTime?virtualSetTimeout:setTimeout,clearTimeout:virtualTime?virtualClearTimeout:clearTimeout,Math:virtualTime?randomMath:Math};
- vm.runInNewContext(source,sandbox,{timeout:5000});
- return{game:sandbox.GAME,dom,storage,flushTimers,world:sandbox.AZUR_TEST_WORLD};
-}
 test('runtime: start a game, select creature, dismiss story, save',()=>{
  const {game,dom,storage}=mount();
  game.startNew();assert.equal(dom.get('starterScreen').classList.contains('hidden'),false);
@@ -203,9 +161,9 @@ test('runtime: story compass follows first objective, responds to portal and pre
 
 test('runtime: battle controls show real tactical information for touch and keyboard',()=>{
  const {game,dom}=mount();game.startNew();game.pickStarter('cindrel');for(let i=0;i<26;i++)game.nextDialog();
- game.startBattle('thorne',8,'wild');
+ game.startBattle('thorne',8,'wild');game.openBattleMenu('moves');
  const actions=dom.get('battleActions').children;
- assert.ok(actions.length>=6);
+ assert.equal(actions.length,5);
  const first=actions.find(b=>b.classList.contains('battle-move'));
  assert.ok(first,'battle move card should exist');
  assert.equal(first.children.length,3);
@@ -217,7 +175,7 @@ test('runtime: battle controls show real tactical information for touch and keyb
 
 test('runtime: capture action displays precise probability and updates with target status',()=>{
  const {game,dom}=mount();game.startNew();game.pickStarter('cindrel');for(let i=0;i<26;i++)game.nextDialog();
- game.startBattle('thorne',6,'wild');
+ game.startBattle('thorne',6,'wild');game.openBattleMenu('items');
  const control=()=>dom.get('battleActions').children.find(b=>b.textContent.includes('VINCULAR'));
  assert.match(control().textContent,/VINCULAR 26%/);
  assert.match(control().title,/26 %/);assert.match(control().getAttribute('aria-label'),/Consume un sello/);
@@ -930,7 +888,7 @@ test('N2: both moral endings resolve from seeded Marsh exploration, real combat 
    createCreature(starter,15,()=>.01),
    createCreature('cinderwulf',14,()=>.02),
    createCreature('runeowl',14,()=>.03)
-  ];
+  ];game.save.primaryUid=game.save.team[0].uid;
   game.save.zone='sanctuary';
   game.interactLandmark({kind:'portal',x:43,y:16,label:'Marismas'});
   assert.equal(game.save.zone,'marsh');
@@ -1008,7 +966,7 @@ test('N3: four authored endings x three starters x three seeded worlds complete 
   game.save.flags.push('archivist','zone-forest','zone-sanctuary','arken-vow-restored','zone-marsh','marsh-met-nael','marsh-choice-'+marsh,'marsh-chapter-complete');
   game.save.defeatedBoss=true;
   game.save.dungeon=makeCrypt(1701);game.save.dungeon.cleared=[2,3,5];game.save.dungeon.finished=true;game.save.dungeon.active=false;
-  game.save.team=[createCharacter(starter,18,()=>.12),createCharacter('cinderwulf',18,()=>.22),createCharacter('runeowl',18,()=>.32)];
+  game.save.team=[createCharacter(starter,18,()=>.12),createCharacter('cinderwulf',18,()=>.22),createCharacter('runeowl',18,()=>.32)];game.save.primaryUid=game.save.team[0].uid;
   game.save.inventory.tonics=8;game.save.inventory.seals=8;
   game.save.zone='marsh';
   game.interactLandmark({kind:'portal',x:43,y:16,label:'Corona'});
@@ -1091,173 +1049,7 @@ test('Q3 journey: new-game to all four finale branches with earned captures, bat
  const cases=[];
  for(const starter of ['cindrel','velaria','thorne'])for(const marsh of ['keep','release'])for(const ending of ['remember','renew']){
   const seed=Math.imul(starter.length*17+(marsh==='keep'?1:5)+(ending==='remember'?11:29),2654435761)>>>0;
-  let {game,dom,storage,flushTimers,world}=mount({virtualTime:true,seed:seed^0x5A5AA5A5});
-  dom.set('worldSeedInput',{value:String(seed)});
-  game.startNew();game.pickStarter(starter);
-  let battles=0,caught=0,actions=0,heals=0;
-  const settle=()=>{while(game.dialogOpen)game.nextDialog();if(game.evolution){game.seconds=game.evolution.startedAt+game.evolution.duration+.4;game.loop(1000);}};
-  const saveReload=(label)=>{
-   settle();
-   const raw=storage.getItem('ascii-azur-save-v1');assert.ok(raw,label+' missing save');
-   const before=JSON.parse(raw);
-   const reread=mount({virtualTime:true,seed:seed^0xA5A55A5A,priorSave:raw});
-   reread.game.continueGame();reread.flushTimers();
-   assert.equal(reread.game.save.version,1,label+' format changed');
-   assert.deepEqual(JSON.parse(JSON.stringify(reread.game.save.flags)),before.flags,label+' progression flags lost');
-   assert.deepEqual(JSON.parse(JSON.stringify(reread.game.save.team)),before.team,label+' creatures tampered');
-   assert.equal(reread.game.save.worldSeed,seed,label+' seed changed');
-   ({game,dom,storage,flushTimers,world}=reread);
-   settle();
-  };
-  const doBattle=(bind=false)=>{
-   let steps=0,initialSize=game.save.team.length;
-   while(game.battle&&steps++<110){
-    const battle=game.battle,ally=game.getAlly();
-    if(battle.busy){flushTimers();continue;}
-    if(battle.chargeStage===2){game.defend();actions++;flushTimers();continue;}
-    if(game.save.inventory.tonics>0&&ally.hp<maxHp(ally)*(bind?.26:.37)){
-     game.tonic();actions++;flushTimers();continue;
-    }
-    if(bind&&game.save.inventory.seals>0&&battle.enemy.hp/maxHp(battle.enemy)<.65){
-     game.capture();actions++;flushTimers();continue;
-    }
-    const ids=ally.moves.filter(m=>MOVES[m]?.power>0).sort((a,b)=>bind
-     ?damage(ally,battle.enemy,MOVES[a]).value-damage(ally,battle.enemy,MOVES[b]).value
-     :damage(ally,battle.enemy,MOVES[b]).value-damage(ally,battle.enemy,MOVES[a]).value);
-    assert.ok(ids.length,'no moves '+starter);
-    game.useMove(ids[0]);actions++;flushTimers();
-   }
-   assert.ok(steps<110,'battle softlock '+starter+'/'+seed);
-   settle();battles++;
-   const newCapture=game.save.team.length>initialSize;if(newCapture)caught++;
-   return newCapture;
-  };
-  // Traverse each real overworld route by the player's analogue movement, not
-  // by teleporting between NPCs, roaming battles, rest sites or world portals.
-  // Walkable waypoints avoid physical NPC collider footprints.
-  const approach=(target)=>{
-   settle();
-   const zone=game.save.zone,from={x:Math.round(game.save.x),y:Math.round(game.save.y)};
-   const {ZONES,canOccupy,sweepMove,WORLD_W,WORLD_H}=world;
-   const key=(x,y)=>y*WORLD_W+x;
-   const goal=(x,y)=>Math.hypot(x-target.x,y-target.y)<=1.5;
-   const queue=[from],previous=new Map([[key(from.x,from.y),null]]);
-   let finish=null;
-   for(let i=0;i<queue.length;i++){
-    const cur=queue[i];if(goal(cur.x,cur.y)&&canOccupy(zone,cur.x,cur.y,.19)){finish=cur;break;}
-    for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
-     const x=cur.x+dx,y=cur.y+dy,k=key(x,y);
-     if(x<1||y<2||x>=WORLD_W-1||y>=WORLD_H-2||previous.has(k)||!canOccupy(zone,x,y,.19))continue;
-     let probe={x:cur.x,y:cur.y};for(let frame=0;frame<5;frame++)probe=sweepMove(zone,probe.x,probe.y,dx*.2,dy*.2,.19);
-     if(Math.hypot(probe.x-x,probe.y-y)>.045)continue;
-     previous.set(k,cur);queue.push({x,y});
-    }
-   }
-   assert.ok(finish,'no player-accessible path to '+target.label+' '+zone+'/'+seed);
-   const path=[];for(let cur=finish;cur;cur=previous.get(key(cur.x,cur.y)))path.push(cur);
-   path.reverse();
-   let moved=0;
-   for(const point of path.slice(1)){
-    const before={x:game.save.x,y:game.save.y},dx=point.x-Math.round(game.save.x),dy=point.y-Math.round(game.save.y);
-    assert.equal(Math.abs(dx)+Math.abs(dy),1,'surface route must move 1 tile at a time');
-    let prediction={...before};
-    for(let frame=0;frame<5;frame++)prediction=sweepMove(zone,prediction.x,prediction.y,dx*.2,dy*.2,.19);
-    game.stick.x=dx;game.stick.y=dy;
-    const frames=[];
-    for(let frame=0;frame<5;frame++){
-     game.move(1/(4.35*5));moved++;
-     frames.push([game.save.x,game.save.y,game.stick.x,game.stick.y]);
-     if(game.battle){doBattle();assert.equal(game.save.zone,zone,'random battle lost exploration position');game.stick.x=dx;game.stick.y=dy;}
-    }
-    assert.ok(Math.hypot(game.save.x-point.x,game.save.y-point.y)<.085,
-     'physical surface route blocked: '+JSON.stringify({zone,seed,from:before,expected:point,actual:{x:game.save.x,y:game.save.y},prediction,frames,keys:[...game.keys],pad:game.padStick,landmarks:ZONES[zone].landmarks.map(l=>[l.kind,l.x,l.y])}));
-   }
-   game.resetJoystick();settle();
-   assert.ok(Math.hypot(game.save.x-target.x,game.save.y-target.y)<=1.65,
-    'physical interaction out of reach: '+target.label);
-   return moved;
-  };
-  const site=(kind,npcId)=>{
-   const item=world.ZONES[game.save.zone].landmarks.find(l=>l.kind===kind&&(npcId===undefined||l.npcId===npcId));
-   assert.ok(item,'missing authored site '+kind+'/'+npcId);
-   approach(item);return item;
-  };
-  const visitNpc=id=>{game.interactLandmark(site('npc',id));settle();};
-  const heal=()=>{settle();game.interactLandmark(site('altar'));heals++;if(game.modalOpen&&typeof dom.get('bondWard').onclick==='function'){dom.get('bondWard').onclick();settle();}};
-  const portal=x=>{settle();const p=world.ZONES[game.save.zone].landmarks.find(l=>l.kind==='portal'&&(x<10?l.x<10:l.x>20));assert.ok(p);approach(p);game.interactLandmark(p);settle();};
-  const witness=e=>{approach({...e,label:e.id});game.interact();assert.equal(game.battle?.enemy.speciesId,e.speciesId,'visible roaming encounter skipped');doBattle();assert.ok(game.save.flags.includes('roamer-'+e.id),'witness not resolved');};
-  settle();visitNpc('archivist');
-  // Legitimately recruit at least one companion from ordinary wild duels.
-  for(const id of starter==='cindrel'?['mireling','briarling']:['cindrel','briarling']){
-   let found=false;
-   for(let attempt=0;attempt<3&&!found&&game.save.inventory.seals>0;attempt++){
-    heal();game.startBattle(id,id==='mireling'?5:3,'wild');found=doBattle(true);
-   }
-  }
-  assert.ok(caught>=1,starter+' '+seed+' no earned capture');
-  for(const [species,level] of [['cindrel',3],['briarling',4],['mireling',5]]){
-   heal();game.startBattle(species,level,'wild');doBattle();
-  }
-  visitNpc('scout');
-  heal();portal(43);assert.equal(game.save.zone,'forest');
-  for(const event of game.roamers()){heal();witness(event);}
-  portal(43);assert.equal(game.save.zone,'sanctuary');
-  for(const event of game.roamers()){heal();witness(event);}
-  visitNpc('keeper');heal();
-  game.interactLandmark(site('guardian'));
-  assert.equal(game.modalOpen,true,'earned Guardian preflight');
-  dom.get('guardianProceed').onclick();assert.equal(game.battle.enemy.speciesId,'hollowhart');
-  doBattle();assert.ok(game.save.defeatedBoss,'Hollowhart won by the party');
-  portal(2);portal(2);assert.equal(game.save.zone,'village');
-  heal();game.enterDungeon(false);assert.ok(game.save.dungeon?.active);
-  // Spatial dungeon movement, not injected cleared events.
-  const walkCrypt=event=>{
-   const d=game.save.dungeon;
-   const path=dungeonTilePath(d,{x:d.x,y:d.y},event);
-   for(const next of path.slice(1)){
-    const prev=game.save.dungeon,dx=next.x-prev.x,dy=next.y-prev.y;
-    game.stick.x=Math.abs(dx)<.05?0:Math.sign(dx);game.stick.y=Math.abs(dy)<.05?0:Math.sign(dy);
-    for(let k=0;k<5;k++)game.move(1/(4.35*5));
-    assert.ok(Math.hypot(game.save.dungeon.x-next.x,game.save.dungeon.y-next.y)<.05,'physical crypt route blocked');
-   }game.resetJoystick();
-  };
-  for(const eventId of [1,2,3,4,5,7]){
-   const event=game.save.dungeon.events[eventId];walkCrypt(event);game.dungeonInteract();
-   if(game.battle)doBattle();
-   settle();
-  }
-  assert.ok(game.save.dungeon.finished,'crypt was not completed by ordinary movement');
-  walkCrypt(game.save.dungeon.events[0]);game.dungeonInteract();
-  visitNpc('archivist');
-  assert.ok(game.save.flags.includes('arken-vow-restored'),'Chapter I conclusion missing');
-  saveReload('Arken');
-  portal(43);portal(43);portal(43);
-  assert.equal(game.save.zone,'marsh','unlocked Marsh portal');
-  visitNpc('nael');
-  for(const npcId of ['bell','lantern']){game.interactLandmark(site('memory',npcId));settle();}
-  for(const event of game.roamers()){heal();witness(event);}
-  game.interactLandmark(site('verdict'));
-  assert.ok(game.modalOpen,'Marsh moral fork missing');game.chooseMarsh(marsh);settle();
-  visitNpc('nael');
-  assert.ok(game.save.flags.includes('marsh-chapter-complete'),'Chapter II conclusion missing');
-  saveReload('Marsh');
-  portal(43);assert.equal(game.save.zone,'spire','unlocked Crown');
-  visitNpc('oriel');
-  for(const npcId of ['flame','archive']){game.interactLandmark(site('memory',npcId));settle();}
-  for(const event of game.roamers()){heal();witness(event);}
-  heal();game.interactLandmark(site('guardian'));
-  assert.ok(game.modalOpen,'legitimate Nullscribe preflight missing');
-  dom.get('crownProceed').onclick();assert.equal(game.battle.enemy.speciesId,'nullscribe');
-  doBattle();assert.ok(game.save.flags.includes('crown-nullscribe-fallen'),'final boss missing');
-  game.interactLandmark(site('verdict'));
-  assert.ok(game.modalOpen,'final verdict missing');
-  game.chooseCrown(ending);settle();visitNpc('oriel');
-  assert.ok(game.save.flags.includes('crown-trilogy-complete'),'final outcome missing');
-  assert.ok(game.save.flags.includes('marsh-choice-'+marsh));
-  assert.ok(game.save.flags.includes('crown-choice-'+ending));
-  const finalE=game.economy.echoes;saveReload('Final');
-  visitNpc('oriel');assert.equal(game.economy.echoes,finalE,'duplicated completion reward');
-  cases.push({starter,marsh,ending,world:seed,captured:caught,battles,actions,heals,level:game.save.team[0].level});
+  cases.push(runCampaign({starter,seed,marsh,ending}));
  }
  assert.equal(cases.length,12);
  console.log('Q3_TRILOGY_ACCEPTANCE '+JSON.stringify({sessions:cases.length,starters:3,marshEndings:2,crownEndings:2,worlds:new Set(cases.map(c=>c.world)).size,

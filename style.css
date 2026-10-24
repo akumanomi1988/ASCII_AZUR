@@ -314,3 +314,11 @@
 
 /* Modal narrative focus remains visible for keyboard and screen-reader players. */
 .dialogue:focus{outline:2px solid var(--gold);outline-offset:-3px}
+
+.battle-advice{color:#c6d7c7;font:11px/1.4 monospace;padding:4px 0 6px;max-width:100%}.battle-advice:empty{display:none}
+
+#battleActions.battle-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}#battleActions button{min-height:42px;padding:8px;text-align:left;white-space:normal}#battleActions .battle-move{min-height:62px}.battle-panel{max-height:65%;overflow-y:auto}.crypt-warning{border:1px solid #d69b82;color:#f1c4b0}.roster-buttons{flex-wrap:wrap;gap:5px}
+
+.battle-interface .battle-panel{height:auto;grid-template-columns:minmax(120px,1fr) minmax(0,1.8fr);grid-template-rows:auto auto;max-height:60%;gap:6px 14px}.battle-interface .battle-log{grid-column:1;grid-row:1}.battle-interface .battle-advice{grid-column:1;grid-row:2}.battle-interface #battleActions{grid-column:2;grid-row:1 / span 2}@media(orientation:portrait) and (max-width:550px){.battle-interface .battle-panel{display:block;max-height:60%}.battle-interface .battle-advice{max-height:45px;overflow:auto}}
+
+#battleActions button{min-height:44px;font:600 12px/1.3 monospace}#battleActions .battle-move{font-size:11px}

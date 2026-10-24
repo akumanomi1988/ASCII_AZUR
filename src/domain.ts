@@ -1,3 +1,7 @@
+import {individualStat,validPotential,potentialFromUid,type Potential} from './creatures/attributes.js';
+import type {FallenCompanion} from './creatures/crypt-mortality.js';
+import {relicAttackFactor,relicGuardFactor,validRelicOwnership,isRelicId,type RelicId,type RelicInventory} from './creatures/equipment.js';
+import {validJourneyMetrics,type JourneyMetrics} from './core/journey-metrics.js';
 import type {EconomyState} from './rpg.js';
 import {validateDungeon,type DungeonRun} from './dungeons/labyrinth.js';
 import {validateExpedition,type Expedition} from './expeditions/expedition.js';
@@ -6,16 +10,18 @@ import {validDiscovery,type DiscoveryState} from './world/discovery.js';
 export type Element = 'Ceniza'|'Bruma'|'Raíz'|'Éter';
 export interface Move { id:string; name:string; element:Element; power:number; description:string; role?:'heal'|'drain'|'cleanse'; }
 export interface Species { id:string; name:string; title:string; element:Element; color:string; stats:{hp:number; attack:number; defense:number; speed:number}; evo?:{id:string;level:number}; desc:string; shape:number; role?:string; }
-export interface Creature {uid:string;speciesId:string;level:number;exp:number;hp:number;moves:string[];}
+export interface Creature {uid:string;speciesId:string;level:number;exp:number;hp:number;moves:string[];knownMoves?:string[];potential?:Potential;equipment?:RelicId;}
 /** Serializable combat checkpoint; saved before every interactive command finishes. */
 export interface BattleCheckpoint {
  enemy:Creature;type:'wild'|'boss'|'expedition';encounterId?:string;ally:number;guarding:boolean;
  /** Optional for legacy v1 saves. Committed action still awaiting resolution. */
  pending?:'enemy'|'capture'|'victory'|'defeat';
+ /** Three restorative casts per creature per battle; absent on legacy checkpoints. */
+ recoveryUses?:Record<string,number>;
  bossPhase:1|2;chargeStage:0|1|2;
  effects:Record<string,{kind:'scorch'|'weaken'|'fracture';remaining:number}[]>;
 }
-export interface SaveGame {version:1; zone:string;x:number;y:number;team:Creature[];storage:Creature[];inventory:{seals:number;tonics:number};defeatedBoss:boolean;flags:string[];playSeconds:number;rpg?:EconomyState;worldSeed?:number;worldSnapshot?:WorldSnapshot;discovered?:DiscoveryState;expedition?:Expedition;activeBattle?:BattleCheckpoint;dungeon?:DungeonRun;}
+export interface SaveGame {primaryUid?:string;fallen?:FallenCompanion[];relics?:RelicInventory;journey?:JourneyMetrics;version:1; zone:string;x:number;y:number;team:Creature[];storage:Creature[];inventory:{seals:number;tonics:number};defeatedBoss:boolean;flags:string[];playSeconds:number;rpg?:EconomyState;worldSeed?:number;worldSnapshot?:WorldSnapshot;discovered?:DiscoveryState;expedition?:Expedition;activeBattle?:BattleCheckpoint;dungeon?:DungeonRun;}
 export const MOVES: Record<string,Move> = {
  ember:{id:'ember', name:'Chispa fúnebre',element:'Ceniza',power:12,description:'Brasas que nunca se extinguen'},
  smolder:{id:'smolder',name:'Hoguera rota',element:'Ceniza',power:19,description:'Un fuego que consume recuerdos'},
@@ -60,9 +66,9 @@ export const MOVES: Record<string,Move> = {
 
 };
 export const SPECIES:Record<string,Species>={
- cindrel:{id:'cindrel',name:'Cindrel',title:'Zorro de brasas',element:'Ceniza',color:'#e78b60',stats:{hp:37,attack:15,defense:10,speed:14},evo:{id:'cinderwulf',level:9},desc:'De su pelaje cae una lluvia de ceniza caliente.',shape:0},
+ cindrel:{id:'cindrel',name:'Cindrel',title:'Zorro de brasas',element:'Ceniza',color:'#e78b60',stats:{hp:40,attack:15,defense:11,speed:14},evo:{id:'cinderwulf',level:9},desc:'De su pelaje cae una lluvia de ceniza caliente.',shape:0},
  cinderwulf:{id:'cinderwulf',name:'Cinderwulf',title:'Lobo del último fuego',element:'Ceniza',color:'#f3a678',stats:{hp:54,attack:24,defense:16,speed:18},desc:'Custodia las hogueras de los viajeros desaparecidos.',shape:5},
- velaria:{id:'velaria',name:'Velaria',title:'Espíritu de niebla',element:'Bruma',color:'#8abed1',stats:{hp:40,attack:12,defense:12,speed:13},evo:{id:'mourveil',level:12},desc:'Su rostro solo aparece cuando llueve.',shape:1},
+ velaria:{id:'velaria',name:'Velaria',title:'Espíritu de niebla',element:'Bruma',color:'#8abed1',stats:{hp:43,attack:13,defense:14,speed:13},evo:{id:'mourveil',level:12},desc:'Su rostro solo aparece cuando llueve.',shape:1},
  thorne:{id:'thorne',name:'Thorne',title:'Guardián del musgo',element:'Raíz',color:'#9abf81',stats:{hp:47,attack:12,defense:16,speed:8},desc:'Las flores nacen donde descansan sus huellas.',shape:2},
  wispawn:{id:'wispawn',name:'Wispawn',title:'Llama de los nombres',element:'Éter',color:'#c0a7ee',stats:{hp:32,attack:15,defense:9,speed:18},evo:{id:'mnemoshade',level:13},desc:'Imita los nombres de los que han sido olvidados.',shape:3},
  gravemoth:{id:'gravemoth',name:'Gravemoth',title:'Polilla del luto',element:'Éter',color:'#b0a6d6',stats:{hp:36,attack:16,defense:10,speed:16},desc:'Sus alas parecen páginas de un libro quemado.',shape:4},
@@ -93,20 +99,36 @@ export function learnableMoves(speciesId:string,level:number):string[]{
  const base=BASE_MOVES[s.element].slice(0,level>=7?3:2);
  return level>=7?[...base,SIGNATURE_MOVES[speciesId]!]:base;
 }
-export function maxHp(c:Creature):number {const s=SPECIES[c.speciesId];return s?s.stats.hp + (c.level-1)*4:30;}
-export function attackValue(c:Creature):number {const s=SPECIES[c.speciesId];return(s?.stats.attack ?? 10)+Math.floor(c.level*1.6);}
-export function defenseValue(c:Creature):number {const s=SPECIES[c.speciesId];return(s?.stats.defense ?? 10)+Math.floor(c.level*1.2);}
-export function damage(attacker:Creature,defender:Creature,move:Move,roll=1):{value:number;effective:boolean}{const a=SPECIES[attacker.speciesId],d=SPECIES[defender.speciesId]; if(!a||!d)return{value:0,effective:false}; const effective=TYPE_ADV[move.element]===d.element; const same=a.element===move.element?1.2:1;let mult=effective?1.45:TYPE_ADV[d.element]===move.element?0.8:1;const raw=(move.power * (attackValue(attacker)/Math.max(5,defenseValue(defender))) * .66 + attacker.level*.55)*same*mult*roll;return {value:Math.max(1,Math.floor(raw)),effective};}
-export function createCreature(speciesId:string, level:number, rng=Math.random):Creature{const sp=SPECIES[speciesId];if(!sp)throw Error('Especie desconocida');const c:Creature={uid:`${speciesId}-${Math.floor(rng()*1000000000)}`,speciesId,level,exp:0,hp:1,moves:learnableMoves(speciesId,level)};c.hp=maxHp(c);return c;}
-export function gainExp(c:Creature,amount:number):{levelUp:boolean;evolved:boolean}{const before=c.level;const s=SPECIES[c.speciesId];c.exp+=amount;while(c.level<30&&c.exp>=c.level*12){c.exp-=c.level*12;c.level++;}let evolved=false;if(s?.evo&&c.level>=s.evo.level){c.speciesId=s.evo.id;evolved=true;}if(c.level>=7){c.moves=[...new Set([...c.moves,...learnableMoves(c.speciesId,c.level)])].slice(-4);}c.hp=Math.min(maxHp(c),c.hp+(c.level-before)*5+(evolved?12:0));return{levelUp:c.level>before,evolved};}
+export function maxHp(c:Creature):number {const s=SPECIES[c.speciesId];return s?individualStat(s.stats.hp+(c.level-1)*4,c.potential?.hp):30;}
+export function attackValue(c:Creature):number {const s=SPECIES[c.speciesId];return individualStat((s?.stats.attack ?? 10)+Math.floor(c.level*1.6),c.potential?.attack);}
+export function defenseValue(c:Creature):number {const s=SPECIES[c.speciesId];return individualStat((s?.stats.defense ?? 10)+Math.floor(c.level*1.2),c.potential?.defense);}
+export function speedValue(c:Creature):number{return individualStat((SPECIES[c.speciesId]?.stats.speed??10)+c.level,c.potential?.speed);}
+export function escapeChance(ally:Creature,enemy:Creature):number{return Math.max(.65,Math.min(.96,.86+(speedValue(ally)-speedValue(enemy))*.008));}
+export function damage(attacker:Creature,defender:Creature,move:Move,roll=1):{value:number;effective:boolean}{const a=SPECIES[attacker.speciesId],d=SPECIES[defender.speciesId]; if(!a||!d)return{value:0,effective:false}; const effective=TYPE_ADV[move.element]===d.element; const same=a.element===move.element?1.2:1;let mult=effective?1.45:TYPE_ADV[d.element]===move.element?0.8:1;if(move.role==='heal'||move.power<=0)return{value:0,effective:false};const raw=(move.power * (attackValue(attacker)/Math.max(5,defenseValue(defender))) * .66 + attacker.level*.55)*same*mult*roll*relicAttackFactor(attacker,move.element)*relicGuardFactor(defender);return {value:Math.max(1,Math.floor(raw)),effective};}
+export function createCreature(speciesId:string, level:number, rng=Math.random):Creature{const sp=SPECIES[speciesId];if(!sp)throw Error('Especie desconocida');const c:Creature={uid:`${speciesId}-${Math.floor(rng()*1000000000)}`,speciesId,level,exp:0,hp:1,moves:learnableMoves(speciesId,level)};c.potential=potentialFromUid(c.uid);c.knownMoves=[...c.moves];c.hp=maxHp(c);return c;}
+export function gainExp(c:Creature,amount:number):{levelUp:boolean;evolved:boolean}{
+ const before=c.level,previous=c.speciesId,s=SPECIES[previous];c.exp+=amount;
+ while(c.level<30&&c.exp>=c.level*12){c.exp-=c.level*12;c.level++;}
+ let evolved=false;if(s?.evo&&c.level>=s.evo.level){c.speciesId=s.evo.id;evolved=true;}
+ const learned=[...new Set([...(c.knownMoves??[]),...c.moves,...learnableMoves(previous,c.level),...learnableMoves(c.speciesId,c.level)])];
+ c.knownMoves=learned;
+ // Never replace an active technique on level-up or evolution; only fill empty slots.
+ const active=[...c.moves];for(const id of learned)if(active.length<4&&!active.includes(id))active.push(id);
+ c.moves=active;c.hp=Math.min(maxHp(c),c.hp+(c.level-before)*5+(evolved?12:0));
+ return{levelUp:c.level>before,evolved};
+}
 export const SAVE_KEY='ascii-azur-save-v1';
 export function validateBattleCheckpoint(value:unknown,team:Creature[]):value is BattleCheckpoint{
  if(!value||typeof value!=='object'||!Array.isArray(team))return false;
  const b=value as Partial<BattleCheckpoint>,e=b.enemy as Partial<Creature>|undefined;
- if(!e||typeof e.uid!=='string'||e.uid.length>80||typeof e.speciesId!=='string'||!SPECIES[e.speciesId]||!Number.isInteger(e.level)||e.level!<1||e.level!>30||!Number.isInteger(e.hp)||e.hp!<0||e.hp!>maxHp(e as Creature)||!Number.isInteger(e.exp)||e.exp!<0||!Array.isArray(e.moves)||e.moves.length<1||e.moves.length>4||e.moves.some(m=>typeof m!=='string'||!MOVES[m]))return false;
+ if(e?.equipment!==undefined)return false;
+ if(e?.potential!==undefined&&!validPotential(e.potential))return false;
+ if(e?.knownMoves!==undefined&&(!Array.isArray(e.knownMoves)||e.knownMoves.length>Object.keys(MOVES).length||new Set(e.knownMoves).size!==e.knownMoves.length||e.knownMoves.some(id=>typeof id!=='string'||!Object.hasOwn(MOVES,id))))return false;
+ if(!e||typeof e.uid!=='string'||e.uid.length>80||typeof e.speciesId!=='string'||!Object.hasOwn(SPECIES,e.speciesId)||!Number.isInteger(e.level)||e.level!<1||e.level!>30||!Number.isInteger(e.hp)||e.hp!<0||e.hp!>maxHp(e as Creature)||!Number.isInteger(e.exp)||e.exp!<0||!Array.isArray(e.moves)||e.moves.length<1||e.moves.length>4||e.moves.some(m=>typeof m!=='string'||!Object.hasOwn(MOVES,m)))return false;
  if(!['wild','boss','expedition'].includes(b.type||'')||!Number.isInteger(b.ally)||b.ally!<0||b.ally!>=team.length||typeof b.guarding!=='boolean'||![1,2].includes(b.bossPhase||0)||![0,1,2].includes(b.chargeStage??-1))return false;
  if(b.pending!==undefined&&!['enemy','capture','victory','defeat'].includes(b.pending))return false;
  if(b.encounterId!==undefined&&(!/^(forest|sanctuary|marsh|spire|ossuary|garden)-[0-2]$/.test(b.encounterId)))return false;
+ if(b.recoveryUses!==undefined&&(!b.recoveryUses||typeof b.recoveryUses!=='object'||Array.isArray(b.recoveryUses)||Object.keys(b.recoveryUses).length>7||Object.entries(b.recoveryUses).some(([uid,n])=>!team.some(c=>c.uid===uid)&&uid!==e.uid||!Number.isInteger(n)||n<0||n>3)))return false;
  if(!b.effects||typeof b.effects!=='object'||Array.isArray(b.effects)||Object.keys(b.effects).length>8)return false;
  return Object.entries(b.effects).every(([key,list])=>key.length<85&&Array.isArray(list)&&list.length<=3&&list.every(s=>!!s&&['scorch','weaken','fracture'].includes(s.kind)&&Number.isInteger(s.remaining)&&s.remaining>=1&&s.remaining<=5));
 }
@@ -115,13 +137,17 @@ export function validateSave(data:unknown):data is SaveGame {
  const v=data as Partial<SaveGame>;
  const validCreature=(c:unknown):c is Creature=>{
   if(!c||typeof c!=='object')return false;const a=c as Partial<Creature>;
-  return typeof a.speciesId==='string'&&!!SPECIES[a.speciesId]&&typeof a.uid==='string'&&a.uid.length<=80&&Number.isInteger(a.level)&&a.level!>0&&a.level!<=30&&Number.isInteger(a.exp)&&a.exp!>=0&&Number.isInteger(a.hp)&&a.hp!>=0&&a.hp!<=maxHp(a as Creature)&&Array.isArray(a.moves)&&a.moves.length>=1&&a.moves.length<=4&&a.moves.every(m=>typeof m==='string'&&!!MOVES[m]);
+  return (a.potential===undefined||validPotential(a.potential))&&(a.knownMoves===undefined||(Array.isArray(a.knownMoves)&&a.knownMoves.length<=Object.keys(MOVES).length&&new Set(a.knownMoves).size===a.knownMoves.length&&a.knownMoves.every(id=>typeof id==='string'&&Object.hasOwn(MOVES,id))))&&(a.equipment===undefined||isRelicId(a.equipment))&&typeof a.speciesId==='string'&&Object.hasOwn(SPECIES,a.speciesId)&&typeof a.uid==='string'&&a.uid.length<=80&&Number.isInteger(a.level)&&a.level!>0&&a.level!<=30&&Number.isInteger(a.exp)&&a.exp!>=0&&Number.isInteger(a.hp)&&a.hp!>=0&&a.hp!<=maxHp(a as Creature)&&Array.isArray(a.moves)&&a.moves.length>=1&&a.moves.length<=4&&a.moves.every(m=>typeof m==='string'&&Object.hasOwn(MOVES,m));
  };
  return v.version===1&&['village','forest','sanctuary','marsh','spire','ossuary','garden'].includes(v.zone||'')
  &&typeof v.x==='number'&&Number.isFinite(v.x)&&v.x>=0&&v.x<46
  &&typeof v.y==='number'&&Number.isFinite(v.y)&&v.y>=0&&v.y<32
  &&Array.isArray(v.team)&&v.team.length>0&&v.team.length<=6&&v.team.every(validCreature)
  &&Array.isArray(v.storage)&&v.storage.length<=500&&v.storage.every(validCreature)
+ &&new Set([...v.team,...v.storage].map(c=>c.uid)).size===v.team.length+v.storage.length
+ &&(v.primaryUid===undefined||(typeof v.primaryUid==='string'&&v.team.some(c=>c.uid===v.primaryUid)))
+ &&(v.fallen===undefined||(Array.isArray(v.fallen)&&v.fallen.length<=200&&new Set(v.fallen.map(c=>c?.uid)).size===v.fallen.length&&v.fallen.every(c=>c&&typeof c.uid==='string'&&c.uid.length<=80&&typeof c.speciesId==='string'&&Object.hasOwn(SPECIES,c.speciesId)&&Number.isInteger(c.level)&&c.level>=1&&c.level<=30&&![...v.team!,...v.storage!].some(live=>live.uid===c.uid))))
+ &&validRelicOwnership(v.relics,[...v.team,...v.storage])&&validJourneyMetrics(v.journey)
  &&!!v.inventory&&Number.isInteger(v.inventory.seals)&&v.inventory.seals>=0&&v.inventory.seals<=9999
  &&Number.isInteger(v.inventory.tonics)&&v.inventory.tonics>=0&&v.inventory.tonics<=9999
  &&Array.isArray(v.flags)&&v.flags.length<=200&&v.flags.every(f=>typeof f==='string'&&f.length<100)

@@ -190,6 +190,40 @@ window.addEventListener('load',()=>setTimeout(async()=>{
   document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true}));
   check($('modalTitle').textContent==='VÍNCULOS Y RESERVA','Escape did not return to Team');
   $('closeModal').click();
+  // Creature sheet and one-slot relic ownership through actual menu controls.
+  const {ZONES}=await import('./dist/world.js');
+  const equipmentSave=JSON.parse(saved),merchant=ZONES.village.landmarks.find(l=>l.kind==='npc'&&l.npcId==='merchant');
+  equipmentSave.x=merchant.x;equipmentSave.y=merchant.y;equipmentSave.flags.push('merchant-introduced');equipmentSave.rpg.echoes=200;
+  localStorage.setItem('ascii-azur-save-v1',JSON.stringify(equipmentSave));$('continue').click();$('touchInteract').click();
+  for(let i=0;i<4&&!$('dialogue').classList.contains('hidden');i++)$('closeDialogue').click();
+  check(!!$('relicGift'),'Mara introductory relic gift missing');$('relicGift').click();
+  check(!document.querySelector('#relicGift'),'Relic gift can be claimed repeatedly');
+  const buyPearl=document.querySelector('[data-buy-relic="mist-pearl"]');check(!!buyPearl,'Relic catalogue missing');buyPearl.click();
+  check(JSON.parse(localStorage.getItem('ascii-azur-save-v1')).rpg.echoes===140,'Relic price not debited exactly');
+  $('closeModal').click();$('teamBtn').click();
+  check($('modalContent').textContent.includes('POTENCIAL INDIVIDUAL'),'Individual stats not visible');
+  check($('modalContent').textContent.includes('RANGO'),'Species/level min-max range not visible');
+  document.querySelector('[data-relics]').click();document.querySelector('[data-equip-relic="mist-pearl"]').click();
+  check(JSON.parse(localStorage.getItem('ascii-azur-save-v1')).team[0].equipment==='mist-pearl','Equipped relic not persisted');
+  $('unequipRelic').click();check(!JSON.parse(localStorage.getItem('ascii-azur-save-v1')).team[0].equipment,'Unequip failed');
+  document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true}));
+  document.querySelector('[data-skills]').click();check(document.querySelectorAll('[data-skill-slot]').length===4,'Expected exactly four active technique slots');
+  $('closeModal').click();localStorage.setItem('ascii-azur-save-v1',saved);$('continue').click();
+  // An actual restored enemy turn must kill a non-primary crypt companion permanently.
+  const {generateDungeon}=await import('./dist/dungeons/labyrinth.js');
+  const {createCreature}=await import('./dist/domain.js');
+  const mortal=JSON.parse(saved),companion=createCreature('velaria',5,()=>.72);
+  companion.hp=1;mortal.team.push(companion);mortal.dungeon=generateDungeon(810);mortal.dungeon.active=true;
+  mortal.activeBattle={enemy:createCreature('ashboar',18,()=>.35),type:'wild',ally:1,guarding:false,bossPhase:1,chargeStage:0,effects:{},pending:'enemy'};
+  localStorage.setItem('ascii-azur-save-v1',JSON.stringify(mortal));$('continue').click();
+  await new Promise(resolve=>setTimeout(resolve,1000));
+  const afterLoss=JSON.parse(localStorage.getItem('ascii-azur-save-v1'));
+  check(!afterLoss.team.some(c=>c.uid===companion.uid),'Crypt casualty remained in the party');
+  check(afterLoss.fallen.some(c=>c.uid===companion.uid),'Crypt casualty missing from memorial');
+  check(afterLoss.team.some(c=>c.uid===mortal.primaryUid),'Protected principal was removed');
+  $('continue').click();check(!JSON.parse(localStorage.getItem('ascii-azur-save-v1')).team.some(c=>c.uid===companion.uid),'Reload resurrected a casualty');
+  localStorage.setItem('ascii-azur-save-v1',saved);$('continue').click();
+  check($('battle').classList.contains('hidden'),'Returning to a non-battle save left stale combat UI');
   // Player-facing Arken mastery circuit must be actionable inside the real game.
   $('drawerToggle').click();$('duelBtn').click();
   check(!$('modal').classList.contains('hidden'),'Arken training menu did not open');
@@ -351,6 +385,15 @@ window.addEventListener('load',()=>setTimeout(async()=>{
   check($('enemyHealthTrack').getAttribute('aria-valuenow')===$('enemyHpText').textContent.split('/')[0],'Enemy HP is not exposed as progressbar');
   check($('allyHealthTrack').getAttribute('aria-valuemax')===$('allyHpText').textContent.split('/')[1],'Ally HP maximum is not exposed');
   check($('battleActions').getAttribute('role')==='group','Battle actions lack semantic grouping');
+  const roots=Array.from(document.querySelectorAll('#battleActions button'));
+  check(roots.length===4,'Classic command menu must have four commands');roots[0].focus();
+  document.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowDown',bubbles:true,cancelable:true}));
+  check(document.activeElement===roots[3],'Grid Down did not skip disabled party slot');
+  roots[1].click();check($('battleActions').getAttribute('aria-label')==='Objetos y retirada','Item submenu failed');
+  document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true}));
+  check($('battleActions').getAttribute('aria-label')==='Comandos de combate','Back did not restore command menu');
+  document.querySelector('#battleActions button').click();
+  check(document.querySelectorAll('#battleActions button').length===5,'Four active move slots plus Back expected');
   const attack=document.querySelector('#battleActions .battle-move:not([disabled])');
   check(!!attack,'No usable player attack');
   attack.click();
