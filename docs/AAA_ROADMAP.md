@@ -220,3 +220,10 @@ Ground micro-motifs created unintended clusters of random alphanumeric glyphs in
 ## v0.49 — Authored landmark scenery and readable microscopic edge grammar (2026-10-24)
 
 The six interactive landmark categories receive pixel-authored cached silhouettes, colored by all seven existing biomes; path corners use neighbor-aware stepped contours and Atmospheric ASCII no longer prints random letters or digits along mid-frequency edges. This is visual-only: procedural world topology, game rules, collisions, combat and save-v1 remain intact. Automated acceptance includes asset uniqueness, seven-biome palette validity, path connectivity invariants, compositor glyph contracts, four Chromium renderer configurations, TypeScript/Node/release checks and screenshot review. **G2 human art-quality and G4 physical Android criteria remain OPEN.** The fixed global baseline remains **20/32 gates, 67.50% weighted** until independently verified acceptance is obtained.
+
+## Candidate macroiteration v0.50 — Ground raster performance
+
+- Goal: reduce redundant static terrain work per rendered frame while preserving the existing map, microscopic ASCII/pixel-mode art and legacy v1 saves.
+- Implementation: viewport-aware 8×8 tile chunk compositor, 24-entry bounded LRU, revision invalidation even on same-seed saved world configuration, zone-safe keys, live ambient/weather/entity layers.
+- Acceptance: deterministic viewport coverage, 100-frame static cache reuse, camera scroll, LRU memory bound, same-seed reconfiguration and zone segregation. TypeScript, 314+ Node tests, standalone, PWA and four Chromium rendering combinations must pass, followed by main/Pages provenance.
+- G4 remains **OPEN** until sustained ≥30 FPS/heat/battery are measured on minimum physical Android hardware; this CI change does not close that gate. G2 still requires an independent artistic acceptance. Global weighted verified progress remains 67.50% (20/32 gates).

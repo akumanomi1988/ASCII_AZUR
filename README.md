@@ -129,3 +129,8 @@ The world uses five authored voxel-like foliage families, stepped cottage silhou
 ### v0.48.1 — Clean microscopic ASCII floors
 
 Path and bare soil no longer produce tiny disconnected source primitives that became stray letters in the microscopic ASCII compositor. Subtle edge rims and bounded natural motifs keep route readability with the authored pixel-art world unchanged.
+
+
+### v0.50 ground performance architecture
+
+Static world terrain now uses a bounded 24-entry, 8×8-tile LRU of offscreen Canvas2D chunks. Visible soil and path shapes are rasterized once per world revision, while moving characters, atmospheric effects and lighting continue to render live. Reconfiguring or loading a saved world invalidates the cache, preserving deterministic generated worlds and the existing v1 saves. The cache is presentation-only and does not change gameplay or imply physical-device FPS certification.

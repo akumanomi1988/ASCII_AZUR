@@ -50,3 +50,10 @@ Microscopic Atmospheric ASCII revealed spurious floating characters caused by ti
 - Microscopic Atmospheric ASCII now uses abstract punctuation and architectural glyphs for its low/middle ink ramp. Incidental alphanumeric clusters can no longer spell misleading words or numbers across path boundaries. The original four contiguous Unicode block glyphs are untouched for Glyph Pixel Art.
 - Navigable path tiles receive deterministic neighbor-aware stepped corner cuts at true isolated corners. Continuous straight corridors have no cuts; the traversability model remains authoritative. There are no random path/soil decorations.
 - Acceptance: authored shape/budget/contour/ramp tests, full TypeScript + Node + PWA release audit, all four browser renderer/mode configurations with seven-region screenshots. G2 still requires independent visual signoff; physical Android GPU/Canvas2D FPS and battery are G4.
+
+## v0.50 — Bounded static-ground compositor
+
+- Static soil, paths, water margins and sparse authored ground motifs are rasterized into 8×8-tile Canvas2D chunks only when first visible. Actors, combat, focal beacons, biome climate and soft light stay animated at full frame rate.
+- A 24-chunk LRU limits retained RGBA ground pixels to at most about 14.2 MiB (plus browser canvas overhead); scrolling reuses recent chunks. No 46×32-world-sized persistent framebuffer is allocated.
+- `getWorldRevision()` invalidates all cached chunks when configuring a world, including same-seed save snapshots; each zone owns separate cache keys. No source tile, collision, navigation, save schema or animation clock is changed.
+- Automated coverage checks deterministic viewport coverage, camera reuse, zone/snapshot isolation and strict cache bounds. Browser screenshots on all four render combinations must remain playable; this does not establish real Android G4 acceptance.
