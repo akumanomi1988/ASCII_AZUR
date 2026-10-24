@@ -461,6 +461,16 @@ export class Sound {
         }
         catch { /* browser audio unavailable */ }
     }
+    /** Original short musical punctuation. Leaves the existing scene score, headroom,
+     * voice caps and audio lifecycle intact; no downloaded samples are needed. */
+    storySting(kind) {
+        const patterns = {
+            arrival: [196, 247, 294, 392], memory: [220, 261, 329, 392],
+            oath: [196, 294, 370, 494], reckoning: [146, 220, 277, 440],
+            afterlight: [247, 329, 392, 523]
+        };
+        patterns[kind].forEach((frequency, index) => this.tone(frequency, .23, 'sine', .019, index * .12));
+    }
     hit() { this.tone(148, .15, 'sawtooth', .028); this.tone(82, .2, 'triangle', .035, .05); }
     /** Lightweight synthesized elemental attacks; no asset downloads or extra runtime dependencies. */
     hitElement(element) {
