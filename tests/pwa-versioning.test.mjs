@@ -3,6 +3,10 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 
+// Release pin must track the package semver rather than a past release fixture.
+const [major,minor,patch]=JSON.parse(fs.readFileSync('package.json','utf8')).version.split('.').map(Number);
+const expectedRelease=`${major}${String(minor).padStart(2,'0')}${patch}`;
+
 function serviceWorker(){
  const listeners=new Map(),cached=new Map(),requests=[];
  let offline=false,precache=[];
@@ -43,9 +47,10 @@ test('PWA release cache preloads every asset under a versioned URL',async()=>{
  const urls=sw.getPrecache();
  assert.ok(urls.length>=40,'Precache shrank below essential modules');
  assert.ok(urls.every(url=>url.startsWith('https://azur.example/ASCII_AZUR/')));
- assert.ok(urls.every(url=>new URL(url).searchParams.get('__azur_release')==='0530'));
+ assert.ok(urls.every(url=>new URL(url).searchParams.get('__azur_release')===expectedRelease));
  assert.ok(urls.some(url=>url.includes('/dist/main.js?')));
  assert.ok(urls.some(url=>url.includes('/dist/story-navigation.js?')));
+ assert.ok(urls.some(url=>url.includes('/dist/story-presentation.js?')),'New chronicle must be cached offline');
  assert.ok(urls.some(url=>url.includes('/dist/creatures/field-research.js?')));
  assert.ok(urls.some(url=>url.includes('/dist/render/pixel-scenery.js?')));
  for(const asset of ['glyph-ramp','path-contour','pixel-landmarks','ground-chunks'])
@@ -59,7 +64,7 @@ test('PWA fetch bypasses stale unversioned JS cache and restores offline from ma
  const first=await sw.fire('fetch',request);
  assert.ok(first?.ok);
  const last=sw.requests.at(-1);
- assert.equal(new URL(last.url).searchParams.get('__azur_release'),'0530');
+ assert.equal(new URL(last.url).searchParams.get('__azur_release'),expectedRelease);
  assert.equal(last.cache,'reload');
  assert.ok(sw.cached.has(last.url));
  sw.setOffline(true);
