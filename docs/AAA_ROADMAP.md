@@ -197,3 +197,10 @@ The authored three-chapter storyline now has a scripted conclusion and automated
 - Added selectable Atlas destinations for already discovered landmarks, fog-safe route overlays, cancel action, and context-sensitive compass guidance. A waypoint is temporary and never mutates v1 save-state/world generation.
 - `tests/world-traversal.test.mjs` exercises 200 deterministic saved/reloaded seeds × all seven regions × every landmark and visible encounter; a substantial seed subset is replayed using the actual swept player collision. Browser acceptance now selects, reopens, and cancels an Atlas route in all four renderer/backend combinations.
 - **W4 stays unchecked** until CI confirms the automated candidate and independent physical mobile navigation validates the experience. Fixed weighted global progress remains **67.50% (20/32)** until a milestone is formally accepted.
+
+
+## 2026-10-24 — v0.47 P4 collection research candidate
+
+- The Bestiary becomes an actionable collection loop: true sighting history, legacy-safe bonded histories, authentic biome hints and four bounded one-time research claims. Claims deliberately require distinct capturable species and preserve save-v1 compatibility.
+- Automated candidate: full-species habitat audit, reward cap/idempotence/immutability tests, battle-checkpoint sighting replay, Codex browser claim/reload across render modes and backends, followed by main/Pages provenance verification.
+- **P4 remains unchecked**: external players must still assess collection pacing, agency, balance and economy. Global is unchanged at **67.50% (20/32)**; never count unit-test coverage as player acceptance.

@@ -148,3 +148,11 @@ The next production-risk slice targets stale browser tabs and quota/interrupted 
 
 - Live public Pages initially showed the v0.46 HTML/provenance while unversioned JS requests could still return v0.45 from browser/CDN cache. The published `gh-pages` module blobs themselves were correct. The service worker now preloads and fetches every same-origin asset with an explicit release query and `cache: reload`, caching responses under release-pinned URLs. Offline fallback cannot mix JS from different releases.
 - The cache namespace advances to `ascii-azur-v046-q2`; dedicated service-worker regression tests cover versioned precache, fresh online fetch, matching offline replay and cross-origin/write exclusions. Live external confirmation remains required after CI and Pages rollout.
+
+
+## 2026-10-24 — v0.47 Field Research / collection pacing macroiteration
+
+- **Candidate, pending CI and Pages:** Encounter entry records durable species sightings; captures and evolutions record distinct known lineages; existing team and reserve also count for all legacy v1 saves. The 17 capturable species have honest habitat clues from the existing ecology tables. Hollowhart and Nullscribe remain uncapturable.
+- A single integrated Codex now distinguishes unseen/sighted/bonded identities, and offers four deliberate one-time research claims at 3/7/12/17 distinct bonded species. Maximum rewards across the entire campaign: **225 Echoes, 8 seals, 6 tonics**, with inventory caps and atomic refusal; no repeatable farming or save-format changes.
+- New pure Node tests cover habitat completeness, version-one reload, invalid IDs, sighting idempotence, evolved lineage, duplicate/no-op claims and near-cap limits. Runtime and four-browser-mode acceptance check actual player Codex interactions and persisted rewards.
+- **P4 remains open:** scripted collection mechanics and economics do not replace measured external player pacing, human satisfaction, or real-device endurance. Roadmap stays **20/32 milestones = 67.50% weighted** until its fixed criteria pass.

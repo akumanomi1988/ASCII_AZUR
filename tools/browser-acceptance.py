@@ -81,6 +81,31 @@ window.addEventListener('load',()=>setTimeout(async()=>{
   await new Promise(resolve=>setTimeout(resolve,180));
   const saved=localStorage.getItem('ascii-azur-save-v1');
   check(!!saved,'No game save');
+  // P4 research: browser Codex shows truthful discovery state and one-time rewards.
+  $('drawerToggle').click();$('codexBtn').click();
+  check($('modalTitle').textContent.includes('INVESTIGACIÓN'),'Research Codex missing from game drawer');
+  check($('modalContent').textContent.includes('1/17 VÍNCULOS'),'Starter bond not counted in field research');
+  check(!document.querySelector('[data-research-claim]'),'Unfinished field research was claimable');
+  $('closeModal').click();
+  check(localStorage.getItem('ascii-azur-save-v1')===saved,'Read-only field guide unexpectedly saved resources');
+  const researchSave=JSON.parse(saved);
+  researchSave.team.push(
+   {uid:'qa-field-mist',speciesId:'velaria',level:5,exp:0,hp:56,moves:['fog','pulse']},
+   {uid:'qa-field-root',speciesId:'thorne',level:5,exp:0,hp:63,moves:['thorn','pulse']});
+  localStorage.setItem('ascii-azur-save-v1',JSON.stringify(researchSave));
+  $('continue').click();
+  $('drawerToggle').click();$('codexBtn').click();
+  const firstReward=document.querySelector('[data-research-claim="first-names"]');
+  check(!!firstReward,'Three collected species did not unlock first research reward');
+  firstReward.click();
+  const rewarded=JSON.parse(localStorage.getItem('ascii-azur-save-v1'));
+  check(rewarded.flags.includes('research-reward-first-names'),'Research claim not durable');
+  check(rewarded.inventory.seals===researchSave.inventory.seals+1,'Research seal reward mismatch');
+  check(rewarded.inventory.tonics===researchSave.inventory.tonics+1,'Research tonic reward mismatch');
+  check(rewarded.rpg.echoes===researchSave.rpg.echoes+20,'Research Echo reward mismatch');
+  check(!document.querySelector('[data-research-claim="first-names"]'),'Research claimed a second time');
+  $('closeModal').click();
+  localStorage.setItem('ascii-azur-save-v1',saved);$('continue').click();
   // Resume an authentic v1 snapshot from before Afterlight was introduced.
   // Previously generated terrain must remain byte-identical, while both new
   // regions become part of the persisted save immediately and idempotently.

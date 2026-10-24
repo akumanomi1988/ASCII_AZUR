@@ -24,6 +24,7 @@ import {createCombatCue,sampleCombatCue,guardDamage,type CombatCue,type FxKind,t
 import {MOVE_EFFECTS,STATUS_INFO,applyEffect,attackWithStatuses,chooseEnemyMove,chooseGuardianMove,endTurnEffects,statusLabel,skillUtility,type StatusEffect} from './combat/tactics.js';
 import {previewMove} from './combat/move-preview.js';
 import {capturePreview} from './combat/capture-odds.js';
+import {RESEARCH_TIERS,RESEARCH_REWARD_PREFIX,recordSpeciesResearch,researchCatalogue,claimResearchTier} from './creatures/field-research.js';
 import {reveal,isDiscovered,discoveredPercent} from './world/discovery.js';
 import {RUNE_PUZZLES,RUNE_SYMBOLS,submitRune,claimRune,type RuneLocation} from './puzzles/runes.js';
 import {unlockedMoves,equipMove} from './creatures/loadout.js';
@@ -434,13 +435,13 @@ class AzurGame {
     const b=this.save.activeBattle;if(!b||!this.started)return;
     this.battle={enemy:{...b.enemy,moves:[...b.enemy.moves]},type:b.type,ally:b.ally,guarding:b.guarding,bossPhase:b.bossPhase,chargeStage:b.chargeStage,encounterId:b.encounterId,pending:b.pending,effects:Object.fromEntries(Object.entries(b.effects).map(([id,arr])=>[id,arr.map(s=>({...s}))])),busy:!!b.pending,selecting:false,log:b.pending?'La acción anterior sigue resolviéndose. El turno no puede repetirse.':'El combate continúa donde lo dejaste. El silencio no ha ganado.'};
     const available=this.save.team.findIndex(c=>c.hp>0);if(available<0){this.defeat();return;}if(!this.save.team[this.battle.ally]?.hp)this.battle.ally=available;
-    this.sound.setScene(b.type==='boss'?'boss':'battle');this.toggleDrawer(false);byId('battle').classList.remove('hidden');byId('viewport').classList.add('in-battle');this.refreshBattle();
+    recordSpeciesResearch(this.save.flags,b.enemy.speciesId,'seen');this.sound.setScene(b.type==='boss'?'boss':'battle');this.toggleDrawer(false);byId('battle').classList.remove('hidden');byId('viewport').classList.add('in-battle');this.refreshBattle();
     if(b.pending==='enemy')window.setTimeout(()=>this.enemyTurn(),250);
     else if(b.pending==='capture')window.setTimeout(()=>this.resolveCapture(),250);
     else if(b.pending==='victory'||(b.pending===undefined&&b.enemy.hp<=0)){this.battle!.busy=true;window.setTimeout(()=>this.winBattle(),250);}
     else if(b.pending==='defeat'){this.battle!.busy=true;window.setTimeout(()=>this.defeat(),250);}
   }
-  private startBattle(id:string,level:number,type:'wild'|'boss'|'expedition',encounterId?:string,leadIndex?:number){if(this.battle)return;this.toggleDrawer(false);this.resetJoystick();let ally=this.save.team.findIndex(c=>c.hp>0);if(Number.isInteger(leadIndex)&&(this.save.team[leadIndex!]?.hp??0)>0)ally=leadIndex!;if(ally<0){this.defeat();return;}this.sound.setScene(type==='boss'?'boss':'battle');this.battle={enemy:createCreature(id,level),type,encounterId,busy:false,ally,guarding:false,selecting:false,bossPhase:1,chargeStage:0,effects:{},log:type==='boss'?`${SPECIES[id]!.name.toUpperCase()}, EL ESCRIBA DEL SILENCIO, DESPIERTA.`:type==='expedition'?`LA GRIETA SE ABRE: ${SPECIES[id]!.name.toUpperCase()} TE DESAFÍA.`:`¡UN ${SPECIES[id]!.name.toUpperCase()} SALVAJE APARECE!`};this.combatCue=null;this.encounterCooldown=9;byId('battle').classList.remove('hidden');byId('viewport').classList.add('in-battle');byId('prompt').classList.add('hidden');this.sound.portal();this.refreshBattle();}
+  private startBattle(id:string,level:number,type:'wild'|'boss'|'expedition',encounterId?:string,leadIndex?:number){if(this.battle)return;this.toggleDrawer(false);this.resetJoystick();let ally=this.save.team.findIndex(c=>c.hp>0);if(Number.isInteger(leadIndex)&&(this.save.team[leadIndex!]?.hp??0)>0)ally=leadIndex!;if(ally<0){this.defeat();return;}recordSpeciesResearch(this.save.flags,id,'seen');this.sound.setScene(type==='boss'?'boss':'battle');this.battle={enemy:createCreature(id,level),type,encounterId,busy:false,ally,guarding:false,selecting:false,bossPhase:1,chargeStage:0,effects:{},log:type==='boss'?`${SPECIES[id]!.name.toUpperCase()}, EL ESCRIBA DEL SILENCIO, DESPIERTA.`:type==='expedition'?`LA GRIETA SE ABRE: ${SPECIES[id]!.name.toUpperCase()} TE DESAFÍA.`:`¡UN ${SPECIES[id]!.name.toUpperCase()} SALVAJE APARECE!`};this.combatCue=null;this.encounterCooldown=9;byId('battle').classList.remove('hidden');byId('viewport').classList.add('in-battle');byId('prompt').classList.add('hidden');this.sound.portal();this.refreshBattle();}
   /** Explicit warning and tactical plan before the point-of-no-return boss encounter.
    * Players may still challenge the boss underlevelled; this never gates progression. */
   private prepareGuardianBattle(){
@@ -544,7 +545,7 @@ class AzurGame {
     if(b.enemy.hp<=0){b.pending='victory';this.refreshBattle();window.setTimeout(()=>this.cueFaint('enemy',()=>this.winBattle()),650);return;}
     b.busy=false;this.refreshBattle();
   }
-  private winBattle(){const b=this.battle,ally=this.getAlly();if(!b||!ally)return;const bonus=firstRoamerVictoryBonus(b.type,b.encounterId,this.save.flags);const mastery=villageTrainingBonus(b.type,this.save.zone,b.enemy.speciesId,this.save.flags,b.encounterId);const amount=(b.type==='boss'?95:11+b.enemy.level*3)+bonus+mastery;const awards=grantPartyExperience(this.save.team,b.ally,amount);if(bonus>0)this.save.team=recoverTrailParty(this.save.team);const gain=awards.find(a=>a.active)!;const evolution=awards.find(a=>a.evolved);const supporters=awards.filter(a=>!a.active);const originalName=SPECIES[b.enemy.speciesId]!.name;this.finishBattle();if(b.encounterId)this.addFlag('roamer-'+b.encounterId);if(mastery>0)this.addFlag('training-'+b.enemy.speciesId);this.sound.pick();if(b.type==='wild'&&this.save.dungeon?.active&&this.save.dungeon.pending!==null)this.finishDungeonEnemy();if(b.type==='expedition'){this.expeditionBattleWon();if(evolution)this.beginEvolution(evolution.from,evolution.to);this.saveNow(false);this.updateUI();window.setTimeout(()=>this.openExpedition(),evolution?3500:620);return;}if(b.type==='boss'&&b.enemy.speciesId==='nullscribe'){
+  private winBattle(){const b=this.battle,ally=this.getAlly();if(!b||!ally)return;const bonus=firstRoamerVictoryBonus(b.type,b.encounterId,this.save.flags);const mastery=villageTrainingBonus(b.type,this.save.zone,b.enemy.speciesId,this.save.flags,b.encounterId);const amount=(b.type==='boss'?95:11+b.enemy.level*3)+bonus+mastery;const awards=grantPartyExperience(this.save.team,b.ally,amount);for(const growth of awards)if(growth.evolved){recordSpeciesResearch(this.save.flags,growth.from,'bonded');recordSpeciesResearch(this.save.flags,growth.to,'bonded');}if(bonus>0)this.save.team=recoverTrailParty(this.save.team);const gain=awards.find(a=>a.active)!;const evolution=awards.find(a=>a.evolved);const supporters=awards.filter(a=>!a.active);const originalName=SPECIES[b.enemy.speciesId]!.name;this.finishBattle();if(b.encounterId)this.addFlag('roamer-'+b.encounterId);if(mastery>0)this.addFlag('training-'+b.enemy.speciesId);this.sound.pick();if(b.type==='wild'&&this.save.dungeon?.active&&this.save.dungeon.pending!==null)this.finishDungeonEnemy();if(b.type==='expedition'){this.expeditionBattleWon();if(evolution)this.beginEvolution(evolution.from,evolution.to);this.saveNow(false);this.updateUI();window.setTimeout(()=>this.openExpedition(),evolution?3500:620);return;}if(b.type==='boss'&&b.enemy.speciesId==='nullscribe'){
     if(!this.flag(CROWN_BOSS_FLAG))this.addFlag(CROWN_BOSS_FLAG);
     this.dialog([{title:'EL ÚLTIMO ESCRIBA CAE',text:'Nullscribe se deshace en miles de signos. Ningún rey ha ordenado el fin del mundo: solo el miedo a que otros lo escriban.'},{title:'EL TELAR TE ESPERA',text:'El cielo ya no está sujeto a una pluma. En el Telar del Amanecer deberás decidir qué lugar ocupa la memoria en su futuro.'}]);
    }else if(b.type==='boss'){this.save.defeatedBoss=true;this.addFlag('first-word');this.dialog([{title:'El lenguaje se quiebra',text:'Hollowhart cae de rodillas. Entre sus astas aparece una palabra que no puede pronunciarse.'},{title:'LA PRIMERA PALABRA',text:'La primera sílaba del mundo es tuya. El bosque vuelve a respirar. Pero más allá del santuario alguien ha comenzado a borrar el cielo.'},{title:'FIN DEL CAPÍTULO I',text:'La Primera Palabra ha vuelto, pero Arken aún no puede recordarlo todo. Regresa a la aldea, desciende a la Cripta de los Ecos y busca el Último Signo.'}]);}else{if(!evolution)this.toast(`${originalName.toUpperCase()} VENCIDO · +${amount} EXP${bonus?' · RASTRO +'+bonus+' EXP · REPOSO +25% PS':''}${mastery?' · LECCIÓN +'+mastery+' EXP':''}${gain.levelUp?' · ¡NIVEL!':''}${supporters.length?' · '+supporters.length+' ALIADOS +'+supporters[0]!.amount+' EXP':''}`);if(Math.random()<.25)this.save.inventory.seals++;this.economy.echoes=Math.min(999999,this.economy.echoes+4+Math.floor(b.enemy.level*.9));}if(evolution)this.beginEvolution(evolution.from,evolution.to);this.saveNow(false);this.updateUI();}
@@ -565,6 +566,7 @@ class AzurGame {
     if(Math.random()<chance){
       const captured=b.enemy;let stored=false;
       if(this.save.team.length<6)this.save.team.push(captured);else{this.save.storage.push(captured);stored=true;}
+      recordSpeciesResearch(this.save.flags,captured.speciesId,'bonded');
       this.finishBattle();if(b.encounterId)this.addFlag('roamer-'+b.encounterId);this.sound.pick();
       if(this.save.dungeon?.active&&this.save.dungeon.pending!==null)this.finishDungeonEnemy();
       this.toast(`VÍNCULO ESTABLECIDO: ${SPECIES[captured.speciesId]!.name.toUpperCase()}${stored?' (RESERVA)':''}`);
@@ -883,11 +885,45 @@ class AzurGame {
   }
   private openCodex(){
     if(!this.started)return;
-    const known=new Set([...this.save.team,...this.save.storage].map(c=>c.speciesId));
-    const capturable=Object.values(SPECIES).filter(sp=>sp.id!=='hollowhart'&&sp.id!=='nullscribe');
-    const collected=capturable.filter(sp=>known.has(sp.id)).length;
-    this.showModal('CÓDICE · VÍNCULOS',`<div class="modal-content-block">${collected} / ${capturable.length} especies vinculables. Hollowhart y Nullscribe son guardianes únicos, no capturables.</div>`+
-      capturable.map(sp=>`<div class="modal-option"><div><strong style="color:${sp.color}">${known.has(sp.id)?htmlEscape(sp.name):'??????'}</strong><small>${known.has(sp.id)?htmlEscape(sp.title+' · '+sp.element+' · '+sp.desc):'Esta criatura aún no ha compartido su nombre.'}</small>${known.has(sp.id)&&sp.role?`<small>ROL TÁCTICO · ${htmlEscape(sp.role)}</small>`:''}${bondChoice(this.save.flags,sp.id)?`<small>JURAMENTO ACTIVO · ${bondChoice(this.save.flags,sp.id)==='fang'?'FILO DEL RECUERDO':'VELO PROTECTOR'}</small>`:''}</div></div>`).join(''));
+    const research=researchCatalogue(this.save.team,this.save.storage,this.save.flags);
+    const stages=RESEARCH_TIERS.map(tier=>{
+      const completed=this.save.flags.includes(RESEARCH_REWARD_PREFIX+tier.id);
+      const ready=!completed&&research.bonded>=tier.count;
+      const button=completed?'<span class="quest-state done">✓ RECLAMADO</span>':ready
+        ?'<button data-research-claim="'+tier.id+'">RECLAMAR</button>'
+        :'<span class="quest-state">'+research.bonded+'/'+tier.count+'</span>';
+      return '<div class="modal-option"><div><strong>'+htmlEscape(tier.title)+'</strong><small>'+tier.count+' especies distintas · +'+tier.echoes+' Ecos · +'+tier.seals+' Sellos · +'+tier.tonics+' Tónicos</small></div>'+button+'</div>';
+    }).join('');
+    const entries=research.entries.map(entry=>{
+      const species=SPECIES[entry.id]!;
+      const identified=entry.status!=='unknown';
+      const habitat=entry.habitats.length?entry.habitats.map(zone=>ZONES[zone].name).join(' / '):'SIN HÁBITAT SALVAJE';
+      const status=entry.status==='bonded'?'✓ VINCULADA':entry.status==='seen'?'AVISTADA':'POR DESCUBRIR';
+      const detail=entry.status==='bonded'?species.title+' · '+species.element+' · '+species.desc
+        :entry.status==='seen'?species.title+' · '+species.element
+        :'Investiga su hábitat y establece un vínculo para descubrir su historia.';
+      const extra=entry.status==='bonded'&&species.role?'<small>ROL TÁCTICO · '+htmlEscape(species.role)+'</small>':'';
+      const oath=bondChoice(this.save.flags,entry.id);
+      return '<div class="modal-option"><div><strong style="color:'+(identified?species.color:'#a0adb7')+'">'+(identified?htmlEscape(entry.name):'??????')+'</strong><small>'+htmlEscape(detail)+'</small><small>RASTRO · '+htmlEscape(habitat)+'</small>'+extra+(oath?'<small>JURAMENTO · '+(oath==='fang'?'FILO':'VELO')+'</small>':'')+'</div><span class="quest-state '+(entry.status==='bonded'?'done':'')+'">'+status+'</span></div>';
+    }).join('');
+    this.showModal('CÓDICE · INVESTIGACIÓN',
+      '<div class="modal-content-block"><strong>'+research.bonded+'/'+research.total+' VÍNCULOS · '+research.seen+'/'+research.total+' AVISTAMIENTOS</strong><p>Los encuentros dejan un rastro permanente. Investiga las regiones indicadas y vincula especies diferentes para restaurar los cuatro fragmentos del códice.</p><p>Las recompensas son únicas por partida y se reclaman voluntariamente. Los guardianes no son capturables; evolucionar conserva los vínculos anteriores.</p></div>'+
+      '<div class="modal-content-block"><strong>HITOS DE INVESTIGACIÓN</strong></div>'+stages+
+      '<div class="modal-content-block"><strong>CRIATURAS Y HÁBITATS</strong></div>'+entries);
+    for(const btn of byId('modalContent').querySelectorAll<HTMLButtonElement>('[data-research-claim]'))
+      btn.onclick=()=>this.claimResearch(btn.dataset.researchClaim!);
+  }
+  private claimResearch(id:string){
+    const previous={flags:[...this.save.flags],inventory:{...this.save.inventory},echoes:this.economy.echoes};
+    const outcome=claimResearchTier({flags:this.save.flags,team:this.save.team,storage:this.save.storage,inventory:this.save.inventory,rpg:this.economy},id);
+    if(outcome!=='claimed'){
+      this.toast(outcome==='full'?'INVENTARIO O REGISTRO COMPLETO · LIBERA ESPACIO':outcome==='locked'?'INVESTIGACIÓN INCOMPLETA':'RECOMPENSA NO DISPONIBLE');return;
+    }
+    if(!this.saveNow(false)){
+      this.save.flags=previous.flags;this.save.inventory=previous.inventory;this.economy.echoes=previous.echoes;
+      this.toast('NO SE PUDO CONSERVAR LA RECOMPENSA');return;
+    }
+    this.sound.pick();this.updateUI();this.openCodex();this.toast('INVESTIGACIÓN RECOMPENSADA · UNA SOLA VEZ');
   }
   private revealPosition(){if(!this.save.worldSeed)return;const x=Math.floor(this.save.x),y=Math.floor(this.save.y);const mark=x+y*WORLD_W+(ZONE_IDS.indexOf(this.save.zone as ZoneId)*WORLD_W*WORLD_H);if(this.lastReveal===mark)return;this.lastReveal=mark;this.save.discovered=reveal(this.save.discovered,this.save.zone as ZoneId,x,y,4.8);}
   private openDungeonAtlas(){
