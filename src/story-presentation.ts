@@ -10,7 +10,7 @@ export type StoryTone='arrival'|'memory'|'oath'|'reckoning'|'afterlight';
 export interface StoryMoment {id:string;zone:ZoneId;eyebrow:string;title:string;subtitle:string;tone:StoryTone;}
 export interface ChronicleEntry {id:string;eyebrow:string;title:string;status:'active'|'complete';summary:string;passages:readonly string[];}
 
-const ARRIVALS:Partial<Record<ZoneId,StoryMoment>>={
+const AZUR_SCENE_ARRIVALS:Partial<Record<ZoneId,StoryMoment>>={
  forest:{id:'forest-arrival',zone:'forest',eyebrow:'UMBRAL I · EL BOSQUE',title:'La ceniza aprende a hablar',subtitle:'Cada árbol guarda una voz que Arken ya no recuerda.',tone:'arrival'},
  sanctuary:{id:'sanctuary-arrival',zone:'sanctuary',eyebrow:'UMBRAL I · EL SANTUARIO',title:'Donde calla la Primera Palabra',subtitle:'Una promesa aguarda detrás del silencio.',tone:'memory'},
  marsh:{id:'marsh-arrival',zone:'marsh',eyebrow:'CAPÍTULO II · EL ESPEJO',title:'Dos vidas bajo el agua',subtitle:'No toda ausencia pertenece al pasado.',tone:'memory'},
@@ -18,17 +18,17 @@ const ARRIVALS:Partial<Record<ZoneId,StoryMoment>>={
  ossuary:{id:'ossuary-arrival',zone:'ossuary',eyebrow:'VIGILIA I · LAS MAREAS',title:'Los nombres llegan al mar',subtitle:'La memoria y la libertad se encuentran en la orilla.',tone:'afterlight'},
  garden:{id:'garden-arrival',zone:'garden',eyebrow:'VIGILIA II · EL INVIERNO',title:'Una primavera aún sin nombre',subtitle:'Recordar no obliga a repetir el pasado.',tone:'afterlight'}
 };
-const REQUIRED:Partial<Record<ZoneId,string>>={
+const AZUR_SCENE_REQUIRED:Partial<Record<ZoneId,string>>={
  marsh:'arken-vow-restored',spire:'marsh-chapter-complete',
  ossuary:'crown-trilogy-complete',garden:'afterlight-ossuary-complete'
 };
 export function arrivalMoment(zone:ZoneId,priorVisits:readonly string[],flags:readonly string[]):StoryMoment|null{
- const scene=ARRIVALS[zone];
+ const scene=AZUR_SCENE_ARRIVALS[zone];
  if(!scene||priorVisits.includes('zone-'+zone))return null;
- const requirement=REQUIRED[zone];
+ const requirement=AZUR_SCENE_REQUIRED[zone];
  return requirement&&!flags.includes(requirement)?null:{...scene};
 }
-const ENDINGS:Record<string,Omit<StoryMoment,'id'|'zone'>>={
+const AZUR_SCENE_ENDINGS:Record<string,Omit<StoryMoment,'id'|'zone'>>={
  'arken-vow-restored':{eyebrow:'FIN DEL CAPÍTULO I',title:'Un juramento contra el olvido',subtitle:'Arken vuelve a recordar. Más allá, el espejo espera.',tone:'oath'},
  'marsh-chapter-complete':{eyebrow:'FIN DEL CAPÍTULO II',title:'El mapa de las vidas posibles',subtitle:'Tu decisión ya forma parte de la Marisma.',tone:'memory'},
  'crown-trilogy-complete':{eyebrow:'FIN DE LA TRILOGÍA',title:'El cielo vuelve a pertenecer a todos',subtitle:'El final de una historia abre el viaje de otra.',tone:'reckoning'},
@@ -37,7 +37,7 @@ const ENDINGS:Record<string,Omit<StoryMoment,'id'|'zone'>>={
 };
 export function resolutionMoment(flag:string,flags:readonly string[]):StoryMoment|null{
  if(!flags.includes(flag))return null;
- const scene=ENDINGS[flag];if(!scene)return null;
+ const scene=AZUR_SCENE_ENDINGS[flag];if(!scene)return null;
  const zone:ZoneId=flag==='arken-vow-restored'?'village':flag==='marsh-chapter-complete'?'marsh':
   flag==='crown-trilogy-complete'?'spire':flag==='afterlight-ossuary-complete'?'ossuary':'garden';
  return {id:flag,zone,...scene};
