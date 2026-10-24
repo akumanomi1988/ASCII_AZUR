@@ -338,3 +338,10 @@
 @media(max-width:650px),(max-height:450px){#viewport .chapter-card{bottom:31%;padding:8px 14px;width:min(530px,85%)}#viewport .chapter-card strong{font-size:clamp(15px,3.7vw,21px)}#viewport .chapter-card p{font-size:11px;margin-top:3px}#viewport .chapter-card .chapter-card-runes{display:none}}
 :root.azur-high-contrast #viewport .chapter-card{border-color:#ffe8ab;background:#061521f0;color:#fff}
 .chronicle-item small{line-height:1.55}.chronicle-item button{min-height:44px;min-width:64px}
+
+/* v0.55 — legible, keyboard-friendly local endurance acceptance controls. */
+#viewport #labStart,#viewport #labStop,#viewport #labExport,#viewport #labBack,#viewport #openEnduranceLab{min-height:44px;min-width:100px;text-align:center;white-space:normal;line-height:1.35}
+#viewport #labStart:disabled,#viewport #labStop:disabled,#viewport #labExport:disabled{opacity:.45;cursor:not-allowed}
+#viewport .modal .settings-row:has(#labStart){display:flex;flex-wrap:wrap;gap:8px}
+#viewport .modal .settings-row:has(#labStart) button{flex:1 1 135px}
+@media(orientation:landscape) and (max-height:600px){#viewport .modal .settings-row:has(#labStart) button{flex-basis:110px;min-height:38px}}
