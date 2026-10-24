@@ -13,18 +13,18 @@ export interface EnduranceReport {
  orientationChanges:number;orientationFrames:Record<EnduranceOrientation,number>;
  orientation:'portrait'|'landscape'|'unobserved';
  viewport:{minWidth:number;maxWidth:number;minHeight:number;maxHeight:number}|null;
- phases:Record<EndurancePhase,EndurancePhaseReport>;
+ ENDURANCE_PHASES:Record<EndurancePhase,EndurancePhaseReport>;
  meaning:string;
 }
-const phases:readonly EndurancePhase[]=['explore','battle','crypt','menu'];
-function emptyStats():PhaseStats{return{frames:0,sumMs:0,overBudget:0,maxMs:0,bins:FRAME_BINS_MS.map(()=>0)};}
+const ENDURANCE_PHASES:readonly EndurancePhase[]=['explore','battle','crypt','menu'];
+function emptyEnduranceStats():PhaseStats{return{frames:0,sumMs:0,overBudget:0,maxMs:0,bins:FRAME_BINS_MS.map(()=>0)};}
 function percentileUpperBound(bins:readonly number[],count:number):number{
  if(count===0)return 0;
  const target=Math.ceil(count*.95);let n=0;
  for(let i=0;i<bins.length;i++){n+=bins[i]!;if(n>=target)return FRAME_BINS_MS[i]!;}
  return FRAME_BINS_MS[FRAME_BINS_MS.length-1]!;
 }
-function summarize(s:PhaseStats):EndurancePhaseReport{
+function summarizeEndurancePhase(s:PhaseStats):EndurancePhaseReport{
  const sampledSeconds=s.sumMs/1000;
  return {frames:s.frames,sampledSeconds:Number(sampledSeconds.toFixed(2)),
   averageFps:s.frames?Number((s.frames/sampledSeconds).toFixed(1)):0,
@@ -34,7 +34,7 @@ function summarize(s:PhaseStats):EndurancePhaseReport{
 }
 export class EnduranceLab {
  private enabled=false;
- private stats:Record<EndurancePhase,PhaseStats>={explore:emptyStats(),battle:emptyStats(),crypt:emptyStats(),menu:emptyStats()};
+ private stats:Record<EndurancePhase,PhaseStats>={explore:emptyEnduranceStats(),battle:emptyEnduranceStats(),crypt:emptyEnduranceStats(),menu:emptyEnduranceStats()};
  private dropped=0;
  private orientation:EnduranceOrientation|null=null;
  private orientationChanges=0;
@@ -44,13 +44,13 @@ export class EnduranceLab {
  start():void{this.reset();this.enabled=true;}
  stop():void{this.enabled=false;}
  reset():void{
-  this.enabled=false;this.stats={explore:emptyStats(),battle:emptyStats(),crypt:emptyStats(),menu:emptyStats()};
+  this.enabled=false;this.stats={explore:emptyEnduranceStats(),battle:emptyEnduranceStats(),crypt:emptyEnduranceStats(),menu:emptyEnduranceStats()};
   this.dropped=0;this.orientation=null;this.orientationChanges=0;this.orientationFrames={portrait:0,landscape:0};this.viewport=null;
  }
  sample(intervalMs:number,phase:EndurancePhase,visible:boolean,width:number,height:number):void{
   if(!this.enabled)return;
   if(!visible||!Number.isFinite(intervalMs)||intervalMs<=0||intervalMs>2000||
-      !Number.isFinite(width)||!Number.isFinite(height)||width<1||height<1||!phases.includes(phase)){
+      !Number.isFinite(width)||!Number.isFinite(height)||width<1||height<1||!ENDURANCE_PHASES.includes(phase)){
    this.dropped++;return;
   }
   const s=this.stats[phase];s.frames++;s.sumMs+=intervalMs;
@@ -70,14 +70,14 @@ export class EnduranceLab {
  }
  report():EnduranceReport{
   const out={} as Record<EndurancePhase,EndurancePhaseReport>;
-  for(const phase of phases)out[phase]=summarize(this.stats[phase]);
-  const totalFrames=phases.reduce((sum,p)=>sum+this.stats[p].frames,0);
+  for(const phase of ENDURANCE_PHASES)out[phase]=summarizeEndurancePhase(this.stats[phase]);
+  const totalFrames=ENDURANCE_PHASES.reduce((sum,p)=>sum+this.stats[p].frames,0);
   return {format:'ascii-azur-endurance',version:1,collection:'opt-in-visible-rAF',
    status:this.enabled?'recording':'stopped',totalFrames,
-   sampledSeconds:Number(phases.reduce((sum,p)=>sum+this.stats[p].sumMs,0).toFixed(0))/1000,
+   sampledSeconds:Number(ENDURANCE_PHASES.reduce((sum,p)=>sum+this.stats[p].sumMs,0).toFixed(0))/1000,
    ignoredFrames:this.dropped,orientationChanges:this.orientationChanges,
    orientationFrames:{...this.orientationFrames},orientation:this.orientation??'unobserved',
-   viewport:this.viewport?{...this.viewport}:null,phases:out,
+   viewport:this.viewport?{...this.viewport}:null,ENDURANCE_PHASES:out,
    meaning:'Visible requestAnimationFrame main-thread pacing only. P95 is an upper histogram bound. Not GPU time, energy, temperature, physical device, human acceptance or play-duration proof.'};
  }
 }
