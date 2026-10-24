@@ -55,3 +55,35 @@ Bounded optional journey counters record battles, outcomes, commands, consumable
 - TypeScript, standalone, offline dependency audit, main CI and Pages exact source provenance must pass. Public HTTP smoke and physical Android remain separate evidence.
 
 Results and publication evidence are appended to `docs/AI_EVOLUTION_STATE.md` only after observed execution. Existing 32 fixed milestone definitions and weights remain unchanged; these implementations alone do not certify independent human C4/P4, U4 or physical-device gates.
+
+
+## Observed final code acceptance — 2026-10-24
+
+| Gate | Observed result |
+|---|---|
+| Complete main TypeScript/Node/standalone/offline/release suite | **346/346 PASS**, 51 reachable JS modules / 54 cached assets |
+| New physical campaign matrix | **150/150 complete journeys**, 50 distinct saved worlds × three starters, 450 chapter reloads |
+| Existing C3 and four-ending Q3 regressions | PASS, actual captures/experience/turns and crypt movement |
+| Real Chromium source acceptance | PASS, ASCII/Pixel × WebGL2/Canvas2D, 32 biome/combat canvas captures, plus relic/stat/command/permadeath DOM checks |
+| Main quality and gated distribution publication | SUCCESS, run `40080264568`, source `ea85f86a71d0a83b029a05021df8e060e843adc6` |
+| Exact distribution provenance | `fb673242c9fb81184b9e8b8f17fd6d1cdab4ef5e` names the exact verified source above |
+
+### Campaign policy results
+
+These are deterministic simulated-player runs, not human approval. Each row uses 25 worlds. Only the tactical policy uses the introductory ward. Both policies use legitimately learned techniques and actual player commands; no rewards/wins/resources are injected.
+
+| Starter | Policy | Completions | Preparation defeats, total | Maximum tonics used | Final level range |
+|---|---|---:|---:|---:|---|
+| Cindrel | Offense | 25/25 | 2 | 12 | 15–17 |
+| Cindrel | Tactical + ward | 25/25 | 0 | 4 | 16–18 |
+| Velaria | Offense | 25/25 | 0 | 12 | 16–18 |
+| Velaria | Tactical + ward | 25/25 | 0 | 5 | 16–18 |
+| Thorne | Offense | 25/25 | 0 | 12 | 14–16 |
+| Thorne | Tactical + ward | 25/25 | 0 | 1 | 15–17 |
+
+Two policies are assigned to different seed cohorts, so their consumable totals are not a controlled causal estimate of the ward or strategy benefit. No human-balance score is inferred. The fixed roadmap remains 67.50% until its independent/hardware gates close.
+
+
+### Observed publication
+
+[Pages deployment 40080606243](https://github.com/akumanomi1988/ASCII_AZUR/actions/runs/40080606243) **SUCCESS**. Public cloud-browser boot on `https://akumanomi1988.github.io/ASCII_AZUR/` visibly loaded **WORLD ENGINE v0.52.0**, title controls and the campaign-slot summary after reload. Exact distribution source provenance was independently read through GitHub. This follow-up changes documentation only and intentionally skips a redundant CI build; the playable source remains `ea85f86a71d0a83b029a05021df8e060e843adc6`.

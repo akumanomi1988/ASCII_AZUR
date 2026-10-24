@@ -15,3 +15,8 @@ The user's target is to reach a finished product within five prompts, counting t
 C4 needs at least 20 external combat sessions; P4 needs player economy/collection pacing acceptance; N4/U4 require independent narrative/usability approval. W4/U2/G4 and A3/Q4 include real mobile/device evidence. A2/A4 and G2 require production audio/visual approval. Automated simulated play is valuable engineering evidence and must never be relabelled as human approval or physical-device testing.
 
 The local playtest export introduced in block 1 supports structured evidence collection without a backend or unsolicited messaging. If hardware/tester evidence is unavailable at block 5, report the precisely remaining acceptance gates instead of declaring 100%.
+
+
+## Block 1 observed disposition — 2026-10-24
+
+Technical implementation and automated/publication acceptance are **COMPLETE for v0.52.0**: [main quality/browser/publish 40080264568](https://github.com/akumanomi1988/ASCII_AZUR/actions/runs/40080264568), [Pages 40080606243](https://github.com/akumanomi1988/ASCII_AZUR/actions/runs/40080606243), 346/346 tests, 150 complete simulated physical campaigns, 450 chapter reloads, four renderer/backend Chromium configurations and live public v0.52.0 boot. The code source is `ea85f86a71d0a83b029a05021df8e060e843adc6`. Two bounded recoverable preparation defeats were observed and reported across the entire matrix; every campaign completed. Next development block: world/exploration/reward coherence. The fixed premium acceptance dependencies above are unchanged.
