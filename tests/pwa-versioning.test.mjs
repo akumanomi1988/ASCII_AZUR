@@ -19,7 +19,7 @@ function serviceWorker(){
  };
  const caches={
   open:async()=>cache,
-  keys:async()=>['ascii-azur-v048-q1','ascii-azur-v0481-q1'],
+  keys:async()=>['ascii-azur-v048-q1','ascii-azur-v048-q2'],
   delete:async()=>true,
   match:async url=>cached.get(url)
  };
