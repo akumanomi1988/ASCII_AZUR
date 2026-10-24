@@ -122,3 +122,8 @@ The Codex now measures capture progress against capturable species only; Hollowh
 ### v0.48 — Authored Pixel World
 
 The world uses five authored voxel-like foliage families, stepped cottage silhouettes, low-noise continuous terrain, and faithful source colors in Glyph Pixel Art. Both rendering modes share the same deterministic world art. The pixel profile is the default for new players; saved settings and existing games remain compatible. Run `npm run verify` for TypeScript, standalone and Node gates, and the GitHub CI for WebGL2/Canvas2D screenshots.
+
+
+### v0.48.1 — Clean microscopic ASCII floors
+
+Path and bare soil no longer produce tiny disconnected source primitives that became stray letters in the microscopic ASCII compositor. Subtle edge rims and bounded natural motifs keep route readability with the authored pixel-art world unchanged.
