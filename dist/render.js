@@ -1,4 +1,4 @@
-import { hash, TILE, WORLD_H, WORLD_W, terrain, ZONES } from './world.js';
+import { hash, TILE, WORLD_H, WORLD_W, terrain, ZONES, getWorldRevision } from './world.js';
 import { SPECIES } from './domain.js';
 import { sampleBattleSignature } from './actors/battle-direction.js';
 import { sampleCreaturePerformance, rigFor } from './actors/creature-performance.js';
@@ -8,6 +8,7 @@ import { biomePalette } from './render/biome-art.js';
 import { paintPixelTree, paintPixelCottage } from './render/pixel-scenery.js';
 import { paintPixelLandmark } from './render/pixel-landmarks.js';
 import { pathCornerCuts } from './render/path-contour.js';
+import { GroundChunkCache } from './render/ground-chunks.js';
 import { GLYPHS } from './render/glyph-ramp.js';
 import { sampleHeroPose } from './actors/hero-performance.js';
 import { materialGlyphIndex, materialColors } from './render/glyph-material.js';
@@ -17,6 +18,7 @@ export const W = 960, H = 540;
 /** World-only camera magnification; battle composition and DOM controls are unaffected. */
 const WORLD_PRESENTATION_ZOOM = 1.16;
 const GROUND_MATERIAL_CACHE = new GroundMaterialCache();
+const GROUND_CHUNKS = new GroundChunkCache();
 const VS = `#version 300 es
 in vec2 a_pos;out vec2 v_uv;
 void main(){v_uv=a_pos*.5+.5;gl_Position=vec4(a_pos,0.,1.);}`;
@@ -1331,82 +1333,80 @@ function drawGround(ctx, zone, camX, camY, t) {
     const z = ZONES[zone], a = biomePalette(zone);
     ctx.fillStyle = a.soil[0];
     ctx.fillRect(0, 0, W, H);
-    const left = Math.max(0, Math.floor(camX / TILE) - 1), right = Math.min(WORLD_W - 1, Math.ceil((camX + W) / TILE) + 1);
-    const top = Math.max(0, Math.floor(camY / TILE) - 1), bottom = Math.min(WORLD_H - 1, Math.ceil((camY + H) / TILE) + 2);
-    for (let y = top; y <= bottom; y++)
-        for (let x = left; x <= right; x++) {
-            const k = hash(x, y, z.seed), xx = x * TILE - camX, yy = y * TILE - camY, tile = terrain(zone, x, y);
-            ctx.fillStyle = a.soil[0];
-            ctx.fillRect(xx, yy, TILE + 1, TILE + 1);
-            if (k > .83) {
-                ctx.fillStyle = a.soil[1];
-                ctx.globalAlpha = .28;
-                ctx.fillRect(xx, yy, TILE + 1, TILE + 1);
-                ctx.globalAlpha = 1;
-            }
-            if (tile === 'path') {
-                // Navigation is a single legible ribbon. Edges are continuous across tiles.
-                ctx.fillStyle = a.path;
-                ctx.fillRect(xx, yy, TILE + 1, TILE + 1);
-                ctx.fillStyle = a.pathRim;
-                ctx.globalAlpha = .12;
-                if (terrain(zone, x, y - 1) !== 'path')
-                    ctx.fillRect(xx, yy, TILE, 3);
-                if (terrain(zone, x, y + 1) !== 'path')
-                    ctx.fillRect(xx, yy + TILE - 3, TILE, 3);
-                if (terrain(zone, x - 1, y) !== 'path')
-                    ctx.fillRect(xx, yy, 3, TILE);
-                if (terrain(zone, x + 1, y) !== 'path')
-                    ctx.fillRect(xx + TILE - 3, yy, 3, TILE);
-                ctx.globalAlpha = 1;
-                // Continuous stepped corners keep broad pathways readable without micro-pebbles.
-                const neighbors = { north: terrain(zone, x, y - 1) === 'path', east: terrain(zone, x + 1, y) === 'path',
-                    south: terrain(zone, x, y + 1) === 'path', west: terrain(zone, x - 1, y) === 'path' };
-                ctx.fillStyle = a.soil[0];
-                for (const cut of pathCornerCuts(TILE, neighbors))
-                    ctx.fillRect(xx + cut.x, yy + cut.y, cut.width, cut.height);
-            }
-            else if (tile === 'water') {
-                // Broad pools and occasional deliberate specular pixels; no line per tile.
-                ctx.fillStyle = a.water;
-                ctx.fillRect(xx, yy, TILE + 1, TILE + 1);
-                if (k > .80 && !isFocalGroundTile(zone, x, y)) {
-                    const ry = yy + 12 + Math.floor(hash(x, y, z.seed + 216) * 4) * 6;
-                    ctx.fillStyle = a.waterRim;
-                    ctx.globalAlpha = .36;
-                    ctx.fillRect(xx + 9, ry, 19, 3);
-                    ctx.fillRect(xx + 23, ry + 5, 11, 2);
-                    ctx.globalAlpha = 1;
-                }
-                ctx.fillStyle = a.waterRim;
-                ctx.globalAlpha = .55;
-                if (terrain(zone, x, y - 1) !== 'water')
-                    ctx.fillRect(xx, yy, TILE, 3);
-                if (terrain(zone, x - 1, y) !== 'water')
-                    ctx.fillRect(xx, yy, 3, TILE);
-                ctx.globalAlpha = 1;
-            }
-            else if (tile === 'grass') {
-                // Full bleed: isolated transparent inner-tile rectangles looked like a grid.
-                ctx.fillStyle = a.grass;
-                ctx.globalAlpha = .44;
-                ctx.fillRect(xx, yy, TILE + 1, TILE + 1);
-                ctx.globalAlpha = 1;
-            }
-            else if (tile === 'stone') {
-                ctx.fillStyle = a.stoneDark;
-                ctx.globalAlpha = .67;
-                ctx.fillRect(xx, yy, TILE + 1, TILE + 1);
-                ctx.fillStyle = a.stoneMid;
-                ctx.globalAlpha = .26;
-                ctx.fillRect(xx + 5, yy + 6, TILE - 10, TILE - 12);
-                ctx.globalAlpha = 1;
-            }
-            if (tile !== 'wall') {
-                const surface = tile === 'path' || tile === 'water' || tile === 'grass' || tile === 'stone' ? tile : 'ground';
-                GROUND_MATERIAL_CACHE.draw(ctx, zone, surface, x, y, z.seed, xx, yy, a, TILE);
-            }
+    // Static ground colors, route geometry and materials are rasterized only when a chunk enters view.
+    GROUND_CHUNKS.draw(ctx, zone, getWorldRevision(), camX, camY, W, H, (tileCtx, x, y, tileX, tileY) => {
+        const k = hash(x, y, z.seed), xx = tileX, yy = tileY, tile = terrain(zone, x, y);
+        tileCtx.fillStyle = a.soil[0];
+        tileCtx.fillRect(xx, yy, TILE + 1, TILE + 1);
+        if (k > .83) {
+            tileCtx.fillStyle = a.soil[1];
+            tileCtx.globalAlpha = .28;
+            tileCtx.fillRect(xx, yy, TILE + 1, TILE + 1);
+            tileCtx.globalAlpha = 1;
         }
+        if (tile === 'path') {
+            // Navigation is a single legible ribbon. Edges are continuous across tiles.
+            tileCtx.fillStyle = a.path;
+            tileCtx.fillRect(xx, yy, TILE + 1, TILE + 1);
+            tileCtx.fillStyle = a.pathRim;
+            tileCtx.globalAlpha = .12;
+            if (terrain(zone, x, y - 1) !== 'path')
+                tileCtx.fillRect(xx, yy, TILE, 3);
+            if (terrain(zone, x, y + 1) !== 'path')
+                tileCtx.fillRect(xx, yy + TILE - 3, TILE, 3);
+            if (terrain(zone, x - 1, y) !== 'path')
+                tileCtx.fillRect(xx, yy, 3, TILE);
+            if (terrain(zone, x + 1, y) !== 'path')
+                tileCtx.fillRect(xx + TILE - 3, yy, 3, TILE);
+            tileCtx.globalAlpha = 1;
+            // Continuous stepped corners keep broad pathways readable without micro-pebbles.
+            const neighbors = { north: terrain(zone, x, y - 1) === 'path', east: terrain(zone, x + 1, y) === 'path',
+                south: terrain(zone, x, y + 1) === 'path', west: terrain(zone, x - 1, y) === 'path' };
+            tileCtx.fillStyle = a.soil[0];
+            for (const cut of pathCornerCuts(TILE, neighbors))
+                tileCtx.fillRect(xx + cut.x, yy + cut.y, cut.width, cut.height);
+        }
+        else if (tile === 'water') {
+            // Broad pools and occasional deliberate specular pixels; no line per tile.
+            tileCtx.fillStyle = a.water;
+            tileCtx.fillRect(xx, yy, TILE + 1, TILE + 1);
+            if (k > .80 && !isFocalGroundTile(zone, x, y)) {
+                const ry = yy + 12 + Math.floor(hash(x, y, z.seed + 216) * 4) * 6;
+                tileCtx.fillStyle = a.waterRim;
+                tileCtx.globalAlpha = .36;
+                tileCtx.fillRect(xx + 9, ry, 19, 3);
+                tileCtx.fillRect(xx + 23, ry + 5, 11, 2);
+                tileCtx.globalAlpha = 1;
+            }
+            tileCtx.fillStyle = a.waterRim;
+            tileCtx.globalAlpha = .55;
+            if (terrain(zone, x, y - 1) !== 'water')
+                tileCtx.fillRect(xx, yy, TILE, 3);
+            if (terrain(zone, x - 1, y) !== 'water')
+                tileCtx.fillRect(xx, yy, 3, TILE);
+            tileCtx.globalAlpha = 1;
+        }
+        else if (tile === 'grass') {
+            // Full bleed: isolated transparent inner-tile rectangles looked like a grid.
+            tileCtx.fillStyle = a.grass;
+            tileCtx.globalAlpha = .44;
+            tileCtx.fillRect(xx, yy, TILE + 1, TILE + 1);
+            tileCtx.globalAlpha = 1;
+        }
+        else if (tile === 'stone') {
+            tileCtx.fillStyle = a.stoneDark;
+            tileCtx.globalAlpha = .67;
+            tileCtx.fillRect(xx, yy, TILE + 1, TILE + 1);
+            tileCtx.fillStyle = a.stoneMid;
+            tileCtx.globalAlpha = .26;
+            tileCtx.fillRect(xx + 5, yy + 6, TILE - 10, TILE - 12);
+            tileCtx.globalAlpha = 1;
+        }
+        if (tile !== 'wall') {
+            const surface = tile === 'path' || tile === 'water' || tile === 'grass' || tile === 'stone' ? tile : 'ground';
+            GROUND_MATERIAL_CACHE.draw(tileCtx, zone, surface, x, y, z.seed, xx, yy, a, TILE);
+        }
+    });
     // Slow ambient light is subtle; broad material masses always remain legible.
     for (let i = 0; i < 6; i++) {
         const xx = ((i * 271 + Math.sin(t * .2 + i) * 90 - camX * .09) % 1250 + 1250) % 1250 - 150;
