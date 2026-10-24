@@ -63,3 +63,20 @@ Leader selection now uses the same durable transaction pattern, with the origina
 - Main CI and Pages source provenance must be observed before shipment. A public boot is checked independently.
 
 Human wayfinding/mobile evidence remains the fixed W4 acceptance dependency. No new code by itself closes external C4/P4/N4/U4, physical G4/U2 or independent art/audio gates. The accepted weighted roadmap stays 20/32, 67.50% pending those approvals. This is technical completion of closure block 2, not a claim of premium completion.
+
+
+## Observed release evidence
+
+- Local `npm run verify`: **360 tests passed, zero failures**, TypeScript, standalone and release audit PASS (52 reachable modules / 55 offline-cached modules).
+- Physical acceptance: the existing 150 complete trilogy campaigns / 450 chapter reloads and 12 new-game-to-both-Afterlight journeys pass. New journeys cover three starters, all four optional endings, 24 optional region completions and 24 travel operations.
+- Field journal: 13 passing tests include 200 saved seeds / 1,400 regional altar objectives and storage-failure rollback. The independent world traversal regression retains 200 seeds / 15,975 reachable routes / 1,846 physically swept routes.
+- Playable source commit: `7badb5a2443b8d0947d7aeff46dc652e09634dca`. Remote browser, publication and live-boot evidence is recorded below only once observed.
+
+
+### v0.53 verified deployment — 2026-10-24
+
+[Main quality/browser/publish 40099794792](https://github.com/akumanomi1988/ASCII_AZUR/actions/runs/40099794792) observed **SUCCESS**. Node job `120889408022` confirms **360/360 tests**, zero failures, 150 complete trilogy campaigns / 450 chapter reloads, the 12 complete main-plus-Afterlight journeys and release audit PASS (52 imports / 55 cached modules). Browser job `120889407827` passed all four ASCII/Pixel × WebGL2/Canvas2D combinations, including journal, saved objectives, travel and recognition UI; 32 screenshot artifacts were retained.
+
+[Pages deployment 40100163040](https://github.com/akumanomi1988/ASCII_AZUR/actions/runs/40100163040) observed **SUCCESS**. Distribution commit `0dd8856079ade8ae98c2636b1fdb6da9a659ab64` records exact `build-info.json.source_commit=7badb5a2443b8d0947d7aeff46dc652e09634dca`. An independent live browser reload of `https://akumanomi1988.github.io/ASCII_AZUR/` displayed **WORLD ENGINE v0.53.0** with the title, campaign selector and initialized HUD. This is public boot acceptance, separate from Chromium gameplay acceptance and physical Android evidence.
+
+Closure block 2 is technically delivered. Fixed accepted gates remain **20/32, weighted 67.50%**; no independent human or physical-device approval is claimed. This evidence-only documentation follow-up intentionally skips CI and changes no playable source or deployed build. Next block: presentation/content finalization with narrative, visual and listening acceptance.
