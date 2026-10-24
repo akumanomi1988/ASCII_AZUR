@@ -30,3 +30,8 @@ The complete connected-pilgrimage epic is defined in `RELEASE_v0.53.0.md`: regio
 ## Block 2 observed disposition — 2026-10-24
 
 Technical implementation and automated/publication acceptance are **COMPLETE for v0.53.0**: main run `40099794792`, Pages run `40100163040`, 360/360 tests, 150 trilogy campaigns / 450 reloads, 12 complete main-plus-Afterlight journeys, 200-seed regional/traversal gates, four Chromium renderer/backend configurations and live public v0.53.0 boot. Source: `7badb5a2443b8d0947d7aeff46dc652e09634dca`. Independent navigation/mobile and production acceptance remain open. Next development block: **3 — presentation/content finalization**.
+
+
+## Block 3 implementation candidate — v0.54.0
+
+The authored retrospective chronicle, six nonspoiling regional arrival moments, five permanent-flag-driven chapter closures, responsive/reduced-motion text direction, original five-motif stingers and real-browser Journal replay acceptance are integrated as one presentation/content pass. Story events only read existing saved flags, not new quest states. A four-browser CI screenshot matrix remains required and the subjective visual/narrative/audio approvals cannot be inferred from build success. `RELEASE_v0.54.0.md` defines the testable change. Fixed milestone scores stay 20/32 and 67.50% until independent acceptance. Proceed next to block 4 device/endurance/external validation.
