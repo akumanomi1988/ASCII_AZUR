@@ -53,7 +53,7 @@ test('microscopic GPU preset uses more than 100000 independently sampled cells a
  const cell=glyphCell(10,ultra);
  assert.equal(cell.width,1.25);
  assert.ok(glyphCount(1280,720,cell)>300000);
- const standard=glyphCell(10,DEFAULT_GRAPHICS);
+ const standard=glyphCell(10,readGraphics({renderMode:'ascii'}));
  assert.ok(glyphCount(1280,720,standard)>60000);
  assert.ok(glyphCount(1280,720,cell)>glyphCount(1280,720,standard)*3);
 });
