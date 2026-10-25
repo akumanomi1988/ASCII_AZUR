@@ -15,7 +15,7 @@ A checkbox means the evidence stated below exists. A completed automated gate me
 | 4. Creatures and progression | 10% | 3/4 | 75% | P4 external pacing and balance |
 | 5. Graphics and animation | 10% | 2/4 | 50% | G2 independent visual acceptance; G4 verified minimum-device FPS |
 | 6. UX and mobile | 10% | 2/4 | 50% | U2 real Android testing; U4 human usability validation |
-| 7. Audio and atmosphere | 5% | 1/4 | 25% | A2 mastered themes; A3 dynamic scene mixing; A4 external audio evaluation |
+| 7. Audio and atmosphere | 5% | 2/4 | 50% | A3 dynamic scene mixing; A4 external audio evaluation |
 | 8. QA and release | 10% | 3/4 | 75% | Q4 independent public/hardware release |
 
 ## Evidence and exact acceptance criteria per milestone
@@ -45,7 +45,7 @@ A checkbox means the evidence stated below exists. A completed automated gate me
 - **U3 [x]** Automated contrast audit, keyboard-only modal/world/combat operation, semantic labels and live alternate feedback in Node and Chromium (v0.43–v0.44); H announces nearby routes and mission guidance. This verifies accessible implementation, not actual screen-reader comprehension or human usability, which remain U4/Q4.
 - **U4 [ ]** Successful independent task-based usability study across desktop/mobile.
 - **A1 [x]** Programmatic biome audio/cues, mute, persistent volume tested in `tests/audio.test.mjs`.
-- **A2 [ ]** Original mastered music/theme set for all scenes and boss finale.
+- **A2 [x]** Original mastered music/theme set for all scenes and boss finale: v0.60 ten original distinct A/B/coda scores in the live Web Audio engine; 10 complete reproducible mastered WAV listening references with deterministic fingerprints and CI measurements of RMS, peak, DC and clipping. Feature [CI 40232189206](https://github.com/akumanomi1988/ASCII_AZUR/actions/runs/40232189206) SUCCESS: 435/435 tests, 4 Chromium routes, all ten masters valid (553.919 s, RMS -21.72 dBFS, worst peak -9.22 dBFS, zero clipped samples); [audio evidence artifact](https://github.com/akumanomi1988/ASCII_AZUR/actions/runs/40232189206). The final merge requires main CI and exact-source Pages verification. Audio quality judgement A4 and real-device transitions A3 remain OPEN.
 - **A3 [ ]** Tested dynamic transitions, mixing and device performance.
 - **A4 [ ]** Independent sound quality and accessibility approval.
 - **Q1 [x]** CI TypeScript/Node/build/standalone/browser checks + tracked Pages provenance, verified previous release run 39836396417.
@@ -247,3 +247,10 @@ Regional objective truth, finite recognitions, persistent fog-respecting trackin
 ## v0.55 — opt-in release endurance laboratory and simulated mobile QA (2026-10-24)
 
 Local, bounded phase-specific rAF frame-cadence capture and player-directed JSON export, two real Chromium viewport end-to-end runs (portrait/landscape, synthetic touch, reload, settings), same-origin PWA scope safety and long-running deterministic Node regressions are now implemented and published. Main Actions 40110024127 and Pages 40110405907 both SUCCESS, with 375 Node tests and full campaign/Afterlight regression matrix. Hardware G4/U2/A3, external W4/C4/P4/N4/U4, artistic G2/A2/A4 and Q4 independent release acceptance are **not complete**; this code does not reclassify them. **20/32, weighted 67.50%** remains the fixed verified project progress.
+
+## 2026-10-25 — A2 full original mastered score acceptance (v0.60)
+
+- Frozen gate: 10/10 current music scenes including the final boss have distinct original eight-phrase A/B/CODA arrangements, source-synchronous with the interactive sound engine. Every piece has a generated, reproducible full-length WAV master and a machine-verifiable measured fingerprint.
+- Evidence: [PR #38](https://github.com/akumanomi1988/ASCII_AZUR/pull/38), feature [Actions 40232189206](https://github.com/akumanomi1988/ASCII_AZUR/actions/runs/40232189206) SUCCESS (435/435 tests, 150 campaign sessions, 450 reloads, 4 Chromium modes); audio master artifact 10 WAVs totaling 553.919 seconds, RMS -21.72 dBFS, worst sampled interpolated peak -9.22 dBFS, zero clipping. Full method in docs/AUDIO_MASTERING_ACCEPTANCE.md.
+- Milestone arithmetic: previous **20/32 = 67.50%**; after verified A2 **21/32 = 68.75%**, **+1.25 percentage points**. Audio phase 1/4 (25%) to 2/4 (50%). This is an A2 music/technical mastering claim ONLY; A3 physical-device transitions, A4 independent audio evaluation and Q4 human/hardware signoff are not claimed.
+- Production release criterion: main CI and Pages deployment must be green, gh-pages/build-info.json must identify the exact merged SHA. Do not describe this candidate as deployed or externally approved until those checks pass.
