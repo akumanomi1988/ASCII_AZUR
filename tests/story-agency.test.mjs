@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {azurOpening,azurNarrativeBeat,azurWorldConsequence,azurNpcReflection,azurMarshChoiceMeaning,azurCrownChoiceMeaning,azurBondLegacy,azurAfterlightIntroduction} from '../dist/story-agency.js';
 const intro=['archivist','zone-forest','zone-sanctuary','arken-vow-restored'];
-const state=flags=>({flags,defeatedBoss:false,dungeonFinished:false});
+const state=flags=>({flags,defeatedBoss:flags.includes('arken-vow-restored'),dungeonFinished:flags.includes('arken-vow-restored')});
 const marsh=m=>[...intro,'marsh-met-nael','zone-marsh','marsh-choice-'+m,'marsh-chapter-complete'];
 const crown=(m,c)=>[...marsh(m),'zone-spire','crown-met-oriel','crown-choice-'+c,'crown-trilogy-complete'];
 test('opening creates real stakes, specific first objective, isolated return copy',()=>{
