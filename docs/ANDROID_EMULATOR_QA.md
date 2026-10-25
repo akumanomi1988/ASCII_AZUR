@@ -4,7 +4,7 @@
 
 This is a **real Android operating system emulator**, running the real Android Chrome app, not the old Linux Chromium mobile-viewport mock. It does not emulate physical heat, battery, speaker transfer, touchscreen sampling characteristics, or device-specific sustained FPS. The existing synthetic mobile viewport tests remain independent.
 
-The GitHub Actions \`android-emulator\` matrix checks API 30 (Android 11) and API 35 (Android 15) on x86_64 Google Play system images under KVM. The runner uses \`reactivecircus/android-emulator-runner@v2\`. Each job builds production TypeScript and serves the same \`index.html\`/ES modules used by GitHub Pages. Chrome DevTools is reached through ADB socket forwarding; game requests reach the local CI server through \`adb reverse\`.
+The GitHub Actions \`android-emulator\` matrix checks API 30 (Android 11) and API 35 (Android 15) on x86_64 Google APIs system images under KVM. The runner uses \`reactivecircus/android-emulator-runner@v2\`. Each job builds production TypeScript and serves the same \`index.html\`/ES modules used by GitHub Pages. Chrome DevTools is reached through ADB socket forwarding; game requests reach the local CI server through \`adb reverse\`.
 
 ## Automated acceptance journey
 
@@ -29,8 +29,10 @@ The production \`publish-pages\` job requires all of \`verify\`, \`browser\` and
 \`\`\`bash
 npm install --ignore-scripts
 npm run build
-# Boot an Android 11/15 Google Play x86_64 emulator with Chrome and KVM first:
+# Boot an Android 11/15 Google APIs x86_64 emulator with Chrome and KVM first:
 ANDROID_API_LEVEL=35 node tools/android-emulator-acceptance.mjs
 \`\`\`
 
 No Android emulator or KVM is available in the local ChatGPT container; authoritative emulated results must come from the linked GitHub Actions runner. If the emulator provisioning itself fails, diagnose the workflow separately before claiming a gameplay regression.
+
+CI host note: KVM acceleration is requested but some GitHub-hosted runners lack /dev/kvm. The emulator action selects software fallback when needed. Such results remain diagnostic and do not represent physical-device performance.
