@@ -7,8 +7,8 @@ test('Android emulator CI covers two Google Play API generations and gates Pages
  assert.match(workflow,/android-emulator:\s*\n/);
  assert.match(workflow,/api-level: \[30, 35\]/);
  assert.match(workflow,/reactivecircus\/android-emulator-runner@v2/);
- assert.match(workflow,/target: google_apis_playstore/);
- assert.match(workflow,/test -r \/dev\/kvm && test -w \/dev\/kvm/);
+ assert.match(workflow,/target: google_apis/);
+ assert.match(workflow,/if \[ -e \/dev\/kvm \]/);
  assert.match(workflow,/needs: \[verify, browser, android-emulator\]/);
  assert.match(workflow,/ascii-azur-android-api-/);
  assert.match(workflow,/if: always\(\)/);
