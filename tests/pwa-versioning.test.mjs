@@ -103,5 +103,5 @@ test('PWA install and activation retain unrelated caches while expiring ASCII AZ
  const pending=[];
  listeners.get('activate')({waitUntil:p=>pending.push(p)});
  await Promise.all(pending);
- assert.deepEqual(deleted,['ascii-azur-v054-q1','ascii-azur-v053-q1']);
+ assert.deepEqual(deleted,['ascii-azur-v054-q1','ascii-azur-v055-q1','ascii-azur-v053-q1']);
 });
