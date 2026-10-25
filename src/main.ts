@@ -1,3 +1,4 @@
+import {tacticalProfile,teamGuide,loadoutUpgrade,relicUpgrade,recruitmentValue,storyThreat,creatureRole} from './creatures/tactical-identity.js';
 import {regionalSurvey,regionalObjectives,regionKnown,regionUnlocked,resolveFieldTarget,planFieldTarget,planSurveyClaim,planLumbreTravel,travelRefusal,nextFieldPortal,afterlightOverview,type FieldTarget} from './world/field-journal.js';
 import {individualRange,ATTRIBUTE_KEYS} from './creatures/attributes.js';
 import {establishPrimary,loseCryptCompanion} from './creatures/crypt-mortality.js';
@@ -473,12 +474,14 @@ class AzurGame {
   private prepareGuardianBattle(){
     if(!this.started||this.battle||this.dialogOpen)return;
     const result=guardianPreparation(this.save.team);
+    const scouting=teamGuide(this.save.team,createCreature('hollowhart',12,()=>.5),this.save.flags);
+    const scoutingHtml='<div class="modal-content-block"><strong>EXPLORACIÓN DEL EQUIPO</strong><p>'+htmlEscape(scouting.notice)+'</p>'+scouting.members.map(m=>'<p>'+htmlEscape(m.name)+' · '+htmlEscape(m.summary)+'</p>').join('')+'</div>';
     const intro=result.ready?'Equipo preparado. Hollowhart conserva un ataque cargado peligroso.':
       'Hollowhart puede derrotarte. Puedes combatir o prepararte.';
     const advice=result.advice.map(line=>`<p>${htmlEscape(line)}</p>`).join('');
     const suggested=guardianRecommendedLead(this.save.team);
     const options=this.save.team.map((c,i)=>c.hp<=0?'':`<option value="${i}" ${i===suggested?'selected':''}>${htmlEscape(SPECIES[c.speciesId]!.name)} · NV ${c.level} · ${c.hp}/${maxHp(c)} HP${i===suggested?' · RECOMENDADO':''}</option>`).join('');
-    this.showModal('HOLLOWHART · EL DESAFÍO',`<div class="guardian-prep"><p>${htmlEscape(intro)}</p>${advice}<p>Hollowhart combate con Raíz. Solo libera su poderoso ECLIPSE de Éter después de acumular el silencio: usa GUARDIA durante el aviso, incluso con un aliado de Ceniza. Conserva tónicos.</p><label for="guardianLeadSelect">CRIATURA QUE ABRE EL COMBATE</label><select id="guardianLeadSelect" aria-label="Elegir criatura inicial contra Hollowhart">${options}</select><div class="guardian-options"><button id="guardianProceed" aria-label="Iniciar combate contra Hollowhart con la criatura elegida">COMBATIR</button><button id="guardianRetreat">PREPARARSE</button></div></div>`);
+    this.showModal('HOLLOWHART · EL DESAFÍO',`<div class="guardian-prep">${scoutingHtml}<p>${htmlEscape(intro)}</p>${advice}<p>Hollowhart combate con Raíz. Solo libera su poderoso ECLIPSE de Éter después de acumular el silencio: usa GUARDIA durante el aviso, incluso con un aliado de Ceniza. Conserva tónicos.</p><label for="guardianLeadSelect">CRIATURA QUE ABRE EL COMBATE</label><select id="guardianLeadSelect" aria-label="Elegir criatura inicial contra Hollowhart">${options}</select><div class="guardian-options"><button id="guardianProceed" aria-label="Iniciar combate contra Hollowhart con la criatura elegida">COMBATIR</button><button id="guardianRetreat">PREPARARSE</button></div></div>`);
     if(!this.modalOpen)return;
     byId<HTMLButtonElement>('guardianProceed').onclick=()=>{const raw=Number(byId<HTMLSelectElement>('guardianLeadSelect').value);const selected=Number.isSafeInteger(raw)&&(this.save.team[raw]?.hp??0)>0?raw:suggested;this.hideModal();this.startBattle('hollowhart',12,'boss',undefined,selected);};
     byId<HTMLButtonElement>('guardianRetreat').onclick=()=>this.hideModal();
@@ -519,14 +522,15 @@ class AzurGame {
     const actions=byId('battleActions');const mode=b.selecting?'party':this.battleMenu;const previousAction=actions.dataset.menu===mode?Array.from(actions.querySelectorAll('button')).indexOf(document.activeElement as HTMLButtonElement):-1;actions.dataset.menu=mode;if(previousAction>=0){this.selectedBattleAction=previousAction;this.battleKeyboardFocus=true;}actions.replaceChildren();const restoreActionFocus=()=>{if(b.busy||!this.battleKeyboardFocus)return;const buttons=Array.from(actions.querySelectorAll<HTMLButtonElement>('button:not([disabled])'));buttons[Math.min(this.selectedBattleAction,buttons.length-1)]?.focus();this.battleKeyboardFocus=false;};const add=(name:string,func:()=>void,special=false,disabled=false,detail='',preview?:{summary:string;extra:string;accessible:string})=>{const button=document.createElement('button');button.dataset.battleCell=String(actions.children.length);button.textContent=name;button.disabled=b.busy||disabled;if(special)button.classList.add('special');if(detail){button.title=detail;if(!preview)button.setAttribute('aria-label',`${name}. ${detail}`);}if(preview){button.classList.add('battle-move');button.textContent='';const label=document.createElement('span');label.className='battle-move-name';label.textContent=name;const metrics=document.createElement('span');metrics.className='battle-move-estimate';metrics.textContent=preview.summary;const effects=document.createElement('span');effects.className='battle-move-extra';effects.textContent=preview.extra;button.append(label,metrics,effects);button.setAttribute('aria-label',preview.accessible);}button.onclick=func;actions.appendChild(button);};
     if(b.selecting){this.selectedBattleAction=0;
       for(const {c,i} of this.save.team.map((c,i)=>({c,i}))){if(i===b.ally)continue;const sp=SPECIES[c.speciesId]!;
-        add(`↻ ${sp.name} · NV ${c.level} · ${c.hp}/${maxHp(c)}`,()=>this.switchTo(i),false,c.hp<=0,sp.desc);
+        const scout=tacticalProfile(c,b.enemy,this.save.flags);
+        add(`↻ ${sp.name} · NV ${c.level} · ${c.hp}/${maxHp(c)}`,()=>this.switchTo(i),false,c.hp<=0,scout.summary+' · AL CAMBIAR: 55 % protección ante el próximo ataque. El enemigo actúa primero.');
       }
       add('← COMANDOS',()=>this.openBattleMenu('commands'));restoreActionFocus();return;
     }
     if(this.battleMenu==='commands'){
       actions.setAttribute('aria-label','Comandos de combate');
       add('✦ TÉCNICAS',()=>this.openBattleMenu('moves'));add('▣ OBJETOS',()=>this.openBattleMenu('items'));
-      add('↻ VÍNCULOS',()=>this.switchCreature(),false,!this.save.team.some((c,i)=>c.hp>0&&i!==b.ally));add('⛨ GUARDIA',()=>this.defend(),false,false,'Reduce el próximo ataque un 55 %. Consume el turno.');
+      add('↻ VÍNCULOS',()=>this.switchCreature(),false,!this.save.team.some((c,i)=>c.hp>0&&i!==b.ally), 'Cambiar consume el turno. El aliado entrante bloquea un 55 % del siguiente ataque enemigo.');add('⛨ GUARDIA',()=>this.defend(),false,false,'Reduce el próximo ataque un 55 %. Consume el turno.');
     }else if(this.battleMenu==='moves'){
       actions.setAttribute('aria-label','Cuatro técnicas activas');
       for(let slot=0;slot<4;slot++){
@@ -540,7 +544,7 @@ class AzurGame {
     }else{
       actions.setAttribute('aria-label','Objetos y retirada');
       const captureChance=capturePreview(ally,b.enemy,this.statuses(b.enemy));
-      add(`◇ VINCULAR ${captureChance.percent}% (${this.save.inventory.seals})`,()=>this.capture(),true,b.type!=='wild'||this.save.inventory.seals===0||(this.save.team.length>=6&&this.save.storage.length>=500),b.type==='wild'?captureChance.accessible:'Los guardianes no se pueden capturar.');
+      add(`◇ VINCULAR ${captureChance.percent}% (${this.save.inventory.seals})`,()=>this.capture(),true,b.type!=='wild'||this.save.inventory.seals===0||(this.save.team.length>=6&&this.save.storage.length>=500),b.type==='wild'?captureChance.accessible+' · '+recruitmentValue(b.enemy,[...this.save.team,...this.save.storage]):'Los guardianes no se pueden capturar.');
       add(`✚ TÓNICO +${effectiveHealing(ally,28)} (${this.save.inventory.tonics})`,()=>this.tonic(),false,this.save.inventory.tonics===0||ally.hp===maxHp(ally),'Consume el turno y limpia ARDOR.');
       add(`↗ HUIR · ${Math.round(escapeChance(ally,b.enemy)*100)}%`,()=>this.escape(),false,b.type!=='wild','La velocidad influye en la retirada. Si falla, el enemigo actúa.');
       add('← COMANDOS',()=>this.openBattleMenu('commands'));
@@ -620,12 +624,12 @@ class AzurGame {
     const ally=this.getAlly();if(!ally)return;
     const chance=capturePreview(ally,b.enemy,this.statuses(b.enemy)).chance;
     if(Math.random()<chance){
-      recordJourney(this.save,'captures');const captured=b.enemy;let stored=false;
+      recordJourney(this.save,'captures');const captured=b.enemy;const discovery=recruitmentValue(captured,[...this.save.team,...this.save.storage]);let stored=false;
       if(this.save.team.length<6)this.save.team.push(captured);else{this.save.storage.push(captured);stored=true;}
       recordSpeciesResearch(this.save.flags,captured.speciesId,'bonded');
       this.finishBattle();if(b.encounterId)this.addFlag('roamer-'+b.encounterId);this.sound.pick();
       if(this.save.dungeon?.active&&this.save.dungeon.pending!==null)this.finishDungeonEnemy();
-      this.toast(`VÍNCULO ESTABLECIDO: ${SPECIES[captured.speciesId]!.name.toUpperCase()}${stored?' (RESERVA)':''}`);
+      this.toast(`VÍNCULO ESTABLECIDO: ${SPECIES[captured.speciesId]!.name.toUpperCase()}${stored?' (RESERVA)':''} · ${discovery}`);
       this.addFlag('first-capture');this.saveNow(false);this.updateUI();
     }else{
       b.pending='enemy';b.log='¡EL SELLO SE ROMPE! LA CRIATURA RESISTE.';
@@ -643,7 +647,7 @@ class AzurGame {
   }
   private switchTo(index:number){const b=this.battle;if(!b||b.busy||!b.selecting||index===b.ally)return;
     const selected=this.save.team[index];if(!selected||selected.hp<=0)return;
-    recordJourney(this.save,'actions');b.ally=index;b.selecting=false;b.guarding=false;b.busy=true;b.pending='enemy';b.log=`¡${SPECIES[selected.speciesId]!.name} entra en combate!`;
+    recordJourney(this.save,'actions');b.ally=index;b.selecting=false;b.guarding=true;b.busy=true;b.pending='enemy';b.log=`¡${SPECIES[selected.speciesId]!.name} entra en combate con protección! El siguiente ataque enemigo hará un 55 % menos de daño. El cambio consume el turno.`;
     this.setCombatCue('switch','ally',SPECIES[selected.speciesId]!.element);this.sound.select();this.refreshBattle();
     window.setTimeout(()=>this.enemyTurn(),700);
   }
@@ -864,7 +868,7 @@ class AzurGame {
   private openRoutePlan(){
     if(!this.started||this.battle||this.evolution||this.dialogOpen)return;
     const route=visibleEncounters('sanctuary',this.save.worldSeed??0);
-    const plan=sanctuaryRoutePlan(this.save.team,route,this.save.flags);
+    const plan=sanctuaryRoutePlan(this.save.team,route,this.save.flags);const guide=teamGuide(this.save.team,createCreature('hollowhart',12,()=>.5),this.save.flags);
     const finished=plan.filter(entry=>entry.cleared).length;
     const vows=sanctuaryOathProgress(this.save.flags);
     const entries=plan.map((entry,i)=>{
@@ -876,6 +880,7 @@ class AzurGame {
     this.showModal('SANTUARIO · PLAN DE RUTA',
       `<div class="modal-content-block">RUTA ELEMENTAL · ${finished}/${plan.length} RETOS. Los encuentros y sus posiciones son persistentes según la semilla de tu partida. Vencerlos da experiencia única y reposo; capturarlos añade un vínculo. Supera o vincula los tres retos y habla con la Custodia del Umbral para recibir una sola vez 2 Sellos, 2 Tónicos y 40 Ecos.</div>`+
       entries+
+      `<div class="modal-content-block">PREPARACIÓN DEL GUARDIÁN · ${htmlEscape(guide.notice)}</div>`+
       `<div class="modal-content-block">TRES JURAMENTOS · ${vows.claimed?'RECOMPENSA RECLAMADA':vows.ready?'REGRESA A LA CUSTODIA PARA RECLAMAR':vows.resolved+'/3 RETOS RESUELTOS'}</div>`+
       `<div class="modal-content-block">Equipo consciente: ${this.save.team.filter(c=>c.hp>0).length}/${this.save.team.length} · Tónicos: ${this.save.inventory.tonics} · Sellos: ${this.save.inventory.seals}. Cura en las Lumbres y prepara ataques de Ceniza para Hollowhart (Raíz). Este mapa táctico no inicia combates ni altera tu partida.</div>`);
   }
@@ -900,9 +905,9 @@ class AzurGame {
   }
   private prepareCrownBattle(){
     if(this.battle||this.dialogOpen||!crownProgress(this.save.flags).bossReady)return;
-    const recommended=guardianRecommendedLead(this.save.team,'nullscribe');
+    const recommended=guardianRecommendedLead(this.save.team,'nullscribe');const scouting=teamGuide(this.save.team,createCreature('nullscribe',16,()=>.5),this.save.flags);const scoutingHtml='<div class="modal-content-block"><strong>EXPLORACIÓN DEL EQUIPO</strong><p>'+htmlEscape(scouting.notice)+'</p>'+scouting.members.map(m=>'<p>'+htmlEscape(m.name)+' · '+htmlEscape(m.summary)+'</p>').join('')+'</div>';
     const options=this.save.team.map((c,i)=>c.hp<=0?'':`<option value="${i}" ${i===recommended?'selected':''}>${htmlEscape(SPECIES[c.speciesId]!.name)} · NV ${c.level} · ${c.hp}/${maxHp(c)} HP</option>`).join('');
-    this.showModal('NULLSCRIBE · LA ÚLTIMA BATALLA',`<div class="guardian-prep"><p>La criatura de Éter se resiste a ceder el porvenir. Prepara un equipo consciente, cura en la Lumbre y conserva tónicos.</p><p>El Escriba carga ECLIPSE antes de liberarlo. Cuando se anuncie, responde con GUARDIA o cambia de estrategia.</p><label for="crownLeadSelect">CRIATURA QUE ABRE EL FINAL</label><select id="crownLeadSelect" aria-label="Elegir líder del combate final">${options}</select><div class="guardian-options"><button id="crownProceed">DESAFIAR A NULLSCRIBE</button><button id="crownRetreat">PREPARARSE</button></div></div>`);
+    this.showModal('NULLSCRIBE · LA ÚLTIMA BATALLA',`<div class="guardian-prep">${scoutingHtml}<p>La criatura de Éter se resiste a ceder el porvenir. Prepara un equipo consciente, cura en la Lumbre y conserva tónicos.</p><p>El Escriba carga ECLIPSE antes de liberarlo. Cuando se anuncie, responde con GUARDIA o cambia de estrategia.</p><label for="crownLeadSelect">CRIATURA QUE ABRE EL FINAL</label><select id="crownLeadSelect" aria-label="Elegir líder del combate final">${options}</select><div class="guardian-options"><button id="crownProceed">DESAFIAR A NULLSCRIBE</button><button id="crownRetreat">PREPARARSE</button></div></div>`);
     if(!this.modalOpen)return;
     byId<HTMLButtonElement>('crownProceed').onclick=()=>{const chosen=Number(byId<HTMLSelectElement>('crownLeadSelect').value);this.hideModal();this.startBattle('nullscribe',16,'boss',undefined,Number.isSafeInteger(chosen)?chosen:recommended);};
     byId<HTMLButtonElement>('crownRetreat').onclick=()=>this.hideModal();
@@ -1115,7 +1120,8 @@ class AzurGame {
   }
   private openTeam(){
     if(!this.started||this.evolution||this.battle||this.dialogOpen||!byId('starterScreen').classList.contains('hidden'))return;
-    const display=(c:Creature)=>{const sp=SPECIES[c.speciesId]!,bond=bondChoice(this.save.flags,c.speciesId);return `<strong style="color:${sp.color}">${htmlEscape(sp.name)}</strong> · NV ${c.level}<small>${htmlEscape(sp.element)} · HP ${c.hp}/${maxHp(c)} · ${htmlEscape(sp.title)}</small><small>${c.uid===this.save.primaryUid?"COMPAÑERO PRINCIPAL · PROTEGIDO EN LA CRIPTA":"COMPAÑERO · MUERTE PERMANENTE EN LA CRIPTA"}</small>${this.creatureStatsMarkup(c)}<small>RELIQUIA · ${c.equipment?htmlEscape(RELICS[c.equipment].name):'SIN EQUIPAR'}</small>${bond?`<small>✦ JURAMENTO · ${bond==='fang'?'FILO +4 DAÑO':'VELO −15% DAÑO'}</small>`:''}`;};
+    const threat=storyThreat(this.save.flags);
+    const display=(c:Creature)=>{const sp=SPECIES[c.speciesId]!,bond=bondChoice(this.save.flags,c.speciesId);const scout=threat?tacticalProfile(c,threat,this.save.flags):null;return `<strong style="color:${sp.color}">${htmlEscape(sp.name)}</strong> · NV ${c.level}<small>${htmlEscape(sp.element)} · HP ${c.hp}/${maxHp(c)} · ${htmlEscape(sp.title)}</small><small>${c.uid===this.save.primaryUid?"COMPAÑERO PRINCIPAL · PROTEGIDO EN LA CRIPTA":"COMPAÑERO · MUERTE PERMANENTE EN LA CRIPTA"}</small>${this.creatureStatsMarkup(c)}<small>IDENTIDAD TÁCTICA · ${htmlEscape(creatureRole(c))}</small>${scout?`<small>CONTRA ${htmlEscape(SPECIES[threat!.speciesId]!.name.toUpperCase())} · ${htmlEscape(scout.summary)}</small>`:''}<small>RELIQUIA · ${c.equipment?htmlEscape(RELICS[c.equipment].name):'SIN EQUIPAR'}</small>${bond?`<small>✦ JURAMENTO · ${bond==='fang'?'FILO +4 DAÑO':'VELO −15% DAÑO'}</small>`:''}`;};
     this.showModal('VÍNCULOS Y RESERVA',
       `<div class="modal-content-block">Selecciona un líder, devuelve criaturas a la reserva o intercámbialas. ${this.save.team.length}/6 en equipo · ${this.save.storage.length} en reserva.</div>`+
       this.save.team.map((c,i)=>`<div class="modal-option"><div>${display(c)}</div><div class="roster-buttons">${`<button data-skills="${htmlEscape(c.uid)}">HABILIDADES</button><button data-relics="${htmlEscape(c.uid)}">RELIQUIA</button>`}${i?`<button data-lead="${htmlEscape(c.uid)}">LÍDER</button>`:'<span class="eyebrow">LÍDER</span>'}${this.save.team.length>1&&c.uid!==this.save.primaryUid?`<button data-deposit="${htmlEscape(c.uid)}">RESERVAR</button>`:''}</div></div>`).join('')+
@@ -1165,8 +1171,9 @@ class AzurGame {
   private openRelics(uid:string){
     if(!this.started||this.battle||this.dialogOpen||this.evolution)return;
     const creature=this.save.team.find(c=>c.uid===uid);if(!creature)return;
+    const threat=storyThreat(this.save.flags),recommendation=threat?relicUpgrade(creature,threat,this.save.flags,this.save):null;
     this.showModal('RELIQUIA · '+SPECIES[creature.speciesId]!.name.toUpperCase(),
-      `<div class="modal-content-block">Una ranura; cambios gratuitos fuera de combate. Las reliquias se encuentran en cofres o se compran a Mara. Actual: <strong>${creature.equipment?RELICS[creature.equipment].name:'NINGUNA'}</strong>.</div>`+
+      `<div class="modal-content-block">Una ranura; cambios gratuitos fuera de combate. Las reliquias se encuentran en cofres o se compran a Mara. Actual: <strong>${creature.equipment?RELICS[creature.equipment].name:'NINGUNA'}</strong>.</div><div class="modal-content-block">ELECCIÓN TÁCTICA · ${threat?'CONTRA '+htmlEscape(SPECIES[threat.speciesId]!.name):'SIN JEFE INMEDIATO'} · ${recommendation?htmlEscape(recommendation.reason):'No hay una reliquia libre con mejora numérica contra el próximo jefe.'}</div>`+
       RELIC_IDS.map(id=>`<div class="modal-option"><div><strong>${RELICS[id].name}</strong><small>${RELICS[id].description}</small><small>${freeRelicCopies(this.save,id)} COPIAS LIBRES</small></div><button data-equip-relic="${id}" ${creature.equipment!==id&&freeRelicCopies(this.save,id)<1?'disabled':''}>${creature.equipment===id?'EQUIPADA':'EQUIPAR'}</button></div>`).join('')+
       `<div class="modal-option"><button id="unequipRelic" ${creature.equipment?'':'disabled'}>RETIRAR RELIQUIA</button><button id="relicBack">← EQUIPO</button></div>`);
     for(const button of byId('modalContent').querySelectorAll<HTMLButtonElement>('[data-equip-relic]'))button.onclick=()=>this.equipRelic(uid,button.dataset.equipRelic as RelicId);
@@ -1174,8 +1181,8 @@ class AzurGame {
   }
   private openSkills(uid:string){
     const creature=this.save.team.find(c=>c.uid===uid);if(!creature)return;
-    const sp=SPECIES[creature.speciesId]!;const unlocked=unlockedMoves(creature);
-    this.showModal(`HABILIDADES · ${sp.name.toUpperCase()}`,`<div class="modal-content-block">NV ${creature.level} · ${sp.element} · Elige cuatro técnicas como máximo. Cambiar tu repertorio fuera de combate no consume Ecos.</div>`+
+    const sp=SPECIES[creature.speciesId]!;const unlocked=unlockedMoves(creature);const threat=storyThreat(this.save.flags);const advice=threat?loadoutUpgrade(creature,threat,this.save.flags):null;
+    this.showModal(`HABILIDADES · ${sp.name.toUpperCase()}`,`<div class="modal-content-block">NV ${creature.level} · ${sp.element} · Elige cuatro técnicas como máximo. Cambiar tu repertorio fuera de combate no consume Ecos.</div><div class="modal-content-block">PREPARACIÓN CONTRA ${threat?htmlEscape(SPECIES[threat.speciesId]!.name.toUpperCase()):'DESAFÍOS ABIERTOS'} · ${advice?htmlEscape(advice.reason):'No hay una mejora ofensiva desbloqueada y superior para el próximo jefe.'}</div>`+
       Array.from({length:4},(_,index)=>{const id=creature.moves[index];return `<div class="modal-option"><div><strong>${id?htmlEscape(MOVES[id]!.name):"RANURA VACÍA"}</strong><small>${id?htmlEscape(MOVES[id]!.description):"Activa una técnica del repertorio."}</small></div><button data-skill-slot="${index}" ${index>creature.moves.length?'disabled':''}>CAMBIAR</button></div>`;}).join('')+
       `<div class="modal-content-block">Técnicas conocidas: ${unlocked.length}. Las técnicas aprendidas no se olvidan. Elige hasta cuatro activas; puedes cambiarlas gratis fuera de combate.</div><div class="modal-option"><button id="skillBack">← EQUIPO</button></div>`);
     for(const button of byId('modalContent').querySelectorAll<HTMLButtonElement>('[data-skill-slot]'))button.onclick=()=>this.openSkillChoices(uid,Number(button.dataset.skillSlot));
@@ -1189,9 +1196,9 @@ class AzurGame {
   }
   private openSkillChoices(uid:string,index:number){
     const creature=this.save.team.find(c=>c.uid===uid);if(!creature||!Number.isInteger(index)||index<0||index>creature.moves.length||index>=4)return;
-    const known=unlockedMoves(creature);
+    const known=unlockedMoves(creature),threat=storyThreat(this.save.flags);
     this.showModal('CAMBIAR TÉCNICA',`<div class="modal-content-block">Ranura ${index+1} · Técnica actual: ${(creature.moves[index]?htmlEscape(MOVES[creature.moves[index]!]!.name):'VACÍA')}. Algunas técnicas curan, drenan salud o limpian alteraciones.</div>`+
-      known.map(id=>`<div class="modal-option"><div><strong>${htmlEscape(MOVES[id]!.name)}</strong><small>${htmlEscape(MOVES[id]!.description)} · ${MOVES[id]!.role||'ATAQUE'} · PODER ${MOVES[id]!.power}</small></div><button data-equip-move="${id}" ${creature.moves.includes(id)&&creature.moves[index]!==id?'disabled':''}>${creature.moves[index]===id?'EQUIPADA':'EQUIPAR'}</button></div>`).join('')+
+      known.map(id=>`<div class="modal-option"><div><strong>${htmlEscape(MOVES[id]!.name)}</strong><small>${htmlEscape(MOVES[id]!.description)} · ${MOVES[id]!.role||'ATAQUE'} · PODER ${MOVES[id]!.power}</small>${threat&&MOVES[id]!.power>0?`<small>VS ${htmlEscape(SPECIES[threat.speciesId]!.name)} · ${htmlEscape(tacticalProfile({...creature,moves:[id]},threat,this.save.flags).summary)}</small>`:''}</div><button data-equip-move="${id}" ${creature.moves.includes(id)&&creature.moves[index]!==id?'disabled':''}>${creature.moves[index]===id?'EQUIPADA':'EQUIPAR'}</button></div>`).join('')+
       '<div class="modal-option"><button id="skillChoicesBack">← VOLVER</button></div>');
     for(const button of byId('modalContent').querySelectorAll<HTMLButtonElement>('[data-equip-move]'))button.onclick=()=>{
       const at=this.save.team.findIndex(c=>c.uid===uid);if(at<0)return;
