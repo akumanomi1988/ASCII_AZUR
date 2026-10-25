@@ -374,3 +374,48 @@
  .battle-interface #battleActions button{min-height:44px;min-width:0}
 }
 @media (prefers-reduced-motion:reduce){#battleActions button.recommended-defense{animation:none;transition:none}}
+
+
+/* Android emulator QA v0.60.1: keep the title's start/save controls accessible
+   on short Chrome viewports. An absolute intro centered inside a narrow 16:9
+   scene could overflow its clipped parent, leaving Start under the sidebar.
+   Scroll the intro itself: never scroll the document to reach hidden controls. */
+@media (max-width: 650px), (max-height: 620px) {
+  #viewport #titleScreen.intro {
+    align-items: flex-start;
+    justify-content: flex-start;
+    padding: 12px max(10px, env(safe-area-inset-left)) 20px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+  #viewport #titleScreen .intro-content {
+    box-sizing: border-box;
+    flex: 0 0 auto;
+    width: 100%;
+    max-width: 100%;
+    margin: auto 0;
+    padding: 2px 4px 7px;
+    transform: none;
+  }
+  #viewport #titleScreen .intro-buttons {
+    gap: 8px;
+    flex-wrap: wrap;
+    margin: 10px 0 0;
+  }
+  #viewport #titleScreen .intro-buttons button {
+    min-width: 135px;
+    min-height: 44px;
+    padding: 11px 13px;
+  }
+  #viewport #titleScreen .intro-glyph { font-size: 26px; }
+  #viewport #titleScreen .tiny-caps { margin: 4px 0 10px; }
+  #viewport #titleScreen h1 { font-size: clamp(32px, 10vw, 58px); letter-spacing: 3px; }
+  #viewport #titleScreen h1 em { letter-spacing: 6px; }
+  #viewport #titleScreen .intro-line { margin: 8px auto; }
+  #viewport #titleScreen p { font-size: 12px; line-height: 1.35; }
+  #viewport #titleScreen .azur-save-slot-entry,
+  #viewport #titleScreen .azur-seed-entry { margin-top: 7px; }
+  #viewport #titleScreen .intro-footer { margin-top: 8px; }
+}
