@@ -28,3 +28,11 @@ test('Android acceptance covers score lifecycle, virtual joystick, rotation and 
   assert.ok(runner.includes(marker),'missing mobile QA contract: '+marker);
  }
 });
+
+test('Android compact intro is locally scrollable with a reachable 44px start control',()=>{
+ const css=readFileSync('style.css','utf8');
+ assert.match(css,/#viewport #titleScreen\.intro\s*\{[^}]*overflow-y: auto/s);
+ assert.match(css,/#viewport #titleScreen \.intro-buttons button\s*\{[^}]*min-height: 44px/s);
+ assert.match(css,/-webkit-overflow-scrolling: touch/);
+ assert.match(runner,/androidNativeOsTaps/);
+});

@@ -36,3 +36,7 @@ ANDROID_API_LEVEL=35 node tools/android-emulator-acceptance.mjs
 No Android emulator or KVM is available in the local ChatGPT container; authoritative emulated results must come from the linked GitHub Actions runner. If the emulator provisioning itself fails, diagnose the workflow separately before claiming a gameplay regression.
 
 CI host note: KVM acceleration is requested but some GitHub-hosted runners lack /dev/kvm. The emulator action selects software fallback when needed. Such results remain diagnostic and do not represent physical-device performance.
+
+### Confirmed user-facing regression
+
+Android 11 Chrome exposed a clipped portrait title overlay that scrolled the outer page and left Start beneath the sidebar. The responsive CSS now makes the **intro itself scrollable** with 44px controls, and the Android 11 path drives real ADB OS taps calibrated to the on-device viewport. This avoids giving false credit to a DOM `.click()` on an unreachable button.
