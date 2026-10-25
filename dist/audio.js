@@ -10,6 +10,57 @@ const themes = {
     battle: { bpm: 126, root: 45, mode: [0, 2, 3, 5, 7, 8, 10], melody: [0, 0, 4, null, 3, 2, 4, null, 5, 4, 3, 2, 0, null, -2, 0], bass: [0, null, 0, null, -2, null, -2, null, -4, null, -4, null, -2, null, -2, null], chords: [[0, 2, 4], [-2, 0, 2], [-4, -2, 0], [-2, 0, 3]], texture: 'percussion' },
     boss: { bpm: 144, root: 43, mode: [0, 1, 3, 5, 7, 8, 10], melody: [0, null, 3, 2, 1, 0, -2, null, 4, 3, 5, null, 3, 1, 0, -2], bass: [0, null, 0, null, -1, null, -1, null, -4, null, -4, null, -2, null, -2, null], chords: [[0, 2, 4], [-1, 1, 3], [-4, -2, 0], [-2, 0, 2]], texture: 'percussion' }
 };
+/**
+ * Complete original score, A/B/cadence phrases for every audible location and
+ * both combat situations. Authored degrees are projected through each scene's
+ * original scale; no new audio files or network dependencies are required.
+ *
+ * Eight phrases comprise A1 / A2 / A3 / A4 / B1 / B2 / B3 / CODA.
+ * No randomness is involved, enabling deterministic mastering references.
+ */
+export const SCORE_SCENES = ['title', 'village', 'forest', 'sanctuary', 'marsh', 'spire', 'ossuary', 'garden', 'battle', 'boss'];
+const SCORE_BRIDGES = {
+    title: [0, null, 3, null, 2, 1, -1, null, 4, null, 2, 1, 0, null, -2, null],
+    village: [0, 2, 3, null, 5, 4, 2, null, 1, null, -1, 0, 2, null, 0, null],
+    forest: [-2, null, 0, 2, null, 4, 3, null, 1, null, 2, -1, 0, null, -2, null],
+    sanctuary: [0, null, 1, null, 4, 3, null, 2, 5, null, 3, null, 1, 0, -1, null],
+    marsh: [-3, 0, null, 2, 1, null, -1, 0, null, 4, 2, 1, -2, null, 0, null],
+    spire: [0, null, 5, 4, 2, 1, null, -2, 3, null, 6, 4, 1, null, -1, 0],
+    ossuary: [0, null, -2, 1, null, 4, 2, null, 0, -1, null, 3, 2, -2, 0, null],
+    garden: [0, 2, 4, 5, null, 3, 2, 1, 6, 5, 3, null, 2, 0, 1, null],
+    battle: [0, 3, 4, 5, 4, null, 2, 0, 6, 5, 4, 2, 1, null, 0, 2],
+    boss: [0, -2, 1, 4, 5, 3, 1, -1, 6, 4, 3, 2, -2, 1, 0, -1]
+};
+const SCORE_CADENCES = {
+    title: [3, 1, 0, null], village: [4, 2, 0, null], forest: [2, 0, -2, null],
+    sanctuary: [3, 1, 0, null], marsh: [1, -2, 0, null], spire: [5, 1, 0, null],
+    ossuary: [3, 0, -2, null], garden: [4, 2, 0, null], battle: [4, 2, 0, 0], boss: [5, 3, 1, 0]
+};
+export const SCORE_IDENTITIES = {
+    title: 'The Last Name / prologue', village: 'Iria Remembers / Arken',
+    forest: 'Names in the Roots / ashwood', sanctuary: 'The First Word / oath',
+    marsh: 'Lives Never Born / Nael', spire: 'The Unwritten Sky / Oriel',
+    ossuary: 'Tide of Forgotten Voices / Edda', garden: 'A Spring Without Orders / Silas',
+    battle: 'Against Oblivion / encounter', boss: 'The Nullscribe / finale'
+};
+/** Canonical note projection used by the Web Audio scheduler AND master renderer.
+ * Returned arrays are copies so CI and third-party callers cannot mutate music. */
+export function scorePhraseNote(scene, step) {
+    const t = themes[scene];
+    const finite = Number.isFinite(step) ? Math.max(0, Math.floor(step)) : 0;
+    const idx = finite % 16, phrase = Math.floor(finite / 16) % 8;
+    const section = phrase === 7 ? 'CODA' : phrase >= 4 ? 'B' : 'A';
+    const source = section === 'B' ? SCORE_BRIDGES[scene] : t.melody;
+    const lead = section === 'CODA' && idx >= 12 ? SCORE_CADENCES[scene][idx - 12] : source[idx];
+    const chordIndex = Math.floor(idx / 4), chord = t.chords[section === 'B' ? 3 - chordIndex : chordIndex];
+    return { section, phrase, index: idx, lead, bass: t.bass[idx], chord: [...chord], root: t.root, mode: [...t.mode], bpm: t.bpm };
+}
+/** Exact authored timing, motifs and progressions exposed for deterministic offline reference exports. */
+export function scoreCatalog() {
+    return SCORE_SCENES.map(scene => ({ scene, title: SCORE_IDENTITIES[scene], bpm: themes[scene].bpm,
+        steps: 128, sections: ['A', 'B', 'CODA'], texture: themes[scene].texture,
+        signature: SCORE_BRIDGES[scene].map(v => v === null ? '_' : String(v)).join(',') }));
+}
 /** Ambient soundbed uses one looping seeded-noise buffer, no samples or streaming. */
 export function ambienceForScene(scene) {
     switch (scene) {
@@ -401,11 +452,11 @@ export class Sound {
             this.nextAt = c.currentTime + .08;
         let queued = 0;
         while (this.nextAt < c.currentTime + this.lookAhead && queued++ < 12) {
-            const t = themes[this.scene], step = this.step, idx = step % 16, stepDuration = 60 / t.bpm / 2;
-            const chord = t.chords[Math.floor(idx / 4)];
+            const t = themes[this.scene], step = this.step, score = scorePhraseNote(this.scene, step), idx = score.index, stepDuration = 60 / t.bpm / 2;
+            const chord = score.chord;
             const mix = scoreMix(this.scene, this.intensity);
             const arrangement = scoreArrangement(this.scene, Math.floor(step / 16), this.intensity);
-            const lead = t.melody[idx], bass = t.bass[idx];
+            const lead = score.lead, bass = score.bass;
             if (lead != null) {
                 this.note(t.root + 24 + arrangement.leadRegister + degreeSemitone(lead, t.mode), this.nextAt, stepDuration * (this.scene === 'battle' ? .83 : 1.55), 'lead', (t.texture === 'percussion' ? .045 : .032) * mix.lead * arrangement.leadGain);
             }
