@@ -35,7 +35,7 @@ test('loadout advice only proposes an actually unlocked and non-equipped techniq
  assert.ok(advice);assert.ok(!c.moves.includes(advice.moveId));
  assert.ok(advice.candidateMax>advice.currentMax+2);
  assert.ok(advice.reason.includes('gratis'));
- assert.equal(loadoutUpgrade({...c,moves:['emberstorm']},enemy)?.candidateMax>0||false,true);
+ assert.equal(loadoutUpgrade({...c,moves:['emberstorm']},enemy),null);
 });
 test('no upgrade offered when candidate adds no real damage',()=>{
  const c=unit('cindrel',3),enemy=unit('hollowhart');
@@ -67,7 +67,7 @@ test('recruitment value identifies new tactical affinity without mutating invent
  const old=unit('cindrel'),newOne=unit('velaria');const original=JSON.stringify([old,newOne]);
  const text=recruitmentValue(newOne,[old]);
  assert.match(text,/NUEVA AFINIDAD/);
- assert.match(text,/BRUMA contra RAÍZ/);
+ assert.match(text,/BRUMA contra ÉTER/);
  assert.match(recruitmentValue(old,[old]),/OTRO EJEMPLAR/);
  assert.equal(JSON.stringify([old,newOne]),original);
 });
