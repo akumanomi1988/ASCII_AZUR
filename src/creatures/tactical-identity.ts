@@ -29,7 +29,7 @@ function offensive(c:Creature,enemy:Creature,id:string,flags:readonly string[]){
    effective,auxiliary:!!MOVE_EFFECTS[id]||move.role==='drain'||move.role==='cleanse'};
 }
 function incoming(c:Creature,enemy:Creature,flags:readonly string[]):number{
- const hits=enemy.moves.filter(id=>MOVES[id]?.power>0).map(id=>previewMove(enemy,c,MOVES[id]!,[],[]).max);
+ const hits=enemy.moves.filter(id=>(MOVES[id]?.power??0)>0).map(id=>previewMove(enemy,c,MOVES[id]!,[],[]).max);
  return bondIncomingDamage(Math.max(0,...hits),flags,c.speciesId);
 }
 export function creatureRole(c:Creature):string{
