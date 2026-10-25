@@ -11,6 +11,7 @@ test('new-player intro identifies Arken stakes; diary offers purposeful next tas
 test('only the earned final branch exposes optional pilgrimage in the diary',()=>{
  const {game,dom}=fresh();while(game.dialogOpen)game.nextDialog();
  game.openQuests();assert.doesNotMatch(dom.get('modalContent').innerHTML,/VIGILIA OPCIONAL · DESPUÉS DEL FINAL/);game.hideModal();
+ game.save.defeatedBoss=true;game.save.dungeon={finished:true};
  game.save.flags.push('arken-vow-restored','marsh-chapter-complete','marsh-choice-release','crown-choice-renew','crown-trilogy-complete');
  const before=JSON.stringify(game.save);game.openQuests();assert.match(dom.get('modalContent').innerHTML,/VIGILIA OPCIONAL/);
  assert.match(dom.get('modalContent').innerHTML,/Osario/);assert.equal(JSON.stringify(game.save),before);
