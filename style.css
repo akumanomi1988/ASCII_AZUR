@@ -345,3 +345,32 @@
 #viewport .modal .settings-row:has(#labStart){display:flex;flex-wrap:wrap;gap:8px}
 #viewport .modal .settings-row:has(#labStart) button{flex:1 1 135px}
 @media(orientation:landscape) and (max-height:600px){#viewport .modal .settings-row:has(#labStart) button{flex-basis:110px;min-height:38px}}
+
+
+/* v0.59: persistent text-first danger and accessible 44px touch decisions. */
+#battleThreat.battle-threat{color:#e0ebdf;font:600 11px/1.5 'DM Mono',monospace;padding:7px 10px;margin:4px 0 6px;border:1px solid #557a74;background:#15292a;overflow-wrap:anywhere}
+#battleThreat[data-severity="caution"]{color:#ffe7b5;background:#392b1c;border-color:#d8ae6e}
+#battleThreat[data-severity="critical"]{color:#fff4e1;background:#4e211d;border:2px solid #ffc48b;font-weight:700}
+#battleThreat[data-severity="resolution"]{color:#d6ecf5;background:#183044;border-color:#85bace}
+#battleThreat:empty{display:none}
+#battleActions button.recommended-defense{border:2px solid #ffd18d;box-shadow:inset 0 0 0 1px #57351c;color:#fff4df;background:#4c3425;font-weight:700}
+#battleActions button.recommended-defense::after{content:' · RECOMENDADA';font:700 10px 'DM Mono',monospace}
+#battleActions button{min-height:44px;touch-action:manipulation}
+.battle-interface .battle-panel{grid-template-rows:auto auto auto}
+.battle-interface .battle-log{grid-column:1;grid-row:1}
+.battle-interface .battle-threat{grid-column:1;grid-row:2}
+.battle-interface .battle-advice{grid-column:1;grid-row:3}
+.battle-interface #battleActions{grid-column:2;grid-row:1/span 3}
+@media (orientation:landscape) and (max-height:600px){
+ .battle-interface .battle-panel{max-height:72%;padding:7px 11px;gap:3px 9px}
+ .battle-interface .battle-threat{font-size:10px;padding:4px 6px;margin:2px 0}
+ .battle-interface .battle-log{font-size:11px;margin-bottom:2px}
+ .battle-interface #battleActions button{min-height:44px;padding:6px}
+}
+@media (orientation:portrait) and (max-width:550px){
+ .battle-interface .battle-panel{display:block;max-height:64%;overflow-y:auto;overscroll-behavior:contain}
+ .battle-interface .battle-threat{font-size:10px}
+ .battle-interface #battleActions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+ .battle-interface #battleActions button{min-height:44px;min-width:0}
+}
+@media (prefers-reduced-motion:reduce){#battleActions button.recommended-defense{animation:none;transition:none}}
