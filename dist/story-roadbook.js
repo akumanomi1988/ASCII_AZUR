@@ -3,6 +3,7 @@ import { SPECIES, MOVES, TYPE_ADV, maxHp } from './domain.js';
 import { arkenStoryIndex } from './story-campaign.js';
 import { marshChapterProgress } from './story-marsh.js';
 import { crownProgress } from './story-finale.js';
+import { azurNarrativeBeat } from './story-agency.js';
 export function campaignRoadbook(story, team, inventory) {
     const arken = arkenStoryIndex(story), marsh = marshChapterProgress(story.flags), crown = crownProgress(story.flags);
     const chapter = arken < 6 ? 1 : !marsh.complete ? 2 : 3;
@@ -44,7 +45,8 @@ export function campaignRoadbook(story, team, inventory) {
     if (chapter === 3 && crown.stage === 3)
         advice.push(`Centinelas de la Corona: ${crown.witnesses}/3; cada uno cuenta una sola vez.`);
     if (chapter === 3 && crown.complete)
-        advice.push('Historia principal completada: la exploración y el Códice siguen abiertos.');
+        advice.push('Historia principal completada. La Vigilia del Osario es completamente opcional.');
+    advice.push('POR QUÉ IMPORTA · ' + azurNarrativeBeat(story).stake);
     return { chapter, completed, total: 19, percentage: Math.floor(completed / 19 * 100), chapters, objective, stage, advice,
         readyForBattle: boss !== null ? alive.length >= 2 && highest >= (boss === 'hollowhart' ? 8 : 14) && !!counter && inventory.tonics >= 2 && alive.every(c => c.hp >= maxHp(c) * .6) : null, counter };
 }

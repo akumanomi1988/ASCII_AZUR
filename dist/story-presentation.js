@@ -2,6 +2,7 @@ import { arkenStoryIndex } from './story-campaign.js';
 import { marshChapterProgress } from './story-marsh.js';
 import { crownProgress, crownEpilogue } from './story-finale.js';
 import { AFTERLIGHT, afterlightProgress, afterlightEpilogue } from './story-afterlight.js';
+import { azurWorldConsequence } from './story-agency.js';
 const AZUR_SCENE_ARRIVALS = {
     forest: { id: 'forest-arrival', zone: 'forest', eyebrow: 'UMBRAL I · EL BOSQUE', title: 'La ceniza aprende a hablar', subtitle: 'Cada árbol guarda una voz que Arken ya no recuerda.', tone: 'arrival' },
     sanctuary: { id: 'sanctuary-arrival', zone: 'sanctuary', eyebrow: 'UMBRAL I · EL SANTUARIO', title: 'Donde calla la Primera Palabra', subtitle: 'Una promesa aguarda detrás del silencio.', tone: 'memory' },
@@ -36,7 +37,9 @@ export function resolutionMoment(flag, flags) {
         return null;
     const zone = flag === 'arken-vow-restored' ? 'village' : flag === 'marsh-chapter-complete' ? 'marsh' :
         flag === 'crown-trilogy-complete' ? 'spire' : flag === 'afterlight-ossuary-complete' ? 'ossuary' : 'garden';
-    return { id: flag, zone, ...scene };
+    const subtitle = flag === 'marsh-chapter-complete' ? (flags.includes('marsh-choice-keep') ? 'Nael conservará las historias sin poseerlas.' : 'Nael permite que las historias descansen sin negarlas.') :
+        flag === 'crown-trilogy-complete' ? (flags.includes('crown-choice-remember') ? 'Los nombres se guardan; sus destinos quedan libres.' : 'Ningún Telar volverá a escribir una vida de antemano.') : scene.subtitle;
+    return { id: flag, zone, ...scene, subtitle };
 }
 export function storyChronicle(story) {
     const flags = story.flags, arken = arkenStoryIndex(story), marsh = marshChapterProgress(flags), crown = crownProgress(flags);
@@ -56,7 +59,8 @@ export function storyChronicle(story) {
         summary: marsh.complete ? (marsh.choice === 'keep' ? 'Decidiste preservar los nombres imposibles.' : 'Permitiste que los nombres imposibles descansaran.') : 'Nael custodia dos recuerdos de vidas que nunca existieron.',
         passages: marsh.complete ? [
             marsh.choice === 'keep' ? 'Conservaste el mapa de las posibilidades perdidas, sin convertirlo en prisión.' : 'Liberaste las vidas imaginadas para que el recuerdo dejase de ser una cadena.',
-            'La campana, el farol y los tres testigos revelaron que recordar también exige elegir.'
+            'La campana, el farol y los tres testigos revelaron que recordar también exige elegir.',
+            marsh.choice === 'keep' ? 'Nael abre el Atlas a quien quiera escuchar las voces imposibles; cuidarlas no es poseerlas.' : 'Nael deja el Atlas junto al farol: recordar la ausencia no exige llenar una página.'
         ] : ['Nael necesita que escuches la campana, el farol y los testigos antes de dictar sentencia.']
     });
     if (!marsh.complete)
@@ -64,7 +68,7 @@ export function storyChronicle(story) {
     entries.push({
         id: 'crown', eyebrow: 'III · LA CORONA', title: 'El último escriba', status: crown.complete ? 'complete' : 'active',
         summary: crown.complete ? (crown.choice === 'remember' ? 'Elegiste conservar los nombres sin encadenarlos.' : 'Elegiste liberar el futuro de cualquier escriba.') : 'Nullscribe quiere escribir el destino antes de que ocurra.',
-        passages: crown.complete ? crownEpilogue(flags).map(beat => beat.text) : [
+        passages: crown.complete ? [...crownEpilogue(flags).map(beat => beat.text), azurWorldConsequence(flags)] : [
             'Oriel te espera en la Corona. Recupera el Archivo y la Lumbre antes de escuchar a sus tres testigos.'
         ]
     });

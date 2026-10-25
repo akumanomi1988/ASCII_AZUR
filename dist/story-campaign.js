@@ -3,12 +3,12 @@ import { MOVES, SPECIES, TYPE_ADV, maxHp, createCreature, damage } from './domai
 export const ARKEN_FINALE_FLAG = 'arken-vow-restored';
 export const ARKEN_FINALE_REWARD = { echoes: 200, seals: 4 };
 export const ARKEN_STORY = [
-    { id: 'archivist', title: 'La voz de Arken', objective: 'Habla con el Archivista', hint: 'Búscalo junto a la plaza de Velo de Arken. Pulsa E o ACCIÓN para hablar.' },
+    { id: 'archivist', title: 'La silla vacía de Arken', objective: 'Habla con el Archivista', hint: 'Iria busca a su hermano en un pueblo que ha olvidado su voz. El Archivista, junto a la plaza, es el único que recuerda. Pulsa E o ACCIÓN.' },
     { id: 'forest', title: 'Los nombres del bosque', objective: 'Cruza al Bosque de Ceniza', hint: 'Sigue el camino hacia el portal oriental de la aldea.' },
     { id: 'sanctuary', title: 'El Santuario sin Voz', objective: 'Alcanza el santuario', hint: 'Atraviesa el bosque hasta su salida oriental. Recupera fuerzas en las lumbres.' },
     { id: 'guardian', title: 'La Primera Palabra', objective: 'Derrota a Hollowhart', hint: 'El Guardián es un desafío táctico. Prepara al menos dos vínculos y una criatura de nivel 8 o superior. Hollowhart es de Raíz: busca una criatura de Ceniza en el Bosque para contrarrestarlo. Conserva tónicos y usa GUARDIA contra su ataque cargado.' },
     { id: 'crypt', title: 'El Último Signo', objective: 'Completa la Cripta de los Ecos', hint: 'Regresa a Arken; abre el MENÚ → CRIPTA EXPLORABLE, vence a los centinelas, lee la inscripción y abre la última puerta.' },
-    { id: 'return', title: 'El juramento de las cenizas', objective: 'Vuelve con el Archivista', hint: 'Sal de la cripta y habla con el Archivista en la plaza de Arken para unir la Palabra y el Signo.' },
+    { id: 'return', title: 'Que nadie desaparezca de nuevo', objective: 'Vuelve con el Archivista', hint: 'Lleva la Primera Palabra y el Último Signo a Arken; solo juntos devolverán la memoria de quienes desaparecieron.' },
     { id: 'ending', title: 'El recuerdo permanece', objective: 'Arco de Arken completado', hint: 'El juramento permanece. Puedes explorar, capturar criaturas y superar nuevas expediciones.' }
 ];
 export function arkenStoryIndex(state) {

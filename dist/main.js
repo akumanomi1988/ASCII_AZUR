@@ -1,3 +1,4 @@
+import { azurOpening, azurNarrativeBeat, azurNpcReflection, azurMarshChoiceMeaning, azurCrownChoiceMeaning, azurBondLegacy, azurAfterlightIntroduction } from './story-agency.js';
 import { tacticalProfile, teamGuide, loadoutUpgrade, relicUpgrade, recruitmentValue, storyThreat, creatureRole } from './creatures/tactical-identity.js';
 import { regionalSurvey, regionalObjectives, regionKnown, regionUnlocked, resolveFieldTarget, planFieldTarget, planSurveyClaim, planLumbreTravel, travelRefusal, nextFieldPortal, afterlightOverview } from './world/field-journal.js';
 import { individualRange, ATTRIBUTE_KEYS } from './creatures/attributes.js';
@@ -567,7 +568,7 @@ class AzurGame {
     } }
     renderStarters() { const chars = [{ id: 'cindrel', glyph: '♨', title: 'EL FUEGO' }, { id: 'velaria', glyph: '≋', title: 'LA BRUMA' }, { id: 'thorne', glyph: '✣', title: 'LA RAÍZ' }]; byId('starters').innerHTML = chars.map(c => `<button class="starter" data-starter="${c.id}"><span class="starter-symbol" style="color:${SPECIES[c.id].color}">${c.glyph}</span><strong>${SPECIES[c.id].name}</strong><small>${c.title}</small></button>`).join(''); for (const el of byId('starters').querySelectorAll('[data-starter]'))
         el.addEventListener('click', () => this.pickStarter(el.dataset.starter)); focusMenuFirst(byId('starterScreen')); }
-    pickStarter(id) { this.sound.setScene('village'); this.save.team = [createCreature(id, 5)]; this.save.journey = newJourneyMetrics(id); this.save.primaryUid = this.save.team[0].uid; this.revealPosition(); this.started = true; byId('starterScreen').classList.add('hidden'); this.sound.pick(); this.toast('NUEVO MUNDO · SEMILLA ' + this.save.worldSeed); this.dialog([{ title: 'El último Portador', text: 'Los nombres se están desvaneciendo. El tuyo permanece porque alguien lo recuerda.' }, { title: 'El último Portador', text: 'Al este se extiende el Bosque de Ceniza. Encuentra el Santuario sin Voz y recupera la Primera Palabra.' }, { title: 'Comienza el viaje', text: 'Muévete con WASD o las flechas. Pulsa E para interactuar. Busca las hogueras para recuperar la fuerza.' }]); this.updateUI(); this.saveNow(false); }
+    pickStarter(id) { this.sound.setScene('village'); this.save.team = [createCreature(id, 5)]; this.save.journey = newJourneyMetrics(id); this.save.primaryUid = this.save.team[0].uid; this.revealPosition(); this.started = true; byId('starterScreen').classList.add('hidden'); this.sound.pick(); this.toast('NUEVO MUNDO · SEMILLA ' + this.save.worldSeed); this.dialog(azurOpening()); this.updateUI(); this.saveNow(false); }
     flag(id) { return this.save.flags.includes(id); }
     get storyState() { return { flags: this.save.flags, defeatedBoss: this.save.defeatedBoss, dungeonFinished: !!this.save.dungeon?.finished }; }
     storyBeat() { return arkenStoryBeat(this.storyState); }
@@ -842,7 +843,7 @@ class AzurGame {
         if (!progress.met) {
             this.addFlag(afterlightFlag(zone, 'met'));
             this.saveNow(false);
-            this.dialog([{ title: chapter.keeper, text: chapter.intro[0] }, { title: chapter.title.toUpperCase(), text: chapter.intro[1] }]);
+            this.dialog([{ title: chapter.keeper, text: azurAfterlightIntroduction(zone, this.save.flags) }, { title: chapter.title.toUpperCase(), text: chapter.intro[0] }, { title: 'TU ELECCIÓN ES LIBRE', text: chapter.intro[1] }]);
             return;
         }
         if (progress.complete) {
@@ -941,6 +942,7 @@ class AzurGame {
             { title: path === 'fang' ? 'FILO DEL RECUERDO' : 'VELO PROTECTOR',
                 text: path === 'fang' ? 'El vínculo ha aprendido a herir al olvido. Sus ataques infligirán 4 puntos de daño adicionales.' :
                     'El vínculo ha aprendido a resistir el olvido. Recibirá un 15% menos de daño directo.' },
+            { title: 'EL VÍNCULO ELIGE', text: azurBondLegacy(arc.id, path, this.save.flags) },
             { title: 'EL JURAMENTO PERMANECE', text: 'Recibes 45 Ecos. La elección queda guardada en esta partida y aparecerá en el Diario y el Códice.' }]);
     }
     checkpointBattle() {
@@ -1522,11 +1524,11 @@ class AzurGame {
                     { title: 'FIN DEL ARCO DE ARKEN', text: `Has cerrado la primera historia completa. Recibes ${ARKEN_FINALE_REWARD.echoes} Ecos y ${ARKEN_FINALE_REWARD.seals} Sellos. El mundo continúa abierto para nuevas aventuras.` }]);
             }
             else if (this.flag('arken-vow-restored'))
-                this.dialog([{ title: 'El Archivista', text: 'La Palabra y el Signo siguen vivos gracias a tus vínculos. El juramento de Arken ya no puede borrarse.' }]);
+                this.dialog([azurNpcReflection(this.save.flags, 'archivist')]);
             else if (this.save.defeatedBoss && !this.save.dungeon?.finished)
                 this.dialog([{ title: 'El Archivista', text: 'La Primera Palabra no basta para proteger Arken. Entra en la Cripta de los Ecos desde el menú, recupera el Último Signo y regresa a contarme lo que has visto.' }]);
             else
-                this.dialog([{ title: 'El Archivista', text: 'Hubo un tiempo en que el cielo estaba lleno de palabras. Ahora llueven sus cenizas.' }, { title: 'El Archivista', text: 'Busca las Lumbres, hazte acompañar de criaturas y desciende al Santuario sin Voz.' }]);
+                this.dialog([{ title: 'EL ARCHIVISTA · LA SILLA VACÍA', text: 'Iria recuerda que alguien debía volver del bosque, pero hoy no recuerda ni su rostro. Si el olvido alcanza a tu compañero, perderemos también al último Portador.' }, { title: 'PRIMERA PALABRA · ÚLTIMO SIGNO', text: 'Recupera la Primera Palabra del Santuario y el Último Signo de la Cripta. Solo juntos devolverán sus nombres a Arken. El Bosque de Ceniza comienza al este.' }]);
         }
         else if (id === 'merchant') {
             this.dialog([{ title: 'Mara, la Buhonera', text: 'Los Ecos aún valen algo en este mundo roto. Vuelve a hablarme para ver mis mercancías.' }]);
@@ -1543,10 +1545,10 @@ class AzurGame {
             }
             else if (this.flag('pilgrim-met')) {
                 this.addFlag('pilgrim-rescued');
-                this.dialog([{ title: 'Iria, la Vigía', text: '¿Has encontrado al peregrino? El consejo de Arken te lo agradece. Has ganado Ecos para el viaje.' }]);
+                this.dialog([{ title: 'IRIA · UN NOMBRE RECUPERADO', text: 'Mi hermano está vivo. Esta mañana no podía recordar su voz, ahora puedo decir su nombre. Gracias por escuchar a quien Arken había olvidado. Has ganado Ecos para el viaje.' }]);
             }
             else
-                this.dialog([{ title: 'Iria, la Vigía', text: `Un peregrino no ha vuelto del bosque. Antes de irte, domina los tres adversarios de COMBATE DIRECTO en Arken: Ceniza, Raíz y Bruma. Lecciones: ${lessons.completed}/3.${lessons.claimed ? ' Ya recibiste los Tónicos.' : ''}` }]);
+                this.dialog([{ title: 'IRIA · LA AUSENCIA', text: `Mi hermano partió hacia el bosque y ahora hasta su voz se me escapa. Busca al peregrino. Antes, prueba los tres adversarios de COMBATE DIRECTO en Arken: Ceniza, Raíz y Bruma. Lecciones: ${lessons.completed}/3.${lessons.claimed ? ' Ya recibiste los Tónicos.' : ''}` }]);
         }
         else if (id === 'nael') {
             const p = marshChapterProgress(this.save.flags);
@@ -1557,14 +1559,14 @@ class AzurGame {
                     this.sound.pick();
                     this.saveNow(false);
                 }
-                this.dialog(p.choice === 'keep' ? [{ title: 'NAEL · ATLAS DE LAS VIDAS', text: 'Preservaste los nombres que nunca existieron. Sus historias perduran, aunque recordar duela.' }, { title: 'FIN DEL CAPÍTULO II', text: 'Nael inscribe las posibilidades perdidas. Recibes 80 Ecos por cerrar el mapa. La marisma conserva tu decisión.' }]
-                    : [{ title: 'NAEL · ATLAS DE LAS VIDAS', text: 'Liberaste los nombres imposibles. Su recuerdo no seguirá encadenando a los vivos.' }, { title: 'FIN DEL CAPÍTULO II', text: 'Nael escribe que hubo belleza en aquello que nunca nació. Recibes 80 Ecos por cerrar el mapa.' }]);
+                this.dialog(p.choice === 'keep' ? [{ title: 'NAEL · ATLAS DE LAS VIDAS', text: 'Preservaste los nombres que nunca existieron. Sus historias perduran, aunque recordar duela.' }, { title: 'FIN DEL CAPÍTULO II', text: 'Nael abre el Atlas ante quien quiera escuchar esas vidas, sin poseerlas. Recibes 80 Ecos. La Corona deberá aprender a proteger sin escribir destinos.' }]
+                    : [{ title: 'NAEL · ATLAS DE LAS VIDAS', text: 'Liberaste los nombres imposibles. Su recuerdo no seguirá encadenando a los vivos.' }, { title: 'FIN DEL CAPÍTULO II', text: 'Nael deja una página en blanco junto al farol. Recordar ya no exige retener. Recibes 80 Ecos. Oriel deberá decidir si el futuro necesita libertad.' }]);
             }
             else if (p.complete)
-                this.dialog([{ title: 'NAEL · ATLAS DE LAS VIDAS', text: 'Tu elección sigue registrada. El tribunal no volverá a dictar sentencia sobre estas vidas.' }]);
+                this.dialog([azurNpcReflection(this.save.flags, 'nael')]);
             else {
                 this.addFlag('marsh-met-nael');
-                this.dialog([{ title: 'NAEL · CARTÓGRAFA DEL OLVIDO', text: 'Arken rescató nombres borrados. Aquí viven los nombres de personas que jamás llegaron a existir.' }, { title: 'LA CAMPANA Y EL FAROL', text: 'Recupera dos recuerdos, vence o vincula a los tres testigos del pantano y acude al Tribunal del Reflejo. Allí deberás elegir qué significa recordar.' }]);
+                this.dialog([{ title: 'NAEL · CARTÓGRAFA DEL OLVIDO', text: 'Arken devolvió nombres a personas olvidadas. Yo no puedo devolver a quienes jamás nacieron; llevo años sin atreverme a cerrar su Atlas. Tú puedes escuchar lo que yo no consigo decidir.' }, { title: 'LA CAMPANA Y EL FAROL', text: 'Recupera dos recuerdos, vence o vincula a los tres testigos del pantano y acude al Tribunal del Reflejo. Allí deberás elegir qué significa recordar.' }]);
             }
         }
         else if (id === 'oriel') {
@@ -1579,17 +1581,17 @@ class AzurGame {
                 this.dialog(crownEpilogue(this.save.flags));
             }
             else if (p.complete)
-                this.dialog([{ title: 'ORIEL · EL ÚLTIMO TESTIGO', text: 'El cielo no necesita otro dueño. Tu final permanece en el Atlas. Las rutas y criaturas siguen abiertas.' }]);
+                this.dialog([azurNpcReflection(this.save.flags, 'oriel')]);
             else if (!p.unlocked)
                 this.dialog([{ title: 'ORIEL · CARTA CERRADA', text: 'Arken y Nael deben terminar sus historias antes del último nombre.' }]);
             else {
                 this.addFlag('crown-met-oriel');
-                this.dialog([{ title: 'ORIEL · GUARDIÁN DEL ÚLTIMO NOMBRE', text: 'Nullscribe no destruye los recuerdos. Los escribe de antemano para que nadie pueda elegir.' }, { title: 'LA CORONA SIN REY', text: 'Devuelve la Lumbre y el Archivo, escucha a los tres testigos y desafía al Escriba. Solo entonces podrás elegir qué historia merece sobrevivir.' }]);
+                this.dialog([{ title: 'ORIEL · GUARDIÁN DEL ÚLTIMO NOMBRE', text: 'Nael eligió qué hacer con vidas imposibles. Nullscribe pretende borrar incluso esa decisión: escribe tu porvenir antes de que lo vivas. Proteger un nombre no puede significar encerrar a quien lo lleva.' }, { title: 'LA CORONA SIN REY', text: 'Devuelve la Lumbre y el Archivo, escucha a los tres testigos y desafía al Escriba. Solo entonces podrás elegir qué historia merece sobrevivir.' }]);
             }
         }
         else if (id === 'pilgrim') {
             this.addFlag('pilgrim-met');
-            this.dialog([{ title: 'El Peregrino', text: 'El bosque me robó el camino, pero sigo recordando mi nombre. Di a Iria que sigo vivo. Gracias, Portador.' }]);
+            this.dialog([{ title: 'El Peregrino', text: 'El bosque casi me robó el nombre. Dile a mi hermana Iria que su hermano ha vuelto y que aún puede reconocerme. El sendero no borró lo que ambos recordamos.' }]);
         }
         else if (id === 'keeper') {
             const vows = sanctuaryOathProgress(this.save.flags);
@@ -1949,7 +1951,7 @@ class AzurGame {
             this.dialog([{ title: 'TRIBUNAL SELLADO', text: `El Tribunal exige dos recuerdos (${p.memories}/2), tres testigos (${p.encounters}/3) y la voz de Nael.` }]);
             return;
         }
-        this.showModal('TRIBUNAL DEL REFLEJO', `<div class="modal-content-block"><strong>CAPÍTULO II · DECISIÓN IRREVERSIBLE</strong><p>Dos vidas que nunca fueron reales piden destinos opuestos. Conserva sus nombres y acepta el dolor, o libéralos para que los vivos puedan avanzar.</p></div><div class="modal-option"><div><strong>PRESERVAR</strong><small>180 Ecos + 4 Sellos. Los nombres vivirán en el Atlas.</small></div><button data-marsh-choice="keep">PRESERVAR</button></div><div class="modal-option"><div><strong>LIBERAR</strong><small>180 Ecos + 4 Tónicos. Las sombras podrán descansar.</small></div><button data-marsh-choice="release">LIBERAR</button></div>`);
+        this.showModal('TRIBUNAL DEL REFLEJO', `<div class="modal-content-block"><strong>CAPÍTULO II · DECISIÓN IRREVERSIBLE</strong><p>Dos vidas que nunca fueron reales piden destinos opuestos. Conserva sus nombres y acepta el dolor, o libéralos para que los vivos puedan avanzar.</p></div><div class="modal-option"><div><strong>PRESERVAR</strong><small>180 Ecos + 4 Sellos. ${htmlEscape(azurMarshChoiceMeaning('keep'))}</small></div><button data-marsh-choice="keep">PRESERVAR</button></div><div class="modal-option"><div><strong>LIBERAR</strong><small>180 Ecos + 4 Tónicos. ${htmlEscape(azurMarshChoiceMeaning('release'))}</small></div><button data-marsh-choice="release">LIBERAR</button></div>`);
         for (const b of byId('modalContent').querySelectorAll('[data-marsh-choice]'))
             b.onclick = () => this.chooseMarsh(b.dataset.marshChoice === 'keep' ? 'keep' : 'release');
     }
@@ -1964,7 +1966,7 @@ class AzurGame {
         this.hideModal();
         this.sound.pick();
         this.saveNow(false);
-        this.dialog([{ title: 'EL ESPEJO SE QUIEBRA', text: choice === 'keep' ? 'La campana vuelve a sonar. Las vidas imposibles seguirán siendo recordadas por Nael.' : 'Los faroles se apagan en calma. Ningún nombre volverá a ser obligado a permanecer.' }, { title: 'EL CAMINO CONTINÚA', text: 'Regresa a Nael para cerrar el Atlas y escuchar tu epílogo.' }]);
+        this.dialog([{ title: 'EL ESPEJO SE QUIEBRA', text: azurMarshChoiceMeaning(choice) }, { title: 'EL CAMINO CONTINÚA', text: 'Regresa a Nael para cerrar el Atlas y escuchar tu epílogo.' }]);
     }
     prepareCrownBattle() {
         if (this.battle || this.dialogOpen || !crownProgress(this.save.flags).bossReady)
@@ -1991,7 +1993,7 @@ class AzurGame {
             this.dialog([{ title: 'EL TELAR ESPERA', text: 'Primero debes vencer a Nullscribe. Ninguna decisión puede tomarse bajo su pluma.' }]);
             return;
         }
-        this.showModal('TELAR DEL AMANECER · DECISIÓN FINAL', `<div class="modal-content-block"><strong>CAPÍTULO III · FINAL IRREVERSIBLE</strong><p>La Primera Palabra ha regresado. Nael ha resuelto las vidas imposibles. Ahora el cielo exige tu respuesta: ¿cuidar sus nombres para siempre o devolver a todos la libertad de escribirlos?</p></div><div class="modal-option"><div><strong>RECORDAR</strong><small>Conserva los nombres · +220 Ecos, +4 Sellos</small></div><button data-crown-choice="remember">RECORDAR</button></div><div class="modal-option"><div><strong>RENOVAR</strong><small>Deja el futuro libre · +220 Ecos, +4 Tónicos</small></div><button data-crown-choice="renew">RENOVAR</button></div>`);
+        this.showModal('TELAR DEL AMANECER · DECISIÓN FINAL', `<div class="modal-content-block"><strong>CAPÍTULO III · FINAL IRREVERSIBLE</strong><p>La Primera Palabra ha regresado. Nael ha resuelto las vidas imposibles. Ahora el cielo exige tu respuesta: ¿cuidar sus nombres para siempre o devolver a todos la libertad de escribirlos?</p></div><div class="modal-option"><div><strong>RECORDAR</strong><small>Conserva los nombres · +220 Ecos, +4 Sellos. ${htmlEscape(azurCrownChoiceMeaning('remember', this.save.flags))}</small></div><button data-crown-choice="remember">RECORDAR</button></div><div class="modal-option"><div><strong>RENOVAR</strong><small>Deja el futuro libre · +220 Ecos, +4 Tónicos. ${htmlEscape(azurCrownChoiceMeaning('renew', this.save.flags))}</small></div><button data-crown-choice="renew">RENOVAR</button></div>`);
         for (const btn of byId('modalContent').querySelectorAll('[data-crown-choice]'))
             btn.onclick = () => this.chooseCrown(btn.dataset.crownChoice === 'remember' ? 'remember' : 'renew');
     }
@@ -2006,12 +2008,14 @@ class AzurGame {
         this.hideModal();
         this.sound.pick();
         this.saveNow(false);
-        this.dialog([{ title: 'EL CIELO ABIERTO', text: choice === 'remember' ? 'Los nombres olvidados regresan como constelaciones; nadie será borrado si otro lo recuerda.' : 'Las páginas vacías se convierten en cielo abierto. Nadie volverá a heredar su destino de un escriba.' }, { title: 'EL ÚLTIMO TESTIGO', text: 'Busca a Oriel. El desenlace de Arken y Nael te espera en sus palabras.' }]);
+        this.dialog([{ title: 'EL CIELO ABIERTO', text: azurCrownChoiceMeaning(choice, this.save.flags) }, { title: 'EL ÚLTIMO TESTIGO', text: 'Busca a Oriel para comprobar qué ha cambiado en Arken y Nael. Después puedes continuar la Vigilia opcional o terminar aquí.' }]);
     }
     openQuests() {
         if (!this.started)
             return;
         const step = arkenStoryIndex(this.storyState), beat = this.storyBeat();
+        const meaning = azurNarrativeBeat(this.storyState);
+        const meaningPanel = `<div class="modal-content-block"><strong>MOTIVACIÓN DE LA HISTORIA · ${htmlEscape(meaning.chapter)}</strong><p>${htmlEscape(meaning.stake)}</p><p>CONSECUENCIA · ${htmlEscape(meaning.consequence)}</p><p>SIGUIENTE PASO · ${htmlEscape(meaning.next)}</p>${meaning.optional ? '<p>Este contenido posterior al final es opcional.</p>' : ''}</div>`;
         const mainQuest = `<div class="modal-content-block"><strong>ARCO PRINCIPAL · ${Math.min(step, 6)}/6 ETAPAS</strong><p>${htmlEscape(beat.objective)}</p>${htmlEscape(beat.hint)}</div>` +
             ARKEN_STORY.slice(0, 6).map((chapter, i) => `<div class="modal-option"><div><strong>${htmlEscape(chapter.title)}</strong><small>${htmlEscape(chapter.objective)}</small></div><span class="quest-state ${i < step ? 'done' : ''}">${i < step ? '✓ HECHA' : i === step ? 'ACTUAL' : 'PENDIENTE'}</span></div>`).join('');
         const marsh = marshChapterProgress(this.save.flags);
@@ -2034,7 +2038,7 @@ class AzurGame {
             chronicle.map(entry => `<div class="modal-option chronicle-item"><div><strong>${htmlEscape(entry.eyebrow)} · ${htmlEscape(entry.title)}</strong><small>${htmlEscape(entry.summary)}</small></div><button data-chronicle="${entry.id}" aria-label="Leer ${htmlEscape(entry.title)}">LEER</button></div>`).join('');
         const travel = campaignRoadbook(this.storyState, this.save.team, this.save.inventory);
         const progressPanel = `<div class="modal-content-block"><strong>ATLAS DEL VIAJE · ${travel.completed}/${travel.total} HITOS · ${travel.percentage}%</strong><p>${travel.chapters.map(c => `${htmlEscape(c.name)}: ${c.done}/${c.total} ${c.status === 'done' ? '✓' : c.status === 'active' ? '◆' : '○'}`).join(' · ')}</p><p>OBJETIVO · ${htmlEscape(travel.objective)}</p><p>Equipo: ${this.save.team.filter(c => c.hp > 0).length}/${this.save.team.length} conscientes · ${this.save.inventory.tonics} Tónicos · ${this.save.inventory.seals} Sellos${travel.counter ? ' · Contraataque: ' + htmlEscape(travel.counter) : ''}.</p>${travel.advice.map(t => `<p>✦ ${htmlEscape(t)}</p>`).join('')}<p>Este atlas no cambia el guardado ni concede recursos.</p></div>`;
-        this.showModal('DIARIO · MISIONES', `<div class="modal-content-block"><strong>REGISTRO DEL VIAJE</strong><p>${this.save.journey?.counters.wins ?? 0} victorias · ${this.save.journey?.counters.losses ?? 0} derrotas · ${this.save.journey?.counters.tonics ?? 0} tónicos usados. Datos locales desde ${this.save.journey?.starter === 'unknown' || !this.save.journey ? 'esta actualización' : 'el inicio de este viaje'}.</p><button id="exportPlaytest">EXPORTAR REGISTRO DE PRUEBAS</button></div>` + `<div class="modal-content-block"><button id="openFieldFromQuests">DIARIO DE CAMPO · OBJETIVOS Y RECOMPENSAS</button></div>` + chroniclePanel + progressPanel + mainQuest + chapter + finale + pilgrimagePanel + afterlight + `<div class="modal-content-block"><strong>JURAMENTOS DE VÍNCULO · ${BOND_ARCS.filter(a => bondProgress(a, this.save.flags, [...this.save.team, ...this.save.storage]).stage === 'claimed').length}/${BOND_ARCS.length}</strong><p>Despierta a tus criaturas, descubre memorias y regresa a cada Lumbre para elegir un don permanente.</p></div>` + bonds + `<div class="shop-balance">${this.economy.echoes} ECOS · ${this.economy.completed.length}/${QUESTS.length} ENCARGOS SECUNDARIOS</div>` + QUESTS.map(q => `<div class="modal-option"><div><strong>${htmlEscape(q.name)}</strong><small>${htmlEscape(q.description)}</small><small>RECOMPENSA · ${q.reward} ECOS</small></div><span class="quest-state ${this.economy.completed.includes(q.id) ? 'done' : ''}">${this.economy.completed.includes(q.id) ? '✓ HECHA' : 'PENDIENTE'}</span></div>`).join(''));
+        this.showModal('DIARIO · MISIONES', `<div class="modal-content-block"><strong>REGISTRO DEL VIAJE</strong><p>${this.save.journey?.counters.wins ?? 0} victorias · ${this.save.journey?.counters.losses ?? 0} derrotas · ${this.save.journey?.counters.tonics ?? 0} tónicos usados. Datos locales desde ${this.save.journey?.starter === 'unknown' || !this.save.journey ? 'esta actualización' : 'el inicio de este viaje'}.</p><button id="exportPlaytest">EXPORTAR REGISTRO DE PRUEBAS</button></div>` + `<div class="modal-content-block"><button id="openFieldFromQuests">DIARIO DE CAMPO · OBJETIVOS Y RECOMPENSAS</button></div>` + meaningPanel + chroniclePanel + progressPanel + mainQuest + chapter + finale + pilgrimagePanel + afterlight + `<div class="modal-content-block"><strong>JURAMENTOS DE VÍNCULO · ${BOND_ARCS.filter(a => bondProgress(a, this.save.flags, [...this.save.team, ...this.save.storage]).stage === 'claimed').length}/${BOND_ARCS.length}</strong><p>Despierta a tus criaturas, descubre memorias y regresa a cada Lumbre para elegir un don permanente.</p></div>` + bonds + `<div class="shop-balance">${this.economy.echoes} ECOS · ${this.economy.completed.length}/${QUESTS.length} ENCARGOS SECUNDARIOS</div>` + QUESTS.map(q => `<div class="modal-option"><div><strong>${htmlEscape(q.name)}</strong><small>${htmlEscape(q.description)}</small><small>RECOMPENSA · ${q.reward} ECOS</small></div><span class="quest-state ${this.economy.completed.includes(q.id) ? 'done' : ''}">${this.economy.completed.includes(q.id) ? '✓ HECHA' : 'PENDIENTE'}</span></div>`).join(''));
         byId('exportPlaytest').onclick = () => this.exportPlaytest();
         byId('openFieldFromQuests').onclick = () => this.openFieldJournal();
         for (const button of byId('modalContent').querySelectorAll('[data-chronicle]'))
