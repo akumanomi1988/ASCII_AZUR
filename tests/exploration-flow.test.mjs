@@ -42,8 +42,12 @@ test('known lead suggestions never expose undiscovered coordinates and ignore co
  assert.equal(nextKnownFieldLead(entries,'village',4,16),null);
  s.discovered=reveal(s.discovered,'village',village[0].x,village[0].y);
  entries=regionalObjectives(s,'village');const lead=nextKnownFieldLead(entries,'village',4,16);
- assert.ok(lead);assert.equal(lead.label,village[0].label);
- s.flags.push('archivist');s.rpg.visitedNpcs.push('archivist');
+ assert.ok(lead);assert.ok(entries.some(e=>e.id===lead.id&&e.known&&e.trackable&&!e.done));
+ const chosen=entries.find(e=>e.id===lead.id);assert.equal(chosen.kind,'npc');
+ const npc=ZONES.village.landmarks[Number(chosen.id.slice(5))].npcId;
+ s.rpg.visitedNpcs.push(npc);
+ if(npc==='archivist')s.flags.push('archivist');
+ if(npc==='merchant')s.flags.push('merchant-met');
  entries=regionalObjectives(s,'village');
  assert.notEqual(nextKnownFieldLead(entries,'village',4,16)?.id,lead.id);
 });
@@ -54,6 +58,10 @@ test('bounded wilderness encounter frequency preserves early threat and fair rep
  assert.equal(wildPacing('marsh',flags).chance,.07);
  assert.equal(wildPacing('marsh',[...flags,'survey-marsh']).chance,.035);
  assert.ok(wildPacing('marsh',[...flags,'survey-marsh']).distance>wildPacing('marsh',flags).distance);
+ assert.equal(wildPacing('ossuary',['crown-trilogy-complete']).chance,0);
+ assert.equal(wildPacing('garden',['crown-trilogy-complete','afterlight-ossuary-complete']).chance,0);
+ assert.equal(wildPacing('ossuary',['crown-trilogy-complete','afterlight-ossuary-complete']).chance,.12);
+ assert.equal(wildPacing('garden',['afterlight-garden-complete']).chance,.12);
 });
 test('200 saved procedural worlds keep proposed leads spoiler-proof and story/flag-safe',()=>{
  let checks=0;

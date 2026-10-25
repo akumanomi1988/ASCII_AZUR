@@ -77,6 +77,10 @@ export interface WildPacing {chance:number;distance:number;reason:string;}
  * Cleared regions remain replayable; mandatory visible witnesses are unaffected. */
 export function wildPacing(zone:ZoneId,flags:readonly string[]):WildPacing{
  const clear=flags.includes('survey-'+zone);
+ // The authored Ossuary/Garden pilgrimages are choice-led, not random-battle attrition.
+ // Visible witnesses and manual duels remain available; wild travel resumes after that chapter.
+ if((zone==='ossuary'||zone==='garden')&&!flags.includes('afterlight-'+zone+'-complete'))
+  return {chance:0,distance:12,reason:'VIGILIA GUIADA · TESTIGOS VISIBLES'};
  const witnesses=zone!=='village'&&[0,1,2].every(i=>flags.includes('roamer-'+zone+'-'+i));
  if(clear)return{chance:0.035,distance:12,reason:'RECONOCIMIENTO COMPLETO'};
  if(witnesses)return{chance:0.07,distance:9,reason:'TRES RASTROS RESUELTOS'};
