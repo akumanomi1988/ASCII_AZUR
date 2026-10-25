@@ -112,14 +112,16 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
-          test -r /dev/kvm && test -w /dev/kvm
+          if [ -e /dev/kvm ]; then sudo chmod 666 /dev/kvm; ls -l /dev/kvm; else echo 'No KVM on this runner; emulator runner will select software fallback'; fi
       - name: Run real Android Chrome through ADB and DevTools
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: ${{ matrix.api-level }}
-          target: google_apis_playstore
+          target: google_apis
           arch: x86_64
-          profile: pixel_6
+          profile: pixel_2
+          ram-size: 2048M
+          heap-size: 256M
           disable-animations: true
           emulator-boot-timeout: 600
           emulator-options: -no-window -no-snapshot -gpu swiftshader_indirect -no-boot-anim -camera-back none -camera-front none
