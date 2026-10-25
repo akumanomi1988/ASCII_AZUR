@@ -96,12 +96,12 @@ test('PWA install and activation retain unrelated caches while expiring ASCII AZ
  const self={location:{href:'https://azur.example/ASCII_AZUR/sw.js'},addEventListener:(n,cb)=>listeners.set(n,cb),
   skipWaiting:async()=>{},clients:{claim:async()=>{}}};
  const caches={open:async()=>({addAll:async()=>{}}),
-  keys:async()=>['other-pwa-v4','ascii-azur-v054-q1','ascii-azur-v055-q1','ascii-azur-v056-q1','ascii-azur-v057-q1','ascii-azur-v058-q1','ascii-azur-v053-q1'],
+  keys:async()=>['other-pwa-v4','ascii-azur-v054-q1','ascii-azur-v055-q1','ascii-azur-v056-q1','ascii-azur-v057-q1','ascii-azur-v058-q1','ascii-azur-v059-q1','ascii-azur-v053-q1'],
   delete:async key=>{deleted.push(key);return true;}};
  const sandbox={self,caches,URL,location:{origin:'https://azur.example'}};
  vm.runInNewContext(fs.readFileSync('sw.js','utf8'),sandbox);
  const pending=[];
  listeners.get('activate')({waitUntil:p=>pending.push(p)});
  await Promise.all(pending);
- assert.deepEqual(deleted,['ascii-azur-v054-q1','ascii-azur-v055-q1','ascii-azur-v056-q1','ascii-azur-v057-q1','ascii-azur-v058-q1','ascii-azur-v053-q1']);
+ assert.deepEqual(deleted,['ascii-azur-v054-q1','ascii-azur-v055-q1','ascii-azur-v056-q1','ascii-azur-v057-q1','ascii-azur-v058-q1','ascii-azur-v059-q1','ascii-azur-v053-q1']);
 });
