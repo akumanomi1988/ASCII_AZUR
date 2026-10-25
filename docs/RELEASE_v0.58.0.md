@@ -4,7 +4,7 @@ M3 is the third gameplay repair epic in the frozen PLAYER_EXPERIENCE_REPAIR_MAST
 
 Implemented:
 - Seven differentiated, stage-gated regional field briefs and purpose-driven landmark lore, including finite reward transparency and distinct optional Afterlight leads. No future region coordinates or secret locations are exposed.
-- Eighteen seed-aware authored witness clues, elemental counter guidance from the real enemy species and persistent conclusion summaries after victory or capture.
+- Eighteen seed-aware authored witness clues, elemental counter guidance from the real enemy species and persistent conclusion summaries after victory or capture. The late-game Ossuary and Garden witnesses now grant 112 one-time bonus XP rather than requiring random wild grinding; all earlier regions retain their established 48 XP first-clear bonus.
 - One-click spoiler-safe lead suggestion limited to actually discovered, actionable, unfinished regional objectives; reuses the existing v1 field-target transaction, save conflict handling and compass.
 - Adaptive wild-encounter pacing: a roll occurs only once per 6–12 traversed tiles **even on a failed attempt**; lower repeat frequency after all three persistent witnesses and after survey completion; the two optional Afterlight chapters suppress *random* travel encounters until each authored chapter ends, retaining their visible one-time witnesses and manual battles; wild travel resumes after completion.
 - Distinct physical site context on chest, Lumbre, memory, NPC, guardian and verdict entries; quests and surveys retain the same finite rewards and region order.

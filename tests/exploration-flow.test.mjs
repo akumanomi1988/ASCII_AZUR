@@ -4,7 +4,7 @@ import {configureWorld,captureWorldSnapshot,ZONE_IDS,ZONES} from '../dist/world.
 import {createCreature,validateSave} from '../dist/domain.js';
 import {reveal} from '../dist/world/discovery.js';
 import {regionalObjectives} from '../dist/world/field-journal.js';
-import {visibleEncounters} from '../dist/world/encounters.js';
+import {visibleEncounters,firstRoamerVictoryBonus,AFTERLIGHT_WITNESS_XP} from '../dist/world/encounters.js';
 import {regionFieldGuide,landmarkFieldHint,witnessFieldHint,witnessFieldAftermath,nextKnownFieldLead,wildPacing} from '../dist/world/exploration-flow.js';
 const state=seed=>{configureWorld(seed);return{version:1,worldSeed:seed,worldSnapshot:captureWorldSnapshot(),zone:'village',x:4,y:16,team:[createCreature('cindrel',7,()=>.5)],storage:[],inventory:{seals:5,tonics:3},flags:[],defeatedBoss:false,playSeconds:0,rpg:{echoes:0,completed:[],visitedNpcs:[]}};};
 test('seven region themes contain specific reason and outcome, with optional aftermath gating',()=>{
@@ -62,6 +62,16 @@ test('bounded wilderness encounter frequency preserves early threat and fair rep
  assert.equal(wildPacing('garden',['crown-trilogy-complete','afterlight-ossuary-complete']).chance,0);
  assert.equal(wildPacing('ossuary',['crown-trilogy-complete','afterlight-ossuary-complete']).chance,.12);
  assert.equal(wildPacing('garden',['afterlight-garden-complete']).chance,.12);
+});
+test('authored Afterlight witness growth is one-time, not farmable via repeated captures or duels',()=>{
+ assert.equal(AFTERLIGHT_WITNESS_XP,112);
+ for(const zone of ['ossuary','garden'])for(let i=0;i<3;i++){
+  const id=zone+'-'+i;
+  assert.equal(firstRoamerVictoryBonus('wild',id,[]),AFTERLIGHT_WITNESS_XP);
+  assert.equal(firstRoamerVictoryBonus('wild',id,['roamer-'+id]),0);
+  assert.equal(firstRoamerVictoryBonus('boss',id,[]),0);
+ }
+ assert.equal(firstRoamerVictoryBonus('wild','forest-0',[]),48);
 });
 test('200 saved procedural worlds keep proposed leads spoiler-proof and story/flag-safe',()=>{
  let checks=0;
