@@ -49,7 +49,7 @@ export function witnessFieldHint(zone:ZoneId,slot:number,speciesId:string,done:b
  if(zone==='village'||!Number.isInteger(slot)||slot<0||slot>2)return'Encuentro no identificado.';
  const species=SPECIES[speciesId];
  const trail=TRAIL_STORIES[zone][slot];
- if(!species)return trail;
+ if(!species)return trail??'Rastro por identificar.';
  const counter=Object.entries(TYPE_ADV).find(([,effect])=>effect===species.element)?.[0];
  return (done?'Testimonio conservado. ':'Rastro activo. ')+trail+' '+species.name+' · '+species.element+
   (counter?' · contraataque elemental: '+counter:'')+'. Victoria o captura resuelven el rastro una sola vez.';
