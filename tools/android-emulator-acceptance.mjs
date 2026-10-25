@@ -67,10 +67,26 @@ class Devtools{
   throw Error('Android Chrome condition timed out: '+script);
  }
  async tap(selector){
-  const p=await this.evaluate('(()=>{const e=document.querySelector('+JSON.stringify(selector)+');if(!e)return null;e.scrollIntoView({block:"nearest"});const r=e.getBoundingClientRect();return r.width&&r.height?{x:r.x+r.width/2,y:r.y+r.height/2}:null})()');
+  const p=await this.evaluate('(()=>{const e=document.querySelector('+JSON.stringify(selector)+');if(!e)return null;e.scrollIntoView({block:"nearest"});const r=e.getBoundingClientRect();return r.width&&r.height?{x:r.x+r.width/2,y:r.y+r.height/2,dpr:devicePixelRatio,vh:innerHeight,hit:document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)?.outerHTML?.slice(0,160)}:null})()');
   if(!p)throw Error('Touch target unavailable: '+selector);
   if(Number(API)<=30){
-   await this.send('Input.synthesizeTapGesture',{x:p.x,y:p.y,duration:95,tapCount:1,gestureSourceType:'touch'});
+   // Android 11 Chrome maps CDP touch coordinates incorrectly after window
+   // metric overrides. Drive the actual OS touch pipeline with adb input tap.
+   await this.evaluate('(()=>{window.__azurNativeTapSelector='+JSON.stringify(selector)+';window.__azurNativeTapHit=false;if(!window.__azurNativeTapInstalled){document.addEventListener("pointerdown",e=>{if(e.target.closest(window.__azurNativeTapSelector))window.__azurNativeTapHit=true},true);window.__azurNativeTapInstalled=true;}})()');
+   const size=adb('shell','wm','size');
+   const match=size.match(/Override size:\s*(\d+)x(\d+)/)||size.match(/Physical size:\s*(\d+)x(\d+)/);
+   if(!match)throw Error('Could not measure Android display size: '+size);
+   const screenHeight=Number(match[2]),extra=screenHeight-p.vh*p.dpr;
+   const offsets=[Math.max(0,extra-55),Math.max(0,extra-15),Math.max(0,extra-95),Math.max(0,extra),0,64,110,160,210];
+   let matched=false;
+   for(const offset of [...new Set(offsets.map(Math.round))]){
+    const x=Math.round(p.x*p.dpr),y=Math.round(p.y*p.dpr+offset);
+    if(y<10||y>=screenHeight-10)continue;
+    adb('shell','input','tap',String(x),String(y));
+    await sleep(280);
+    if(await this.evaluate('window.__azurNativeTapHit===true')){matched=true;report.androidNativeOsTaps=(report.androidNativeOsTaps||0)+1;break;}
+   }
+   if(!matched)throw Error('Android OS tap missed '+selector+'; probe='+JSON.stringify({p,screenHeight,extra}));
   }else{
    await this.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:p.x,y:p.y,id:1}]});
    await sleep(110);await this.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
