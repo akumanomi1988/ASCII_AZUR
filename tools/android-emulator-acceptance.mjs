@@ -170,7 +170,18 @@ async function journey(){
  await chrome.until('document.readyState==="complete"&&!!document.getElementById("newGame")',40000);
  const ua=await chrome.evaluate('navigator.userAgent');
  check(ua.includes('Android'),'Native Android Chrome browser running');report.userAgent=ua;
- await chrome.tap('#newGame');await chrome.until('!!document.querySelector("#starters button")',14000);
+ await chrome.tap('#newGame');
+ // Older Android Chrome may eat the first OS-to-renderer touch while warming up.
+ // Retry once with another actual Chrome touch, never bypassing the native event.
+ try{await chrome.until('!!document.querySelector("#starters button")',16000);}
+ catch(error){
+  const state=await chrome.evaluate('({title:document.getElementById("titleScreen")?.className,starter:document.getElementById("starterScreen")?.className,modal:document.getElementById("modal")?.className,body:document.body.innerText.slice(0,400)})');
+  console.log('ANDROID_STARTER_DEBUG '+JSON.stringify(state));
+  await chrome.capture('debug-before-start.png');
+  await chrome.tap('#newGame');
+  await chrome.until('!!document.querySelector("#starters button")',23000);
+ }
+
  await chrome.tap('#starters button');
  for(let i=0;i<15;i++){if(await chrome.evaluate('document.getElementById("dialogue").classList.contains("hidden")'))break;await chrome.tap('#closeDialogue');}
  check(await chrome.evaluate('document.getElementById("dialogue").classList.contains("hidden")'),'Native touch completes introduction');
@@ -218,6 +229,7 @@ try{
  await resize(540,960,'portrait');await journey();
  report.status='PASS';console.log('ANDROID_EMULATOR_PASS '+JSON.stringify({api:report.androidApi,assertions:report.assertions.length,frame:report.frameProbe,pss:report.chromeTotalPssKb}));
 }catch(error){
+ try{if(chrome){await chrome.capture('failure.png');report.errors.push(...chrome.exceptions);}}catch{}
  report.status='FAIL';report.failure=String(error?.stack||error);
  console.error('ANDROID_EMULATOR_FAIL '+report.failure);process.exitCode=1;
  try{evidence('adb-logcat.txt',adb('logcat','-d','-t','350'));}catch{}
