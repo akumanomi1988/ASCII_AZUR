@@ -12,12 +12,12 @@ export function crownProgress(flags:readonly string[]){
  const unlocked=s.has('marsh-chapter-complete')&&s.has('arken-vow-restored');
  const stage=complete?7:!unlocked?0:!s.has('zone-spire')?0:!met?1:memories<2?2:witnesses<3?3:!boss?4:!choice?5:6;
  const beats=[
-  ['El filo del atlas','Cruza la última puerta de las Marismas','El capítulo de Nael debe estar completo para cruzar al corazón de la escritura.'],
+  ['El filo del atlas','Cruza la última puerta de las Marismas','Tras decidir cómo recordar, viaja a la Corona: Nullscribe pretende escribir el futuro de los vivos.'],
   ['El guardián del último nombre','Habla con Oriel en la Corona','Un escriba aguarda a los portadores en la senda occidental.'],
   ['La lumbre y el archivo','Recupera dos reliquias de la Corona','Las huellas del primer fuego y las páginas que nunca existieron esperan bajo el cielo roto.'],
   ['Los tres nombres prestados','Resuelve los tres encuentros de la Corona','Tres centinelas errantes guardan el camino hacia Nullscribe. Véncelos o vínculalos.'],
   ['El escriba que niega el mundo','Derrota a Nullscribe en la Corona','El Escriba sostiene el cielo vacío. Prepara tu equipo en la última Lumbre; el golpe cargado requiere GUARDIA.'],
-  ['El telar del amanecer','Elige el destino de los nombres','Ante el Telar podrás conservar la memoria o abrir un futuro sin juramentos.'],
+  ['El telar del amanecer','Elige el destino de los nombres','Conserva los nombres sin mandar sobre sus vidas o retira al Telar su autoridad. Ambas rutas respetan la decisión de Nael.'],
   ['El último testigo','Regresa a Oriel para cerrar la trilogía','La decisión está tomada: escucha las consecuencias de Arken, la Marisma y la Corona.'],
   ['Un cielo escrito por muchos','Historia principal completada','El viaje principal tiene desenlace. El mundo permanece abierto para las criaturas y las expediciones.']
  ] as const;
@@ -47,5 +47,5 @@ export function crownEpilogue(flags:readonly string[]):{title:string;text:string
   ?'El último Telar fija un límite al olvido. Arken guarda el nombre de cada viajero, incluso de quienes partieron.'
   :'El Telar abandona su poder sobre los vivos. Cada criatura elige cómo llamarse, y ningún guardián vuelve a escribir su destino.';
  return [{title:'NAEL · LAS VIDAS POSIBLES',text:memory},{title:'ORIEL · EL ÚLTIMO TESTIGO',text:future},
- {title:'FINAL DE ASCII AZUR · UN CIELO COMPARTIDO',text:'La Primera Palabra, el Último Signo y las dos vidas del Espejo ya no pertenecen al silencio. Vuelves a Arken. El cielo ha dejado de borrar las historias; ahora las escriben sus habitantes. La historia principal ha terminado. El viaje libre continúa.'}];
+ {title:'FINAL DE ASCII AZUR · UN CIELO COMPARTIDO',text:'La Primera Palabra, el Último Signo y las dos vidas del Espejo ya no pertenecen al silencio. Vuelves a Arken. El cielo ha dejado de borrar las historias; ahora las escriben sus habitantes. Iria vuelve a recordar a su hermano, incluso cuando él no está cerca. La historia principal ha terminado. Si lo deseas, sigue el portal oriental de la Corona hasta el Osario para emprender una Vigilia opcional; el viaje libre continúa.'}];
 }
