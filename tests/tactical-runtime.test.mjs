@@ -43,3 +43,14 @@ test('boss briefing presents real current party matchups and missing counter',()
  assert.match(dom.get('modalContent').innerHTML,/Cindrel/);
  assert.match(dom.get('modalContent').innerHTML,/DAÑO|daño/);
 });
+
+test('switch protection remains active through an enemy charge announcement until its actual strike',()=>{
+ const {game}=fresh();game.save.team.push(createCreature('velaria',12,()=>.25));
+ game.startBattle('hollowhart',12,'boss');
+ game.battle.chargeStage=1;
+ game.switchCreature();game.switchTo(1);
+ game.enemyTurn();
+ assert.equal(game.battle.chargeStage,2);
+ assert.equal(game.battle.guarding,true,'a warning without an attack must not consume the shield');
+ game.enemyTurn();assert.equal(game.battle.guarding,false);
+});

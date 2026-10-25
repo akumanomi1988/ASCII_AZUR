@@ -523,7 +523,7 @@ class AzurGame {
     if(b.selecting){this.selectedBattleAction=0;
       for(const {c,i} of this.save.team.map((c,i)=>({c,i}))){if(i===b.ally)continue;const sp=SPECIES[c.speciesId]!;
         const scout=tacticalProfile(c,b.enemy,this.save.flags);
-        add(`↻ ${sp.name} · NV ${c.level} · ${c.hp}/${maxHp(c)}`,()=>this.switchTo(i),false,c.hp<=0,scout.summary+' · AL CAMBIAR: 55 % protección ante el próximo ataque. El enemigo actúa primero.');
+        add(`↻ ${sp.name} · NV ${c.level} · ${c.hp}/${maxHp(c)}`,()=>this.switchTo(i),false,c.hp<=0,scout.summary+' · AL CAMBIAR: 55 % protección ante el próximo ataque. El enemigo actúa primero.',{summary:scout.minDamage+'–'+scout.maxDamage+' DAÑO',extra:(scout.effective?'EFICAZ · ':'')+'PROTECCIÓN 55 % · '+scout.utility.slice(0,2).join(' / '),accessible:sp.name+'. '+scout.summary+'. Intercambiar consume el turno; protege el 55 % del siguiente impacto.'});
       }
       add('← COMANDOS',()=>this.openBattleMenu('commands'));restoreActionFocus();return;
     }
@@ -580,7 +580,7 @@ class AzurGame {
   }
   private enemyTurn(){const b=this.battle,ally=this.getAlly();if(!b||!ally)return;
     b.pending=undefined; // A checkpoint after this turn records the next player decision.
-    if(b.chargeStage===1){b.chargeStage=2;b.guarding=false;b.busy=false;b.log=`¡${SPECIES[b.enemy.speciesId]!.name.toUpperCase()} ACUMULA EL SILENCIO! Su próximo ECLIPSE de Éter será devastador. Usa GUARDIA.`;
+    if(b.chargeStage===1){b.chargeStage=2;b.busy=false;b.log=`¡${SPECIES[b.enemy.speciesId]!.name.toUpperCase()} ACUMULA EL SILENCIO! Su próximo ECLIPSE de Éter será devastador. Usa GUARDIA.`;
       this.setCombatCue('guard','enemy','Éter');this.refreshBattle();return;}
     const charged=b.chargeStage===2;b.chargeStage=0;
     const enemyOptions={...b.enemy,moves:b.enemy.moves.filter(id=>MOVES[id]?.role!=='heal'||recoveryCastsLeft(b.recoveryUses,b.enemy.uid)>0)};
