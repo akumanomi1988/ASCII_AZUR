@@ -43,7 +43,9 @@ class Devtools{
    ws.addEventListener('open',()=>{clearTimeout(t);done();},{once:true});
    ws.addEventListener('error',()=>{clearTimeout(t);fail(Error('Chrome WebSocket connection failed'));},{once:true});
   });
-  const c=new Devtools(ws);await c.send('Runtime.enable');await c.send('Page.enable');return c;
+  const c=new Devtools(ws);await c.send('Runtime.enable');await c.send('Page.enable');
+  try{await c.send('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:5});}catch{}
+  return c;
  }
  send(method,params={},ms=25000){
   const id=++this.next;
@@ -67,8 +69,13 @@ class Devtools{
  async tap(selector){
   const p=await this.evaluate('(()=>{const e=document.querySelector('+JSON.stringify(selector)+');if(!e)return null;e.scrollIntoView({block:"nearest"});const r=e.getBoundingClientRect();return r.width&&r.height?{x:r.x+r.width/2,y:r.y+r.height/2}:null})()');
   if(!p)throw Error('Touch target unavailable: '+selector);
-  await this.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:p.x,y:p.y,id:1}]});
-  await sleep(110);await this.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await sleep(240);
+  if(Number(API)<=30){
+   await this.send('Input.synthesizeTapGesture',{x:p.x,y:p.y,duration:95,tapCount:1,gestureSourceType:'touch'});
+  }else{
+   await this.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:p.x,y:p.y,id:1}]});
+   await sleep(110);await this.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+  }
+  await sleep(240);
  }
  async capture(name){const r=await this.send('Page.captureScreenshot',{format:'png'},20000);evidence(name,Buffer.from(r.data,'base64'));}
  close(){this.ws.close();}
@@ -170,12 +177,13 @@ async function journey(){
  await chrome.until('document.readyState==="complete"&&!!document.getElementById("newGame")',40000);
  const ua=await chrome.evaluate('navigator.userAgent');
  check(ua.includes('Android'),'Native Android Chrome browser running');report.userAgent=ua;
+ await chrome.evaluate('(()=>{window.__azurQaTouches=[];document.addEventListener("pointerdown",e=>window.__azurQaTouches.push({type:e.type,target:e.target.id,x:e.clientX,y:e.clientY,pointer:e.pointerType}),true);document.addEventListener("click",e=>window.__azurQaTouches.push({type:e.type,target:e.target.id}),true);})()');
  await chrome.tap('#newGame');
  // Older Android Chrome may eat the first OS-to-renderer touch while warming up.
  // Retry once with another actual Chrome touch, never bypassing the native event.
  try{await chrome.until('!!document.querySelector("#starters button")',16000);}
  catch(error){
-  const state=await chrome.evaluate('({title:document.getElementById("titleScreen")?.className,starter:document.getElementById("starterScreen")?.className,modal:document.getElementById("modal")?.className,body:document.body.innerText.slice(0,400)})');
+  const state=await chrome.evaluate('({title:document.getElementById("titleScreen")?.className,starter:document.getElementById("starterScreen")?.className,touches:window.__azurQaTouches,modal:document.getElementById("modal")?.className,body:document.body.innerText.slice(0,400)})');
   console.log('ANDROID_STARTER_DEBUG '+JSON.stringify(state));
   await chrome.capture('debug-before-start.png');
   await chrome.tap('#newGame');
