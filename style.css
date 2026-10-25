@@ -461,3 +461,40 @@
     padding-bottom: 12px;
   }
 }
+
+
+/* Mobile-only, full-screen opening surface. The game viewport may be a clipped
+   landscape letterbox on Android Chrome 11, whose overlay start button was
+   obscured by the layout sidebar. Pull the title out of that clipping context.
+   Hide immediately after entering game by the existing .hidden class. */
+@media (max-width:650px), (max-height:620px) {
+  html body #app #viewport #titleScreen.intro:not(.hidden) {
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 9999 !important;
+    width: 100vw !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    padding: 68px 12px 20px !important;
+    align-items: flex-start !important;
+    justify-content: flex-start !important;
+    background: radial-gradient(ellipse at 50% 20%,#203947,#07131deF 80%);
+  }
+  html body #app #viewport #titleScreen .intro-buttons {
+    position: fixed !important;
+    top: 8px !important;
+    left: 8px !important;
+    right: 8px !important;
+    bottom: auto !important;
+    z-index: 10000 !important;
+    padding: 5px !important;
+  }
+  html body #app #viewport #titleScreen .intro-content {
+    flex: 0 0 auto !important;
+    min-width: 0;
+    margin: 0 auto;
+    padding: 5px 3px 28px !important;
+  }
+}
