@@ -65,7 +65,7 @@ test('200 saved procedural worlds keep proposed leads spoiler-proof and story/fl
    assert.ok(entries.filter(e=>!e.known).every(e=>e.x===undefined&&e.y===undefined));
    s.discovered=reveal(s.discovered,zone,altar.x,altar.y);
    const seen=regionalObjectives(s,zone).find(e=>e.kind==='altar');
-   assert.ok(seen.known&&seen.trackable);
+   assert.ok(seen.known);assert.equal(seen.trackable,['village','forest','sanctuary'].includes(zone));
    const proposed=nextKnownFieldLead(regionalObjectives(s,zone),zone,altar.x,altar.y);
    if(proposed)assert.ok(regionalObjectives(s,zone).some(o=>o.id===proposed.id&&o.known&&o.trackable));
    checks++;
