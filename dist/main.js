@@ -1,4 +1,5 @@
 import { azurOpening, azurNarrativeBeat, azurNpcReflection, azurMarshChoiceMeaning, azurCrownChoiceMeaning, azurBondLegacy, azurAfterlightIntroduction } from './story-agency.js';
+import { regionFieldGuide, nextKnownFieldLead, wildPacing, witnessFieldAftermath } from './world/exploration-flow.js';
 import { tacticalProfile, teamGuide, loadoutUpgrade, relicUpgrade, recruitmentValue, storyThreat, creatureRole } from './creatures/tactical-identity.js';
 import { regionalSurvey, regionalObjectives, regionKnown, regionUnlocked, resolveFieldTarget, planFieldTarget, planSurveyClaim, planLumbreTravel, travelRefusal, nextFieldPortal, afterlightOverview } from './world/field-journal.js';
 import { individualRange, ATTRIBUTE_KEYS } from './creatures/attributes.js';
@@ -1334,6 +1335,7 @@ class AzurGame {
         this.finishBattle();
         if (b.encounterId)
             this.addFlag('roamer-' + b.encounterId);
+        const trailReport = b.encounterId ? witnessFieldAftermath(this.save.zone, b.encounterId, this.save.flags) : null;
         if (mastery > 0)
             this.addFlag('training-' + b.enemy.speciesId);
         this.sound.pick();
@@ -1360,7 +1362,7 @@ class AzurGame {
         }
         else {
             if (!evolution)
-                this.toast(`${originalName.toUpperCase()} VENCIDO · +${amount} EXP${bonus ? ' · RASTRO +' + bonus + ' EXP · REPOSO +25% PS' : ''}${mastery ? ' · LECCIÓN +' + mastery + ' EXP' : ''}${gain.levelUp ? ' · ¡NIVEL! · REVISA HABILIDADES' : ''}${supporters.length ? ' · ' + supporters.length + ' ALIADOS +' + supporters[0].amount + ' EXP' : ''}`);
+                this.toast(`${originalName.toUpperCase()} VENCIDO · +${amount} EXP${bonus ? ' · RASTRO +' + bonus + ' EXP · REPOSO +25% PS' : ''}${mastery ? ' · LECCIÓN +' + mastery + ' EXP' : ''}${gain.levelUp ? ' · ¡NIVEL! · REVISA HABILIDADES' : ''}${supporters.length ? ' · ' + supporters.length + ' ALIADOS +' + supporters[0].amount + ' EXP' : ''}${trailReport ? ' · ' + trailReport : ''}`);
             if (Math.random() < .25)
                 this.save.inventory.seals = Math.min(9999, this.save.inventory.seals + 1);
             this.economy.echoes = Math.min(999999, this.economy.echoes + 4 + Math.floor(b.enemy.level * .9));
@@ -1422,10 +1424,11 @@ class AzurGame {
             this.finishBattle();
             if (b.encounterId)
                 this.addFlag('roamer-' + b.encounterId);
+            const trailReport = b.encounterId ? witnessFieldAftermath(this.save.zone, b.encounterId, this.save.flags) : null;
             this.sound.pick();
             if (this.save.dungeon?.active && this.save.dungeon.pending !== null)
                 this.finishDungeonEnemy();
-            this.toast(`VÍNCULO ESTABLECIDO: ${SPECIES[captured.speciesId].name.toUpperCase()}${stored ? ' (RESERVA)' : ''} · ${discovery}`);
+            this.toast(`VÍNCULO ESTABLECIDO: ${SPECIES[captured.speciesId].name.toUpperCase()}${stored ? ' (RESERVA)' : ''} · ${discovery}${trailReport ? ' · ' + trailReport : ''}`);
             this.addFlag('first-capture');
             this.saveNow(false);
             this.updateUI();
@@ -2178,15 +2181,20 @@ class AzurGame {
             return;
         const zone = ZONE_IDS.includes(requested) && regionKnown(this.save, requested) ? requested : this.save.zone;
         const survey = regionalSurvey(this.save, zone), knownRegions = ZONE_IDS.filter(z => regionKnown(this.save, z));
+        const meaning = regionFieldGuide(zone, this.save.flags), lead = nextKnownFieldLead(survey.entries, zone, zone === this.save.zone ? this.save.x : 4, zone === this.save.zone ? this.save.y : 16);
+        const leadPanel = `<div class="modal-content-block"><strong>BRÚJULA DE EXPLORACIÓN · ${htmlEscape(meaning.title)}</strong><p>POR QUÉ EXPLORAR · ${htmlEscape(meaning.purpose)}</p><p>QUÉ DESCUBRIRÁS · ${htmlEscape(meaning.payoff)}</p>${meaning.optional ? '<p>EPÍLOGO OPCIONAL · La campaña principal ya tiene un final independiente.</p>' : ''}<p>PRÓXIMA PISTA CONOCIDA · ${lead ? htmlEscape(lead.label) + ' — ' + htmlEscape(lead.hint) : 'Sigue los caminos y descubre otros lugares; el diario no revela destinos ocultos.'}</p>${lead ? '<button id="fieldLead">SEGUIR PRÓXIMA PISTA</button>' : ''}</div>`;
         const rows = survey.entries.map(o => `<div class="modal-option"><div><strong>${o.done ? '✓ ' : o.known ? '◇ ' : '? '}${htmlEscape(o.label)}</strong><small>${htmlEscape(o.hint)}</small></div>${o.trackable ? `<button data-field-target="${o.id}" ${this.save.fieldTarget?.zone === zone && this.save.fieldTarget.id === o.id ? 'aria-pressed="true"' : ''}>SEGUIR</button>` : `<span class="quest-state ${o.done ? 'done' : ''}">${o.done ? 'RESUELTO' : o.known ? 'REQUISITOS PENDIENTES' : 'POR DESCUBRIR'}</span>`}</div>`).join('');
         this.showModal('DIARIO DE CAMPO · ' + ZONES[zone].name.toUpperCase(), `<div class="field-regions">${knownRegions.map(z => `<button data-field-region="${z}" aria-pressed="${z === zone}">${htmlEscape(ZONES[z].name)}</button>`).join('')}</div>` +
-            `<div class="modal-content-block"><strong>${survey.done}/${survey.total} OBJETIVOS RESUELTOS</strong><p>Los lugares sin descubrir ocultan su identidad y su posición. Seguir un objetivo conserva la selección al recargar y guía por portales transitables.</p>${this.save.fieldTarget ? '<button id="clearFieldTarget">CANCELAR OBJETIVO GUARDADO</button>' : ''}</div>` + rows +
+            leadPanel + `<div class="modal-content-block"><strong>${survey.done}/${survey.total} OBJETIVOS RESUELTOS</strong><p>Los lugares sin descubrir ocultan su identidad y su posición. Seguir un objetivo conserva la selección al recargar y guía por portales transitables.</p>${this.save.fieldTarget ? '<button id="clearFieldTarget">CANCELAR OBJETIVO GUARDADO</button>' : ''}</div>` + rows +
             `<div class="modal-content-block"><strong>RECONOCIMIENTO DE ${htmlEscape(ZONES[zone].name.toUpperCase())}</strong><p>Completa los objetivos de esta región: +${survey.reward.echoes} Ecos, +${survey.reward.seals} Sello y +${survey.reward.tonics} Tónico. Una vez por viaje.</p><button id="claimRegionSurvey" ${survey.ready ? '' : 'disabled'}>${survey.claimed ? '✓ RECOMPENSA RECLAMADA' : 'RECLAMAR RECONOCIMIENTO'}</button></div>` +
             `<div class="modal-option"><button id="fieldMap">VER MAPA ACTUAL</button><button id="fieldLumbres">RED DE LUMBRES</button></div>`);
         for (const b of byId('modalContent').querySelectorAll('[data-field-region]'))
             b.onclick = () => this.openFieldJournal(b.dataset.fieldRegion);
         for (const b of byId('modalContent').querySelectorAll('[data-field-target]'))
             b.onclick = () => this.setFieldTarget({ zone, id: b.dataset.fieldTarget });
+        const suggest = byId('modalContent').querySelector('#fieldLead');
+        if (suggest && lead)
+            suggest.onclick = () => this.setFieldTarget({ zone, id: lead.id });
         const clear = byId('modalContent').querySelector('#clearFieldTarget');
         if (clear)
             clear.onclick = () => { if (this.clearFieldTarget())
@@ -2958,8 +2966,10 @@ class AzurGame {
                 if (this.stepCounter > .95) {
                     this.stepCounter = 0;
                     if (this.encounterCooldown <= 0 && isWild(this.save.zone, Math.floor(this.save.x), Math.floor(this.save.y))) {
-                        const chance = this.save.zone === 'forest' ? .22 : .12;
-                        if (Math.random() < chance) {
+                        const pacing = wildPacing(this.save.zone, this.save.flags);
+                        // Reset even on a miss. Previously a failed roll retried at every step indefinitely.
+                        this.encounterCooldown = pacing.distance;
+                        if (Math.random() < pacing.chance) {
                             const zone = activeWildBiome(this.save.zone, this.save.flags);
                             const id = drawBiomeWild(zone, Math.random());
                             const level = biomeWildLevel(zone, Math.random());

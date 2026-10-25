@@ -110,9 +110,11 @@ export function nearbyEncounter(encounters, flags, x, y, radius = 1.65) {
  * The existing roamer flag is set by battle resolution; captures choose a new ally over XP.
  * No additional save field is required. Never award for randomly generated battles. */
 export const ROAMER_FIRST_VICTORY_XP = 48;
+/** Late optional chapters must reward their authored witnesses without relying on RNG wild grinding. */
+export const AFTERLIGHT_WITNESS_XP = 112;
 export function firstRoamerVictoryBonus(type, encounterId, flags) {
     return type === 'wild' && typeof encounterId === 'string' && /^(forest|sanctuary|marsh|spire|ossuary|garden)-[0-2]$/.test(encounterId) && !flags.includes('roamer-' + encounterId)
-        ? ROAMER_FIRST_VICTORY_XP : 0;
+        ? /^(ossuary|garden)-/.test(encounterId) ? AFTERLIGHT_WITNESS_XP : ROAMER_FIRST_VICTORY_XP : 0;
 }
 /** First trail victories provide a finite, post-combat respite so exploration
  * does not force an altar detour after every encounter. Never revive fainted
