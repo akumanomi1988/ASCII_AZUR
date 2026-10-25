@@ -67,7 +67,7 @@ class Devtools{
   throw Error('Android Chrome condition timed out: '+script);
  }
  async tap(selector){
-  const p=await this.evaluate('(()=>{const e=document.querySelector('+JSON.stringify(selector)+');if(!e)return null;e.scrollIntoView({block:"nearest"});const r=e.getBoundingClientRect();return r.width&&r.height?{x:r.x+r.width/2,y:r.y+r.height/2,dpr:devicePixelRatio,vh:innerHeight,hit:document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)?.outerHTML?.slice(0,160)}:null})()');
+  const p=await this.evaluate('(()=>{const e=document.querySelector('+JSON.stringify(selector)+');if(!e)return null;if(e.closest("#titleScreen")){document.querySelector("#titleScreen").scrollTop=99999;window.scrollTo(0,0);}else{e.scrollIntoView({block:"nearest"});}const r=e.getBoundingClientRect();return r.width&&r.height?{x:r.x+r.width/2,y:r.y+r.height/2,dpr:devicePixelRatio,vh:innerHeight,hit:document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)?.outerHTML?.slice(0,160)}:null})()');
   if(!p)throw Error('Touch target unavailable: '+selector);
   if(Number(API)<=30){
    // Android 11 Chrome maps CDP touch coordinates incorrectly after window
