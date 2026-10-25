@@ -35,7 +35,7 @@ export function creatureRole(c:Creature):string{
  const sp=SPECIES[c.speciesId];
  if(!sp)return'DESCONOCIDA';
  if(sp.role)return sp.role;
- const known=unlockedMoves(c);
+ const known=c.moves;
  if(known.some(id=>MOVES[id]?.role==='heal'))return'SOPORTE · CURACIÓN';
  if(known.some(id=>MOVES[id]?.role==='drain'))return'HOSTIGADOR · DRENAJE';
  if(known.some(id=>MOVES[id]?.role==='cleanse'))return'SOPORTE · PURIFICACIÓN';
