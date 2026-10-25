@@ -75,18 +75,60 @@ class Devtools{
 }
 let chrome;
 const page='http://127.0.0.1:'+PORT+'/index.html';
-async function startChrome(){adb('shell','am','start','-a','android.intent.action.VIEW','-d',page,'-p','com.android.chrome');}
+async function startChrome(){
+ // A fresh Google Play image opens Chrome's first-run experience by default.
+ // Open Chrome's real Main activity with the official first-run skip intent
+ // before navigating to the project URL via Android's browser intent.
+ try{adb('shell','am','start','-n','com.android.chrome/com.google.android.apps.chrome.Main',
+   '--ez','com.android.chrome.firstrun.skip','true','-d',page);}catch{}
+ adb('shell','am','start','-a','android.intent.action.VIEW','-d',page,'-p','com.android.chrome');
+}
+function chromeDebugSnapshot(){
+ const details={};
+ for(const [key,args] of [
+  ['pid',['shell','pidof','com.android.chrome']],
+  ['activity',['shell','dumpsys','activity','activities']],
+  ['unixSockets',['shell','cat','/proc/net/unix']],
+  ['forward',['forward','--list']],
+  ['uiDump',['shell','uiautomator','dump','/sdcard/azur-ui.xml']],
+  ['ui',['shell','cat','/sdcard/azur-ui.xml']]
+ ]){
+  try{details[key]=adb(...args).slice(0,key==='activity'?2800:8500);}catch(error){details[key]=String(error).slice(0,500);}
+ }
+ evidence('chrome-boot-diagnostic.json',JSON.stringify(details,null,2)+'\n');
+ console.error('ANDROID_CHROME_BOOT_DIAGNOSTICS '+JSON.stringify({
+  pid:details.pid,forward:details.forward,sockets:(details.unixSockets||'').split('\n').filter(x=>/chrome|devtools/i.test(x)).slice(0,12),
+  activity:details.activity?.slice(-850),ui:details.ui?.slice(0,2900)}));
+ return details;
+}
+async function dismissChromeFirstRun(){
+ let last='';
+ for(let attempts=0;attempts<4;attempts++){
+  let dump='';
+  try{adb('shell','uiautomator','dump','/sdcard/azur-ui.xml');dump=adb('shell','cat','/sdcard/azur-ui.xml');}catch{return;}
+  const controls=[...dump.matchAll(/<node\b[^>]*text="([^"]*)"[^>]*bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"/g)];
+  const target=controls.find(m=>/^(Accept &amp; continue|Accept & continue|Use without an account|No thanks|Not now|Skip|Continue|Got it|No, thanks)$/i.test(m[1]));
+  if(!target||last===target[1])return;
+  last=target[1];
+  const x=Math.round((Number(target[2])+Number(target[4]))/2),y=Math.round((Number(target[3])+Number(target[5]))/2);
+  console.log('ANDROID_CHROME_FIRST_RUN '+target[1]+' at '+x+','+y);
+  adb('shell','input','tap',String(x),String(y));await sleep(1100);
+ }
+}
+
 async function connectChrome(){
- const start=Date.now();
- while(Date.now()-start<70000){
+ const start=Date.now();let firstRunChecked=false;
+ while(Date.now()-start<65000){
   try{
    const res=await fetch('http://127.0.0.1:'+DEVTOOLS+'/json',{signal:AbortSignal.timeout(2000)});
    const tabs=await res.json(),pages=tabs.filter(t=>t.type==='page'&&t.webSocketDebuggerUrl);
    const t=pages.find(t=>t.url.includes('127.0.0.1:'+PORT))||pages[0];
    if(t)return Devtools.connect(t.webSocketDebuggerUrl.replace('localhost','127.0.0.1'));
   }catch{}
+  if(!firstRunChecked&&Date.now()-start>9000){firstRunChecked=true;await dismissChromeFirstRun();}
   await sleep(800);
  }
+ chromeDebugSnapshot();
  throw Error('Chrome DevTools not reachable through emulator ADB');
 }
 async function resize(w,h,label){
