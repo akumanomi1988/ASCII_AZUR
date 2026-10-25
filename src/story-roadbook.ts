@@ -3,6 +3,7 @@ import {SPECIES,MOVES,TYPE_ADV,maxHp,type Creature} from './domain.js';
 import {arkenStoryIndex,type ArkenStoryState} from './story-campaign.js';
 import {marshChapterProgress} from './story-marsh.js';
 import {crownProgress} from './story-finale.js';
+import {azurNarrativeBeat} from './story-agency.js';
 
 export interface RoadbookStatus {
  chapter:1|2|3; completed:number;total:19; percentage:number;
@@ -42,7 +43,8 @@ export function campaignRoadbook(story:ArkenStoryState,team:readonly Creature[],
  }
  if(chapter===2&&marsh.stage===3)advice.push(`Testigos de la Marisma: ${marsh.encounters}/3; se aceptan captura o victoria.`);
  if(chapter===3&&crown.stage===3)advice.push(`Centinelas de la Corona: ${crown.witnesses}/3; cada uno cuenta una sola vez.`);
- if(chapter===3&&crown.complete)advice.push('Historia principal completada: la exploración y el Códice siguen abiertos.');
+ if(chapter===3&&crown.complete)advice.push('Historia principal completada. La Vigilia del Osario es completamente opcional.');
+ advice.push('POR QUÉ IMPORTA · '+azurNarrativeBeat(story).stake);
  return {chapter,completed,total:19,percentage:Math.floor(completed/19*100),chapters,objective,stage,advice,
   readyForBattle:boss!==null?alive.length>=2&&highest>=(boss==='hollowhart'?8:14)&&!!counter&&inventory.tonics>=2&&alive.every(c=>c.hp>=maxHp(c)*.6):null,counter};
 }

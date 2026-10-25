@@ -13,10 +13,10 @@ export function marshChapterProgress(flags:readonly string[]){
  const stage=complete?6:choice?5:!f.has('zone-marsh')?0:!f.has('marsh-met-nael')?1:memories<2?2:encounters<3?3:4;
  const scenes=[
   ['El camino del segundo eco','Cruza desde el Santuario a las Marismas','La puerta oriental del Santuario responde tras el juramento de Arken.'],
-  ['La cartógrafa que no recuerda','Habla con Nael en las Marismas','La cartógrafa espera junto al sendero del oeste.'],
+  ['La cartógrafa que teme recordar','Habla con Nael en las Marismas','Nael conserva nombres de personas que nunca nacieron. Espera en el sendero occidental para contarte su dilema.'],
   ['Dos vidas bajo el agua','Recupera la campana y el farol','Busca dos monumentos luminosos entre la niebla y el agua.'],
   ['Tres testigos del pantano','Resuelve los tres encuentros errantes','Vence o captura los tres encuentros marcados en las rutas.'],
-  ['El tribunal del reflejo','Dicta la sentencia del Tribunal','Elige preservar o liberar los nombres perdidos; es irreversible.'],
+  ['El tribunal del reflejo','Dicta la sentencia del Tribunal','Decide si Nael cuidará esos nombres o los dejará descansar. La historia recordará tu decisión; no es solo un premio.'],
   ['La memoria que permanece','Vuelve a Nael para cerrar el capítulo','El epílogo registra tu decisión en el Atlas.'],
   ['Un mapa para el futuro','Capítulo II completado','Los nombres perdidos tienen destino; el viaje continúa.']
  ] as const;
