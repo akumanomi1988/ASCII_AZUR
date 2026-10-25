@@ -1,0 +1,189 @@
+#!/usr/bin/env node
+/**
+ * Actual Android emulator + installed Chrome via ADB and CDP.
+ * Touch is injected into Chrome's input pipeline, never dispatched as DOM events.
+ * These are emulated results, not physical thermals, battery or speaker validation.
+ */
+import {createServer} from 'node:http';
+import {readFileSync,writeFileSync,mkdirSync} from 'node:fs';
+import {resolve,extname} from 'node:path';
+import {execFileSync} from 'node:child_process';
+import {setTimeout as sleep} from 'node:timers/promises';
+const ROOT=process.cwd(),API=process.env.ANDROID_API_LEVEL||'unknown';
+const PORT=18976,DEVTOOLS=19222,OUT=resolve(ROOT,'artifacts/android-emulator',API);
+mkdirSync(OUT,{recursive:true});
+const report={schema:'ascii-azur-android-emulator-v1',api:API,physicalDevice:false,emulatedMeasurements:true,assertions:[],errors:[]};
+function check(ok,label){if(!ok)throw Error(label);report.assertions.push(label);}
+function adb(...args){return execFileSync('adb',args,{timeout:25000,encoding:'utf8'}).trim();}
+function evidence(name,content){writeFileSync(resolve(OUT,name),content);}
+const MIME={'.js':'text/javascript','.css':'text/css','.html':'text/html','.json':'application/json','.svg':'image/svg+xml','.webmanifest':'application/manifest+json'};
+const server=createServer((req,res)=>{
+ try{
+  const url=new URL(req.url,'http://localhost'),file=resolve(ROOT,'.'+decodeURIComponent(url.pathname.replace(/\/$/,'/index.html')));
+  if(!file.startsWith(ROOT+'/')){res.writeHead(403).end();return;}
+  const bytes=readFileSync(file);
+  res.writeHead(200,{'content-type':MIME[extname(file)]||'application/octet-stream','cache-control':'no-store'}).end(bytes);
+ }catch{res.writeHead(404).end();}
+});
+await new Promise((done,fail)=>{server.once('error',fail);server.listen(PORT,'0.0.0.0',done);});
+class Devtools{
+ constructor(ws){
+  this.ws=ws;this.next=0;this.pending=new Map();this.exceptions=[];
+  ws.addEventListener('message',e=>{
+   let msg;try{msg=JSON.parse(e.data);}catch{return;}
+   if(msg.id){const job=this.pending.get(msg.id);if(!job)return;this.pending.delete(msg.id);clearTimeout(job.timeout);
+    if(msg.error)job.reject(Error(JSON.stringify(msg.error)));else job.resolve(msg.result||{});
+   }else if(msg.method==='Runtime.exceptionThrown')this.exceptions.push(msg.params?.exceptionDetails?.text||'JavaScript exception');
+  });
+ }
+ static async connect(url){
+  const ws=new WebSocket(url);
+  await new Promise((done,fail)=>{
+   const t=setTimeout(()=>fail(Error('Chrome WebSocket connection timeout')),15000);
+   ws.addEventListener('open',()=>{clearTimeout(t);done();},{once:true});
+   ws.addEventListener('error',()=>{clearTimeout(t);fail(Error('Chrome WebSocket connection failed'));},{once:true});
+  });
+  const c=new Devtools(ws);await c.send('Runtime.enable');await c.send('Page.enable');return c;
+ }
+ send(method,params={},ms=25000){
+  const id=++this.next;
+  return new Promise((resolve,reject)=>{
+   const timeout=setTimeout(()=>{this.pending.delete(id);reject(Error('Timed out: '+method));},ms);
+   this.pending.set(id,{resolve,reject,timeout});this.ws.send(JSON.stringify({id,method,params}));
+  });
+ }
+ async evaluate(script,ms=25000){
+  const r=await this.send('Runtime.evaluate',{expression:script,returnByValue:true,awaitPromise:true},ms);
+  if(r.exceptionDetails)throw Error('Chrome JS error: '+JSON.stringify(r.exceptionDetails));
+  return r.result?.value;
+ }
+ async until(script,ms=26000){
+  const start=Date.now();
+  while(Date.now()-start<ms){try{if(await this.evaluate(script,3000))return;}catch{}
+   await sleep(250);
+  }
+  throw Error('Android Chrome condition timed out: '+script);
+ }
+ async tap(selector){
+  const p=await this.evaluate('(()=>{const e=document.querySelector('+JSON.stringify(selector)+');if(!e)return null;e.scrollIntoView({block:"nearest"});const r=e.getBoundingClientRect();return r.width&&r.height?{x:r.x+r.width/2,y:r.y+r.height/2}:null})()');
+  if(!p)throw Error('Touch target unavailable: '+selector);
+  await this.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:p.x,y:p.y,id:1}]});
+  await sleep(110);await this.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await sleep(240);
+ }
+ async capture(name){const r=await this.send('Page.captureScreenshot',{format:'png'},20000);evidence(name,Buffer.from(r.data,'base64'));}
+ close(){this.ws.close();}
+}
+let chrome;
+const page='http://127.0.0.1:'+PORT+'/index.html';
+async function startChrome(){adb('shell','am','start','-a','android.intent.action.VIEW','-d',page,'-p','com.android.chrome');}
+async function connectChrome(){
+ const start=Date.now();
+ while(Date.now()-start<70000){
+  try{
+   const res=await fetch('http://127.0.0.1:'+DEVTOOLS+'/json',{signal:AbortSignal.timeout(2000)});
+   const tabs=await res.json(),pages=tabs.filter(t=>t.type==='page'&&t.webSocketDebuggerUrl);
+   const t=pages.find(t=>t.url.includes('127.0.0.1:'+PORT))||pages[0];
+   if(t)return Devtools.connect(t.webSocketDebuggerUrl.replace('localhost','127.0.0.1'));
+  }catch{}
+  await sleep(800);
+ }
+ throw Error('Chrome DevTools not reachable through emulator ADB');
+}
+async function resize(w,h,label){
+ adb('shell','wm','size',w+'x'+h);
+ await sleep(2200);
+ const m=await chrome.evaluate('({width:innerWidth,height:innerHeight,portrait:matchMedia("(orientation:portrait)").matches})');
+ check(label==='portrait'?m.portrait:!m.portrait,'Android OS resized viewport '+label);
+ report[label]=m;
+}
+async function testAudio(){
+ const data=await chrome.evaluate('(async()=>{'+
+  'const {Sound,AUDIO_LIMITS}=await import("./dist/audio.js");'+
+  'const s=new Sound();s.setScene("forest");s.unlock();await new Promise(r=>setTimeout(r,420));const playing=s.diagnostics();'+
+  's.setScene("battle");s.setIntensity(.8);s.hitElement("Éter");'+
+  'for(let i=0;i<160;i++){s.setScene(i%3===0?"boss":i%3===1?"garden":"marsh");s.hitElement(i%2?"Ceniza":"Bruma");}'+
+  'const stress=s.diagnostics();s.setScene("forest");s.pause();await new Promise(r=>setTimeout(r,420));const paused=s.diagnostics();'+
+  's.resume();await new Promise(r=>setTimeout(r,420));const resumed=s.diagnostics();'+
+  's.setEnabled(false);await new Promise(r=>setTimeout(r,420));const muted=s.diagnostics();s.dispose();const disposed=s.diagnostics();'+
+  'return {playing,stress,paused,resumed,muted,disposed,limits:AUDIO_LIMITS};})()',70000);
+ report.audio=data;
+ check(data.playing.contextState==='running'&&data.playing.musicVoices>0,'Android Web Audio graph plays music');
+ check(data.stress.musicVoices<=data.limits.musicVoices&&data.stress.effectVoices<=data.limits.effectVoices,'160 scene changes respect voice budgets');
+ check(data.stress.retiringBuses<=data.limits.retiringBuses,'Scene crossfades respect bus budget');
+ check(data.paused.paused&&!data.paused.scheduling,'Pause shuts down Android music scheduler');
+ check(data.resumed.contextState==='running'&&data.resumed.scheduling,'Resume restarts Android music scheduler');
+ check(!data.muted.scheduling,'Mute suspends scheduler');
+ check(data.disposed.disposed&&!data.disposed.musicVoices&&!data.disposed.effectVoices,'Dispose releases all audio graph voices');
+}
+async function frameProbe(){
+ const perf=await chrome.evaluate('(async()=>{'+
+  'let prev=performance.now();const gaps=[];for(let i=0;i<40;i++){await new Promise(requestAnimationFrame);'+
+  'const now=performance.now();gaps.push(now-prev);prev=now;}const sorted=[...gaps].sort((a,b)=>a-b);'+
+  'return {frames:gaps.length,averageMs:gaps.reduce((a,b)=>a+b,0)/gaps.length,p95Ms:sorted[Math.floor(gaps.length*.95)],'+
+  'hardwareConcurrency:navigator.hardwareConcurrency,deviceMemory:navigator.deviceMemory||null};})()',80000);
+ check(perf.frames===40&&Number.isFinite(perf.p95Ms)&&perf.p95Ms>0,'Emulator frame time measured');
+ report.frameProbe=perf; // Not representative of physical-device fps.
+}
+async function journey(){
+ await chrome.until('document.readyState==="complete"&&!!document.getElementById("newGame")',40000);
+ const ua=await chrome.evaluate('navigator.userAgent');
+ check(ua.includes('Android'),'Native Android Chrome browser running');report.userAgent=ua;
+ await chrome.tap('#newGame');await chrome.until('!!document.querySelector("#starters button")',14000);
+ await chrome.tap('#starters button');
+ for(let i=0;i<15;i++){if(await chrome.evaluate('document.getElementById("dialogue").classList.contains("hidden")'))break;await chrome.tap('#closeDialogue');}
+ check(await chrome.evaluate('document.getElementById("dialogue").classList.contains("hidden")'),'Native touch completes introduction');
+ const initial=await chrome.evaluate('(()=>{const x=JSON.parse(localStorage.getItem("ascii-azur-save-v1"));return {seed:x.worldSeed,team:x.team.length,flags:x.flags.length}})()');
+ check(initial.team===1,'Game saves native Android starter selection');report.initial=initial;
+ const pad=await chrome.evaluate('(()=>{const r=document.getElementById("joystick").getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2,dx:r.width*.25,width:r.width}})()');
+ check(pad.width>=35,'Emulator displays virtual joystick');
+ await chrome.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:pad.x,y:pad.y,id:2}]});
+ await chrome.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:pad.x+pad.dx,y:pad.y,id:2}]});
+ await sleep(450);
+ check((await chrome.evaluate('document.getElementById("joystickKnob").style.transform')).includes('calc('),'Native touch drags joystick');
+ await chrome.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+ check((await chrome.evaluate('document.getElementById("joystickKnob").style.transform')).includes('translate(-50%, -50%)'),'Native joystick touch releases');
+ await chrome.tap('#settings');
+ await chrome.until('!document.getElementById("modal").classList.contains("hidden")');
+ await chrome.tap('#motionReduced');await chrome.tap('#highContrast');
+ check(await chrome.evaluate('document.documentElement.classList.contains("azur-high-contrast")'),'Native touch enables high contrast');
+ await chrome.tap('#closeModal');await chrome.capture('portrait.png');
+ await testAudio();await frameProbe();
+ await resize(960,540,'landscape');await chrome.capture('landscape.png');await resize(540,960,'portrait');
+ adb('shell','input','keyevent','3');await sleep(1700);
+ await startChrome();await sleep(2200);
+ chrome.close();chrome=await connectChrome();await chrome.send('Page.navigate',{url:page});
+ await chrome.until('document.readyState==="complete"&&!!document.getElementById("continue")',40000);
+ check(await chrome.evaluate('!document.getElementById("continue").hidden'),'Android background/foreground retains save');
+ await chrome.tap('#continue');
+ const restored=await chrome.evaluate('(()=>{const x=JSON.parse(localStorage.getItem("ascii-azur-save-v1"));return {seed:x.worldSeed,team:x.team.length,contrast:document.documentElement.classList.contains("azur-high-contrast")}})()');
+ check(restored.seed===initial.seed&&restored.team===initial.team,'Resume preserves same playable v1 save');
+ check(restored.contrast,'Android retains high-contrast preference');
+ report.restored=restored;await chrome.capture('resumed.png');
+ const mem=adb('shell','dumpsys','meminfo','com.android.chrome');evidence('chrome-memory.txt',mem);
+ const total=mem.match(/TOTAL PSS:\s*([0-9,]+)/);report.chromeTotalPssKb=total?Number(total[1].replaceAll(',','')):null;
+ check(chrome.exceptions.length===0,'No uncaught Android Chrome JavaScript exceptions');
+}
+try{
+ const apps=adb('shell','pm','list','packages','com.android.chrome');
+ check(apps.includes('com.android.chrome'),'Android system image provides installed Chrome');
+ report.device=adb('shell','getprop','ro.product.model');
+ report.androidVersion=adb('shell','getprop','ro.build.version.release');
+ report.androidApi=adb('shell','getprop','ro.build.version.sdk');
+ adb('reverse','tcp:'+PORT,'tcp:'+PORT);
+ adb('forward','tcp:'+DEVTOOLS,'localabstract:chrome_devtools_remote');
+ adb('shell','wm','density','240');adb('shell','wm','size','540x960');
+ await startChrome();chrome=await connectChrome();await chrome.send('Page.navigate',{url:page});
+ await resize(540,960,'portrait');await journey();
+ report.status='PASS';console.log('ANDROID_EMULATOR_PASS '+JSON.stringify({api:report.androidApi,assertions:report.assertions.length,frame:report.frameProbe,pss:report.chromeTotalPssKb}));
+}catch(error){
+ report.status='FAIL';report.failure=String(error?.stack||error);
+ console.error('ANDROID_EMULATOR_FAIL '+report.failure);process.exitCode=1;
+ try{evidence('adb-logcat.txt',adb('logcat','-d','-t','350'));}catch{}
+}finally{
+ try{chrome?.close();}catch{}
+ try{adb('shell','wm','size','reset');adb('shell','wm','density','reset');}catch{}
+ try{adb('forward','--remove','tcp:'+DEVTOOLS);}catch{}
+ try{adb('reverse','--remove','tcp:'+PORT);}catch{}
+ evidence('report.json',JSON.stringify(report,null,2)+'\n');
+ server.close();
+}
