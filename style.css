@@ -444,3 +444,20 @@
   }
   #viewport #titleScreen .intro-buttons button { flex: 1 1 0; min-height: 48px; min-width: 0; }
 }
+
+
+/* Smallest Android Chrome screens: the Start controls must be visible BEFORE
+   any document scroll, rather than anchored at a clipped viewport bottom. */
+@media (max-width: 650px), (max-height: 620px) {
+  #viewport #titleScreen .intro-buttons {
+    top: 5px;
+    bottom: auto;
+    left: 6px;
+    right: 6px;
+    padding: 4px;
+  }
+  #viewport #titleScreen .intro-content {
+    padding-top: 86px;
+    padding-bottom: 12px;
+  }
+}
