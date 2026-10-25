@@ -83,3 +83,9 @@ test('invalid tactical species and no usable attack fail closed',()=>{
  assert.equal(p.bestMoveId,null);assert.equal(p.maxDamage,0);
  assert.throws(()=>tacticalProfile({...c,speciesId:'undefined'},enemy));
 });
+
+test('identity never advertises an unlocked but unequipped healing role',()=>{
+ const c=unit('cindrel',14);c.moves=['pulse'];
+ assert.match(creatureRole(c),/ATAQUE/);
+ assert.doesNotMatch(creatureRole(c),/CURACIÓN/);
+});
