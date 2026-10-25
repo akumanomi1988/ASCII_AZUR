@@ -4,6 +4,7 @@ import {ZONES,ZONE_IDS,canOccupy,getWorldRevision,type ZoneId,type Landmark} fro
 import {isDiscovered,reveal} from './discovery.js';
 import {visibleEncounters} from './encounters.js';
 import {afterlightProgress,afterlightFlag} from '../story-afterlight.js';
+import {landmarkFieldHint,witnessFieldHint} from './exploration-flow.js';
 export interface FieldTarget {zone:ZoneId;id:string;}
 export interface FieldObjective {id:string;zone:ZoneId;kind:string;label:string;hint:string;known:boolean;done:boolean;trackable:boolean;x?:number;y?:number;}
 export function validFieldTarget(value:unknown):value is FieldTarget{
@@ -47,11 +48,11 @@ export function regionalObjectives(save:SaveGame,zone:ZoneId):FieldObjective[]{
  const entries:FieldObjective[]=ZONES[zone].landmarks.flatMap((site,index)=>{
   if(site.kind==='portal')return[];
   const done=siteDone(save,zone,site),known=done||seen(site.x,site.y),trackable=known&&unlocked&&(!done||site.kind==='altar'||site.kind==='npc');
-  return [{id:'site:'+index,zone,kind:site.kind,known,done,trackable,label:known?site.label:'Lugar por descubrir',hint:known?kindHint[site.kind]??'Explora este lugar.':'Recorre los caminos para encontrarlo.',...(known?{x:site.x,y:site.y}:{})}];
+  return [{id:'site:'+index,zone,kind:site.kind,known,done,trackable,label:known?site.label:'Lugar por descubrir',hint:known?landmarkFieldHint(zone,site,done):'Recorre los caminos para encontrarlo.',...(known?{x:site.x,y:site.y}:{})}];
  });
  for(const encounter of fieldWitnesses(save,zone)){
   const done=has(save,'roamer-'+encounter.id),known=done||seen(encounter.x,encounter.y);
-  entries.push({id:'witness:'+encounter.id.at(-1),zone,kind:'witness',known,done,trackable:known&&unlocked&&!done,label:known?'Testigo errante '+(Number(encounter.id.at(-1))+1):'Testigo por descubrir',hint:known?'Victoria o captura resuelven este encuentro una sola vez.':'Explora el sendero para encontrar su rastro.',...(known?{x:encounter.x,y:encounter.y}:{})});
+  entries.push({id:'witness:'+encounter.id.at(-1),zone,kind:'witness',known,done,trackable:known&&unlocked&&!done,label:known?'Testigo errante '+(Number(encounter.id.at(-1))+1):'Testigo por descubrir',hint:known?witnessFieldHint(zone,Number(encounter.id.at(-1)),encounter.speciesId,done):'Explora el sendero para encontrar su rastro.',...(known?{x:encounter.x,y:encounter.y}:{})});
  }
  if(zone==='village')entries.push({id:'crypt',zone,kind:'crypt',label:'Cripta de los Ecos',hint:'En Arken: Menú → Cripta explorable. Las bajas de compañeros son permanentes.',known:regionKnown(save,zone),done:!!save.dungeon?.finished,trackable:regionKnown(save,zone)&&!save.dungeon?.finished});
  if(zone==='ossuary'||zone==='garden'){
