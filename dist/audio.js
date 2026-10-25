@@ -67,6 +67,11 @@ export function getThemeSummary(scene) {
     return { bpm: t.bpm, steps: t.melody.length, texture: t.texture };
 }
 export const AUDIO_LIMITS = { musicVoices: 64, effectVoices: 24, retiringBuses: 2, crossfadeSeconds: .65 };
+const AZUR_SIGNAL_PATTERNS = {
+    warning: [{ frequency: 220, duration: .18, gain: .029, delay: 0 }, { frequency: 165, duration: .26, gain: .033, delay: .21 }],
+    victory: [{ frequency: 294, duration: .22, gain: .024, delay: 0 }, { frequency: 370, duration: .22, gain: .025, delay: .15 }, { frequency: 440, duration: .32, gain: .029, delay: .31 }]
+};
+export function scoreSignal(kind) { return AZUR_SIGNAL_PATTERNS[kind].map(n => ({ ...n })); }
 const unitLevel = (value, fallback = 0) => Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : fallback;
 /** Audio-time scheduling and resource ownership stay independent of rendering FPS. */
 export class Sound {
@@ -496,6 +501,10 @@ export class Sound {
                 break;
         }
     }
+    warning() { for (const note of scoreSignal('warning'))
+        this.tone(note.frequency, note.duration, 'triangle', note.gain, note.delay); }
+    victory() { for (const note of scoreSignal('victory'))
+        this.tone(note.frequency, note.duration, 'sine', note.gain, note.delay); }
     evolve() { for (let i = 0; i < 7; i++)
         this.tone(262 * Math.pow(2, i * 2 / 12), .31, 'sine', .025, i * .18); }
     pick() { this.tone(430, .10, 'sine', .04); this.tone(620, .14, 'sine', .035, .09); this.tone(820, .16, 'sine', .035, .18); }

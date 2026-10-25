@@ -1,5 +1,6 @@
 import { azurOpening, azurNarrativeBeat, azurNpcReflection, azurMarshChoiceMeaning, azurCrownChoiceMeaning, azurBondLegacy, azurAfterlightIntroduction } from './story-agency.js';
 import { regionFieldGuide, nextKnownFieldLead, wildPacing, witnessFieldAftermath } from './world/exploration-flow.js';
+import { battleReadout } from './combat/battle-readout.js';
 import { tacticalProfile, teamGuide, loadoutUpgrade, relicUpgrade, recruitmentValue, storyThreat, creatureRole } from './creatures/tactical-identity.js';
 import { regionalSurvey, regionalObjectives, regionKnown, regionUnlocked, resolveFieldTarget, planFieldTarget, planSurveyClaim, planLumbreTravel, travelRefusal, nextFieldPortal, afterlightOverview } from './world/field-journal.js';
 import { individualRange, ATTRIBUTE_KEYS } from './creatures/attributes.js';
@@ -1079,10 +1080,14 @@ class AzurGame {
         byId('allyHealth').style.width = Math.max(0, ally.hp / maxHp(ally) * 100) + '%';
         this.updateHealthMeter('allyHealthTrack', as.name, ally.hp, maxHp(ally));
         byId('battleLog').textContent = b.log;
+        const threat = battleReadout({ boss: b.type === 'boss', bossPhase: b.bossPhase, chargeStage: b.chargeStage, guarding: b.guarding, hp: ally.hp, maxHp: maxHp(ally), enemyHp: b.enemy.hp, enemyMaxHp: maxHp(b.enemy), busy: b.busy, pending: b.pending, statuses: this.statuses(ally).map(s => statusLabel([s])), enemyStatuses: this.statuses(b.enemy).map(s => statusLabel([s])) });
+        const threatNode = byId('battleThreat');
+        threatNode.dataset.severity = threat.severity;
+        threatNode.textContent = threat.title + ' · ' + threat.detail;
         const suggestion = suggestBattleAction(ally, b.enemy, this.statuses(ally), this.statuses(b.enemy), this.save.inventory.tonics, b.chargeStage, b.bossPhase, recoveryCastsLeft(b.recoveryUses, ally.uid));
         byId('battleAdvice').textContent = b.busy ? '' : `${suggestion.kind === 'move' ? MOVES[suggestion.moveId]?.name : suggestion.kind === 'guard' ? 'GUARDIA' : 'TÓNICO'} · ${suggestion.reason}`;
         this.sound.setIntensity(Math.max(b.type === 'boss' ? .65 : .30, 1 - ally.hp / maxHp(ally), b.type === 'boss' && b.bossPhase === 2 ? 1 : 0));
-        this.announceAccessibility(`Combate contra ${es.name}. Enemigo ${b.enemy.hp} de ${maxHp(b.enemy)} puntos de vida. ${as.name} ${ally.hp} de ${maxHp(ally)} puntos de vida. ${b.log}`);
+        this.announceAccessibility(`Combate contra ${es.name}. Enemigo ${b.enemy.hp} de ${maxHp(b.enemy)} puntos de vida. ${as.name} ${ally.hp} de ${maxHp(ally)} puntos de vida. ${threat.aria} ${b.log}`);
         const actions = byId('battleActions');
         const mode = b.selecting ? 'party' : this.battleMenu;
         const previousAction = actions.dataset.menu === mode ? Array.from(actions.querySelectorAll('button')).indexOf(document.activeElement) : -1;
@@ -1095,7 +1100,8 @@ class AzurGame {
         const restoreActionFocus = () => { if (b.busy || !this.battleKeyboardFocus)
             return; const buttons = Array.from(actions.querySelectorAll('button:not([disabled])')); buttons[Math.min(this.selectedBattleAction, buttons.length - 1)]?.focus(); this.battleKeyboardFocus = false; };
         const add = (name, func, special = false, disabled = false, detail = '', preview) => { const button = document.createElement('button'); button.dataset.battleCell = String(actions.children.length); button.textContent = name; button.disabled = b.busy || disabled; if (special)
-            button.classList.add('special'); if (detail) {
+            button.classList.add('special'); if (threat.guardRecommended && name.includes('GUARDIA'))
+            button.classList.add('recommended-defense'); if (detail) {
             button.title = detail;
             if (!preview)
                 button.setAttribute('aria-label', `${name}. ${detail}`);
@@ -1258,6 +1264,7 @@ class AzurGame {
             b.chargeStage = 2;
             b.busy = false;
             b.log = `¡${SPECIES[b.enemy.speciesId].name.toUpperCase()} ACUMULA EL SILENCIO! Su próximo ECLIPSE de Éter será devastador. Usa GUARDIA.`;
+            this.sound.warning();
             this.setCombatCue('guard', 'enemy', 'Éter');
             this.refreshBattle();
             return;
@@ -1333,6 +1340,8 @@ class AzurGame {
         const supporters = awards.filter(a => !a.active);
         const originalName = SPECIES[b.enemy.speciesId].name;
         this.finishBattle();
+        if (b.type === 'boss')
+            this.sound.victory();
         if (b.encounterId)
             this.addFlag('roamer-' + b.encounterId);
         const trailReport = b.encounterId ? witnessFieldAftermath(this.save.zone, b.encounterId, this.save.flags) : null;
@@ -1514,7 +1523,7 @@ class AzurGame {
         this.expeditionMessage = `La expedición terminó en derrota. Recuperaste ${consolation.echoes} Ecos.`;
         delete this.save.expedition;
     } this.finishBattle(); this.save.zone = 'village'; this.cameraZone = ''; this.sound.setScene('village'); this.save.x = 15; this.save.y = 14; this.lastReveal = -1; this.revealPosition(); this.save.team.forEach(c => c.hp = maxHp(c)); this.encounterCooldown = 6; this.sound.portal(); this.dialog([{ title: 'Regresas a la Lumbre', text: 'La oscuridad te ha vencido, pero tus vínculos no se han roto. Descansas y recuperas fuerzas en Velo de Arken.' }]); this.saveNow(false); this.updateUI(); }
-    finishBattle() { this.battleMenu = 'commands'; this.sound.setScene(themeForZone(this.save.zone)); delete this.save.activeBattle; this.battle = null; this.combatCue = null; byId('battle').classList.add('hidden'); byId('viewport').classList.remove('in-battle'); this.encounterCooldown = 7; }
+    finishBattle() { this.battleMenu = 'commands'; this.sound.setScene(themeForZone(this.save.zone)); delete this.save.activeBattle; this.battle = null; this.combatCue = null; byId('battleThreat').textContent = ''; byId('battleThreat').dataset.severity = 'normal'; byId('battle').classList.add('hidden'); byId('viewport').classList.remove('in-battle'); this.encounterCooldown = 7; }
     interactNpc(id) {
         const e = this.economy;
         if (!e.visitedNpcs.includes(id))
