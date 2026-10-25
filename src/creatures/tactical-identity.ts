@@ -19,7 +19,6 @@ export interface TacticalProfile {
 export interface TacticalUpgrade {moveId:string;currentMax:number;candidateMax:number;reason:string;}
 export interface TacticalRelic {id:RelicId;damageGain:number;incomingReduction:number;reason:string;}
 export interface TacticalTeamGuide {members:TacticalProfile[];recommended:string|null;missingCounter:boolean;notice:string;}
-const EMPTY:readonly string[]=[];
 function offensive(c:Creature,enemy:Creature,id:string,flags:readonly string[]){
  const move=MOVES[id];
  if(!move||move.power<=0)return null;
