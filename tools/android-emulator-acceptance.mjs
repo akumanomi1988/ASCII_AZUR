@@ -28,12 +28,13 @@ const server=createServer((req,res)=>{
 await new Promise((done,fail)=>{server.once('error',fail);server.listen(PORT,'0.0.0.0',done);});
 class Devtools{
  constructor(ws){
-  this.ws=ws;this.next=0;this.pending=new Map();this.exceptions=[];
+  this.ws=ws;this.next=0;this.pending=new Map();this.exceptions=[];this.networkFailures=[];
   ws.addEventListener('message',e=>{
    let msg;try{msg=JSON.parse(e.data);}catch{return;}
    if(msg.id){const job=this.pending.get(msg.id);if(!job)return;this.pending.delete(msg.id);clearTimeout(job.timeout);
     if(msg.error)job.reject(Error(JSON.stringify(msg.error)));else job.resolve(msg.result||{});
    }else if(msg.method==='Runtime.exceptionThrown')this.exceptions.push(msg.params?.exceptionDetails?.text||'JavaScript exception');
+   else if(msg.method==='Network.loadingFailed')this.networkFailures.push(msg.params?.errorText||'Network failure');
   });
  }
  static async connect(url){
@@ -43,7 +44,8 @@ class Devtools{
    ws.addEventListener('open',()=>{clearTimeout(t);done();},{once:true});
    ws.addEventListener('error',()=>{clearTimeout(t);fail(Error('Chrome WebSocket connection failed'));},{once:true});
   });
-  const c=new Devtools(ws);await c.send('Runtime.enable');await c.send('Page.enable');
+  const c=new Devtools(ws);await c.send('Runtime.enable');await c.send('Page.enable');await c.send('Network.enable');
+  await c.send('Page.addScriptToEvaluateOnNewDocument',{source:'window.__azurEarlyErrors=[];window.addEventListener("error",e=>window.__azurEarlyErrors.push(String(e.message||e.error)));window.addEventListener("unhandledrejection",e=>window.__azurEarlyErrors.push(String(e.reason)));'});
   try{await c.send('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:5});}catch{}
   return c;
  }
@@ -200,10 +202,11 @@ async function journey(){
  try{await chrome.until('!!document.querySelector("#starters button")',16000);}
  catch(error){
   const state=await chrome.evaluate('({title:document.getElementById("titleScreen")?.className,starter:document.getElementById("starterScreen")?.className,touches:window.__azurQaTouches,modal:document.getElementById("modal")?.className,body:document.body.innerText.slice(0,400)})');
-  console.log('ANDROID_STARTER_DEBUG '+JSON.stringify(state));
+  const extra=await chrome.evaluate('({ua:navigator.userAgent,ready:document.readyState,early:window.__azurEarlyErrors||[],imports:performance.getEntriesByType("resource").filter(x=>x.name.includes("/dist/")).map(x=>({url:x.name.split("/").pop(),size:x.transferSize,duration:x.duration})).slice(0,20),script:document.querySelector("script[type=module]")?.outerHTML,starter:document.querySelector("#starterScreen")?.outerHTML.slice(0,250)})');
+  console.log('ANDROID_STARTER_DEBUG '+JSON.stringify({state,extra,exceptions:chrome.exceptions,networkFailures:chrome.networkFailures}));
   await chrome.capture('debug-before-start.png');
   await chrome.tap('#newGame');
-  await chrome.until('!!document.querySelector("#starters button")',23000);
+  await chrome.until('!!document.querySelector("#starters button")',15000);
  }
 
  await chrome.tap('#starters button');
