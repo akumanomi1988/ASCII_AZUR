@@ -122,7 +122,7 @@ export function runCampaign({starter,seed,marsh='keep',ending='remember',policy=
   const visitNpc=id=>{game.interactLandmark(site('npc',id));settle();};
   const heal=()=>{settle();prepareBuild();game.interactLandmark(site('altar'));heals++;if(game.modalOpen&&typeof dom.get('bondWard').onclick==='function'){dom.get('bondWard').onclick();settle();}};
   const portal=x=>{settle();const p=world.ZONES[game.save.zone].landmarks.find(l=>l.kind==='portal'&&(x<10?l.x<10:l.x>20));assert.ok(p);approach(p);game.interactLandmark(p);settle();};
-  const witness=e=>{approach({...e,label:e.id});game.interact();assert.equal(game.battle?.enemy.speciesId,e.speciesId,'visible roaming encounter skipped');doBattle(game.save.team.length<3);assert.ok(game.save.flags.includes('roamer-'+e.id),'witness not resolved');};
+  const witness=e=>{approach({...e,label:e.id});game.interact();assert.equal(game.battle?.enemy.speciesId,e.speciesId,'visible roaming encounter skipped');doBattle(game.save.team.length<3);assert.ok(game.save.flags.includes('roamer-'+e.id),'witness not resolved '+JSON.stringify({starter,seed,zone:game.save.zone,id:e.id,policy,team:game.save.team.map(c=>({species:c.speciesId,level:c.level,hp:c.hp})),losses:game.save.journey.counters.losses,battles}));};
   settle();visitNpc('archivist');
   if(policy==='tactical'){
    game.interactNpc('merchant');settle();game.openShop();
