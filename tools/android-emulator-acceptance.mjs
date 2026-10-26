@@ -36,6 +36,12 @@ class Devtools{
    }else if(msg.method==='Runtime.exceptionThrown')this.exceptions.push(msg.params?.exceptionDetails?.text||'JavaScript exception');
    else if(msg.method==='Network.loadingFailed')this.networkFailures.push(msg.params?.errorText||'Network failure');
   });
+  const failPending=(event)=>{
+   for(const [id,job] of this.pending){clearTimeout(job.timeout);job.reject(Error('Chrome CDP socket '+event+' while awaiting '+id));}
+   this.pending.clear();
+  };
+  ws.addEventListener('close',()=>failPending('closed'));
+  ws.addEventListener('error',()=>failPending('error'));
  }
  static async connect(url){
   const ws=new WebSocket(url);
@@ -52,7 +58,11 @@ class Devtools{
  send(method,params={},ms=25000){
   const id=++this.next;
   return new Promise((resolve,reject)=>{
-   const timeout=setTimeout(()=>{this.pending.delete(id);reject(Error('Timed out: '+method));},ms);
+   const timeout=setTimeout(()=>{
+    this.pending.delete(id);
+    console.error('ANDROID_CDP_TIMEOUT '+JSON.stringify({api:API,method,id,ms,socketState:this.ws.readyState,pending:this.pending.size,expression:method==='Runtime.evaluate'?String(params.expression||'').slice(0,200):undefined}));
+    reject(Error('Timed out: '+method+' (socket '+this.ws.readyState+', id '+id+')'));
+   },ms);
    this.pending.set(id,{resolve,reject,timeout});this.ws.send(JSON.stringify({id,method,params}));
   });
  }
@@ -69,11 +79,14 @@ class Devtools{
   throw Error('Android Chrome condition timed out: '+script);
  }
  async tap(selector){
+  console.log('ANDROID_TOUCH_BEGIN '+selector);
   const p=await this.evaluate('(()=>{const e=document.querySelector('+JSON.stringify(selector)+');if(!e)return null;if(e.closest("#titleScreen")){document.querySelector("#titleScreen").scrollTop=99999;window.scrollTo(0,0);}else if(e.closest("#joystick")){window.scrollTo(0,0);}else{e.scrollIntoView({block:"nearest"});}const r=e.getBoundingClientRect();return r.width&&r.height?{x:r.x+r.width/2,y:r.y+r.height/2,dpr:devicePixelRatio,vh:innerHeight,hit:document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)?.outerHTML?.slice(0,160)}:null})()');
   if(!p)throw Error('Touch target unavailable: '+selector);
+  console.log('ANDROID_TOUCH_GEOMETRY '+JSON.stringify({selector,p}));
   if(Number(API)<=30){
    // Android 11 Chrome maps CDP touch coordinates incorrectly after window
    // metric overrides. Drive the actual OS touch pipeline with adb input tap.
+   console.log('ANDROID_TOUCH_INSTALL_PROBE '+selector);
    await this.evaluate('(()=>{window.__azurNativeTapSelector='+JSON.stringify(selector)+';window.__azurNativeTapHit=false;if(!window.__azurNativeTapInstalled){document.addEventListener("pointerdown",e=>{if(e.target.closest(window.__azurNativeTapSelector))window.__azurNativeTapHit=true},true);window.__azurNativeTapInstalled=true;}})()');
    const size=adb('shell','wm','size');
    const match=size.match(/Override size:\s*(\d+)x(\d+)/)||size.match(/Physical size:\s*(\d+)x(\d+)/);
@@ -84,11 +97,13 @@ class Devtools{
    for(const offset of [...new Set(offsets.map(Math.round))]){
     const x=Math.round(p.x*p.dpr),y=Math.round(p.y*p.dpr+offset);
     if(y<10||y>=screenHeight-10)continue;
+    console.log('ANDROID_TOUCH_OS_TAP '+JSON.stringify({selector,x,y,offset}));
     adb('shell','input','tap',String(x),String(y));
     await sleep(280);
     if(await this.evaluate('window.__azurNativeTapHit===true')){matched=true;this.lastAndroidTapOffset=offset;report.androidNativeOsTaps=(report.androidNativeOsTaps||0)+1;break;}
    }
    if(!matched)throw Error('Android OS tap missed '+selector+'; probe='+JSON.stringify({p,screenHeight,extra}));
+   console.log('ANDROID_TOUCH_OS_MATCH '+JSON.stringify({selector,offset:this.lastAndroidTapOffset}));
   }else{
    await this.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:p.x,y:p.y,id:1}]});
    await sleep(110);await this.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
@@ -293,6 +308,13 @@ try{
  report.status='FAIL';report.failure=String(error?.stack||error);
  console.error('ANDROID_EMULATOR_FAIL '+report.failure);process.exitCode=1;
  try{evidence('adb-logcat.txt',adb('logcat','-d','-t','350'));}catch{}
+ try{evidence('failure-adb.png',execFileSync('adb',['exec-out','screencap','-p'],{timeout:20000,maxBuffer:12*1024*1024}));}catch{}
+ for(const [name,args] of [
+  ['chrome-memory-failure.txt',['shell','dumpsys','meminfo','com.android.chrome']],
+  ['chrome-gfx-failure.txt',['shell','dumpsys','gfxinfo','com.android.chrome','framestats']],
+  ['chrome-window-failure.txt',['shell','dumpsys','window','windows']]
+ ]){try{evidence(name,adb(...args).slice(0,200000));}catch{}}
+ console.error('ANDROID_DIAGNOSTICS_RETAINED: OS screenshot, Chrome memory/gfx/window, logcat when accessible');
 }finally{
  try{chrome?.close();}catch{}
  try{adb('shell','wm','size','reset');adb('shell','wm','density','reset');}catch{}
