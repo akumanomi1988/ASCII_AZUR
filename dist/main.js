@@ -1,6 +1,7 @@
 import { azurOpening, azurNarrativeBeat, azurNpcReflection, azurMarshChoiceMeaning, azurCrownChoiceMeaning, azurBondLegacy, azurAfterlightIntroduction } from './story-agency.js';
 import { legacyBranch, legacyClaimed, legacyReceipt, planLegacyClaim } from './story-legacy.js';
 import { regionFieldGuide, nextKnownFieldLead, wildPacing, witnessFieldAftermath } from './world/exploration-flow.js';
+import { fieldHuntBoard, fieldHuntPermission } from './creatures/field-hunts.js';
 import { fieldTrail, fieldTrailRewardName, planFieldTrailClaim, trailClaimRefusal } from './world/pilgrim-trails.js';
 import { battleReadout } from './combat/battle-readout.js';
 import { tacticalProfile, teamGuide, loadoutUpgrade, relicUpgrade, recruitmentValue, storyThreat, creatureRole } from './creatures/tactical-identity.js';
@@ -13,7 +14,7 @@ import { suggestBattleAction } from './combat/planning.js';
 import { AsciiRenderer, drawWorld, drawBattle, drawEvolution } from './render.js';
 import { navigateMenuKey, navigateBattleMenuKey, focusMenuFirst, isTypingTarget, menuButtons } from './ui/menu-navigation.js';
 import { DEFAULT_GRAPHICS, glyphCell, canvasGlyphCell, glyphCount } from './render/graphics-profile.js';
-import { visibleEncounters, nearbyEncounter, firstRoamerVictoryBonus, recoverTrailParty, BIOME_DUEL_SPECIES, activeWildBiome, drawBiomeWild, biomeDuelLevel, biomeWildLevel, VILLAGE_TRAINING_XP, VILLAGE_TRAINING_REWARD_FLAG, villageTrainingBonus, villageTrainingProgress } from './world/encounters.js';
+import { visibleEncounters, nearbyEncounter, firstRoamerVictoryBonus, recoverTrailParty, activeWildBiome, drawBiomeWild, biomeWildLevel, VILLAGE_TRAINING_XP, VILLAGE_TRAINING_REWARD_FLAG, villageTrainingBonus, villageTrainingProgress } from './world/encounters.js';
 import { drawDungeon } from './dungeons/draw-dungeon.js';
 import { chamberAt, chamberProgress } from './dungeons/room-art.js';
 import { generateDungeon, nearbyDungeonEvent, completeDungeonEvent, dungeonGateOpen, revealDungeon, dungeonSweep } from './dungeons/labyrinth.js';
@@ -1929,15 +1930,56 @@ class AzurGame {
         exit.onclick = () => this.abandonExpedition();
     }
     /** Spatial roguelite prototype: a real maze, not a route-selection overlay. */
+    /** Intentional capture preparation, with the same combat and economy as roaming wilds. */
     openDuel() {
-        if (!this.started || this.battle || this.dialogOpen || this.save.dungeon?.active)
+        if (!this.started || this.battle || this.dialogOpen || this.evolution)
             return;
-        const region = this.save.zone;
-        const group = [...BIOME_DUEL_SPECIES[region]];
+        const board = fieldHuntBoard(this.save);
+        if (!board)
+            return;
         const lessons = villageTrainingProgress(this.save.flags);
-        this.showModal('COMBATE DIRECTO', `<div class="modal-content-block">Desafía a una criatura salvaje. Puedes combatir, capturarla o huir. Los retos directos no alteran los guardianes ni la historia.${region === 'village' ? ` CIRCUITO DE IRIA: ${lessons.completed}/3 lecciones; la primera victoria por especie concede +${VILLAGE_TRAINING_XP} EXP adicional y, al completar las tres, Iria entrega dos Tónicos.` : ''}</div>${group.map((speciesId, i) => `<div class="modal-option"><div><strong>${htmlEscape(SPECIES[speciesId].name)}</strong><small>NIVEL ${biomeDuelLevel(region, i)} · ${htmlEscape(SPECIES[speciesId].element)}</small>${region === 'village' ? `<small>${this.flag('training-' + speciesId) ? '✓ LECCIÓN APRENDIDA' : `PRIMERA VICTORIA +${VILLAGE_TRAINING_XP} EXP`}</small>` : ''}</div><button data-duel="${speciesId}">COMBATIR</button></div>`).join('')}`);
-        for (const button of byId('modalContent').querySelectorAll('[data-duel]'))
-            button.onclick = () => { const id = button.dataset.duel; const level = biomeDuelLevel(region, group.indexOf(id)); this.hideModal(); this.startBattle(id, level, 'wild'); };
+        const notice = board.transition
+            ? '<p>FAUNA EN TRÁNSITO · Antes de cerrar este capítulo, los desafíos usan especies conocidas del Santuario. Los habitantes propios de esta región aparecerán después. Los testigos narrativos siguen disponibles.</p>'
+            : '<p>FAUNA REGIONAL · Tres desafíos voluntarios. Los encuentros reales continúan también en caminos y rutas narrativas.</p>';
+        const entries = board.entries.map(entry => `<div class="modal-option"><div><strong>${htmlEscape(entry.name)} · NIVEL ${entry.level}</strong><small>${htmlEscape(entry.element)} · ${htmlEscape(entry.role)}</small><small>${entry.status === 'bonded' ? '✓ VINCULADA' : entry.status === 'seen' ? 'AVISTADA' : 'NUEVA ESPECIE'} · ${htmlEscape(entry.recruitment)}</small><small>CONTRAATAQUE: ${htmlEscape(entry.counterElement)} · ${entry.bestLeadName ? 'EQUIPO: ' + htmlEscape(entry.bestLeadName) : 'SIN ALIADO DISPONIBLE'}</small>${board.zone === 'village' ? `<small>${this.flag('training-' + entry.id) ? '✓ LECCIÓN APRENDIDA' : 'PRIMERA VICTORIA +' + VILLAGE_TRAINING_XP + ' EXP'}</small>` : ''}</div><button data-hunt="${entry.id}" ${board.available ? '' : 'disabled'}>PREPARAR</button></div>`).join('');
+        this.showModal('RASTREO DE VÍNCULOS', `<div class="modal-content-block"><strong>CAMINO DEL CAZADOR · ${board.bonded}/${board.total} ESPECIES</strong>${notice}<p>${board.nextTier ? 'PRÓXIMA INVESTIGACIÓN · ' + htmlEscape(board.nextTier) : 'INVESTIGACIÓN COMPLETA O RECOMPENSAS ENTREGADAS'}</p><p>Sellos: ${board.seals} · ${board.captureRoom ? 'CAPACIDAD PARA NUEVOS VÍNCULOS' : 'EQUIPO Y RESERVA COMPLETOS'} · Combatir y huir usan las reglas habituales. Debilita al objetivo para capturarlo.</p>${board.zone === 'village' ? ' <p>LECCIONES DE IRIA · ' + lessons.completed + '/3 · La primera victoria por especie concede EXP adicional y las tres lecciones dos Tónicos.</p>' : ''}<button id="huntCodex">ABRIR CÓDICE DE INVESTIGACIÓN</button></div>` + entries);
+        for (const button of byId('modalContent').querySelectorAll('[data-hunt]'))
+            button.onclick = () => this.prepareFieldDuel(button.dataset.hunt);
+        const codex = byId('modalContent').querySelector('#huntCodex');
+        if (codex)
+            codex.onclick = () => this.openCodex();
+    }
+    /** The player explicitly chooses a viable front-line creature before a wild hunt. */
+    prepareFieldDuel(speciesId) {
+        if (!this.started || this.battle || this.dialogOpen || this.evolution)
+            return false;
+        const board = fieldHuntBoard(this.save), entry = board?.entries.find(e => e.id === speciesId);
+        if (!entry || !board?.available)
+            return false;
+        const enemy = createCreature(entry.id, entry.level, () => 0.5);
+        const squad = teamGuide(this.save.team, enemy, this.save.flags);
+        const options = this.save.team.map(c => c.hp > 0 ?
+            `<option value="${htmlEscape(c.uid)}" ${c.uid === entry.bestLeadUid ? 'selected' : ''}>${htmlEscape(SPECIES[c.speciesId].name)} · NV ${c.level} · ${c.hp}/${maxHp(c)} PS</option>` : '').join('');
+        this.showModal('DESAFÍO · ' + entry.name.toUpperCase(), `<div class="modal-content-block"><strong>PREPARACIÓN TÁCTICA · ${htmlEscape(entry.name)}</strong><p>${htmlEscape(entry.role)} · NV ${entry.level} · ${htmlEscape(entry.element)}. Afinidad eficaz: ${htmlEscape(entry.counterElement)}.</p><p>${htmlEscape(entry.recruitment)}</p><p>${htmlEscape(squad.notice)}</p>${squad.members.map(m => `<p>${htmlEscape(m.name)} · ${htmlEscape(m.summary)}</p>`).join('')}<p>Capturar requiere un Sello y espacio en Equipo o Reserva. Te quedan ${board.seals} Sellos. Los enemigos heridos son más fáciles de capturar. Puedes retirarte sin gastar recursos.</p><label for="huntLeadSelect">CRIATURA QUE ABRE EL DESAFÍO</label><select id="huntLeadSelect" aria-label="Elegir criatura inicial para el desafío">${options}</select><div class="guardian-options"><button id="huntProceed">ENFRENTARSE</button><button id="huntRetreat">SEGUIR EXPLORANDO</button></div></div>`);
+        if (!this.modalOpen)
+            return false;
+        byId('huntProceed').onclick = () => this.launchFieldDuel(speciesId, byId('huntLeadSelect').value);
+        byId('huntRetreat').onclick = () => this.openDuel();
+        this.modalBack = () => this.openDuel();
+        return true;
+    }
+    launchFieldDuel(speciesId, leaderUid) {
+        if (!this.started || this.battle || this.dialogOpen || this.evolution)
+            return false;
+        const challenge = fieldHuntPermission(this.save, speciesId, leaderUid);
+        if (!challenge)
+            return false;
+        const index = this.save.team.findIndex(c => c.uid === leaderUid && c.hp > 0);
+        if (index < 0)
+            return false;
+        this.hideModal();
+        this.startBattle(speciesId, challenge.level, 'wild', undefined, index);
+        return !!this.battle;
     }
     openDungeonMenu() {
         if (!this.started || this.battle || this.evolution || this.dialogOpen)
@@ -2260,7 +2302,7 @@ class AzurGame {
         const knownZones = ZONE_IDS.filter(zone => regionKnown(this.save, zone) && regionUnlocked(this.save, zone));
         const lead = nextResearchLead(research, this.save.flags, knownZones, this.save.zone, enemy ? SPECIES[enemy.speciesId].element : undefined);
         const leadPanel = lead
-            ? '<div class="modal-content-block"><strong>PRÓXIMO VÍNCULO · ' + htmlEscape(lead.name.toUpperCase()) + '</strong><p>HÁBITAT · ' + htmlEscape(ZONES[lead.zone].name) + ' · ' + htmlEscape(lead.reason) + '</p><p>Combate en la región conocida y debilita a esta especie salvaje antes de intentar vincularla. Lleva Sellos y prepara un lugar en Vínculos o la reserva.</p><button id="researchRoute">ABRIR DIARIO DE CAMPO</button></div>'
+            ? '<div class="modal-content-block"><strong>PRÓXIMO VÍNCULO · ' + htmlEscape(lead.name.toUpperCase()) + '</strong><p>HÁBITAT · ' + htmlEscape(ZONES[lead.zone].name) + ' · ' + htmlEscape(lead.reason) + '</p><p>Combate en la región conocida y debilita a esta especie salvaje antes de intentar vincularla. Lleva Sellos y prepara un lugar en Vínculos o la reserva.</p><button id="researchRoute">ABRIR DIARIO DE CAMPO</button>' + (lead.zone === this.save.zone && fieldHuntBoard(this.save)?.entries.some(e => e.id === lead.id) ? '<button id="researchHunt">PREPARAR CAPTURA DIRECTA</button>' : '') + '</div>'
             : '<div class="modal-content-block"><strong>SIGUIENTE INVESTIGACIÓN</strong><p>Encuentra criaturas salvajes para registrar avistamientos. Solo se recomienda una especie que ya conozcas y cuyo hábitat esté desbloqueado.</p></div>';
         const stages = RESEARCH_TIERS.map(tier => {
             const completed = this.save.flags.includes(RESEARCH_REWARD_PREFIX + tier.id);
@@ -2290,6 +2332,9 @@ class AzurGame {
         const route = byId('modalContent').querySelector('#researchRoute');
         if (route && lead)
             route.onclick = () => this.openFieldJournal(lead.zone);
+        const hunt = byId('modalContent').querySelector('#researchHunt');
+        if (hunt && lead)
+            hunt.onclick = () => this.prepareFieldDuel(lead.id);
     }
     claimResearch(id) {
         const previous = { flags: [...this.save.flags], inventory: { ...this.save.inventory }, echoes: this.economy.echoes, relics: this.save.relics ? { ...this.save.relics } : undefined };
