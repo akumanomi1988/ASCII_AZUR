@@ -1,4 +1,7 @@
-# ASCII AZUR v0.64.0 — The Unwritten
+# ASCII AZUR v0.65.0 — The Unwritten
+
+> **v0.65 — Living trilogy consequences:** each complete Marsh × Crown ending can be witnessed at Arken's physical Archivist as an optional, permanent story closure with four different tactical relic outcomes. A fog-safe diary lead, persistent Chronicle closure, live NPC scenes and CAS-safe one-time reward join the established save-v1 world. See docs/RELEASE_v0.65.0.md.
+
 
 > **v0.64 — Collection with tactical purpose:** four finite collection tiers now reward equippable combat relics. The Codex recommends known uncaught creatures in accessible habitats and opens the field journal. Save-v1 compatibility and cache-safe offline updates are preserved. See docs/RELEASE_v0.64.0.md.
 
