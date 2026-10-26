@@ -75,7 +75,7 @@ test('real game briefing, leader choice and wild battle use existing combat and 
  const {game,dom,storage}=mount({virtualTime:true,seed:541});
  game.startNew();game.pickStarter('cindrel');while(game.dialogOpen)game.nextDialog();
  game.openDuel();
- assert.match(dom.get('modalContent').innerHTML,/RASTREO DE VÍNCULOS/);
+ assert.match(dom.get('modalContent').innerHTML,/CAMINO DEL CAZADOR/);
  assert.match(dom.get('modalContent').innerHTML,/LECCIONES|LECCIÓN/);
  assert.equal(game.prepareFieldDuel('hollowhart'),false);
  assert.equal(game.prepareFieldDuel('mireling'),true);
