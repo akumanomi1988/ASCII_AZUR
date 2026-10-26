@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createCreature,validateSave} from '../dist/domain.js';
 import {BIOME_DUEL_SPECIES,BIOME_WILD_SPECIES} from '../dist/world/encounters.js';
-import {RESEARCH_TIERS,RESEARCH_REWARD_PREFIX,recordSpeciesResearch,researchCatalogue,claimResearchTier} from '../dist/creatures/field-research.js';
+import {RESEARCH_TIERS,RESEARCH_REWARD_PREFIX,recordSpeciesResearch,researchCatalogue,nextResearchLead,claimResearchTier} from '../dist/creatures/field-research.js';
 
 function creature(id){return createCreature(id,12,()=>.42)}
 const capturable=['cindrel','cinderwulf','velaria','thorne','wispawn','gravemoth','mireling','runeowl','ashboar','rillfin','briarling','mourveil','mnemoshade','bellroot','ashglass','tideworn','frostlark'];
@@ -64,6 +64,8 @@ test('all four tiers can only be claimed once and never alter old saves until re
  assert.equal(s.inventory.seals,2+RESEARCH_TIERS.reduce((a,x)=>a+x.seals,0));
  assert.equal(s.inventory.tonics,1+RESEARCH_TIERS.reduce((a,x)=>a+x.tonics,0));
  assert.equal(s.flags.length,4);
+ for(const tier of RESEARCH_TIERS)assert.equal(s.relics[tier.relic],1,'one useful relic per tier');
+ assert.ok(validateSave({version:1,zone:'forest',x:6,y:16,...s,defeatedBoss:false,playSeconds:99}));
 });
 
 test('tier conditions are monotonic and cannot be bypassed with repeated specimens or bosses',()=>{
@@ -103,4 +105,54 @@ test('research flags survive legacy version-one save validation and JSON reload'
  assert.equal(validateSave(restored),true);
  assert.equal(claimResearchTier(restored,'first-names'),'already');
  assert.equal(researchCatalogue(restored.team,restored.storage,restored.flags).bonded,7);
+});
+
+test('tiered tactical rewards persist as normal v1 relic inventory without cloning',()=>{
+ const s=state(7);
+ assert.equal(claimResearchTier(s,'first-names'),'claimed');
+ assert.equal(s.relics['hearth-bead'],1);
+ assert.equal(claimResearchTier(s,'living-atlas'),'claimed');
+ assert.equal(s.relics['root-knot'],1);
+ const save={version:1,zone:'forest',x:6,y:16,...s,defeatedBoss:false,playSeconds:99};
+ assert.equal(validateSave(save),true);
+ const snapshot=JSON.stringify(save),reloaded=JSON.parse(snapshot);
+ assert.equal(claimResearchTier(reloaded,'first-names'),'already');
+ assert.equal(JSON.stringify(reloaded),snapshot);
+});
+test('saturated tier gear falls back deterministically, or lets a fully stocked collector complete',()=>{
+ const s=state(3);s.relics={'hearth-bead':6};
+ assert.equal(claimResearchTier(s,'first-names'),'claimed');
+ assert.equal(s.relics['hearth-bead'],6);
+ assert.equal(s.relics['ember-tooth'],1);
+ const all=state(17);
+ all.relics=Object.fromEntries(['ember-tooth','mist-pearl','root-knot','echo-prism','pilgrim-ward','hearth-bead'].map(id=>[id,6]));
+ assert.equal(claimResearchTier(all,'first-names'),'claimed');
+ assert.equal(Object.values(all.relics).reduce((a,b)=>a+b,0),36);
+ assert.equal(claimResearchTier(all,'first-names'),'already');
+});
+test('invalid relic state refuses research atomically',()=>{
+ for(const relics of [[],null,{'hearth-bead':-1},{'hearth-bead':7},{'hearth-bead':1.5}]){
+  const s=state(3);s.relics=relics;const before=JSON.stringify(s);
+  assert.equal(claimResearchTier(s,'first-names'),'full');
+  assert.equal(JSON.stringify(s),before);
+ }
+});
+test('field recruit guidance requires a seen uncaught wild in a known active habitat',()=>{
+ const flags=['research-seen-mireling','research-seen-wispawn'];
+ const summary=researchCatalogue([creature('cindrel')],[],flags),before=JSON.stringify(summary);
+ const lead=nextResearchLead(summary,flags,['forest'],'forest','Raíz');
+ assert.ok(lead);assert.equal(lead.zone,'forest');
+ assert.ok(['mireling','wispawn'].includes(lead.id));
+ assert.equal(JSON.stringify(summary),before);
+ assert.equal(nextResearchLead(researchCatalogue([],[],[]),[],['forest'],'forest'),null);
+ assert.equal(nextResearchLead(summary,flags,['village'],'village'),null);
+ assert.equal(nextResearchLead(summary,flags,[],'forest'),null);
+ const owned=researchCatalogue([creature('cindrel'),creature('mireling'),creature('wispawn')],[],flags);
+ assert.equal(nextResearchLead(owned,flags,['forest'],'forest'),null);
+});
+test('chapter-locked later wilds are never recommended until their pool is active',()=>{
+ const seen=['research-seen-mourveil'];
+ const summary=researchCatalogue([creature('cindrel')],[],seen);
+ assert.equal(nextResearchLead(summary,seen,['marsh'],'marsh'),null);
+ assert.equal(nextResearchLead(summary,[...seen,'marsh-chapter-complete'],['marsh'],'marsh')?.id,'mourveil');
 });
