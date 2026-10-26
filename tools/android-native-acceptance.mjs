@@ -163,7 +163,22 @@ async function importFromRealAndroidPicker(filename){
         console.log('NATIVE_IMPORT_TAP_RESULT '+JSON.stringify({candidate:candidate.center,stillPickerVisible:still}));
         if(!still)return;
       }
-      throw Error('Real Android document row not selected despite OS touches');
+      // DocumentsUI API 30 may expose a visible file as a non-clickable
+      // TextView, so accessibility coordinates alone cannot select the row.
+      // Give the *native* system file picker keyboard focus and activate it
+      // with a real Android key event; no WebView JS or save injection.
+      const keys=['KEYCODE_DPAD_CENTER','KEYCODE_ENTER','KEYCODE_DPAD_DOWN','KEYCODE_DPAD_CENTER'];
+      for(const key of keys){
+        adb('shell','input','keyevent',key);
+        await delay(650);
+        const nodesNow=nativeNodes();
+        const still=nodesNow.some(n=>n.text===filename||n.desc===filename);
+        console.log('NATIVE_IMPORT_KEY_RESULT '+JSON.stringify({key,stillPickerVisible:still,labels:nodesNow.map(n=>n.text||n.desc).filter(Boolean).slice(0,14)}));
+        if(!still)return;
+      }
+      // Confirm accessibility state on failure so the next diagnosis is
+      // based on a real Android view tree, not guessed touch coordinates.
+      throw Error('Real Android SAF document could not be selected by OS touch or key events');
     }
     const downloads=nodes.find(n=>/^(Downloads|Descargas)$/i.test(n.text));
     if(downloads){nativePress(downloads);navigation=true;continue;}
