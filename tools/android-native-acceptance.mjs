@@ -119,7 +119,14 @@ try{
  const landscape=await active.eval('({w:innerWidth,h:innerHeight})');
  check(portrait.h>portrait.w && landscape.w>landscape.h,'Physical emulator window rotation preserved WebView');
  check(!!(await active.eval('localStorage.getItem("ascii-azur-save-v1")')),'Save survives device rotation');
+ await active.tap('#drawerToggle');
+ await active.until('document.getElementById("gameDrawer")?.classList.contains("open")',8000);
+ check(await active.eval('document.getElementById("gameDrawer").classList.contains("open")'),'Landscape native drawer remains touch-operable');
+ await active.tap('#drawerClose');
  active.close();active=null;
+ // Finish the extreme resized-viewport stress before the separately tested
+ // normal-device offline relaunch. Do not rely on a 241px-height title menu.
+ adb('shell','wm','size','reset');await delay(1100);
  adb('shell','am','force-stop',pkg);
  adb('shell','svc','wifi','disable');adb('shell','svc','data','disable');
  adb('shell','am','start','-n',pkg+'/dev.akumano.asciiazur.MainActivity');
