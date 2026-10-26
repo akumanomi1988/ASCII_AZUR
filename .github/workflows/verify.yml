@@ -184,3 +184,29 @@ jobs:
             git -C "$pages" commit -m "deploy: ASCII AZUR verified $SOURCE_SHA"
             git -C "$pages" push origin HEAD:gh-pages
           fi
+
+  public-smoke:
+    name: Verify actual public Pages game (desktop/mobile)
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [publish-pages]
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify served source, assets, new game and persisted continue in real Chromium
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+        run: node tools/public-release-smoke.mjs
+      - name: Keep screenshots and live provenance report on failure or success
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: azur-public-release-evidence
+          path: artifacts/public-smoke/*
+          retention-days: 30
+          if-no-files-found: error
