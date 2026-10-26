@@ -22,6 +22,7 @@ import {Sound,themeForZone} from './audio.js';
 import {FrameMetrics} from './core/frame-metrics.js';
 import {EnduranceLab,type EndurancePhase} from './core/endurance-lab.js';
 import {AdaptiveGlyphs} from './core/adaptive-glyphs.js';
+import {visibleViewportHeight} from './core/mobile-viewport.js';
 import {storyGuidance,guidanceToTarget,walkableRouteToTarget} from './story-navigation.js';
 import {ARKEN_STORY, ARKEN_FINALE_REWARD, arkenStoryBeat, arkenStoryIndex, concludeArken, canConcludeArken, guardianPreparation, guardianRecommendedLead, sanctuaryRoutePlan, sanctuaryOathProgress, SANCTUARY_OATHS_FLAG, SANCTUARY_OATHS_REWARD, type ArkenStoryState} from './story-campaign.js';
 import {marshChapterProgress,marshDecision,marshFinish,MARSH_REWARDS,type MarshChoice} from './story-marsh.js';
@@ -61,7 +62,7 @@ class AzurGame {
   private notifyTimer:number|undefined;private momentTimer:number|undefined;private encounterCooldown=3;private timeSinceSave=0;
   private stick={x:0,y:0,pointerId:-1};private padStick={x:0,y:0};private padButtons=new Set<number>();private selectedBattleAction=0;private facing=2;private moving=false;
   private lastDungeonChamber=-1;private lastReveal=-1;private camera={x:4,y:16};private cameraZone='village';private evolution:{from:string;to:string;startedAt:number;duration:number}|null=null;
-  constructor(){this.restoreAudioSettings();this.restoreMotionSettings();this.restoreGraphicSettings();this.restoreAdaptiveGraphics();this.restoreAccessibility();this.restoreActiveSlot();this.mountDrawer();this.wire();this.loadState();requestAnimationFrame(this.loop);window.addEventListener('resize',()=>this.renderer.resize());if('serviceWorker'in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('./sw.js').catch(()=>{});}
+  constructor(){this.restoreAudioSettings();this.restoreMotionSettings();this.restoreGraphicSettings();this.restoreAdaptiveGraphics();this.restoreAccessibility();this.restoreActiveSlot();this.mountDrawer();this.wire();this.loadState();const fit=()=>{const height=visibleViewportHeight(window.innerHeight,window.visualViewport?.height);if(height>0)document.documentElement.style.setProperty('--azur-visible-height',height+'px');this.renderer.resize();};fit();requestAnimationFrame(this.loop);window.addEventListener('resize',fit);window.visualViewport?.addEventListener('resize',fit);if('serviceWorker'in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('./sw.js').catch(()=>{});}
   private wire(){
     byId('newGame').addEventListener('click',()=>this.startNew());
     byId('continue').addEventListener('click',()=>this.continueGame());

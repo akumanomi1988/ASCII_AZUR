@@ -24,7 +24,7 @@ export function normalizeEconomy(value:unknown):EconomyState {
   visitedNpcs:Array.isArray(v.visitedNpcs)?v.visitedNpcs.filter(x=>typeof x==='string').slice(0,50):[]};
 }
 export function buy(economy:EconomyState,inventory:{seals:number;tonics:number},id:ShopItem):boolean {
- const item=SHOP[id];if(!Object.hasOwn(SHOP,id)||!item||!Number.isSafeInteger(economy.echoes)||economy.echoes<item.cost||!Number.isSafeInteger(inventory[id])||inventory[id]<0||inventory[id]>=9999)return false;
+ const item=SHOP[id];if(!Object.prototype.hasOwnProperty.call(SHOP,id)||!item||!Number.isSafeInteger(economy.echoes)||economy.echoes<item.cost||!Number.isSafeInteger(inventory[id])||inventory[id]<0||inventory[id]>=9999)return false;
  economy.echoes-=item.cost;inventory[id]++;return true;
 }
 export interface Quest {id:string;name:string;description:string;reward:number;ready:(flags:readonly string[],boss:boolean)=>boolean}

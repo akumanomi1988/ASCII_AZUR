@@ -12,7 +12,7 @@ export type RelicId=keyof typeof RELICS;
 export type RelicInventory=Partial<Record<RelicId,number>>;
 export const RELIC_IDS=Object.keys(RELICS) as RelicId[];
 export const RELIC_COPY_LIMIT=6;
-export function isRelicId(value:unknown):value is RelicId{return typeof value==='string'&&Object.hasOwn(RELICS,value);}
+export function isRelicId(value:unknown):value is RelicId{return typeof value==='string'&&Object.prototype.hasOwnProperty.call(RELICS,value);}
 export function relicAttackFactor(c:Creature,element:Element):number{return c.equipment&&RELICS[c.equipment]?.element===element?1.12:1;}
 export function relicGuardFactor(c:Creature):number{return c.equipment==='pilgrim-ward'?.90:1;}
 export function relicHealingFactor(c:Creature):number{return c.equipment==='hearth-bead'?1.20:1;}

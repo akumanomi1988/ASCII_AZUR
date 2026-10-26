@@ -52,7 +52,7 @@ export function regionalObjectives(save:SaveGame,zone:ZoneId):FieldObjective[]{
  });
  for(const encounter of fieldWitnesses(save,zone)){
   const done=has(save,'roamer-'+encounter.id),known=done||seen(encounter.x,encounter.y);
-  entries.push({id:'witness:'+encounter.id.at(-1),zone,kind:'witness',known,done,trackable:known&&unlocked&&!done,label:known?'Testigo errante '+(Number(encounter.id.at(-1))+1):'Testigo por descubrir',hint:known?witnessFieldHint(zone,Number(encounter.id.at(-1)),encounter.speciesId,done):'Explora el sendero para encontrar su rastro.',...(known?{x:encounter.x,y:encounter.y}:{})});
+  entries.push({id:'witness:'+encounter.id.slice(-1),zone,kind:'witness',known,done,trackable:known&&unlocked&&!done,label:known?'Testigo errante '+(Number(encounter.id.slice(-1))+1):'Testigo por descubrir',hint:known?witnessFieldHint(zone,Number(encounter.id.slice(-1)),encounter.speciesId,done):'Explora el sendero para encontrar su rastro.',...(known?{x:encounter.x,y:encounter.y}:{})});
  }
  if(zone==='village')entries.push({id:'crypt',zone,kind:'crypt',label:'Cripta de los Ecos',hint:'En Arken: Menú → Cripta explorable. Las bajas de compañeros son permanentes.',known:regionKnown(save,zone),done:!!save.dungeon?.finished,trackable:regionKnown(save,zone)&&!save.dungeon?.finished});
  if(zone==='ossuary'||zone==='garden'){
