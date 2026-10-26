@@ -72,6 +72,26 @@ jobs:
         run: python3 tools/browser-acceptance.py
       - name: Mobile viewport and synthetic touch acceptance
         run: python3 tools/mobile-acceptance.py
+      - name: Exercise production smoke harness against built local game
+        shell: bash
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+          AZUR_SMOKE_ROOT: http://127.0.0.1:18977/
+        run: |
+          set -euo pipefail
+          python3 -c 'import json,os; from pathlib import Path; from datetime import datetime,timezone; Path("build-info.json").write_text(json.dumps({"source_commit":os.environ["SOURCE_SHA"],"build":"verified-github-actions","published_at":datetime.now(timezone.utc).isoformat()}))'
+          python3 -m http.server 18977 --bind 127.0.0.1 >/tmp/azur-smoke-server.log 2>&1 &
+          server=$!
+          trap 'kill "$server" 2>/dev/null || true; rm -f build-info.json' EXIT
+          node tools/public-release-smoke.mjs
+      - name: Retain local public-smoke acceptance screenshots and report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ascii-azur-local-public-smoke
+          path: artifacts/public-smoke/*
+          retention-days: 14
+          if-no-files-found: warn
       - name: Retain mobile acceptance evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -184,3 +204,29 @@ jobs:
             git -C "$pages" commit -m "deploy: ASCII AZUR verified $SOURCE_SHA"
             git -C "$pages" push origin HEAD:gh-pages
           fi
+
+  public-smoke:
+    name: Verify actual public Pages game (desktop/mobile)
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [publish-pages]
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify served source, assets, new game and persisted continue in real Chromium
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+        run: node tools/public-release-smoke.mjs
+      - name: Keep screenshots and live provenance report on failure or success
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: azur-public-release-evidence
+          path: artifacts/public-smoke/*
+          retention-days: 30
+          if-no-files-found: error

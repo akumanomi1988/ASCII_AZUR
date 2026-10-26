@@ -35,6 +35,9 @@ test('Android compact intro is locally scrollable with a reachable 44px start co
  assert.match(css,/#viewport #titleScreen \.intro-buttons button\s*\{[^}]*min-height: 44px/s);
  assert.match(css,/-webkit-overflow-scrolling: touch/);
  assert.match(runner,/androidNativeOsTaps/);
+ assert.match(runner,/ANDROID_CHROME_BOOT_RETRY/);
+ assert.match(runner,/chromeBootRecoveryAttempts/);
+ assert.match(runner,/am','force-stop','com\.android\.chrome/);
  assert.match(runner,/__azurNativeTapClick/);
 });
 

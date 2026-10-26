@@ -153,7 +153,8 @@ async function dismissChromeFirstRun(){
   let dump='';
   try{adb('shell','uiautomator','dump','/sdcard/azur-ui.xml');dump=adb('shell','cat','/sdcard/azur-ui.xml');}catch{return;}
   const controls=[...dump.matchAll(/<node\b[^>]*text="([^"]*)"[^>]*bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"/g)];
-  const target=controls.find(m=>/^(Accept &amp; continue|Accept & continue|Use without an account|No thanks|Not now|Skip|Continue|Got it|No, thanks)$/i.test(m[1]));
+  const anr=/Chrome isn(?:'|&apos;)t responding/i.test(dump);
+  const target=controls.find(m=>/^(Accept &amp; continue|Accept & continue|Use without an account|No thanks|Not now|Skip|Continue|Got it|No, thanks)$/i.test(m[1])||(anr&&/^Wait$/i.test(m[1])));
   if(!target||last===target[1])return;
   last=target[1];
   const x=Math.round((Number(target[2])+Number(target[4]))/2),y=Math.round((Number(target[3])+Number(target[5]))/2);
@@ -163,19 +164,31 @@ async function dismissChromeFirstRun(){
 }
 
 async function connectChrome(){
- const start=Date.now();let firstRunChecked=false;
- while(Date.now()-start<65000){
-  try{
-   const res=await fetch('http://127.0.0.1:'+DEVTOOLS+'/json',{signal:AbortSignal.timeout(2000)});
-   const tabs=await res.json(),pages=tabs.filter(t=>t.type==='page'&&t.webSocketDebuggerUrl);
-   const t=pages.find(t=>t.url.includes('127.0.0.1:'+PORT))||pages[0];
-   if(t)return Devtools.connect(t.webSocketDebuggerUrl.replace('localhost','127.0.0.1'));
-  }catch{}
-  if(!firstRunChecked&&Date.now()-start>9000){firstRunChecked=true;await dismissChromeFirstRun();}
-  await sleep(800);
+ // API35 may display an OS Chrome-ANR before its debug socket appears.
+ // Retry a cold Chrome startup once; NEVER retry gameplay assertions.
+ for(let attempt=1;attempt<=2;attempt++){
+  const start=Date.now();let lastUiCheck=0;
+  console.log('ANDROID_CHROME_BOOT_ATTEMPT '+attempt);
+  while(Date.now()-start<65000){
+   try{
+    const res=await fetch('http://127.0.0.1:'+DEVTOOLS+'/json',{signal:AbortSignal.timeout(2000)});
+    const tabs=await res.json(),pages=tabs.filter(t=>t.type==='page'&&t.webSocketDebuggerUrl);
+    const t=pages.find(t=>t.url.includes('127.0.0.1:'+PORT))||pages[0];
+    if(t)return Devtools.connect(t.webSocketDebuggerUrl.replace('localhost','127.0.0.1'));
+   }catch{}
+   const elapsed=Date.now()-start;
+   if(elapsed>9000&&elapsed-lastUiCheck>=10000){lastUiCheck=elapsed;await dismissChromeFirstRun();}
+   await sleep(800);
+  }
+  const details=chromeDebugSnapshot();
+  if(attempt===2)throw Error('Chrome DevTools not reachable through emulator ADB after two cold starts');
+  report.chromeBootRecoveryAttempts=(report.chromeBootRecoveryAttempts||0)+1;
+  console.warn('ANDROID_CHROME_BOOT_RETRY '+JSON.stringify({attempt,pid:details.pid,anr:/Chrome isn(?:'|&apos;)t responding/i.test(details.ui||'')}));
+  adb('shell','am','force-stop','com.android.chrome');
+  await sleep(2600);
+  await startChrome();
  }
- chromeDebugSnapshot();
- throw Error('Chrome DevTools not reachable through emulator ADB');
+ throw Error('Android Chrome boot attempts exhausted');
 }
 async function resize(w,h,label){
  adb('shell','wm','size',w+'x'+h);

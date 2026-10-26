@@ -26,6 +26,8 @@ The production \`publish-pages\` job requires all of \`verify\`, \`browser\` and
 
 The Android 11 QA runner requires a trusted OS tap to produce **both** pointer-down and click events, rejecting partial touches that do not activate native controls. Compact settings expose full-size text labels bound to checkboxes and scroll these into the middle of the settings panel before input; a checked state and its actual accessibility class must both agree. Synthetic DOM clicks are never used.
 
+On the API35 Google APIs runner, Chrome may show an OS-level application-not-responding dialogue before creating the DevTools socket. The runner records its UI/socket snapshot, selects Wait only when the ANR dialog is genuinely present and permits one logged Chrome cold-start recovery after the first 65-second boot window. It never retries gameplay assertions or accepts failed UI interactions; exhaustion fails normally. Recovery attempts are recorded in JSON.
+
 ## Reproducing in an Android-capable environment
 
 \`\`\`bash
