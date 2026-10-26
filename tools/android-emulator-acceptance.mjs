@@ -241,7 +241,9 @@ async function journey(){
  if(Number(API)<=30){await chrome.evaluate('window.scrollTo(0,0)');await sleep(350);}console.log('ANDROID_STAGE joystick-start');
  const pad=await chrome.evaluate('(()=>{window.__azurJoystickMoves=0;document.addEventListener("pointermove",e=>{if(e.target.closest("#joystick")&&++window.__azurJoystickMoves===1)console.log("ANDROID_JOYSTICK_NATIVE_MOVE");},true);document.addEventListener("pointerup",e=>{if(e.target.closest("#joystick"))console.log("ANDROID_JOYSTICK_NATIVE_RELEASE");},true);const r=document.getElementById("joystick").getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2,dx:r.width*.25,width:r.width,dpr:devicePixelRatio,vh:innerHeight,visibleHeight:Math.min(innerHeight,window.visualViewport?.height||innerHeight)};})()');
  check(pad.width>=35,'Emulator displays virtual joystick');
- check(pad.y-pad.width/2>=0&&pad.y+pad.width/2<=pad.visibleHeight-4,'Android joystick fully within the visible browser viewport');
+ const viewport=await chrome.evaluate('(()=>{const stage=document.getElementById("viewport"),stick=document.getElementById("joystick"),p=stage.getBoundingClientRect(),j=stick.getBoundingClientRect(),styles=getComputedStyle(stage);return {stage:{x:p.x,y:p.y,width:p.width,height:p.height},stick:{x:j.x,y:j.y,width:j.width,height:j.height},computedHeight:styles.height,position:styles.position,cssViewportHeight:document.documentElement.style.getPropertyValue("--azur-visible-height"),windowHeight:innerHeight,visualHeight:visualViewport?.height,scrollY,appTop:document.getElementById("app").getBoundingClientRect().y};})()');
+ console.log('ANDROID_STAGE joystick-layout '+JSON.stringify({pad,viewport}));
+ check(pad.y-pad.width/2>=0&&pad.y+pad.width/2<=pad.visibleHeight-4,'Android joystick fully within the visible browser viewport: '+JSON.stringify({pad,viewport}));
  if(Number(API)<=30){
   // Exercise the actual Android OS touch pipeline at several plausible Chrome
   // content-area offsets. Capture pointer events via DevTools console events;
