@@ -6,7 +6,7 @@ import {reveal} from '../dist/world/discovery.js';
 import {RELICS,RELIC_IDS} from '../dist/creatures/equipment.js';
 import {fieldTrail,fieldTrailRewardName,planFieldTrailClaim,trailClaimRefusal,TRAIL_REWARD_PREFIX} from '../dist/world/pilgrim-trails.js';
 import {mount} from './helpers/game-runtime.mjs';
-const story=['arken-vow-restored','marsh-chapter-complete','crown-trilogy-complete','afterlight-ossuary-complete'];
+const story=['arken-vow-restored','marsh-chapter-complete','crown-trilogy-complete','afterlight-ossuary-choice-anchor','afterlight-ossuary-complete'];
 function fresh(seed=11){configureWorld(seed);return{version:1,worldSeed:seed,worldSnapshot:captureWorldSnapshot(),zone:'village',x:4,y:16,team:[createCreature('cindrel',8,()=>.5)],storage:[],inventory:{seals:5,tonics:3},flags:[...story],defeatedBoss:false,playSeconds:0,rpg:{echoes:100,completed:[],visitedNpcs:[]}};}
 function completeTrail(save,zone){
  save.zone=zone;save.flags.push('zone-'+zone,'altar-'+zone);
