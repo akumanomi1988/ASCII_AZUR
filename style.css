@@ -612,4 +612,19 @@
     min-width: 44px;
     min-height: 44px;
   }
+  /* Native label text is a 44px touch target, independently of the small checkbox. */
+  #viewport .settings-row label[for="motionReduced"],
+  #viewport .settings-row label[for="highContrast"] {
+    flex: 1;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+  }
+  #viewport .settings-row input[type="checkbox"] {
+    width: 24px;
+    height: 24px;
+    flex: none;
+    margin: 0 10px;
+    accent-color: #d5ad79;
+  }
 }

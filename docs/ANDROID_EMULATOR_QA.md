@@ -24,6 +24,8 @@ The production \`publish-pages\` job requires all of \`verify\`, \`browser\` and
 
 **A3 remains OPEN** until Android **physical device** transitions, output routing, long-session performance and speaker/audio assessment are recorded, per the frozen \`docs/AAA_ROADMAP.md\`. In particular, emulator audio scheduling and simulated frame measurements are not evidence for physical thermal/battery/G4/U2. This automated step can detect numerous Android-only bugs and provide evidence that makes later physical signoff faster.
 
+The Android 11 QA runner requires a trusted OS tap to produce **both** pointer-down and click events, rejecting partial touches that do not activate native controls. Compact settings expose full-size text labels bound to checkboxes and scroll these into the middle of the settings panel before input; a checked state and its actual accessibility class must both agree. Synthetic DOM clicks are never used.
+
 ## Reproducing in an Android-capable environment
 
 \`\`\`bash

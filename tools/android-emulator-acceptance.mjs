@@ -85,7 +85,7 @@ class Devtools{
  }
  async tap(selector){
   console.log('ANDROID_TOUCH_BEGIN '+selector);
-  const p=await this.evaluate('(()=>{const e=document.querySelector('+JSON.stringify(selector)+');if(!e)return null;if(e.closest("#titleScreen")){document.querySelector("#titleScreen").scrollTop=99999;window.scrollTo(0,0);}else if(e.closest("#joystick")){window.scrollTo(0,0);}else{e.scrollIntoView({block:"nearest"});}const r=e.getBoundingClientRect();return r.width&&r.height?{x:r.x+r.width/2,y:r.y+r.height/2,dpr:devicePixelRatio,vh:innerHeight,hit:document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)?.outerHTML?.slice(0,160)}:null})()');
+  const p=await this.evaluate('(()=>{const e=document.querySelector('+JSON.stringify(selector)+');if(!e)return null;if(e.closest("#titleScreen")){document.querySelector("#titleScreen").scrollTop=99999;window.scrollTo(0,0);}else if(e.closest("#joystick")){window.scrollTo(0,0);}else if(e.closest(".modal")){e.scrollIntoView({block:"center",behavior:"auto"});}else{e.scrollIntoView({block:"nearest"});}const r=e.getBoundingClientRect();return r.width&&r.height?{x:r.x+r.width/2,y:r.y+r.height/2,dpr:devicePixelRatio,vh:innerHeight,hit:document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)?.outerHTML?.slice(0,160)}:null})()');
   if(!p)throw Error('Touch target unavailable: '+selector);
   if(p.y<2||p.y>=p.vh-2)throw Error('Touch target outside visible Chrome viewport: '+selector+' '+JSON.stringify(p));
   console.log('ANDROID_TOUCH_GEOMETRY '+JSON.stringify({selector,p}));
@@ -93,7 +93,7 @@ class Devtools{
    // Android 11 Chrome maps CDP touch coordinates incorrectly after window
    // metric overrides. Drive the actual OS touch pipeline with adb input tap.
    console.log('ANDROID_TOUCH_INSTALL_PROBE '+selector);
-   await this.evaluate('(()=>{window.__azurNativeTapSelector='+JSON.stringify(selector)+';window.__azurNativeTapHit=false;if(!window.__azurNativeTapInstalled){document.addEventListener("pointerdown",e=>{if(e.target.closest(window.__azurNativeTapSelector))window.__azurNativeTapHit=true},true);window.__azurNativeTapInstalled=true;}})()');
+   await this.evaluate('(()=>{window.__azurNativeTapSelector='+JSON.stringify(selector)+';window.__azurNativeTapHit=false;window.__azurNativeTapClick=false;if(!window.__azurNativeTapInstalled){document.addEventListener("pointerdown",e=>{if(e.target.closest(window.__azurNativeTapSelector))window.__azurNativeTapHit=true},true);document.addEventListener("click",e=>{if(e.target.closest(window.__azurNativeTapSelector))window.__azurNativeTapClick=true},true);window.__azurNativeTapInstalled=true;}})()');
    const size=adb('shell','wm','size');
    const match=size.match(/Override size:\s*(\d+)x(\d+)/)||size.match(/Physical size:\s*(\d+)x(\d+)/);
    if(!match)throw Error('Could not measure Android display size: '+size);
@@ -106,7 +106,7 @@ class Devtools{
     console.log('ANDROID_TOUCH_OS_TAP '+JSON.stringify({selector,x,y,offset}));
     adb('shell','input','tap',String(x),String(y));
     await sleep(280);
-    if(await this.evaluate('window.__azurNativeTapHit===true')){matched=true;this.lastAndroidTapOffset=offset;report.androidNativeOsTaps=(report.androidNativeOsTaps||0)+1;break;}
+    if(await this.evaluate('window.__azurNativeTapHit===true&&window.__azurNativeTapClick===true')){matched=true;this.lastAndroidTapOffset=offset;report.androidNativeOsTaps=(report.androidNativeOsTaps||0)+1;break;}
    }
    if(!matched)throw Error('Android OS tap missed '+selector+'; probe='+JSON.stringify({p,screenHeight,extra}));
    console.log('ANDROID_TOUCH_OS_MATCH '+JSON.stringify({selector,offset:this.lastAndroidTapOffset}));
@@ -281,8 +281,12 @@ async function journey(){
  if(Number(API)>30)check((await chrome.evaluate('document.getElementById("joystickKnob").style.transform')).includes('translate(-50%, -50%)'),'Native joystick touch releases');console.log('ANDROID_STAGE joystick-complete');
  console.log('ANDROID_STAGE settings-start');await chrome.tap('#quickSettings');
  await chrome.until('!document.getElementById("modal").classList.contains("hidden")');
- await chrome.tap('#motionReduced');await chrome.tap('#highContrast');
- check(await chrome.evaluate('document.documentElement.classList.contains("azur-high-contrast")'),'Native touch enables high contrast');
+ await chrome.tap('label[for="motionReduced"]');
+ check(await chrome.evaluate('document.getElementById("motionReduced").checked'),'Native Android label tap changes reduced-motion checkbox');
+ await chrome.tap('label[for="highContrast"]');
+ const contrastState=await chrome.evaluate('({checked:document.getElementById("highContrast").checked,active:document.documentElement.classList.contains("azur-high-contrast")})');
+ console.log('ANDROID_STAGE contrast-state '+JSON.stringify(contrastState));
+ check(contrastState.checked&&contrastState.active,'Native touch enables high contrast');
  await chrome.tap('#closeModal');await chrome.capture('portrait.png');console.log('ANDROID_STAGE settings-complete');
  console.log('ANDROID_STAGE audio-start');await testAudio();console.log('ANDROID_STAGE audio-complete');await frameProbe();console.log('ANDROID_STAGE frame-complete');
  console.log('ANDROID_STAGE landscape-start');await resize(960,540,'landscape');await chrome.capture('landscape.png');await resize(540,960,'portrait');
