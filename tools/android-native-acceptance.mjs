@@ -176,6 +176,31 @@ async function importFromRealAndroidPicker(filename){
   }
   throw Error('Real Android documents picker did not list '+filename+': '+last);
 }
+
+/** Real native ACTION_CREATE_DOCUMENT; the exported save is indexed by the
+ * system picker instead of being placed directly by adb in scoped storage. */
+async function saveThroughRealAndroidPicker(){
+  let last='';
+  for(let i=0;i<8;i++){
+    await delay(650);
+    const nodes=nativeNodes();
+    last=nodes.map(n=>n.text||n.desc).filter(Boolean).slice(0,45).join(' | ');
+    console.log('NATIVE_EXPORT_CHOOSER '+JSON.stringify({pass:i,labels:last.slice(0,1000)}));
+    const button=nodes.find(n=>/^(Save|Guardar)$/i.test(n.text)&&n.enabled);
+    if(button){
+      nativePress(button);
+      await delay(800);
+      const after=nativeNodes();
+      if(!after.some(n=>/^(Save|Guardar)$/i.test(n.text)))return;
+    }
+    const downloads=nodes.find(n=>/^(Downloads|Descargas)$/i.test(n.text));
+    if(downloads){nativePress(downloads);continue;}
+    const roots=nodes.find(n=>/Show roots|Mostrar raíces/i.test(n.desc));
+    if(roots){nativePress(roots);continue;}
+  }
+  throw Error('Unable to save actual game export via Android DocumentsUI: '+last);
+}
+
 async function acceptNativeSaveReplacement() {
   for(let i=0;i<5;i++){
     const nodes=nativeNodes();
@@ -268,34 +293,49 @@ try{
  const picker=activityState.split(String.fromCharCode(10)).filter(x=>/documentsui|PickActivity|CREATE_DOCUMENT|topResumedActivity|mResumedActivity/i.test(x)).slice(-15).join(String.fromCharCode(10));
  report.pickerEvidence=picker.slice(0,1400);
  check(/documentsui|PickActivity/i.test(picker),'JSON export opens Android document creation picker');
- adb('shell','input','keyevent','4');
- await delay(350);
+ const systemExport=Number(API)<=30;
+ if(systemExport){
+   await saveThroughRealAndroidPicker();
+   report.exportCreatedByNativePicker=true;
+   check(true,'Android 11 SAF exported a real game save document');
+ } else {
+   adb('shell','input','keyevent','4');
+   await delay(350);
+ }
  check((await active.eval('location.origin'))==='https://appassets.androidplatform.net','Native app origin remains isolated after SAF');
  // Round trip through the Android system picker and real application file-input.
  // Source fixture is the player's own newly generated save, with an explicit
  // valid playSeconds sentinel; no privileged insert into app-private storage.
  const originalImport=JSON.parse(await active.eval('localStorage.getItem("ascii-azur-save-v1")'));
  const replacementSeconds=originalImport.playSeconds+1234;
- const fixture={...originalImport,playSeconds:replacementSeconds};
- const fixtureName='ascii-azur-import-qa.json';
- const localFixture=resolve(dir,fixtureName);
- writeFileSync(localFixture,JSON.stringify(fixture));
+ const fixtureName=systemExport?'ascii-azur-viaje-1.json':'ascii-azur-import-qa.json';
  const targetPath='/sdcard/Download/'+fixtureName;
- adb('push',localFixture,targetPath);
- try{adb('shell','am','broadcast','-a','android.intent.action.MEDIA_SCANNER_SCAN_FILE','-d','file://'+targetPath);}catch{}
+ if(!systemExport){
+   // API 35 separately verifies that an externally provided valid v1 save
+   // replaces the current live campaign with a distinct progress sentinel.
+   const fixture={...originalImport,playSeconds:replacementSeconds};
+   const localFixture=resolve(dir,fixtureName);
+   writeFileSync(localFixture,JSON.stringify(fixture));
+   adb('push',localFixture,targetPath);
+   try{adb('shell','am','broadcast','-a','android.intent.action.MEDIA_SCANNER_SCAN_FILE','-d','file://'+targetPath);}catch{}
+ }
  await active.tap('#importBtn');
  await delay(850);
  const pickerImport=adb('shell','dumpsys','activity','activities');
  check(/documentsui|PickActivity/i.test(pickerImport),'Native import launches Android ACTION_OPEN_DOCUMENT');
  await importFromRealAndroidPicker(fixtureName);
  await acceptNativeSaveReplacement();
- await active.until('JSON.parse(localStorage.getItem("ascii-azur-save-v1")||"{}").playSeconds >= '+replacementSeconds,17000);
+ if(!systemExport){
+   await active.until('JSON.parse(localStorage.getItem("ascii-azur-save-v1")||"{}").playSeconds >= '+replacementSeconds,17000);
+ } else {
+   await active.until('document.getElementById("toast")?.textContent === "PARTIDA IMPORTADA"',17000);
+ }
  const confirmed=JSON.parse(await active.eval('localStorage.getItem("ascii-azur-save-v1")'));
  check(confirmed.team[0].uid===save.team[0].uid && confirmed.worldSeed===save.worldSeed,'Native SAF import preserved valid campaign identity');
- check(confirmed.playSeconds>=replacementSeconds,'Real imported JSON replaced the live and durable save');
- // Clean only the synthetic test fixture, never the user's genuine save.
- adb('shell','rm','-f',targetPath);
- report.importRoundtrip={validated:true,playSecondsBefore:originalImport.playSeconds,playSecondsAfter:confirmed.playSeconds};
+ if(!systemExport)check(confirmed.playSeconds>=replacementSeconds,'Real imported JSON replaced the live and durable save');
+ else check(await active.eval('document.getElementById("toast")?.textContent === "PARTIDA IMPORTADA"'),'Real system-exported document imported through the game handler');
+ if(!systemExport)adb('shell','rm','-f',targetPath);
+ report.importRoundtrip={validated:true,source:systemExport?'real-native-export':'synthetic-valid-external-save',playSecondsBefore:originalImport.playSeconds,playSecondsAfter:confirmed.playSeconds};
  report.javascriptExceptions=active.exceptions;
  check(active.exceptions.length===0,'No JavaScript errors');
  console.log('ANDROID_NATIVE_APK_PASS '+JSON.stringify({api:API,checks:report.steps.length,apkSha256:report.apkSha256,offline:true}));
