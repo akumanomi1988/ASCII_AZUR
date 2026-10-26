@@ -274,3 +274,7 @@ Direct duels now use the active chapter ecology (same Sanctuary transition fauna
 ## Android native offline package engineering track — unweighted release prerequisite (2026-10-26)
 
 A source-only native Android wrapper was added under `android/` and staged deterministically from the exact TypeScript build. It uses local trusted HTTPS assets, app-private v1 saves, native SAF import and bounded JSON export, without adding any game backend, accounts or game progression flags. The Gradle debug APK is an independently installable QA artifact, NOT an approved Google Play release. The existing Android 11/15 CI must build and exercise the installed native app before claiming this engineering task verified. Human low-end G4/U2/A3 tests and a protected release signing key/distribution approval remain separate. This implementation does not close an existing weighted milestone: **21/32, 68.75%** unchanged.
+
+## 2026-10-26 — Android native import portability verification (engineering scope)
+
+The offline debug APK must prove **both directions** of save transfer using the native Storage Access Framework. On native import the chosen content URI is user-approved, external resource loads remain denied, and a trusted-origin native confirmation must precede the existing save-v1 CAS transaction. An Android API 30/35 emulator round-trip with actual DocumentsUI selection is required for technical completion. This is independent from real user PWA-to-APK transfer acceptance and does not change the weighted 21/32, 68.75% project baseline.

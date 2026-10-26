@@ -100,6 +100,139 @@ async function connect() {
  }
  throw Error('Could not connect to the installed app native WebView: '+lastError);
 }
+
+/** Read an actual on-device accessibility tree, not a simulated HTML picker. */
+function nativeNodes() {
+  adb('shell','uiautomator','dump','/sdcard/azur-saf.xml');
+  const xml=adb('shell','cat','/sdcard/azur-saf.xml');
+  return [...xml.matchAll(/<node\b[^>]*\/>/g)].map(m=>{
+    const el=m[0],attr=(key)=>el.match(new RegExp(key+'="([^"]*)"'))?.[1]??'';
+    const v=attr('bounds').match(/\[(\d+),(\d+)\]\[(\d+),(\d+)\]/);
+    return {text:attr('text'),desc:attr('content-desc'),id:attr('resource-id'),
+      clickable:attr('clickable')==='true',enabled:attr('enabled')!=='false',
+      bounds:v?{left:+v[1],top:+v[2],right:+v[3],bottom:+v[4]}:null,
+      center:v?{x:Math.round((+v[1]+ +v[3])/2),y:Math.round((+v[2]+ +v[4])/2)}:null};
+  });
+}
+function nativePress(node){
+  if(!node?.center)throw Error('Android accessibility node not tappable');
+  adb('shell','input','tap',String(node.center.x),String(node.center.y));
+}
+async function importFromRealAndroidPicker(filename){
+  let navigation=false,last='',listModeRequested=false;
+  for(let i=0;i<10;i++){
+    await delay(700);
+    const nodes=nativeNodes();
+    last=nodes.map(n=>n.text||n.desc).filter(Boolean).slice(0,40).join(' | ');
+    console.log('NATIVE_IMPORT_CHOOSER '+JSON.stringify({pass:i,labels:last.slice(0,850)}));
+    // Old Android DocumentsUI defaults to thumbnail GRID and the filename label
+    // is not the touch target. Change to LIST first; then the row is selectable.
+    const listToggle=nodes.find(n=>/^(List view|Vista de lista)$/i.test(n.desc||n.text));
+    if(listToggle && !listModeRequested){
+      console.log('NATIVE_IMPORT_GRID_TO_LIST');
+      nativePress(listToggle);listModeRequested=true;continue;
+    }
+    const file=nodes.find(n=>n.text===filename||n.desc===filename);
+    if(file){
+      // On Android 11 DocumentsUI the filename TextView is not itself a
+      // selectable item. Hit the smallest clickable accessibility ancestor.
+      const inside=(outer,point)=>outer?.bounds && point
+        && outer.bounds.left<=point.x && outer.bounds.right>=point.x
+        && outer.bounds.top<=point.y && outer.bounds.bottom>=point.y;
+      const area=n=>(n.bounds.right-n.bounds.left)*(n.bounds.bottom-n.bounds.top);
+      const parents=nodes.filter(n=>n.clickable && n.enabled && inside(n,file.center))
+        .sort((a,b)=>area(a)-area(b));
+      const screen=adb('shell','wm','size');
+      const screenWidth=Number((screen.match(/(?:Override|Physical) size:\\s*(\\d+)x/)||[])[1]||1080);
+      const x=n=>Math.max(20,Math.min(screenWidth-20,n));
+      const rowIcons=[
+        {center:{x:x(file.bounds.left-105),y:file.center.y},id:'file-type-icon'},
+        {center:{x:x(file.bounds.right+275),y:file.center.y},id:'file-row-action'},
+        {center:{x:file.center.x,y:Math.max(20,file.center.y+35)},id:'file-row-lower'}
+      ];
+      const alternatives=[...parents,file,...rowIcons];
+      console.log('NATIVE_IMPORT_FILE_TARGETS '+JSON.stringify({file,parents:parents.slice(0,6),rowIcons}));
+      if(Number(API)>30){nativePress(alternatives[0]);return;}
+      // Android 11 can expose a valid filename accessibility node that
+      // cannot receive clicks. Use real OS touches on row/ancestor surfaces
+      // and require its document picker to actually leave the foreground.
+      for(const candidate of alternatives){
+        nativePress(candidate);await delay(700);
+        const now=nativeNodes();
+        const still=now.some(n=>n.text===filename||n.desc===filename);
+        console.log('NATIVE_IMPORT_TAP_RESULT '+JSON.stringify({candidate:candidate.center,stillPickerVisible:still}));
+        if(!still)return;
+      }
+      // DocumentsUI API 30 may expose a visible file as a non-clickable
+      // TextView, so accessibility coordinates alone cannot select the row.
+      // Give the *native* system file picker keyboard focus and activate it
+      // with a real Android key event; no WebView JS or save injection.
+      const keys=['KEYCODE_DPAD_CENTER','KEYCODE_ENTER','KEYCODE_DPAD_DOWN','KEYCODE_DPAD_CENTER'];
+      for(const key of keys){
+        adb('shell','input','keyevent',key);
+        await delay(650);
+        const nodesNow=nativeNodes();
+        const still=nodesNow.some(n=>n.text===filename||n.desc===filename);
+        console.log('NATIVE_IMPORT_KEY_RESULT '+JSON.stringify({key,stillPickerVisible:still,labels:nodesNow.map(n=>n.text||n.desc).filter(Boolean).slice(0,14)}));
+        if(!still)return;
+      }
+      // Confirm accessibility state on failure so the next diagnosis is
+      // based on a real Android view tree, not guessed touch coordinates.
+      throw Error('Real Android SAF document could not be selected by OS touch or key events');
+    }
+    const downloads=nodes.find(n=>/^(Downloads|Descargas)$/i.test(n.text));
+    if(downloads){nativePress(downloads);navigation=true;continue;}
+    const roots=nodes.find(n=>/Show roots|Mostrar raíces|Show navigation|Mostrar navegación|Browse files|Explorar archivos|Open navigation drawer/i.test(n.desc+' '+n.text));
+    if(roots){nativePress(roots);continue;}
+    if(navigation){
+      const size=adb('shell','wm','size'),m=size.match(/(\d+)x(\d+)/);
+      if(m){const x=Math.round(+m[1]*.55),y=Math.round(+m[2]*.68);adb('shell','input','swipe',String(x),String(y),String(x),String(Math.round(+m[2]*.25)),'300');}
+    }
+  }
+  throw Error('Real Android documents picker did not list '+filename+': '+last);
+}
+
+/** Real native ACTION_CREATE_DOCUMENT; the exported save is indexed by the
+ * system picker instead of being placed directly by adb in scoped storage. */
+async function saveThroughRealAndroidPicker(){
+  let last='';
+  for(let i=0;i<8;i++){
+    await delay(650);
+    const nodes=nativeNodes();
+    last=nodes.map(n=>n.text||n.desc).filter(Boolean).slice(0,45).join(' | ');
+    console.log('NATIVE_EXPORT_CHOOSER '+JSON.stringify({pass:i,labels:last.slice(0,1000)}));
+    const button=nodes.find(n=>/^(Save|Guardar)$/i.test(n.text)&&n.enabled);
+    if(button){
+      nativePress(button);
+      await delay(800);
+      const after=nativeNodes();
+      if(!after.some(n=>/^(Save|Guardar)$/i.test(n.text)))return;
+    }
+    const downloads=nodes.find(n=>/^(Downloads|Descargas)$/i.test(n.text));
+    if(downloads){nativePress(downloads);continue;}
+    const roots=nodes.find(n=>/Show roots|Mostrar raíces/i.test(n.desc));
+    if(roots){nativePress(roots);continue;}
+  }
+  throw Error('Unable to save actual game export via Android DocumentsUI: '+last);
+}
+
+async function acceptNativeSaveReplacement() {
+  for(let i=0;i<5;i++){
+    const nodes=nativeNodes();
+    const approve=nodes.find(n=>/^(Continuar|Continue|Aceptar|OK)$/i.test(n.text));
+    const labels=nodes.map(n=>n.text||n.desc).filter(Boolean);
+    console.log('NATIVE_IMPORT_CONFIRM_UI '+JSON.stringify({pass:i,labels:labels.slice(0,35)}));
+    // Android 11 truncates/encodes long dialog body accessibility strings.
+    // A native dialog with this app's title and explicit positive/negative
+    // actions is stronger evidence than matching one translated body word.
+    const appTitle=nodes.some(n=>n.text==='ASCII AZUR');
+    const decline=nodes.some(n=>/^(Cancelar|Cancel)$/i.test(n.text));
+    if(approve && appTitle && decline){nativePress(approve);return;}
+    await delay(500);
+  }
+  throw Error('Native confirmation dialog did not present explicit overwrite approval');
+}
+
 const info=JSON.parse(readFileSync('android/app/src/main/assets/package-info.json','utf8'));
 const apk=resolve('android/app/build/outputs/apk/debug/app-debug.apk');
 try{
@@ -175,9 +308,49 @@ try{
  const picker=activityState.split(String.fromCharCode(10)).filter(x=>/documentsui|PickActivity|CREATE_DOCUMENT|topResumedActivity|mResumedActivity/i.test(x)).slice(-15).join(String.fromCharCode(10));
  report.pickerEvidence=picker.slice(0,1400);
  check(/documentsui|PickActivity/i.test(picker),'JSON export opens Android document creation picker');
- adb('shell','input','keyevent','4');
- await delay(350);
+ const systemExport=Number(API)<=30;
+ if(systemExport){
+   await saveThroughRealAndroidPicker();
+   report.exportCreatedByNativePicker=true;
+   check(true,'Android 11 SAF exported a real game save document');
+ } else {
+   adb('shell','input','keyevent','4');
+   await delay(350);
+ }
  check((await active.eval('location.origin'))==='https://appassets.androidplatform.net','Native app origin remains isolated after SAF');
+ // Round trip through the Android system picker and real application file-input.
+ // Source fixture is the player's own newly generated save, with an explicit
+ // valid playSeconds sentinel; no privileged insert into app-private storage.
+ const originalImport=JSON.parse(await active.eval('localStorage.getItem("ascii-azur-save-v1")'));
+ const replacementSeconds=originalImport.playSeconds+1234;
+ const fixtureName=systemExport?'ascii-azur-viaje-1.json':'ascii-azur-import-qa.json';
+ const targetPath='/sdcard/Download/'+fixtureName;
+ if(!systemExport){
+   // API 35 separately verifies that an externally provided valid v1 save
+   // replaces the current live campaign with a distinct progress sentinel.
+   const fixture={...originalImport,playSeconds:replacementSeconds};
+   const localFixture=resolve(dir,fixtureName);
+   writeFileSync(localFixture,JSON.stringify(fixture));
+   adb('push',localFixture,targetPath);
+   try{adb('shell','am','broadcast','-a','android.intent.action.MEDIA_SCANNER_SCAN_FILE','-d','file://'+targetPath);}catch{}
+ }
+ await active.tap('#importBtn');
+ await delay(850);
+ const pickerImport=adb('shell','dumpsys','activity','activities');
+ check(/documentsui|PickActivity/i.test(pickerImport),'Native import launches Android ACTION_OPEN_DOCUMENT');
+ await importFromRealAndroidPicker(fixtureName);
+ await acceptNativeSaveReplacement();
+ if(!systemExport){
+   await active.until('JSON.parse(localStorage.getItem("ascii-azur-save-v1")||"{}").playSeconds >= '+replacementSeconds,17000);
+ } else {
+   await active.until('document.getElementById("toast")?.textContent === "PARTIDA IMPORTADA"',17000);
+ }
+ const confirmed=JSON.parse(await active.eval('localStorage.getItem("ascii-azur-save-v1")'));
+ check(confirmed.team[0].uid===save.team[0].uid && confirmed.worldSeed===save.worldSeed,'Native SAF import preserved valid campaign identity');
+ if(!systemExport)check(confirmed.playSeconds>=replacementSeconds,'Real imported JSON replaced the live and durable save');
+ else check(await active.eval('document.getElementById("toast")?.textContent === "PARTIDA IMPORTADA"'),'Real system-exported document imported through the game handler');
+ if(!systemExport)adb('shell','rm','-f',targetPath);
+ report.importRoundtrip={validated:true,source:systemExport?'real-native-export':'synthetic-valid-external-save',playSecondsBefore:originalImport.playSeconds,playSecondsAfter:confirmed.playSeconds};
  report.javascriptExceptions=active.exceptions;
  check(active.exceptions.length===0,'No JavaScript errors');
  console.log('ANDROID_NATIVE_APK_PASS '+JSON.stringify({api:API,checks:report.steps.length,apkSha256:report.apkSha256,offline:true}));
