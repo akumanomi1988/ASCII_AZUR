@@ -7,6 +7,7 @@ import {marshChapterProgress} from './story-marsh.js';
 import {crownProgress} from './story-finale.js';
 import {afterlightProgress} from './story-afterlight.js';
 import {BOND_ARCS,type BondPath} from './creatures/bond-quests.js';
+import {legacyBranch,legacyClaimed} from './story-legacy.js';
 export interface AzurNarrativeBeat {chapter:string;stake:string;consequence:string;next:string;optional:boolean;}
 export interface AzurDialogue {title:string;text:string;}
 const AZUR_NARRATIVE_OPENING:readonly AzurDialogue[]=[
@@ -44,10 +45,12 @@ export function azurNarrativeBeat(story:ArkenStoryState):AzurNarrativeBeat{
   consequence:flags.includes('marsh-choice-keep')?'Nael conservó el Atlas, pero eso no le da poder sobre los nombres.':'Nael dejó marchar las vidas imposibles; recordar no debe ser poseer.',
   next:crown.objective,optional:false};
  const sea=afterlightProgress('ossuary',flags),garden=afterlightProgress('garden',flags);
+ const legacy=legacyBranch(flags);
+ const legacyLead=legacy&&!legacyClaimed(flags)?' También puedes volver al Archivista de Arken y conservar el testimonio de tus dos decisiones.':'';
  return {chapter:'VIGILIA OPCIONAL · DESPUÉS DEL FINAL',
   stake:'La historia principal terminó. El cielo es libre, pero sus habitantes aún deben aprender a vivir sin destinos impuestos.',
   consequence:azurWorldConsequence(flags),
-  next:!sea.complete?'Viaja desde el portal oriental de la Corona al Osario y habla con Edda. Este viaje es opcional.':!garden.complete?'Viaja al Jardín de la Última Escarcha y habla con Silas. Esta continuación es opcional.':'La Vigilia terminó. Puedes explorar libremente y releer tus elecciones.',
+  next:(!sea.complete?'Viaja desde el portal oriental de la Corona al Osario y habla con Edda. Este viaje es opcional.':!garden.complete?'Viaja al Jardín de la Última Escarcha y habla con Silas. Esta continuación es opcional.':'La Vigilia terminó. Puedes explorar libremente y releer tus elecciones.')+legacyLead,
   optional:true};
 }
 export function azurNpcReflection(flags:readonly string[],npc:'archivist'|'nael'|'oriel'):AzurDialogue|null{

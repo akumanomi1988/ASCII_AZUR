@@ -254,3 +254,8 @@ Local, bounded phase-specific rAF frame-cadence capture and player-directed JSON
 - Evidence: [PR #38](https://github.com/akumanomi1988/ASCII_AZUR/pull/38), feature [Actions 40232189206](https://github.com/akumanomi1988/ASCII_AZUR/actions/runs/40232189206) SUCCESS (435/435 tests, 150 campaign sessions, 450 reloads, 4 Chromium modes); audio master artifact 10 WAVs totaling 553.919 seconds, RMS -21.72 dBFS, worst sampled interpolated peak -9.22 dBFS, zero clipping. Full method in docs/AUDIO_MASTERING_ACCEPTANCE.md.
 - Milestone arithmetic: previous **20/32 = 67.50%**; after verified A2 **21/32 = 68.75%**, **+1.25 percentage points**. Audio phase 1/4 (25%) to 2/4 (50%). This is an A2 music/technical mastering claim ONLY; A3 physical-device transitions, A4 independent audio evaluation and Q4 human/hardware signoff are not claimed.
 - Production release criterion: main CI and Pages deployment must be green, gh-pages/build-info.json must identify the exact merged SHA. Do not describe this candidate as deployed or externally approved until those checks pass.
+
+
+## v0.65 — Live witnessed endings (technical implementation)
+
+The complete trilogy's four existing moral combinations now resolve into a physically reachable, optional Archivist testimony, branching Nael/Oriel/Iria aftermath, durable Chronicle entry and once-only equipment outcome. The local Diary previews only actually earned outcomes and the transaction uses cross-tab protected save-v1 writing. Automated tests and CI establish integration; N4 still needs independent unfamiliar-player narrative validation. No acceptance weight or completed milestone is changed: **21/32, weighted 68.75%**.

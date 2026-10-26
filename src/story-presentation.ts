@@ -6,6 +6,7 @@ import {marshChapterProgress} from './story-marsh.js';
 import {crownProgress,crownEpilogue} from './story-finale.js';
 import {AFTERLIGHT,afterlightProgress,afterlightEpilogue} from './story-afterlight.js';
 import {azurWorldConsequence} from './story-agency.js';
+import {legacyBranch,legacyClaimed} from './story-legacy.js';
 
 export type StoryTone='arrival'|'memory'|'oath'|'reckoning'|'afterlight';
 export interface StoryMoment {id:string;zone:ZoneId;eyebrow:string;title:string;subtitle:string;tone:StoryTone;}
@@ -70,7 +71,7 @@ export function storyChronicle(story:ArkenStoryState):ChronicleEntry[]{
  entries.push({
   id:'crown',eyebrow:'III · LA CORONA',title:'El último escriba',status:crown.complete?'complete':'active',
   summary:crown.complete?(crown.choice==='remember'?'Elegiste conservar los nombres sin encadenarlos.':'Elegiste liberar el futuro de cualquier escriba.'):'Nullscribe quiere escribir el destino antes de que ocurra.',
-  passages:crown.complete?[...crownEpilogue(flags).map(beat=>beat.text),azurWorldConsequence(flags)]:[
+  passages:crown.complete?[...crownEpilogue(flags).map(beat=>beat.text),azurWorldConsequence(flags),...(legacyClaimed(flags)&&legacyBranch(flags)?[legacyBranch(flags)!.resolution]:[])]:[
    'Oriel te espera en la Corona. Recupera el Archivo y la Lumbre antes de escuchar a sus tres testigos.'
   ]
  });
