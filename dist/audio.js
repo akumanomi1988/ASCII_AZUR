@@ -1,3 +1,5 @@
+/** ASCII AZUR procedural score: all sounds are synthesized locally with Web Audio. */
+import { MIX_PRESETS, FOCUS_LEVELS, activeMixProfile } from './audio-direction.js';
 const themes = {
     title: { bpm: 68, root: 48, mode: [0, 2, 3, 5, 7, 8, 10], melody: [0, null, 2, null, 3, null, 2, null, 4, null, 3, 2, 0, null, -2, null], bass: [0, null, null, null, -2, null, null, null, -4, null, null, null, -2, null, null, null], chords: [[0, 2, 4], [-2, 0, 2], [-4, -2, 0], [-2, 0, 3]], texture: 'mist' },
     village: { bpm: 78, root: 48, mode: [0, 2, 3, 5, 7, 8, 10], melody: [0, null, 2, 3, 4, null, 3, null, 2, null, 0, null, -2, 0, null, null], bass: [0, null, null, null, -2, null, null, null, -4, null, null, null, -2, null, null, null], chords: [[0, 2, 4], [-2, 0, 2], [-4, -2, 0], [-2, 0, 3]], texture: 'warm' },
@@ -131,6 +133,9 @@ export class Sound {
         this.master = null;
         this.musicMaster = null;
         this.musicDuck = null;
+        this.musicTone = null;
+        this.mixProfile = 'balanced';
+        this.focus = 'game';
         this.duckUntil = 0;
         this.fxMaster = null;
         this.echoInput = null;
@@ -162,13 +167,30 @@ export class Sound {
     diagnostics() {
         return { scene: this.scene, step: this.step, musicVoices: [...this.voices].filter(v => v.kind === 'music').length,
             effectVoices: [...this.voices].filter(v => v.kind === 'effect').length, retiringBuses: this.retiring.size,
-            scheduling: this.timer !== null, paused: this.paused, disposed: this.disposed, contextState: this.ctx?.state ?? 'uninitialized' };
+            scheduling: this.timer !== null, paused: this.paused, disposed: this.disposed, contextState: this.ctx?.state ?? 'uninitialized', mixProfile: this.mixProfile, focus: this.focus, intensity: this.intensity };
     }
     get musicScene() { return this.scene; }
     getIntensity() { return this.intensity; }
     get isEnabled() { return this.enabled; }
     getMusicVolume() { return this.musicVolume; }
     getEffectsVolume() { return this.fxVolume; }
+    getMixProfile() { return this.mixProfile; }
+    getFocus() { return this.focus; }
+    /** Settings are local and are never mixed into the save-v1 gameplay schema. */
+    setMixProfile(value) { const next = activeMixProfile(value); if (this.mixProfile === next)
+        return; this.mixProfile = next; this.applyMix(); }
+    setFocus(focus) { if (this.focus === focus)
+        return; this.focus = focus; this.applyMix(); }
+    applyMix() {
+        const ctx = this.ctx;
+        if (!ctx)
+            return;
+        const preset = MIX_PRESETS[this.mixProfile], focus = FOCUS_LEVELS[this.focus], now = ctx.currentTime;
+        this.musicMaster?.gain.setTargetAtTime(this.musicVolume * preset.music * focus.music, now, .13);
+        this.fxMaster?.gain.setTargetAtTime(this.fxVolume * preset.effects * focus.effects, now, .08);
+        this.musicTone?.frequency.setTargetAtTime(preset.lowpassHz, now, .22);
+        this.setAmbience();
+    }
     init() {
         if (this.ctx)
             return;
@@ -196,7 +218,10 @@ export class Sound {
         this.musicMaster.gain.value = this.musicVolume;
         this.musicDuck = this.ctx.createGain();
         this.musicDuck.gain.value = 1;
-        this.musicMaster.connect(this.musicDuck).connect(this.master);
+        this.musicTone = this.ctx.createBiquadFilter();
+        this.musicTone.type = 'lowpass';
+        this.musicTone.frequency.value = MIX_PRESETS[this.mixProfile].lowpassHz;
+        this.musicMaster.connect(this.musicDuck).connect(this.musicTone).connect(this.master);
         // Shared low-feedback spatial tail prevents a dry, repetitive chiptune texture.
         // A single delay is cheaper than a convolution impulse on low-end mobile GPUs/CPUs.
         if (typeof this.ctx.createDelay === 'function') {
@@ -215,6 +240,7 @@ export class Sound {
         this.fxMaster.connect(this.master);
         this.newBus(true);
         this.startAmbience();
+        this.applyMix();
         this.nextAt = this.ctx.currentTime + .08;
         this.ctx.onstatechange = () => this.updateScheduler();
         this.updateScheduler();
@@ -276,12 +302,10 @@ export class Sound {
     }
     setMusicVolume(v) {
         this.musicVolume = unitLevel(v);
-        if (this.ctx && this.musicMaster)
-            this.musicMaster.gain.setTargetAtTime(this.musicVolume, this.ctx.currentTime, .05);
+        this.applyMix();
         this.updateScheduler();
     }
-    setEffectsVolume(v) { this.fxVolume = unitLevel(v); if (this.ctx && this.fxMaster)
-        this.fxMaster.gain.setTargetAtTime(this.fxVolume, this.ctx.currentTime, .05); }
+    setEffectsVolume(v) { this.fxVolume = unitLevel(v); this.applyMix(); }
     setIntensity(value) {
         const next = Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : 0;
         if (Math.abs(next - this.intensity) < .02)
@@ -343,8 +367,9 @@ export class Sound {
             return;
         const a = ambienceForScene(this.scene);
         const mix = scoreMix(this.scene, this.intensity);
-        this.ambience.gain.setTargetAtTime(a.gain * mix.ambient, ctx.currentTime, .65);
-        this.windDepth?.gain.setTargetAtTime(a.gain * a.modulation * mix.ambient, ctx.currentTime, .65);
+        const level = a.gain * mix.ambient * MIX_PRESETS[this.mixProfile].ambience * FOCUS_LEVELS[this.focus].ambience;
+        this.ambience.gain.setTargetAtTime(level, ctx.currentTime, .65);
+        this.windDepth?.gain.setTargetAtTime(level * a.modulation, ctx.currentTime, .65);
         this.ambientFilter.frequency.setTargetAtTime(a.lowpassHz, ctx.currentTime, .6);
     }
     releaseVoice(voice, stop = false) {
@@ -592,6 +617,7 @@ export class Sound {
         this.musicMaster?.disconnect();
         this.fxMaster?.disconnect();
         this.musicDuck?.disconnect();
+        this.musicTone?.disconnect();
         this.echoInput?.disconnect();
         this.windLfo = null;
         this.windDepth = null;
@@ -603,6 +629,7 @@ export class Sound {
         this.musicMaster = null;
         this.fxMaster = null;
         this.musicDuck = null;
+        this.musicTone = null;
         const ctx = this.ctx;
         this.ctx = null;
         if (ctx) {

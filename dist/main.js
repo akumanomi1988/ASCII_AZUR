@@ -19,6 +19,7 @@ import { SPECIES, MOVES, createCreature, maxHp, attackValue, defenseValue, speed
 import { ZONES, sweepMove, isBlocked, isWild, nearbyLandmark, configureWorld, captureWorldSnapshot, freshWorldSeed, seedFromText, terrain, WORLD_W, WORLD_H, ZONE_IDS } from './world.js';
 import { SHOP, QUESTS, buy, claimQuests, normalizeEconomy, newEconomy } from './rpg.js';
 import { Sound, themeForZone } from './audio.js';
+import { combatMusicIntensity, explorationMusicIntensity } from './audio-direction.js';
 import { FrameMetrics } from './core/frame-metrics.js';
 import { EnduranceLab } from './core/endurance-lab.js';
 import { AdaptiveGlyphs } from './core/adaptive-glyphs.js';
@@ -54,6 +55,7 @@ class AzurGame {
         this.lastAdaptiveUpdate = 0;
         this.debugPerformance = false;
         this.lastDebugUpdate = 0;
+        this.lastSoundDirectionUpdate = 0;
         this.lastCompassUpdate = 0;
         this.sound = new Sound();
         this.soundEnabled = true;
@@ -122,6 +124,10 @@ class AzurGame {
                 byId('evolutionBanner').classList.add('hidden');
                 this.sound.setScene(themeForZone(this.save.zone));
                 this.toast(`${SPECIES[newSpecies].name.toUpperCase()} HA DESPERTADO`);
+            }
+            if (now - this.lastSoundDirectionUpdate > 950) {
+                this.lastSoundDirectionUpdate = now;
+                this.directSoundscape();
             }
             byId('viewport').classList.toggle('in-dungeon', !!this.save.dungeon?.active && !this.battle);
             const ctx = this.renderer.ctx;
@@ -401,6 +407,7 @@ class AzurGame {
                 this.sound.setMusicVolume(v.music);
             if (Number.isFinite(v.effects))
                 this.sound.setEffectsVolume(v.effects);
+            this.sound.setMixProfile(v.profile);
         }
     }
     catch { /* preserve defaults */ } if (!this.soundEnabled)
@@ -450,7 +457,7 @@ class AzurGame {
         catch { /* storage unavailable */ }
     }
     storeAudioSettings() { try {
-        localStorage.setItem('ascii-azur-audio', JSON.stringify({ enabled: this.soundEnabled, music: this.sound.getMusicVolume(), effects: this.sound.getEffectsVolume() }));
+        localStorage.setItem('ascii-azur-audio', JSON.stringify({ enabled: this.soundEnabled, music: this.sound.getMusicVolume(), effects: this.sound.getEffectsVolume(), profile: this.sound.getMixProfile() }));
     }
     catch { /* private mode */ } }
     mountDrawer() {
@@ -1176,7 +1183,7 @@ class AzurGame {
         threatNode.textContent = threat.title + ' · ' + threat.detail;
         const suggestion = suggestBattleAction(ally, b.enemy, this.statuses(ally), this.statuses(b.enemy), this.save.inventory.tonics, b.chargeStage, b.bossPhase, recoveryCastsLeft(b.recoveryUses, ally.uid));
         byId('battleAdvice').textContent = b.busy ? '' : `${suggestion.kind === 'move' ? MOVES[suggestion.moveId]?.name : suggestion.kind === 'guard' ? 'GUARDIA' : 'TÓNICO'} · ${suggestion.reason}`;
-        this.sound.setIntensity(Math.max(b.type === 'boss' ? .65 : .30, 1 - ally.hp / maxHp(ally), b.type === 'boss' && b.bossPhase === 2 ? 1 : 0));
+        this.sound.setIntensity(combatMusicIntensity({ allyHp: ally.hp, allyMaxHp: maxHp(ally), enemyHp: b.enemy.hp, enemyMaxHp: maxHp(b.enemy), boss: b.type === 'boss', bossPhase: b.bossPhase, chargeStage: b.chargeStage, allyStatusCount: this.statuses(ally).length }));
         this.announceAccessibility(`Combate contra ${es.name}. Enemigo ${b.enemy.hp} de ${maxHp(b.enemy)} puntos de vida. ${as.name} ${ally.hp} de ${maxHp(ally)} puntos de vida. ${threat.aria} ${b.log}`);
         const actions = byId('battleActions');
         const mode = b.selecting ? 'party' : this.battleMenu;
@@ -2654,6 +2661,8 @@ class AzurGame {
       <div class="settings-row"><label for="audioEnabled">Audio activado</label><input id="audioEnabled" type="checkbox"></div>
        <div class="settings-row"><label for="musicVolume">Música</label><input id="musicVolume" type="range" min="0" max="100" step="1"></div>
       <div class="settings-row"><label for="effectsVolume">Efectos</label><input id="effectsVolume" type="range" min="0" max="100" step="1"></div>
+      <div class="settings-row"><label for="audioMixProfile">Mezcla de audio</label><select id="audioMixProfile" aria-describedby="audioMixDescription"><option value="balanced">Equilibrada · banda sonora original</option><option value="clarity">Señales claras · menos ambiente</option><option value="night">Nocturna · transitorios suaves</option></select></div>
+      <div class="modal-content-block" id="audioMixDescription">Cambia el balance y el brillo del sonido, sin modificar las opciones de volumen ni el progreso de la partida.</div>
       <div class="settings-row"><label for="motionReduced">Reducir movimiento</label><input id="motionReduced" type="checkbox"></div>
       <div class="settings-row"><label for="largeText">Texto ampliado</label><input id="largeText" type="checkbox"></div>
       <div class="settings-row"><label for="highContrast">Alto contraste · interfaz y texto</label><input id="highContrast" type="checkbox"></div>
@@ -2667,6 +2676,9 @@ class AzurGame {
         fx.value = String(Math.round(this.sound.getEffectsVolume() * 100));
         mus.oninput = () => { this.sound.setMusicVolume(Number(mus.value) / 100); this.storeAudioSettings(); };
         fx.oninput = () => { this.sound.setEffectsVolume(Number(fx.value) / 100); this.storeAudioSettings(); };
+        const mix = byId('audioMixProfile');
+        mix.value = this.sound.getMixProfile();
+        mix.onchange = () => { this.sound.setMixProfile(mix.value); this.storeAudioSettings(); };
         const den = byId('densitySelect'), qual = byId('qualitySelect');
         const renderMode = byId('renderModeSelect'), pixelDetail = byId('pixelDetailSelect');
         const sliders = [['glyphScale', 'glyphScale'], ['glyphContrast', 'contrast'], ['glyphEdges', 'edgeStrength'], ['glyphBrightness', 'brightness']];
@@ -2935,6 +2947,18 @@ class AzurGame {
             const goal = byId('missionChip').textContent || 'Consulta el diario';
             this.announceAccessibility(`Región: ${where}. Objetivo: ${goal}. Equipo: ${this.save.team.length} criaturas. Pulsa E para interactuar cerca de un punto de interés.`);
         }
+    }
+    /** One bounded direction update per second; never allocate Web Audio nodes per frame. */
+    directSoundscape() {
+        this.sound.setFocus(this.dialogOpen ? 'narration' : this.modalOpen || !this.started || byId('gameDrawer').classList.contains('open') ? 'menu' : 'game');
+        if (!this.started || this.battle || this.evolution)
+            return;
+        const living = this.save.team.filter(c => c.hp > 0);
+        const health = living.length ? living.reduce((total, c) => total + c.hp, 0) /
+            Math.max(1, living.reduce((total, c) => total + maxHp(c), 0)) : 0;
+        const nearby = !this.save.dungeon?.active && !!this.nearRoamer();
+        this.sound.setIntensity(explorationMusicIntensity({ zone: this.save.zone,
+            crypt: !!this.save.dungeon?.active, healthRatio: health, visibleWitness: nearby, moving: this.moving }));
     }
     move(dt) {
         if (!byId('titleScreen').classList.contains('hidden') || !byId('starterScreen').classList.contains('hidden')) {
