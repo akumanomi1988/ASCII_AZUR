@@ -151,7 +151,7 @@ try{
  await active.tap('#exportBtn');
  await delay(850);
  const activityState=adb('shell','dumpsys','activity','activities');
- const picker=activityState.split('\\n').filter(x=>/documentsui|PickActivity|CREATE_DOCUMENT|topResumedActivity|mResumedActivity/i.test(x)).slice(-15).join('\\n');
+ const picker=activityState.split(String.fromCharCode(10)).filter(x=>/documentsui|PickActivity|CREATE_DOCUMENT|topResumedActivity|mResumedActivity/i.test(x)).slice(-15).join(String.fromCharCode(10));
  report.pickerEvidence=picker.slice(0,1400);
  check(/documentsui|PickActivity/i.test(picker),'JSON export opens Android document creation picker');
  adb('shell','input','keyevent','4');
