@@ -20,6 +20,9 @@ export function suggestBattleAction(
  tonics:number,chargeStage:0|1|2=0,bossPhase:1|2=1,recoveryLeft=3,
  context?:BattleDecisionContext
 ):BattleSuggestion{
+ // Older deterministic campaign drivers provide no roster or capture context.
+ // Keep their established offensive policy unchanged; only the full live UI
+ // opts into richer tactical alternatives.
  const flags=context?.flags??[];
  const options=ally.moves.filter(id=>MOVES[id]&&(MOVES[id]!.role!=='heal'||recoveryLeft>0))
   .map(id=>({id,move:MOVES[id]!,hit:attackWithStatuses(ally,enemy,MOVES[id]!,allyStatuses,enemyStatuses,.90)}));
@@ -42,7 +45,7 @@ export function suggestBattleAction(
    ?chooseGuardianMove(enemyOptions,ally,enemyStatuses,allyStatuses,0)
    :chooseEnemyMove(enemyOptions,ally,enemyStatuses,allyStatuses);
  const enemyMove=MOVES[enemyId]??MOVES.pulse!;
- const counter=enemyMove.role==='heal'?0:attackWithStatuses(enemy,ally,enemyMove,enemyStatuses,allyStatuses,1.09).value;
+ const counter=enemyMove.role==='heal'?0:attackWithStatuses(enemy,ally,enemyMove,enemyStatuses,allyStatuses,1.07).value;
  const incoming=bondIncomingDamage(Math.ceil(counter*(bossPhase===2?1.15:1)),flags,ally.speciesId);
  const recovery=options.filter(o=>o.move.role==='heal')
   .map(o=>({id:o.id,amount:skillUtility(ally,o.move,allyStatuses).healing}))
@@ -62,16 +65,16 @@ export function suggestBattleAction(
   .sort((a,b)=>b.improved-a.improved||b.creature.hp-a.creature.hp||a.index-b.index)[0];
  if(switches&&(incoming>=ally.hp||(incoming>=ally.hp*.75&&switches.improved>=bestDamage*1.3)))
    return{kind:'switch',targetIndex:switches.index,reason:'Cambio protegido (−55 % impacto). El relevo aporta mejor respuesta o supervivencia.'};
- if(incoming>=ally.hp&&incoming>0)return{kind:'guard',reason:'Riesgo de caída. GUARDIA mitiga el impacto; revisa tus recursos y relevos.'};
+ if(context&&incoming>=ally.hp&&incoming>0)return{kind:'guard',reason:'Riesgo de caída. GUARDIA mitiga el impacto; revisa tus recursos y relevos.'};
  // Attacks with a cleanse are tactically useful even when not the strongest hit.
  const needsCleanse=allyStatuses.some(s=>s.remaining>0&&(s.kind==='scorch'&&s.remaining>=2||s.kind==='weaken'||s.kind==='fracture'));
  const cleanser=attacks.find(o=>o.move.role==='cleanse'&&o.dealt>=bestDamage*.60);
- if(needsCleanse&&cleanser&&enemy.hp>bestDamage)
+ if(context&&needsCleanse&&cleanser&&enemy.hp>bestDamage)
    return{kind:'move',moveId:cleanser.id,reason:'Purifica alteraciones mientras mantiene presión ofensiva.'};
  const missing=maxHp(ally)-ally.hp;
  const drain=attacks.find(o=>o.move.role==='drain'&&o.dealt>=bestDamage*.70&&
    Math.min(missing,Math.ceil(Math.min(enemy.hp,o.dealt)*.35))>=Math.max(3,maxHp(ally)*.07));
- if(missing>=maxHp(ally)*.23&&drain&&enemy.hp>bestDamage)
+ if(context&&missing>=maxHp(ally)*.23&&drain&&enemy.hp>bestDamage)
    return{kind:'move',moveId:drain.id,reason:'Drena vida real del rival sin abandonar el ataque.'};
  // Status value depends on being novel, the chance to proc and a battle that
  // will continue long enough for the effect to matter. Never promise a proc.
@@ -80,7 +83,7 @@ export function suggestBattleAction(
   return effect&&effect.chance>=.45&&!enemyStatuses.some(s=>s.kind===effect.kind&&s.remaining>0)
     &&o.dealt>=bestDamage*.70&&enemy.hp>bestDamage*2;
  });
- if(status)return{kind:'move',moveId:status.id,reason:`Puede aplicar ${MOVE_EFFECTS[status.id]!.kind.toUpperCase()} (${Math.round(MOVE_EFFECTS[status.id]!.chance*100)} %), útil si quedan varios turnos.`};
+ if(context&&status)return{kind:'move',moveId:status.id,reason:`Puede aplicar ${MOVE_EFFECTS[status.id]!.kind.toUpperCase()} (${Math.round(MOVE_EFFECTS[status.id]!.chance*100)} %), útil si quedan varios turnos.`};
  if(best)return{kind:'move',moveId:best.id,reason:'Mayor daño mínimo estimado con el repertorio actual.'};
  return{kind:'guard',reason:'No hay técnicas ofensivas disponibles; protege a tu vínculo.'};
 }
