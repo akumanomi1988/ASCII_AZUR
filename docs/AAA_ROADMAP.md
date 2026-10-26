@@ -259,3 +259,8 @@ Local, bounded phase-specific rAF frame-cadence capture and player-directed JSON
 ## v0.65 — Live witnessed endings (technical implementation)
 
 The complete trilogy's four existing moral combinations now resolve into a physically reachable, optional Archivist testimony, branching Nael/Oriel/Iria aftermath, durable Chronicle entry and once-only equipment outcome. The local Diary previews only actually earned outcomes and the transaction uses cross-tab protected save-v1 writing. Automated tests and CI establish integration; N4 still needs independent unfamiliar-player narrative validation. No acceptance weight or completed milestone is changed: **21/32, weighted 68.75%**.
+
+
+## v0.66 — Seven optional three-act regional field trails (technical)
+
+Each visited and story-unlocked region offers an authored three-act trail linking physical NPCs, memories or runes, witness battles and the established regional Lumbre. Each route recognizes three already-existing, legitimate events, never saves parallel quest progress, and grants a single equipable existing relic plus finite Echoes only after an optimistic-concurrency-safe claim at that Lumbre. Hidden locations do not leak coordinates. Seven reward flags fit the unchanged save-v1 validation envelope. This strengthens player-facing exploration motivation and narrative continuity but cannot close **W4** without 200-seed route QA plus human mobile navigation, or **P4/N4** without independent external acceptance. Fixed baseline **21/32, weighted 68.75%** remains unchanged. Evidence: docs/RELEASE_v0.66.0.md and applicable GitHub CI runs after verification.

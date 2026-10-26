@@ -1,4 +1,7 @@
-# ASCII AZUR v0.65.0 — The Unwritten
+# ASCII AZUR v0.66.0 — The Unwritten
+
+> **v0.66 — Pilgrim's Field Trails:** seven authored three-act regional paths translate existing physical NPC/memory/rune/witness/guardian encounters into a visible optional route, fog-safe next-act tracking, permanent one-time relic equipment, and a region-specific story recognition claimed at a visited Lumbre. Progress is derived from existing save-v1 events; no new regions, currency, grind or required objectives. See docs/RELEASE_v0.66.0.md.
+
 
 > **v0.65 — Living trilogy consequences:** each complete Marsh × Crown ending can be witnessed at Arken's physical Archivist as an optional, permanent story closure with four different tactical relic outcomes. A fog-safe diary lead, persistent Chronicle closure, live NPC scenes and CAS-safe one-time reward join the established save-v1 world. See docs/RELEASE_v0.65.0.md.
 
