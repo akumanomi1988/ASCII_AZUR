@@ -1,4 +1,5 @@
 import { azurOpening, azurNarrativeBeat, azurNpcReflection, azurMarshChoiceMeaning, azurCrownChoiceMeaning, azurBondLegacy, azurAfterlightIntroduction } from './story-agency.js';
+import { legacyBranch, legacyClaimed, legacyReceipt, planLegacyClaim } from './story-legacy.js';
 import { regionFieldGuide, nextKnownFieldLead, wildPacing, witnessFieldAftermath } from './world/exploration-flow.js';
 import { battleReadout } from './combat/battle-readout.js';
 import { tacticalProfile, teamGuide, loadoutUpgrade, relicUpgrade, recruitmentValue, storyThreat, creatureRole } from './creatures/tactical-identity.js';
@@ -1670,6 +1671,8 @@ class AzurGame {
                     { title: 'LO QUE NO SE BORRA', text: 'Tus criaturas pronuncian los nombres que el silencio robó. Arken recupera su memoria; la primera región vuelve a tener un mañana.' },
                     { title: 'FIN DEL ARCO DE ARKEN', text: `Has cerrado la primera historia completa. Recibes ${ARKEN_FINALE_REWARD.echoes} Ecos y ${ARKEN_FINALE_REWARD.seals} Sellos. El mundo continúa abierto para nuevas aventuras.` }]);
             }
+            else if (legacyBranch(this.save.flags))
+                this.openLegacyWitness();
             else if (this.flag('arken-vow-restored'))
                 this.dialog([azurNpcReflection(this.save.flags, 'archivist')]);
             else if (this.save.defeatedBoss && !this.save.dungeon?.finished)
@@ -2156,6 +2159,49 @@ class AzurGame {
         this.saveNow(false);
         this.dialog([{ title: 'EL CIELO ABIERTO', text: azurCrownChoiceMeaning(choice, this.save.flags) }, { title: 'EL ÚLTIMO TESTIGO', text: 'Busca a Oriel para comprobar qué ha cambiado en Arken y Nael. Después puedes continuar la Vigilia opcional o terminar aquí.' }]);
     }
+    /** Optional final world consequence; inspection cannot alter game state. */
+    openLegacyWitness() {
+        if (!this.started || this.battle || this.dialogOpen || this.evolution)
+            return;
+        const outcome = legacyBranch(this.save.flags);
+        if (!outcome)
+            return;
+        const archivist = ZONES.village.landmarks.find(l => l.npcId === 'archivist');
+        const near = this.save.zone === 'village' && Math.hypot(this.save.x - archivist.x, this.save.y - archivist.y) <= 2.15;
+        const claimed = legacyClaimed(this.save.flags);
+        const content = '<div class="modal-content-block"><strong>' + htmlEscape(outcome.title) + '</strong>' +
+            '<p>' + htmlEscape(outcome.opening) + '</p><p>' + htmlEscape(outcome.nael) + '</p>' +
+            '<p>' + htmlEscape(outcome.oriel) + '</p><p>' + htmlEscape(outcome.resolution) + '</p></div>' +
+            '<div class="modal-content-block"><strong>LA HUELLA DE TUS DECISIONES</strong><p>' +
+            htmlEscape(outcome.reason) + '</p><p>' + htmlEscape(legacyReceipt(this.save)) + '</p>' +
+            (claimed ? '<p>TESTIMONIO CONSERVADO · LA CRÓNICA RECUERDA TU ELECCIÓN.</p>' :
+                near ? '<button id="claimLegacyWitness">CONFIRMAR TESTIMONIO EN ARKEN</button>' :
+                    '<p>REGRESA AL ARCHIVISTA DE ARKEN PARA CONSERVAR EL TESTIMONIO Y RECIBIR SU RELIQUIA.</p>') +
+            '</div><div class="modal-option"><button id="legacyBack">← DIARIO</button></div>';
+        this.showModal('TESTIMONIO DE ARKEN', content);
+        const confirm = byId('modalContent').querySelector('#claimLegacyWitness');
+        if (confirm)
+            confirm.onclick = () => this.claimLegacyWitness();
+        byId('legacyBack').onclick = () => this.openQuests();
+        this.modalBack = () => this.openQuests();
+    }
+    /** Atomic cross-tab-safe grant; a failed write leaves live ownership untouched. */
+    claimLegacyWitness() {
+        if (!this.started || this.battle || this.dialogOpen || this.evolution)
+            return false;
+        const archivist = ZONES.village.landmarks.find(l => l.npcId === 'archivist');
+        if (this.save.zone !== 'village' || Math.hypot(this.save.x - archivist.x, this.save.y - archivist.y) > 2.15)
+            return false;
+        const next = planLegacyClaim(this.save);
+        if (!next)
+            return false;
+        if (!this.commitFieldState(next))
+            return false;
+        this.sound.pick();
+        this.openLegacyWitness();
+        this.toast('EL TESTIMONIO DE ARKEN SE HA CONSERVADO');
+        return true;
+    }
     openQuests() {
         if (!this.started)
             return;
@@ -2177,6 +2223,8 @@ class AzurGame {
             const state = p.stage === 'claimed' ? '✓ ' + (p.path === 'fang' ? 'FILO' : 'VELO') : p.stage === 'ready' ? 'DISPONIBLE' : p.creatureReady ? 'BUSCA RECUERDOS' : 'DESPIERTA';
             return `<div class="modal-option"><div><strong>${htmlEscape(arc.title)}</strong><small>${htmlEscape(arc.hint)}</small><small>${p.memories}/${arc.prerequisiteFlags.length} recuerdos · ${p.creatureReady ? 'CRIATURA LISTA' : 'CRIATURA PENDIENTE'}</small></div><span class="quest-state ${p.stage === 'claimed' ? 'done' : ''}">${state}</span></div>`;
         }).join('');
+        const legacy = legacyBranch(this.save.flags);
+        const legacyPanel = legacy ? '<div class="modal-content-block"><strong>TESTIMONIO DE ARKEN · ' + (legacyClaimed(this.save.flags) ? 'CONSERVADO' : 'DISPONIBLE') + '</strong><p>' + htmlEscape(legacy.resolution) + '</p><p>Después de la Corona, vuelve al Archivista en Arken para dejar constancia de tus dos decisiones. Esta historia y su reliquia son opcionales.</p><button id="openLegacyWitness">VER TESTIMONIO</button></div>' : '';
         const pilgrimage = afterlightOverview(this.save);
         const pilgrimagePanel = this.flag('crown-trilogy-complete') ? `<div class="modal-content-block"><strong>VIGILIA DE LAS DOS AUSENCIAS · ${pilgrimage.done}/${pilgrimage.total}</strong><p>La historia principal está cerrada. Quedan dos capítulos completos de exploración, decisiones y epílogos.</p><button id="followPilgrimage">CONTINUAR LA VIGILIA</button></div>` : '';
         const chronicle = storyChronicle(this.storyState);
@@ -2184,7 +2232,7 @@ class AzurGame {
             chronicle.map(entry => `<div class="modal-option chronicle-item"><div><strong>${htmlEscape(entry.eyebrow)} · ${htmlEscape(entry.title)}</strong><small>${htmlEscape(entry.summary)}</small></div><button data-chronicle="${entry.id}" aria-label="Leer ${htmlEscape(entry.title)}">LEER</button></div>`).join('');
         const travel = campaignRoadbook(this.storyState, this.save.team, this.save.inventory);
         const progressPanel = `<div class="modal-content-block"><strong>ATLAS DEL VIAJE · ${travel.completed}/${travel.total} HITOS · ${travel.percentage}%</strong><p>${travel.chapters.map(c => `${htmlEscape(c.name)}: ${c.done}/${c.total} ${c.status === 'done' ? '✓' : c.status === 'active' ? '◆' : '○'}`).join(' · ')}</p><p>OBJETIVO · ${htmlEscape(travel.objective)}</p><p>Equipo: ${this.save.team.filter(c => c.hp > 0).length}/${this.save.team.length} conscientes · ${this.save.inventory.tonics} Tónicos · ${this.save.inventory.seals} Sellos${travel.counter ? ' · Contraataque: ' + htmlEscape(travel.counter) : ''}.</p>${travel.advice.map(t => `<p>✦ ${htmlEscape(t)}</p>`).join('')}<p>Este atlas no cambia el guardado ni concede recursos.</p></div>`;
-        this.showModal('DIARIO · MISIONES', `<div class="modal-content-block"><strong>REGISTRO DEL VIAJE</strong><p>${this.save.journey?.counters.wins ?? 0} victorias · ${this.save.journey?.counters.losses ?? 0} derrotas · ${this.save.journey?.counters.tonics ?? 0} tónicos usados. Datos locales desde ${this.save.journey?.starter === 'unknown' || !this.save.journey ? 'esta actualización' : 'el inicio de este viaje'}.</p><button id="exportPlaytest">EXPORTAR REGISTRO DE PRUEBAS</button></div>` + `<div class="modal-content-block"><button id="openFieldFromQuests">DIARIO DE CAMPO · OBJETIVOS Y RECOMPENSAS</button></div>` + meaningPanel + chroniclePanel + progressPanel + mainQuest + chapter + finale + pilgrimagePanel + afterlight + `<div class="modal-content-block"><strong>JURAMENTOS DE VÍNCULO · ${BOND_ARCS.filter(a => bondProgress(a, this.save.flags, [...this.save.team, ...this.save.storage]).stage === 'claimed').length}/${BOND_ARCS.length}</strong><p>Despierta a tus criaturas, descubre memorias y regresa a cada Lumbre para elegir un don permanente.</p></div>` + bonds + `<div class="shop-balance">${this.economy.echoes} ECOS · ${this.economy.completed.length}/${QUESTS.length} ENCARGOS SECUNDARIOS</div>` + QUESTS.map(q => `<div class="modal-option"><div><strong>${htmlEscape(q.name)}</strong><small>${htmlEscape(q.description)}</small><small>RECOMPENSA · ${q.reward} ECOS</small></div><span class="quest-state ${this.economy.completed.includes(q.id) ? 'done' : ''}">${this.economy.completed.includes(q.id) ? '✓ HECHA' : 'PENDIENTE'}</span></div>`).join(''));
+        this.showModal('DIARIO · MISIONES', `<div class="modal-content-block"><strong>REGISTRO DEL VIAJE</strong><p>${this.save.journey?.counters.wins ?? 0} victorias · ${this.save.journey?.counters.losses ?? 0} derrotas · ${this.save.journey?.counters.tonics ?? 0} tónicos usados. Datos locales desde ${this.save.journey?.starter === 'unknown' || !this.save.journey ? 'esta actualización' : 'el inicio de este viaje'}.</p><button id="exportPlaytest">EXPORTAR REGISTRO DE PRUEBAS</button></div>` + `<div class="modal-content-block"><button id="openFieldFromQuests">DIARIO DE CAMPO · OBJETIVOS Y RECOMPENSAS</button></div>` + meaningPanel + chroniclePanel + progressPanel + mainQuest + chapter + finale + pilgrimagePanel + legacyPanel + afterlight + `<div class="modal-content-block"><strong>JURAMENTOS DE VÍNCULO · ${BOND_ARCS.filter(a => bondProgress(a, this.save.flags, [...this.save.team, ...this.save.storage]).stage === 'claimed').length}/${BOND_ARCS.length}</strong><p>Despierta a tus criaturas, descubre memorias y regresa a cada Lumbre para elegir un don permanente.</p></div>` + bonds + `<div class="shop-balance">${this.economy.echoes} ECOS · ${this.economy.completed.length}/${QUESTS.length} ENCARGOS SECUNDARIOS</div>` + QUESTS.map(q => `<div class="modal-option"><div><strong>${htmlEscape(q.name)}</strong><small>${htmlEscape(q.description)}</small><small>RECOMPENSA · ${q.reward} ECOS</small></div><span class="quest-state ${this.economy.completed.includes(q.id) ? 'done' : ''}">${this.economy.completed.includes(q.id) ? '✓ HECHA' : 'PENDIENTE'}</span></div>`).join(''));
         byId('exportPlaytest').onclick = () => this.exportPlaytest();
         byId('openFieldFromQuests').onclick = () => this.openFieldJournal();
         for (const button of byId('modalContent').querySelectorAll('[data-chronicle]'))
@@ -2195,6 +2243,9 @@ class AzurGame {
                 this.showModal('CRÓNICA · ' + entry.title.toUpperCase(), `<div class="modal-content-block"><strong>${htmlEscape(entry.eyebrow)}</strong><p>${htmlEscape(entry.summary)}</p>${entry.passages.map(line => `<p>${htmlEscape(line)}</p>`).join('')}<p>Relato guardado en este viaje. No modifica progreso ni recursos.</p></div>`);
                 this.modalBack = () => this.openQuests();
             };
+        const witness = byId('modalContent').querySelector('#openLegacyWitness');
+        if (witness)
+            witness.onclick = () => this.openLegacyWitness();
         const follow = byId('modalContent').querySelector('#followPilgrimage');
         if (follow)
             follow.onclick = () => { this.hideModal(); this.atlasTarget = null; this.clearFieldTarget(); this.updateStoryCompass(); };

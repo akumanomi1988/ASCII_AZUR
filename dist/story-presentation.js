@@ -3,6 +3,7 @@ import { marshChapterProgress } from './story-marsh.js';
 import { crownProgress, crownEpilogue } from './story-finale.js';
 import { AFTERLIGHT, afterlightProgress, afterlightEpilogue } from './story-afterlight.js';
 import { azurWorldConsequence } from './story-agency.js';
+import { legacyBranch, legacyClaimed } from './story-legacy.js';
 const AZUR_SCENE_ARRIVALS = {
     forest: { id: 'forest-arrival', zone: 'forest', eyebrow: 'UMBRAL I · EL BOSQUE', title: 'La ceniza aprende a hablar', subtitle: 'Cada árbol guarda una voz que Arken ya no recuerda.', tone: 'arrival' },
     sanctuary: { id: 'sanctuary-arrival', zone: 'sanctuary', eyebrow: 'UMBRAL I · EL SANTUARIO', title: 'Donde calla la Primera Palabra', subtitle: 'Una promesa aguarda detrás del silencio.', tone: 'memory' },
@@ -68,7 +69,7 @@ export function storyChronicle(story) {
     entries.push({
         id: 'crown', eyebrow: 'III · LA CORONA', title: 'El último escriba', status: crown.complete ? 'complete' : 'active',
         summary: crown.complete ? (crown.choice === 'remember' ? 'Elegiste conservar los nombres sin encadenarlos.' : 'Elegiste liberar el futuro de cualquier escriba.') : 'Nullscribe quiere escribir el destino antes de que ocurra.',
-        passages: crown.complete ? [...crownEpilogue(flags).map(beat => beat.text), azurWorldConsequence(flags)] : [
+        passages: crown.complete ? [...crownEpilogue(flags).map(beat => beat.text), azurWorldConsequence(flags), ...(legacyClaimed(flags) && legacyBranch(flags) ? [legacyBranch(flags).resolution] : [])] : [
             'Oriel te espera en la Corona. Recupera el Archivo y la Lumbre antes de escuchar a sus tres testigos.'
         ]
     });
