@@ -118,11 +118,16 @@ try{
  const save=JSON.parse(await active.eval('localStorage.getItem("ascii-azur-save-v1")'));
  check(save.version===1 && save.team.length===1 && typeof save.zone==='string','Actual native-touch game saved');
  report.saved={version:save.version,zone:save.zone,team:save.team.length};
- const w=await active.eval('innerWidth');adb('shell','wm','size','820x1280');await delay(900);
- const portrait=await active.eval('({w:innerWidth,h:innerHeight})');
- adb('shell','wm','size','1280x820');await delay(900);
- const landscape=await active.eval('({w:innerWidth,h:innerHeight})');
- check(portrait.h>portrait.w && landscape.w>landscape.h,'Physical emulator window rotation preserved WebView');
+ // wm size alone does not rotate Android 11. Change native OS rotation.
+ adb('shell','settings','put','system','accelerometer_rotation','0');
+ adb('shell','settings','put','system','user_rotation','0');
+ adb('shell','wm','size','820x1280');await delay(1800);
+ const portrait=await active.eval('({w:innerWidth,h:innerHeight,angle:screen.orientation?.angle??null})');
+ adb('shell','settings','put','system','user_rotation','1');
+ adb('shell','wm','size','1280x820');await delay(1800);
+ const landscape=await active.eval('({w:innerWidth,h:innerHeight,angle:screen.orientation?.angle??null})');
+ report.rotation={portrait,landscape};
+ check(portrait.h>portrait.w && landscape.w>landscape.h,'Real OS rotation and app viewport response');
  check(!!(await active.eval('localStorage.getItem("ascii-azur-save-v1")')),'Save survives device rotation');
  await active.tap('#drawerToggle');
  await active.until('document.getElementById("gameDrawer")?.classList.contains("open")',8000);
@@ -145,9 +150,10 @@ try{
  await active.until('!!document.querySelector("#exportBtn")',6000);
  await active.tap('#exportBtn');
  await delay(850);
- const picker=adb('shell','dumpsys','activity','activities').split('\n').filter(x=>/mResumed|topResumed|mFocused/.test(x)).slice(-5).join('\n');
- check(/DocumentsUI|documentsui|ExternalStorageProvider/.test(picker),'JSON export opens Android document creation picker');
- report.pickerEvidence=picker.slice(0,400);
+ const activityState=adb('shell','dumpsys','activity','activities');
+ const picker=activityState.split('\\n').filter(x=>/documentsui|PickActivity|CREATE_DOCUMENT|topResumedActivity|mResumedActivity/i.test(x)).slice(-15).join('\\n');
+ report.pickerEvidence=picker.slice(0,1400);
+ check(/documentsui|PickActivity/i.test(picker),'JSON export opens Android document creation picker');
  adb('shell','input','keyevent','4');
  await delay(350);
  check((await active.eval('location.origin'))==='https://appassets.androidplatform.net','Native app origin remains isolated after SAF');
@@ -168,7 +174,7 @@ try{
 }
 finally{
  try{active?.close();}catch{}
- try{adb('shell','wm','size','reset');adb('shell','svc','wifi','enable');adb('shell','svc','data','enable');}catch{}
+ try{adb('shell','wm','size','reset');adb('shell','settings','put','system','accelerometer_rotation','1');adb('shell','svc','wifi','enable');adb('shell','svc','data','enable');}catch{}
  try{if(forwarded)adb('forward','--remove','tcp:'+PORT);}catch{}
  writeFileSync(resolve(dir,'native-apk.json'),JSON.stringify(report,null,2));
 }
