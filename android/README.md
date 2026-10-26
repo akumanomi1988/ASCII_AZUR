@@ -7,8 +7,10 @@ The game loads from the safe local HTTPS origin supported by
 
 ## Build (JDK 17, Android SDK 35, Gradle 8.10.2, Node 22, Python 3)
 
+The repository currently does not include a package-lock.json. Use npm install, not npm ci (which requires a lockfile).
+
 ```bash
-npm ci --ignore-scripts
+npm install --ignore-scripts --no-audit --no-fund
 npm run build
 python3 tools/stage-android-assets.py
 gradle -p android :app:assembleDebug --no-daemon
