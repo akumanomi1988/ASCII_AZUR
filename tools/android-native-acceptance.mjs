@@ -32,10 +32,15 @@ class CDP {
   if(!location||location.w<4||location.h<4)throw Error('Not visible: '+selector);
   console.log('NATIVE_TAP_TARGET '+JSON.stringify({selector,location}));
   await this.eval('(()=>{window.__nativeTapped=false;window.__nativeTarget='+JSON.stringify(selector)+';if(!window.__nativeTapProbe){document.addEventListener("click",e=>{if(e.target.closest(window.__nativeTarget))window.__nativeTapped=true},true);window.__nativeTapProbe=true;}})()');
-  await this.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:location.x,y:location.y,id:1}]});
-  await this.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
-  await delay(300);
-  let received=await this.eval('window.__nativeTapped===true');
+  // Android 11 WebView CDP touch can freeze its inspector; native OS taps
+  // are the supported and stricter route here (real pointerdown + click).
+  let received=false;
+  if (Number(API)>30) {
+    await this.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:location.x,y:location.y,id:1}]});
+    await this.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+    await delay(300);
+    received=await this.eval('window.__nativeTapped===true');
+  }
   if(!received){
     const size=adb('shell','wm','size');
     const match=size.match(/Override size:\s*(\d+)x(\d+)/)||size.match(/Physical size:\s*(\d+)x(\d+)/);
