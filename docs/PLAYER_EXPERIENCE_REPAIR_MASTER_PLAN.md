@@ -177,3 +177,8 @@ Use the existing source-pinned \`tools/acceptance-evidence.mjs\` and the human-d
 **Commit to M0+M1 first as the largest coherent game-development iteration**, with a locked end-to-end result: *the creature you discover changes a battle decision, the reward is understandable and worthwhile, and the game visibly recognizes that progress.* M2 and M3 follow under this same plan, not a new brainstorming cycle. Run structured external playtesting as soon as a releasable build exists rather than waiting until the last delivery. Do not claim 80% or a premium-quality release on implementation alone.
 
 **Status at creation:** PLAN COMPLETE; IMPLEMENTATION NOT STARTED HERE; accepted progress remains **67.50%**.
+
+
+## v0.63 — Tactical-choice guidance integrated
+
+The battle-decision subset of Epic A is implemented as pure read-only combat planning and integrated into accessible player controls. It addresses active tactical value and a concrete recruit-first opportunity without new species, inflated grind, or schema changes. See `docs/RELEASE_v0.63.0.md`. Other qualitative Epic A acceptance remains independent and OPEN.

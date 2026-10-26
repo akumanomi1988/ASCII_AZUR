@@ -355,6 +355,9 @@
 #battleThreat:empty{display:none}
 #battleActions button.recommended-defense{border:2px solid #ffd18d;box-shadow:inset 0 0 0 1px #57351c;color:#fff4df;background:#4c3425;font-weight:700}
 #battleActions button.recommended-defense::after{content:' · RECOMENDADA';font:700 10px 'DM Mono',monospace}
+#battleActions button.recommended-choice:not(:disabled){outline:2px solid #c4df9a;outline-offset:-3px;box-shadow:inset 0 0 0 1px #334f2c}
+#battleActions button.recommended-choice:not(:disabled):focus-visible{outline:3px solid #f8dda0;outline-offset:2px}
+#battleActions button.recommended-choice:not(:disabled) .battle-move-extra{font-weight:700}
 #battleActions button{min-height:44px;touch-action:manipulation}
 .battle-interface .battle-panel{grid-template-rows:auto auto auto}
 .battle-interface .battle-log{grid-column:1;grid-row:1}
