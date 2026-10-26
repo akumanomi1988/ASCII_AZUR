@@ -80,12 +80,14 @@ test('chronicle and journal preserve original structure and reveal witnessed clo
  assert.notEqual(azurNarrativeBeat(state(before)).next,azurNarrativeBeat(state(after)).next);
 });
 test('actual Archivist visit claims reward through save CAS and persists after reload, without repeats',()=>{
- const {game,dom,storage}=mount({virtualTime:true,seed:456});
+ const {game,dom,storage,world}=mount({virtualTime:true,seed:456});
  game.startNew();game.pickStarter('cindrel');
  while(game.dialogOpen)game.nextDialog();
  game.save.flags.push(...flags('keep','renew').filter(f=>!game.save.flags.includes(f)));
- game.save.zone='village';game.save.x=8;game.save.y=16;
- game.interactNpc('archivist');
+ const npc=world.ZONES.village.landmarks.find(l=>l.npcId==='archivist');
+ assert.ok(npc,'the seeded village must have a physically reachable Archivist');
+ game.save.zone='village';game.save.x=npc.x;game.save.y=npc.y;
+ game.interact();
  assert.match(dom.get('modalContent').innerHTML,/TESTIMONIO|ATLAS|AMANECER/);
  const candidate=planLegacyClaim(game.save);
  assert.ok(candidate,'real NPC action should meet all pure claim preconditions');
