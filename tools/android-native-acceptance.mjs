@@ -20,7 +20,7 @@ class CDP {
   });
  }
  send(method,params={}){return new Promise((resolve,reject)=>{const id=++this.id;
-  const timer=setTimeout(()=>{this.pending.delete(id);reject(Error('CDP timed out '+method));},16000);
+  const timer=setTimeout(()=>{this.pending.delete(id);reject(Error('CDP timed out '+method));},45000);
   this.pending.set(id,{resolve,reject,timer});this.ws.send(JSON.stringify({id,method,params}));
  });}
  async eval(expr){const r=await this.send('Runtime.evaluate',{expression:expr,returnByValue:true,awaitPromise:true});
@@ -140,7 +140,18 @@ try{
  report.javascriptExceptions=active.exceptions;
  check(active.exceptions.length===0,'No JavaScript errors');
  console.log('ANDROID_NATIVE_APK_PASS '+JSON.stringify({api:API,checks:report.steps.length,apkSha256:report.apkSha256,offline:true}));
-}catch(error){report.errors.push(String(error));console.error('ANDROID_NATIVE_APK_FAIL '+String(error));process.exitCode=1;}
+}catch(error){
+ report.errors.push(String(error));console.error('ANDROID_NATIVE_APK_FAIL '+String(error));
+ try{
+  const log=adb('logcat','-d','-t','1200');
+  writeFileSync(resolve(dir,'native-logcat.txt'),log);
+  console.log('NATIVE_LOGCAT_EVIDENCE '+log.split('\\n').filter(x=>/chromium|WebView|ActivityManager|lowmemory|OOM|ANR|crash|FATAL EXCEPTION|GL_|BufferQueue/i.test(x)).slice(-30).join('\\n').slice(-7000));
+ }catch(logError){console.error('NATIVE_LOGCAT_UNAVAILABLE '+String(logError));}
+ try{const mem=adb('shell','dumpsys','meminfo',pkg);writeFileSync(resolve(dir,'native-memory.txt'),mem);}catch{}
+ try{const picture=execFileSync('adb',['exec-out','screencap','-p'],{timeout:18000,maxBuffer:8_000_000});writeFileSync(resolve(dir,'native-failure.png'),picture);}catch{}
+ try{report.processAtFailure=adb('shell','pidof',pkg).trim();}catch{report.processAtFailure='not-running';}
+ process.exitCode=1;
+}
 finally{
  try{active?.close();}catch{}
  try{adb('shell','wm','size','reset');adb('shell','svc','wifi','enable');adb('shell','svc','data','enable');}catch{}
