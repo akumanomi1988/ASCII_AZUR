@@ -140,7 +140,14 @@ async function acceptNativeSaveReplacement() {
   for(let i=0;i<5;i++){
     const nodes=nativeNodes();
     const approve=nodes.find(n=>/^(Continuar|Continue|Aceptar|OK)$/i.test(n.text));
-    if(approve && nodes.some(n=>/sustituirá|replace|importad/i.test(n.text))){nativePress(approve);return;}
+    const labels=nodes.map(n=>n.text||n.desc).filter(Boolean);
+    console.log('NATIVE_IMPORT_CONFIRM_UI '+JSON.stringify({pass:i,labels:labels.slice(0,35)}));
+    // Android 11 truncates/encodes long dialog body accessibility strings.
+    // A native dialog with this app's title and explicit positive/negative
+    // actions is stronger evidence than matching one translated body word.
+    const appTitle=nodes.some(n=>n.text==='ASCII AZUR');
+    const decline=nodes.some(n=>/^(Cancelar|Cancel)$/i.test(n.text));
+    if(approve && appTitle && decline){nativePress(approve);return;}
     await delay(500);
   }
   throw Error('Native confirmation dialog did not present explicit overwrite approval');
