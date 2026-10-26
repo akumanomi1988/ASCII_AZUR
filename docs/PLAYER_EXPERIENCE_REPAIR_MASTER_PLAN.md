@@ -182,3 +182,8 @@ Use the existing source-pinned \`tools/acceptance-evidence.mjs\` and the human-d
 ## v0.63 — Tactical-choice guidance integrated
 
 The battle-decision subset of Epic A is implemented as pure read-only combat planning and integrated into accessible player controls. It addresses active tactical value and a concrete recruit-first opportunity without new species, inflated grind, or schema changes. See `docs/RELEASE_v0.63.0.md`. Other qualitative Epic A acceptance remains independent and OPEN.
+
+
+## 2026-10-26 — Epic C: chapter-aware field hunts (v0.67)
+
+A full optional capture journey replaces one-click direct duels. The existing active-wild ecosystem determines which species can be intentionally fought during current chapter progression; the dedicated regional duel levels, real research flags, actual team tactics, lead selection, and native battle/capture remain authoritative. No new content grind, persistent save fields or servers. This addresses a concrete early unlock loophole and improves player-facing reasons to capture. CI technical acceptance must be distinguished from independent P4 human approval; the frozen 68.75% weighted baseline does not move.
