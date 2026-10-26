@@ -39,7 +39,7 @@ import { createCombatCue, sampleCombatCue, guardDamage } from './actors/combat-f
 import { MOVE_EFFECTS, STATUS_INFO, applyEffect, attackWithStatuses, chooseEnemyMove, chooseGuardianMove, endTurnEffects, statusLabel, skillUtility, effectiveHealing, drainHealing, recoveryCastsLeft } from './combat/tactics.js';
 import { previewMove } from './combat/move-preview.js';
 import { capturePreview } from './combat/capture-odds.js';
-import { RESEARCH_TIERS, RESEARCH_REWARD_PREFIX, recordSpeciesResearch, researchCatalogue, claimResearchTier } from './creatures/field-research.js';
+import { RESEARCH_TIERS, RESEARCH_REWARD_PREFIX, recordSpeciesResearch, researchCatalogue, nextResearchLead, claimResearchTier } from './creatures/field-research.js';
 import { reveal, isDiscovered, discoveredPercent } from './world/discovery.js';
 import { RUNE_PUZZLES, RUNE_SYMBOLS, submitRune, claimRune } from './puzzles/runes.js';
 import { unlockedMoves, equipMove } from './creatures/loadout.js';
@@ -2204,13 +2204,19 @@ class AzurGame {
         if (!this.started)
             return;
         const research = researchCatalogue(this.save.team, this.save.storage, this.save.flags);
+        const enemy = storyThreat(this.save.flags);
+        const knownZones = ZONE_IDS.filter(zone => regionKnown(this.save, zone) && regionUnlocked(this.save, zone));
+        const lead = nextResearchLead(research, this.save.flags, knownZones, this.save.zone, enemy ? SPECIES[enemy.speciesId].element : undefined);
+        const leadPanel = lead
+            ? '<div class="modal-content-block"><strong>PRÓXIMO VÍNCULO · ' + htmlEscape(lead.name.toUpperCase()) + '</strong><p>HÁBITAT · ' + htmlEscape(ZONES[lead.zone].name) + ' · ' + htmlEscape(lead.reason) + '</p><p>Combate en la región conocida y debilita a esta especie salvaje antes de intentar vincularla. Lleva Sellos y prepara un lugar en Vínculos o la reserva.</p><button id="researchRoute">ABRIR DIARIO DE CAMPO</button></div>'
+            : '<div class="modal-content-block"><strong>SIGUIENTE INVESTIGACIÓN</strong><p>Encuentra criaturas salvajes para registrar avistamientos. Solo se recomienda una especie que ya conozcas y cuyo hábitat esté desbloqueado.</p></div>';
         const stages = RESEARCH_TIERS.map(tier => {
             const completed = this.save.flags.includes(RESEARCH_REWARD_PREFIX + tier.id);
             const ready = !completed && research.bonded >= tier.count;
             const button = completed ? '<span class="quest-state done">✓ RECLAMADO</span>' : ready
                 ? '<button data-research-claim="' + tier.id + '">RECLAMAR</button>'
                 : '<span class="quest-state">' + research.bonded + '/' + tier.count + '</span>';
-            return '<div class="modal-option"><div><strong>' + htmlEscape(tier.title) + '</strong><small>' + tier.count + ' especies distintas · +' + tier.echoes + ' Ecos · +' + tier.seals + ' Sellos · +' + tier.tonics + ' Tónicos</small></div>' + button + '</div>';
+            return '<div class="modal-option"><div><strong>' + htmlEscape(tier.title) + '</strong><small>' + tier.count + ' especies distintas · +' + tier.echoes + ' Ecos · +' + tier.seals + ' Sellos · +' + tier.tonics + ' Tónicos</small><small>RELIQUIA TÁCTICA · ' + htmlEscape(RELICS[tier.relic].name) + ' · ' + htmlEscape(RELICS[tier.relic].description) + '</small></div>' + button + '</div>';
         }).join('');
         const entries = research.entries.map(entry => {
             const species = SPECIES[entry.id];
@@ -2225,14 +2231,20 @@ class AzurGame {
             return '<div class="modal-option"><div><strong style="color:' + (identified ? species.color : '#a0adb7') + '">' + (identified ? htmlEscape(entry.name) : '??????') + '</strong><small>' + htmlEscape(detail) + '</small><small>RASTRO · ' + htmlEscape(habitat) + '</small>' + extra + (oath ? '<small>JURAMENTO · ' + (oath === 'fang' ? 'FILO' : 'VELO') + '</small>' : '') + '</div><span class="quest-state ' + (entry.status === 'bonded' ? 'done' : '') + '">' + status + '</span></div>';
         }).join('');
         this.showModal('CÓDICE · INVESTIGACIÓN', '<div class="modal-content-block"><strong>' + research.bonded + '/' + research.total + ' VÍNCULOS · ' + research.seen + '/' + research.total + ' AVISTAMIENTOS</strong><p>Los encuentros dejan un rastro permanente. Investiga las regiones indicadas y vincula especies diferentes para restaurar los cuatro fragmentos del códice.</p><p>Las recompensas son únicas por partida y se reclaman voluntariamente. Los guardianes no son capturables; evolucionar conserva los vínculos anteriores.</p></div>' +
-            '<div class="modal-content-block"><strong>HITOS DE INVESTIGACIÓN</strong></div>' + stages +
+            leadPanel + '<div class="modal-content-block"><strong>HITOS DE INVESTIGACIÓN</strong></div>' + stages +
             '<div class="modal-content-block"><strong>CRIATURAS Y HÁBITATS</strong></div>' + entries);
         for (const btn of byId('modalContent').querySelectorAll('[data-research-claim]'))
             btn.onclick = () => this.claimResearch(btn.dataset.researchClaim);
+        const route = byId('modalContent').querySelector('#researchRoute');
+        if (route && lead)
+            route.onclick = () => this.openFieldJournal(lead.zone);
     }
     claimResearch(id) {
-        const previous = { flags: [...this.save.flags], inventory: { ...this.save.inventory }, echoes: this.economy.echoes };
-        const outcome = claimResearchTier({ flags: this.save.flags, team: this.save.team, storage: this.save.storage, inventory: this.save.inventory, rpg: this.economy }, id);
+        const previous = { flags: [...this.save.flags], inventory: { ...this.save.inventory }, echoes: this.economy.echoes, relics: this.save.relics ? { ...this.save.relics } : undefined };
+        const claimState = { flags: this.save.flags, team: this.save.team, storage: this.save.storage, inventory: this.save.inventory, rpg: this.economy, relics: this.save.relics };
+        const outcome = claimResearchTier(claimState, id);
+        if (outcome === 'claimed')
+            this.save.relics = claimState.relics;
         if (outcome !== 'claimed') {
             this.toast(outcome === 'full' ? 'INVENTARIO O REGISTRO COMPLETO · LIBERA ESPACIO' : outcome === 'locked' ? 'INVESTIGACIÓN INCOMPLETA' : 'RECOMPENSA NO DISPONIBLE');
             return;
@@ -2241,13 +2253,14 @@ class AzurGame {
             this.save.flags = previous.flags;
             this.save.inventory = previous.inventory;
             this.economy.echoes = previous.echoes;
+            this.save.relics = previous.relics;
             this.toast('NO SE PUDO CONSERVAR LA RECOMPENSA');
             return;
         }
         this.sound.pick();
         this.updateUI();
         this.openCodex();
-        this.toast('INVESTIGACIÓN RECOMPENSADA · UNA SOLA VEZ');
+        this.toast('INVESTIGACIÓN RECOMPENSADA · RELIQUIAS DISPONIBLES EN VÍNCULOS');
     }
     revealPosition() { if (!this.save.worldSeed)
         return; const x = Math.floor(this.save.x), y = Math.floor(this.save.y); const mark = x + y * WORLD_W + (ZONE_IDS.indexOf(this.save.zone) * WORLD_W * WORLD_H); if (this.lastReveal === mark)
