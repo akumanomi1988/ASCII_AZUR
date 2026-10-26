@@ -69,7 +69,7 @@ class Devtools{
   throw Error('Android Chrome condition timed out: '+script);
  }
  async tap(selector){
-  const p=await this.evaluate('(()=>{const e=document.querySelector('+JSON.stringify(selector)+');if(!e)return null;if(e.closest("#titleScreen")){document.querySelector("#titleScreen").scrollTop=99999;window.scrollTo(0,0);}else{e.scrollIntoView({block:"nearest"});}const r=e.getBoundingClientRect();return r.width&&r.height?{x:r.x+r.width/2,y:r.y+r.height/2,dpr:devicePixelRatio,vh:innerHeight,hit:document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)?.outerHTML?.slice(0,160)}:null})()');
+  const p=await this.evaluate('(()=>{const e=document.querySelector('+JSON.stringify(selector)+');if(!e)return null;if(e.closest("#titleScreen")){document.querySelector("#titleScreen").scrollTop=99999;window.scrollTo(0,0);}else if(e.closest("#joystick")){window.scrollTo(0,0);}else{e.scrollIntoView({block:"nearest"});}const r=e.getBoundingClientRect();return r.width&&r.height?{x:r.x+r.width/2,y:r.y+r.height/2,dpr:devicePixelRatio,vh:innerHeight,hit:document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)?.outerHTML?.slice(0,160)}:null})()');
   if(!p)throw Error('Touch target unavailable: '+selector);
   if(Number(API)<=30){
    // Android 11 Chrome maps CDP touch coordinates incorrectly after window
@@ -214,6 +214,7 @@ async function journey(){
  check(await chrome.evaluate('document.getElementById("dialogue").classList.contains("hidden")'),'Native touch completes introduction');
  const initial=await chrome.evaluate('(()=>{const x=JSON.parse(localStorage.getItem("ascii-azur-save-v1"));return {seed:x.worldSeed,team:x.team.length,flags:x.flags.length}})()');
  check(initial.team===1,'Game saves native Android starter selection');report.initial=initial;
+ if(Number(API)<=30){await chrome.evaluate('window.scrollTo(0,0)');await sleep(350);}
  const pad=await chrome.evaluate('(()=>{const r=document.getElementById("joystick").getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2,dx:r.width*.25,width:r.width}})()');
  check(pad.width>=35,'Emulator displays virtual joystick');
  if(Number(API)<=30){
