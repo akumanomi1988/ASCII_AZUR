@@ -142,8 +142,16 @@ async function importFromRealAndroidPicker(filename){
       const area=n=>(n.bounds.right-n.bounds.left)*(n.bounds.bottom-n.bounds.top);
       const parents=nodes.filter(n=>n.clickable && n.enabled && inside(n,file.center))
         .sort((a,b)=>area(a)-area(b));
-      const alternatives=[...parents,file];
-      console.log('NATIVE_IMPORT_FILE_TARGETS '+JSON.stringify({file,parents:parents.slice(0,6)}));
+      const screen=adb('shell','wm','size');
+      const screenWidth=Number((screen.match(/(?:Override|Physical) size:\\s*(\\d+)x/)||[])[1]||1080);
+      const x=n=>Math.max(20,Math.min(screenWidth-20,n));
+      const rowIcons=[
+        {center:{x:x(file.bounds.left-105),y:file.center.y},id:'file-type-icon'},
+        {center:{x:x(file.bounds.right+275),y:file.center.y},id:'file-row-action'},
+        {center:{x:file.center.x,y:Math.max(20,file.center.y+35)},id:'file-row-lower'}
+      ];
+      const alternatives=[...parents,file,...rowIcons];
+      console.log('NATIVE_IMPORT_FILE_TARGETS '+JSON.stringify({file,parents:parents.slice(0,6),rowIcons}));
       if(Number(API)>30){nativePress(alternatives[0]);return;}
       // Android 11 can expose a valid filename accessibility node that
       // cannot receive clicks. Use real OS touches on row/ancestor surfaces
