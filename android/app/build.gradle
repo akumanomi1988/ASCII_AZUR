@@ -2,6 +2,7 @@ plugins { id 'com.android.application' }
 android {
     namespace 'dev.akumano.asciiazur'
     compileSdk 35
+    buildFeatures { buildConfig true }
     defaultConfig {
         applicationId 'dev.akumano.asciiazur'
         minSdk 26
