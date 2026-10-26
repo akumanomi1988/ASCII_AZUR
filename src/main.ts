@@ -1,6 +1,7 @@
 import {azurOpening,azurNarrativeBeat,azurNpcReflection,azurMarshChoiceMeaning,azurCrownChoiceMeaning,azurBondLegacy,azurAfterlightIntroduction} from './story-agency.js';
 import {LEGACY_WITNESS_FLAG,legacyBranch,legacyClaimed,legacyReceipt,planLegacyClaim} from './story-legacy.js';
 import {regionFieldGuide,nextKnownFieldLead,wildPacing,witnessFieldAftermath} from './world/exploration-flow.js';
+import {fieldTrail,fieldTrailRewardName,planFieldTrailClaim,trailClaimRefusal} from './world/pilgrim-trails.js';
 import {battleReadout} from './combat/battle-readout.js';
 import {tacticalProfile,teamGuide,loadoutUpgrade,relicUpgrade,recruitmentValue,storyThreat,creatureRole} from './creatures/tactical-identity.js';
 import {regionalSurvey,regionalObjectives,regionKnown,regionUnlocked,resolveFieldTarget,planFieldTarget,planSurveyClaim,planLumbreTravel,travelRefusal,nextFieldPortal,afterlightOverview,type FieldTarget} from './world/field-journal.js';
@@ -1122,20 +1123,28 @@ class AzurGame {
     const next=planSurveyClaim(this.save,zone);if(!next||!this.commitFieldState(next)){this.toast('RECONOCIMIENTO NO DISPONIBLE · REVISA OBJETIVOS Y CAPACIDAD');return false;}
     this.sound.pick();this.toast('REGIÓN DOCUMENTADA · RECOMPENSA ÚNICA');this.openFieldJournal(zone);return true;
   }
+  private claimFieldTrail(zone:ZoneId):boolean{
+    const next=planFieldTrailClaim(this.save,zone);
+    if(!next||!this.commitFieldState(next)){this.toast('RUTA NO DISPONIBLE · REGRESA A LA LUMBRE CON LAS TRES HUELLAS');return false;}
+    this.sound.pick();this.toast('RUTA COMPLETADA · RECOMPENSA EN TU EQUIPO');this.openFieldJournal(zone);return true;
+  }
   private openFieldJournal(requested:ZoneId=this.save.zone as ZoneId){
     if(!this.started||this.battle||this.dialogOpen||this.evolution)return;
     const zone=ZONE_IDS.includes(requested)&&regionKnown(this.save,requested)?requested:this.save.zone as ZoneId;
-    const survey=regionalSurvey(this.save,zone),knownRegions=ZONE_IDS.filter(z=>regionKnown(this.save,z));
+    const survey=regionalSurvey(this.save,zone),trail=fieldTrail(this.save,zone),knownRegions=ZONE_IDS.filter(z=>regionKnown(this.save,z));
     const meaning=regionFieldGuide(zone,this.save.flags),lead=nextKnownFieldLead(survey.entries,zone,zone===this.save.zone?this.save.x:4,zone===this.save.zone?this.save.y:16);
     const leadPanel=`<div class="modal-content-block"><strong>BRÚJULA DE EXPLORACIÓN · ${htmlEscape(meaning.title)}</strong><p>POR QUÉ EXPLORAR · ${htmlEscape(meaning.purpose)}</p><p>QUÉ DESCUBRIRÁS · ${htmlEscape(meaning.payoff)}</p>${meaning.optional?'<p>EPÍLOGO OPCIONAL · La campaña principal ya tiene un final independiente.</p>':''}<p>PRÓXIMA PISTA CONOCIDA · ${lead?htmlEscape(lead.label)+' — '+htmlEscape(lead.hint):'Sigue los caminos y descubre otros lugares; el diario no revela destinos ocultos.'}</p>${lead?'<button id="fieldLead">SEGUIR PRÓXIMA PISTA</button>':''}</div>`;
+    const trailPanel=trail?`<div class="modal-content-block"><strong>RUTA DEL PEREGRINO · ${htmlEscape(trail.title)} · ${trail.done}/3 HUELLAS</strong><p>${htmlEscape(trail.opening)}</p>${trail.acts.map((a,i)=>`<div class="modal-option"><div><strong>${a.done?'✓':a.known?'◇':'?'} ${i+1}. ${htmlEscape(a.title)}</strong><small>${a.done?htmlEscape(a.meaning):a.known?htmlEscape(a.objective?.hint??''): 'Busca esta huella explorando; su posición sigue oculta.'}</small></div>${a.objective?.trackable&&!a.done?`<button data-trail-target="${a.objective.id}">SEGUIR</button>`:`<span class="quest-state ${a.done?'done':''}">${a.done?'RESUELTO':a.known?'POR RESOLVER':'POR DESCUBRIR'}</span>`}</div>`).join('')}<p>${trail.claimed?'RUTA COMPLETADA · '+htmlEscape(trail.resolution):trail.done===3?htmlEscape(trail.resolution):'Recoge tres huellas reales de la región. El reconocimiento no exige combates ni lugares nuevos.'}</p><p>RECONOCIMIENTO ÚNICO · +${trail.echoes} Ecos · ${htmlEscape(fieldTrailRewardName(this.save,zone))}. Equipa la reliquia desde Equipo.</p><p>${trailClaimRefusal(this.save,zone)??'Ya puedes reclamar en esta Lumbre.'}</p><button id="claimFieldTrail" ${trail.ready&&!trailClaimRefusal(this.save,zone)?'':'disabled'}>${trail.claimed?'✓ RUTA COMPLETADA':'RECLAMAR RUTA EN LUMBRE'}</button></div>`:'';
     const rows=survey.entries.map(o=>`<div class="modal-option"><div><strong>${o.done?'✓ ':o.known?'◇ ':'? '}${htmlEscape(o.label)}</strong><small>${htmlEscape(o.hint)}</small></div>${o.trackable?`<button data-field-target="${o.id}" ${this.save.fieldTarget?.zone===zone&&this.save.fieldTarget.id===o.id?'aria-pressed="true"':''}>SEGUIR</button>`:`<span class="quest-state ${o.done?'done':''}">${o.done?'RESUELTO':o.known?'REQUISITOS PENDIENTES':'POR DESCUBRIR'}</span>`}</div>`).join('');
     this.showModal('DIARIO DE CAMPO · '+ZONES[zone].name.toUpperCase(),
       `<div class="field-regions">${knownRegions.map(z=>`<button data-field-region="${z}" aria-pressed="${z===zone}">${htmlEscape(ZONES[z].name)}</button>`).join('')}</div>`+
-      leadPanel+`<div class="modal-content-block"><strong>${survey.done}/${survey.total} OBJETIVOS RESUELTOS</strong><p>Los lugares sin descubrir ocultan su identidad y su posición. Seguir un objetivo conserva la selección al recargar y guía por portales transitables.</p>${this.save.fieldTarget?'<button id="clearFieldTarget">CANCELAR OBJETIVO GUARDADO</button>':''}</div>`+rows+
+      leadPanel+trailPanel+`<div class="modal-content-block"><strong>${survey.done}/${survey.total} OBJETIVOS RESUELTOS</strong><p>Los lugares sin descubrir ocultan su identidad y su posición. Seguir un objetivo conserva la selección al recargar y guía por portales transitables.</p>${this.save.fieldTarget?'<button id="clearFieldTarget">CANCELAR OBJETIVO GUARDADO</button>':''}</div>`+rows+
       `<div class="modal-content-block"><strong>RECONOCIMIENTO DE ${htmlEscape(ZONES[zone].name.toUpperCase())}</strong><p>Completa los objetivos de esta región: +${survey.reward.echoes} Ecos, +${survey.reward.seals} Sello y +${survey.reward.tonics} Tónico. Una vez por viaje.</p><button id="claimRegionSurvey" ${survey.ready?'':'disabled'}>${survey.claimed?'✓ RECOMPENSA RECLAMADA':'RECLAMAR RECONOCIMIENTO'}</button></div>`+
       `<div class="modal-option"><button id="fieldMap">VER MAPA ACTUAL</button><button id="fieldLumbres">RED DE LUMBRES</button></div>`);
     for(const b of byId('modalContent').querySelectorAll<HTMLButtonElement>('[data-field-region]'))b.onclick=()=>this.openFieldJournal(b.dataset.fieldRegion as ZoneId);
     for(const b of byId('modalContent').querySelectorAll<HTMLButtonElement>('[data-field-target]'))b.onclick=()=>this.setFieldTarget({zone,id:b.dataset.fieldTarget!});
+    for(const b of byId('modalContent').querySelectorAll<HTMLButtonElement>('[data-trail-target]'))b.onclick=()=>this.setFieldTarget({zone,id:b.dataset.trailTarget!});
+    if(trail)byId('claimFieldTrail').onclick=()=>this.claimFieldTrail(zone);
     const suggest=byId('modalContent').querySelector<HTMLButtonElement>('#fieldLead');if(suggest&&lead)suggest.onclick=()=>this.setFieldTarget({zone,id:lead.id});
     const clear=byId('modalContent').querySelector<HTMLButtonElement>('#clearFieldTarget');if(clear)clear.onclick=()=>{if(this.clearFieldTarget())this.openFieldJournal(zone);};
     byId('claimRegionSurvey').onclick=()=>this.claimSurvey(zone);byId('fieldMap').onclick=()=>this.openMap();byId('fieldLumbres').onclick=()=>this.openLumbreNetwork();
