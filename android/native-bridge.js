@@ -1,15 +1,6 @@
 /* Packaged-only JSON export adapter. Other anchors and the web build are unchanged. */
 (() => {
   'use strict';
-  // Android emulator WebView is not the same GPU/browser pipeline as Chrome.
-  // Prefer the game's already tested Canvas2D renderer in the installed APK;
-  // the hosted web/PWA build retains full WebGL2 and automatic fallback.
-  const originalContext = HTMLCanvasElement.prototype.getContext;
-  HTMLCanvasElement.prototype.getContext = function (type, ...args) {
-    if (type === 'webgl2') return null;
-    return originalContext.call(this, type, ...args);
-  };
-  window.__azurNativeCanvasFallback = true;
   const original = HTMLAnchorElement.prototype.click;
   HTMLAnchorElement.prototype.click = function () {
     const name = this.download || '';

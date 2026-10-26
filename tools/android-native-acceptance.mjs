@@ -103,7 +103,6 @@ try{
  check(stage.main_sha256===info.main_sha256 && stage.version===info.version,'Manifest source fingerprint');
  const remote=await active.eval('performance.getEntriesByType("resource").map(x=>x.name).filter(x=>!x.startsWith("https://appassets.androidplatform.net/assets/"))');
  check(remote.length===0,'No remote resources loaded');
- check((await active.eval('window.__azurNativeCanvasFallback===true')),'Native APK activates the already supported Canvas2D fallback');
  await active.tap('#newGame');
  await active.until('!!document.querySelector("#starters button")',15000);
  await active.tap('#starters button');

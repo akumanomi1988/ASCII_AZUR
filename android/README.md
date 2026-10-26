@@ -31,7 +31,8 @@ package identity, release policy and explicit approval.
   save dialog. Both are explicit user actions, never background uploads.
 - `AzNative` is exposed only to the bundled offline game. No arbitrary file
   writes, no implicit cloud backup, and no sharing across the PWA origin.
-- APK uses the game's existing Canvas2D renderer for WebView stability. The hosted PWA retains WebGL2. Native performance remains subject to device benchmarking.\n- Android orientation changes do not recreate WebView, preserving game state;
+- Native Android WebView retains the original WebGL2/Canvas2D selection. Hardware FPS remains subject to physical-device benchmarking.
+- Android orientation changes do not recreate WebView, preserving game state;
   background/foreground pauses the viewport.
 - **Web PWA and Android APK have distinct localStorage origins.** Export from
   one and import into the other; upgrades to the APK preserve its local save
