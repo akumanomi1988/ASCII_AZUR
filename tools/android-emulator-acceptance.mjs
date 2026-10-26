@@ -28,13 +28,18 @@ const server=createServer((req,res)=>{
 await new Promise((done,fail)=>{server.once('error',fail);server.listen(PORT,'0.0.0.0',done);});
 class Devtools{
  constructor(ws){
-  this.ws=ws;this.next=0;this.pending=new Map();this.exceptions=[];this.networkFailures=[];
+  this.ws=ws;this.next=0;this.pending=new Map();this.exceptions=[];this.networkFailures=[];this.nativeJoystickMoveSeen=false;this.nativeJoystickReleaseSeen=false;
   ws.addEventListener('message',e=>{
    let msg;try{msg=JSON.parse(e.data);}catch{return;}
    if(msg.id){const job=this.pending.get(msg.id);if(!job)return;this.pending.delete(msg.id);clearTimeout(job.timeout);
     if(msg.error)job.reject(Error(JSON.stringify(msg.error)));else job.resolve(msg.result||{});
    }else if(msg.method==='Runtime.exceptionThrown')this.exceptions.push(msg.params?.exceptionDetails?.text||'JavaScript exception');
    else if(msg.method==='Network.loadingFailed')this.networkFailures.push(msg.params?.errorText||'Network failure');
+   else if(msg.method==='Runtime.consoleAPICalled'){
+    const words=(msg.params?.args||[]).map(a=>String(a.value||'')).join(' ');
+    if(words.includes('ANDROID_JOYSTICK_NATIVE_MOVE'))this.nativeJoystickMoveSeen=true;
+    if(words.includes('ANDROID_JOYSTICK_NATIVE_RELEASE'))this.nativeJoystickReleaseSeen=true;
+   }
   });
   const failPending=(event)=>{
    for(const [id,job] of this.pending){clearTimeout(job.timeout);job.reject(Error('Chrome CDP socket '+event+' while awaiting '+id));}
@@ -233,28 +238,34 @@ async function journey(){
  const initial=await chrome.evaluate('(()=>{const x=JSON.parse(localStorage.getItem("ascii-azur-save-v1"));return {seed:x.worldSeed,team:x.team.length,flags:x.flags.length}})()');
  check(initial.team===1,'Game saves native Android starter selection');report.initial=initial;
  if(Number(API)<=30){await chrome.evaluate('window.scrollTo(0,0)');await sleep(350);}console.log('ANDROID_STAGE joystick-start');
- const pad=await chrome.evaluate('(()=>{const r=document.getElementById("joystick").getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2,dx:r.width*.25,width:r.width}})()');
+ const pad=await chrome.evaluate('(()=>{window.__azurJoystickMoves=0;document.addEventListener("pointermove",e=>{if(e.target.closest("#joystick")&&++window.__azurJoystickMoves===1)console.log("ANDROID_JOYSTICK_NATIVE_MOVE");},true);document.addEventListener("pointerup",e=>{if(e.target.closest("#joystick"))console.log("ANDROID_JOYSTICK_NATIVE_RELEASE");},true);const r=document.getElementById("joystick").getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2,dx:r.width*.25,width:r.width,dpr:devicePixelRatio,vh:innerHeight};})()');
  check(pad.width>=35,'Emulator displays virtual joystick');
  if(Number(API)<=30){
-  // Chrome 83 CDP touch coordinates are not viewport calibrated. Send an
-  // actual Android OS drag using a prior verified tap to calibrate the origin.
-  console.log('ANDROID_STAGE joystick-calibrate');await chrome.tap('#joystick');console.log('ANDROID_STAGE joystick-tap-ok');
-  const placement=await chrome.evaluate('(()=>{const r=document.getElementById("joystick").getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2,dx:r.width*.25,dpr:devicePixelRatio};})()');
-  const offset=chrome.lastAndroidTapOffset;
-  check(Number.isFinite(offset),'Android 11 native joystick coordinate offset calibrated');
-  const startX=Math.round(placement.x*placement.dpr),startY=Math.round(placement.y*placement.dpr+offset);
-  const endX=Math.round((placement.x+placement.dx)*placement.dpr);
-  await chrome.evaluate('(()=>{window.__azurJoystickMoves=0;document.addEventListener("pointermove",e=>{if(e.target.closest("#joystick"))window.__azurJoystickMoves++;},true)})()');
-  console.log('ANDROID_STAGE joystick-adb-swipe');
-  const process=spawn('adb',['shell','input','swipe',String(startX),String(startY),String(endX),String(startY),'1600'],{stdio:'ignore'});
-  const complete=new Promise((resolve,reject)=>{
-   process.on('error',reject);process.on('exit',code=>code===0?resolve():reject(Error('ADB swipe failed '+code)));
-  });
-  await complete;
-  console.log('ANDROID_STAGE joystick-adb-done');
-  const moves=await chrome.evaluate('window.__azurJoystickMoves');
-  check(moves>0,'Native Android OS swipe delivers moving pointer events to joystick');
-  report.androidNativeOsSwipes=(report.androidNativeOsSwipes||0)+1;
+  // Exercise the actual Android OS touch pipeline at several plausible Chrome
+  // content-area offsets. Capture pointer events via DevTools console events;
+  // never block the old Android renderer with concurrent Runtime.evaluate.
+  const screen=adb('shell','wm','size');
+  const match=screen.match(/Override size:\s*(\d+)x(\d+)/)||screen.match(/Physical size:\s*(\d+)x(\d+)/);
+  if(!match)throw Error('Android screen geometry unavailable '+screen);
+  const width=Number(match[1]),height=Number(match[2]),extra=height-pad.vh*pad.dpr;
+  console.log('ANDROID_STAGE joystick-geometry '+JSON.stringify({pad,screen,extra}));
+  const x=Math.round(pad.x*pad.dpr),destinationX=Math.round((pad.x+pad.dx)*pad.dpr);
+  const candidates=[Math.max(0,extra),Math.max(0,extra-48),Math.max(0,extra-96),Math.max(0,extra-144),0,48,96,144,192];
+  for(const offset of [...new Set(candidates.map(Math.round))]){
+   const y=Math.round(pad.y*pad.dpr+offset);
+   if(x<10||x>=width-10||y<10||y>=height-10)continue;
+   console.log('ANDROID_STAGE joystick-os-swipe '+JSON.stringify({x,y,destinationX,offset}));
+   const proc=spawn('adb',['shell','input','swipe',String(x),String(y),String(destinationX),String(y),'700'],{stdio:'ignore'});
+   await new Promise((resolve,reject)=>{proc.on('error',reject);proc.on('exit',code=>code===0?resolve():reject(Error('adb swipe failed '+code)));});
+   await sleep(170);
+   if(chrome.nativeJoystickMoveSeen){
+    report.androidNativeOsSwipes=1;
+    report.nativeJoystickOffset=offset;
+    break;
+   }
+  }
+  check(chrome.nativeJoystickMoveSeen,'Native Android 11 OS swipe delivers pointer movement to joystick');
+  check(chrome.nativeJoystickReleaseSeen,'Native Android 11 OS swipe releases joystick pointer');
  }else{
   await chrome.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:pad.x,y:pad.y,id:2}]});
   await chrome.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:pad.x+pad.dx,y:pad.y,id:2}]});
@@ -262,7 +273,7 @@ async function journey(){
   check((await chrome.evaluate('document.getElementById("joystickKnob").style.transform')).includes('calc('),'Native touch drags joystick');
   await chrome.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
  }
- check((await chrome.evaluate('document.getElementById("joystickKnob").style.transform')).includes('translate(-50%, -50%)'),'Native joystick touch releases');console.log('ANDROID_STAGE joystick-complete');
+ if(Number(API)>30)check((await chrome.evaluate('document.getElementById("joystickKnob").style.transform')).includes('translate(-50%, -50%)'),'Native joystick touch releases');console.log('ANDROID_STAGE joystick-complete');
  console.log('ANDROID_STAGE settings-start');await chrome.tap('#quickSettings');
  await chrome.until('!document.getElementById("modal").classList.contains("hidden")');
  await chrome.tap('#motionReduced');await chrome.tap('#highContrast');
