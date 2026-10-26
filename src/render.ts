@@ -16,6 +16,7 @@ import {sampleHeroPose} from './actors/hero-performance.js';
 import {materialGlyphIndex,materialColors} from './render/glyph-material.js';
 import {GroundMaterialCache,isFocalGroundTile,type GroundSurface} from './render/ground-material.js';
 import {readGraphics,glyphCell,canvasGlyphCell,type GraphicsProfile} from './render/graphics-profile.js';
+import {gpuResolutionFactor} from './core/presentation-budget.js';
 import type {RoamingEncounter} from './world/encounters.js';
 export const W=960,H=540;
 /** World-only camera magnification; battle composition and DOM controls are unaffected. */
@@ -91,8 +92,27 @@ export class AsciiRenderer {
   getGraphics():GraphicsProfile{return readGraphics({renderMode:this.renderMode,pixelDetail:this.pixelDetail,quality:this.quality,density:this.density,glyphScale:this.glyphScale,contrast:this.contrast,edgeStrength:this.edgeStrength,brightness:this.brightness});}
   setGraphics(input:unknown){const x=readGraphics(input);this.renderMode=x.renderMode;this.pixelDetail=x.pixelDetail;this.density=x.density;this.glyphScale=x.glyphScale;this.contrast=x.contrast;this.edgeStrength=x.edgeStrength;this.brightness=x.brightness;this.quality=x.quality;}
   /** Runtime-only cell scale; never included in graphics preferences or save games. */
-  setPerformanceScale(scale:number){this.performanceScale=Number.isFinite(scale)?Math.max(1,Math.min(2.4,scale)):1;}
-  resize(){const rect=this.canvas.getBoundingClientRect();const dpr=Math.min(window.devicePixelRatio||1,2);this.canvas.width=Math.min(1920,Math.max(320,Math.round((rect.width||W)*dpr)));this.canvas.height=Math.min(1080,Math.max(180,Math.round((rect.height||H)*dpr)));if(this.gl)this.gl.viewport(0,0,this.canvas.width,this.canvas.height);}
+  setPerformanceScale(scale:number){
+    const next=Number.isFinite(scale)?Math.max(1,Math.min(2.4,scale)):1;
+    const previous=gpuResolutionFactor(this.performanceScale),current=gpuResolutionFactor(next);
+    this.performanceScale=next;
+    if(this.gl&&previous!==current)this.resize(); // Only real GPU budget changes trigger reallocation.
+  }
+  presentationMetrics(){const rect=this.canvas.getBoundingClientRect();
+    return {backend:this.mode,backingWidth:this.canvas.width,backingHeight:this.canvas.height,
+      cssWidth:Math.round(rect.width),cssHeight:Math.round(rect.height),
+      backingPixels:this.canvas.width*this.canvas.height,performanceScale:this.performanceScale,
+      resolutionFactor:this.gl?gpuResolutionFactor(this.performanceScale):1,
+      renderMode:this.renderMode,pixelDetail:this.pixelDetail};
+  }
+  resize(){const rect=this.canvas.getBoundingClientRect();
+    const dpr=Math.min(window.devicePixelRatio||1,2)*(this.gl?gpuResolutionFactor(this.performanceScale):1);
+    const width=Math.min(1920,Math.max(320,Math.round((rect.width||W)*dpr)));
+    const height=Math.min(1080,Math.max(180,Math.round((rect.height||H)*dpr)));
+    if(this.canvas.width!==width)this.canvas.width=width;
+    if(this.canvas.height!==height)this.canvas.height=height;
+    if(this.gl)this.gl.viewport(0,0,this.canvas.width,this.canvas.height);
+  }
   private crop(){const aspect=this.canvas.width/this.canvas.height,sourceAspect=W/H;
     if(aspect<sourceAspect){const frac=aspect/sourceAspect;return{x:(1-frac)/2,y:0,w:frac,h:1};}
     const frac=sourceAspect/aspect;return{x:0,y:(1-frac)/2,w:1,h:frac};

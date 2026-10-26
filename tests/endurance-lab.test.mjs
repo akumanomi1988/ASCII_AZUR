@@ -76,3 +76,15 @@ test('long sessions remain bounded and produce deterministic reports across 180,
  assert.equal(a.report().totalFrames,180000);
  a.stop();a.reset();assert.equal(a.report().totalFrames,0);
 });
+
+test('opt-in end-combat jank records synchronous work plus only the next 30 valid rAF frames',()=>{
+ const lab=new EnduranceLab();lab.noteTransition('victory',45);
+ assert.equal(lab.report().transitions.victory.events,0);
+ lab.start();lab.noteTransition('victory',45);
+ for(let i=0;i<40;i++)lab.sample(i===0?125:16,'explore',true,915,412);
+ assert.deepEqual(lab.report().transitions.victory,{events:1,maxWorkMs:45,slowWorkEvents:1,frames:30,slowFrames:1,maxFrameMs:125});
+ lab.noteTransition('capture',4);lab.sample(41,'menu',false,915,412);lab.sample(41,'explore',true,915,412);
+ assert.equal(lab.report().transitions.capture.frames,1);
+ lab.stop();lab.noteTransition('defeat',80);assert.equal(lab.report().transitions.defeat.events,0);
+ lab.reset();assert.equal(lab.report().transitions.victory.events,0);
+});

@@ -3,9 +3,11 @@
  * battery drain, thermal load or true Android-device acceptance. */
 export type EndurancePhase='explore'|'battle'|'crypt'|'menu';
 export type EnduranceOrientation='portrait'|'landscape';
+export type EnduranceTransition='victory'|'capture'|'defeat';
 export const FRAME_BINS_MS=[17,25,34,50,75,100,150,250,500,2000] as const;
 type PhaseStats={frames:number;sumMs:number;overBudget:number;maxMs:number;bins:number[]};
 export type EndurancePhaseReport={frames:number;sampledSeconds:number;averageFps:number;p95UpperBoundMs:number;slowFrames:number;slowPercent:number;maxMs:number};
+export type TransitionReport={events:number;maxWorkMs:number;slowWorkEvents:number;frames:number;slowFrames:number;maxFrameMs:number};
 export interface EnduranceReport {
  format:'ascii-azur-endurance';version:1;
  collection:'opt-in-visible-rAF';status:'recording'|'stopped';
@@ -14,9 +16,11 @@ export interface EnduranceReport {
  orientation:'portrait'|'landscape'|'unobserved';
  viewport:{minWidth:number;maxWidth:number;minHeight:number;maxHeight:number}|null;
  phases:Record<EndurancePhase,EndurancePhaseReport>;
+ transitions:Record<EnduranceTransition,TransitionReport>;
  meaning:string;
 }
 const ENDURANCE_PHASES:readonly EndurancePhase[]=['explore','battle','crypt','menu'];
+const emptyTransition=():TransitionReport=>({events:0,maxWorkMs:0,slowWorkEvents:0,frames:0,slowFrames:0,maxFrameMs:0});
 function emptyEnduranceStats():PhaseStats{return{frames:0,sumMs:0,overBudget:0,maxMs:0,bins:FRAME_BINS_MS.map(()=>0)};}
 function percentileUpperBound(bins:readonly number[],count:number):number{
  if(count===0)return 0;
@@ -35,6 +39,8 @@ function summarizeEndurancePhase(s:PhaseStats):EndurancePhaseReport{
 export class EnduranceLab {
  private enabled=false;
  private stats:Record<EndurancePhase,PhaseStats>={explore:emptyEnduranceStats(),battle:emptyEnduranceStats(),crypt:emptyEnduranceStats(),menu:emptyEnduranceStats()};
+ private transitions:Record<EnduranceTransition,TransitionReport>={victory:emptyTransition(),capture:emptyTransition(),defeat:emptyTransition()};
+ private pending:{kind:EnduranceTransition;remaining:number}|null=null;
  private dropped=0;
  private orientation:EnduranceOrientation|null=null;
  private orientationChanges=0;
@@ -45,7 +51,15 @@ export class EnduranceLab {
  stop():void{this.enabled=false;}
  reset():void{
   this.enabled=false;this.stats={explore:emptyEnduranceStats(),battle:emptyEnduranceStats(),crypt:emptyEnduranceStats(),menu:emptyEnduranceStats()};
+  this.transitions={victory:emptyTransition(),capture:emptyTransition(),defeat:emptyTransition()};this.pending=null;
   this.dropped=0;this.orientation=null;this.orientationChanges=0;this.orientationFrames={portrait:0,landscape:0};this.viewport=null;
+ }
+ /** Record end-of-combat synchronous work and 30 subsequent visible frames only by consent. */
+ noteTransition(kind:EnduranceTransition,workMs:number):void{
+  if(!this.enabled||!(kind in this.transitions)||!Number.isFinite(workMs)||workMs<0)return;
+  const s=this.transitions[kind];s.events++;s.maxWorkMs=Math.max(s.maxWorkMs,Number(workMs.toFixed(2)));
+  if(workMs>1000/30)s.slowWorkEvents++;
+  this.pending={kind,remaining:30};
  }
  sample(intervalMs:number,phase:EndurancePhase,visible:boolean,width:number,height:number):void{
   if(!this.enabled)return;
@@ -54,6 +68,7 @@ export class EnduranceLab {
    this.dropped++;return;
   }
   const s=this.stats[phase];s.frames++;s.sumMs+=intervalMs;
+  if(this.pending){const t=this.transitions[this.pending.kind];t.frames++;t.maxFrameMs=Math.max(t.maxFrameMs,Number(intervalMs.toFixed(2)));if(intervalMs>1000/30)t.slowFrames++;if(--this.pending.remaining<=0)this.pending=null;}
   if(intervalMs>1000/30)s.overBudget++;s.maxMs=Math.max(s.maxMs,intervalMs);
   const at=FRAME_BINS_MS.findIndex(limit=>intervalMs<=limit);
   s.bins[at<0?FRAME_BINS_MS.length-1:at]!++;
@@ -78,6 +93,7 @@ export class EnduranceLab {
    ignoredFrames:this.dropped,orientationChanges:this.orientationChanges,
    orientationFrames:{...this.orientationFrames},orientation:this.orientation??'unobserved',
    viewport:this.viewport?{...this.viewport}:null,phases:out,
-   meaning:'Visible requestAnimationFrame main-thread pacing only. P95 is an upper histogram bound. Not GPU time, energy, temperature, physical device, human acceptance or play-duration proof.'};
+   transitions:{victory:{...this.transitions.victory},capture:{...this.transitions.capture},defeat:{...this.transitions.defeat}},
+   meaning:'Visible requestAnimationFrame main-thread pacing and voluntary battle transition work. P95 is an upper histogram bound. Not GPU time, energy, temperature, physical device, human acceptance or play-duration proof.'};
  }
 }

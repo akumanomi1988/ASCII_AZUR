@@ -23,6 +23,7 @@ import {combatMusicIntensity,explorationMusicIntensity} from './audio-direction.
 import {FrameMetrics} from './core/frame-metrics.js';
 import {EnduranceLab,type EndurancePhase} from './core/endurance-lab.js';
 import {AdaptiveGlyphs} from './core/adaptive-glyphs.js';
+import {adaptiveDefault,initialAdaptiveScale} from './core/presentation-budget.js';
 import {visibleViewportHeight} from './core/mobile-viewport.js';
 import {storyGuidance,guidanceToTarget,walkableRouteToTarget} from './story-navigation.js';
 import {ARKEN_STORY, ARKEN_FINALE_REWARD, arkenStoryBeat, arkenStoryIndex, concludeArken, canConcludeArken, guardianPreparation, guardianRecommendedLead, sanctuaryRoutePlan, sanctuaryOathProgress, SANCTUARY_OATHS_FLAG, SANCTUARY_OATHS_REWARD, type ArkenStoryState} from './story-campaign.js';
@@ -194,7 +195,14 @@ class AzurGame {
   private restoreGraphicSettings(){try{this.renderer.setGraphics(JSON.parse(localStorage.getItem('ascii-azur-graphics-v2')||'null'));}catch{this.renderer.setGraphics(DEFAULT_GRAPHICS);}this.updateGraphicsTheme();}
   private updateGraphicsTheme(){if(document.documentElement)document.documentElement.dataset.renderMode=this.renderer.renderMode;}
   private storeGraphicSettings(){try{localStorage.setItem('ascii-azur-graphics-v2',JSON.stringify(this.renderer.getGraphics()));}catch{/* storage unavailable */}}
-  private restoreAdaptiveGraphics(){try{const saved=localStorage.getItem('ascii-azur-adaptive-fps-v1');const enabled=saved===null?this.renderer.mode==='fallback':saved==='true';this.adaptiveGlyphs.configure(enabled,enabled&&this.renderer.mode==='fallback'?1.6:1);}catch{/* preserve manual mode */}this.renderer.setPerformanceScale(this.adaptiveGlyphs.scale);}
+  private restoreAdaptiveGraphics(){
+    const touches=Number(navigator.maxTouchPoints)||0,graphics=this.renderer.getGraphics();
+    try{const saved=localStorage.getItem('ascii-azur-adaptive-fps-v1');
+      const enabled=saved===null?adaptiveDefault(touches,this.renderer.mode,graphics):saved==='true';
+      this.adaptiveGlyphs.configure(enabled,enabled?initialAdaptiveScale(touches,this.renderer.mode,graphics):1);
+    }catch{/* preserve manual mode */}
+    this.renderer.setPerformanceScale(this.adaptiveGlyphs.scale);
+  }
   private setAdaptiveGraphics(enabled:boolean){this.adaptiveGlyphs.configure(enabled);this.frameMetrics.reset();this.renderer.setPerformanceScale(this.adaptiveGlyphs.scale);try{localStorage.setItem('ascii-azur-adaptive-fps-v1',String(this.adaptiveGlyphs.active));}catch{/* storage disabled */}}
   private restoreMotionSettings(){try{const v=localStorage.getItem('ascii-azur-reduced-motion');this.reducedMotion=v===null?!!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches:v==='true';}catch{this.reducedMotion=false;}}
   private restoreAccessibility(){
@@ -613,10 +621,10 @@ class AzurGame {
     if(b.enemy.hp<=0){b.pending='victory';this.refreshBattle();window.setTimeout(()=>this.cueFaint('enemy',()=>this.winBattle()),650);return;}
     b.busy=false;this.refreshBattle();
   }
-  private winBattle(){const b=this.battle,ally=this.getAlly();if(!b||!ally)return;recordJourney(this.save,'wins');const bonus=firstRoamerVictoryBonus(b.type,b.encounterId,this.save.flags);const mastery=villageTrainingBonus(b.type,this.save.zone,b.enemy.speciesId,this.save.flags,b.encounterId);const amount=(b.type==='boss'?95:11+b.enemy.level*3)+bonus+mastery;const awards=grantPartyExperience(this.save.team,b.ally,amount);for(const growth of awards)if(growth.evolved){recordSpeciesResearch(this.save.flags,growth.from,'bonded');recordSpeciesResearch(this.save.flags,growth.to,'bonded');}if(bonus>0)this.save.team=recoverTrailParty(this.save.team);const gain=awards.find(a=>a.active)!;const evolution=awards.find(a=>a.evolved);const supporters=awards.filter(a=>!a.active);const originalName=SPECIES[b.enemy.speciesId]!.name;this.finishBattle();if(b.type==='boss')this.sound.victory();if(b.encounterId)this.addFlag('roamer-'+b.encounterId);const trailReport=b.encounterId?witnessFieldAftermath(this.save.zone as ZoneId,b.encounterId,this.save.flags):null;if(mastery>0)this.addFlag('training-'+b.enemy.speciesId);this.sound.pick();if(b.type==='wild'&&this.save.dungeon?.active&&this.save.dungeon.pending!==null)this.finishDungeonEnemy();if(b.type==='expedition'){this.expeditionBattleWon();if(evolution)this.beginEvolution(evolution.from,evolution.to);this.saveNow(false);this.updateUI();window.setTimeout(()=>this.openExpedition(),evolution?3500:620);return;}if(b.type==='boss'&&b.enemy.speciesId==='nullscribe'){
+  private winBattle(){const perfStart=performance.now();const b=this.battle,ally=this.getAlly();if(!b||!ally)return;recordJourney(this.save,'wins');const bonus=firstRoamerVictoryBonus(b.type,b.encounterId,this.save.flags);const mastery=villageTrainingBonus(b.type,this.save.zone,b.enemy.speciesId,this.save.flags,b.encounterId);const amount=(b.type==='boss'?95:11+b.enemy.level*3)+bonus+mastery;const awards=grantPartyExperience(this.save.team,b.ally,amount);for(const growth of awards)if(growth.evolved){recordSpeciesResearch(this.save.flags,growth.from,'bonded');recordSpeciesResearch(this.save.flags,growth.to,'bonded');}if(bonus>0)this.save.team=recoverTrailParty(this.save.team);const gain=awards.find(a=>a.active)!;const evolution=awards.find(a=>a.evolved);const supporters=awards.filter(a=>!a.active);const originalName=SPECIES[b.enemy.speciesId]!.name;this.finishBattle();if(b.type==='boss')this.sound.victory();if(b.encounterId)this.addFlag('roamer-'+b.encounterId);const trailReport=b.encounterId?witnessFieldAftermath(this.save.zone as ZoneId,b.encounterId,this.save.flags):null;if(mastery>0)this.addFlag('training-'+b.enemy.speciesId);this.sound.pick();if(b.type==='wild'&&this.save.dungeon?.active&&this.save.dungeon.pending!==null)this.finishDungeonEnemy();if(b.type==='expedition'){this.expeditionBattleWon();if(evolution)this.beginEvolution(evolution.from,evolution.to);this.saveNow(false);this.updateUI();this.endurance.noteTransition('victory',performance.now()-perfStart);window.setTimeout(()=>this.openExpedition(),evolution?3500:620);return;}if(b.type==='boss'&&b.enemy.speciesId==='nullscribe'){
     if(!this.flag(CROWN_BOSS_FLAG))this.addFlag(CROWN_BOSS_FLAG);
     this.dialog([{title:'EL ÚLTIMO ESCRIBA CAE',text:'Nullscribe se deshace en miles de signos. Ningún rey ha ordenado el fin del mundo: solo el miedo a que otros lo escriban.'},{title:'EL TELAR TE ESPERA',text:'El cielo ya no está sujeto a una pluma. En el Telar del Amanecer deberás decidir qué lugar ocupa la memoria en su futuro.'}]);
-   }else if(b.type==='boss'){this.save.defeatedBoss=true;this.addFlag('first-word');this.dialog([{title:'El lenguaje se quiebra',text:'Hollowhart cae de rodillas. Entre sus astas aparece una palabra que no puede pronunciarse.'},{title:'LA PRIMERA PALABRA',text:'La primera sílaba del mundo es tuya. El bosque vuelve a respirar. Pero más allá del santuario alguien ha comenzado a borrar el cielo.'},{title:'FIN DEL CAPÍTULO I',text:'La Primera Palabra ha vuelto, pero Arken aún no puede recordarlo todo. Regresa a la aldea, desciende a la Cripta de los Ecos y busca el Último Signo.'}]);}else{if(!evolution)this.toast(`${originalName.toUpperCase()} VENCIDO · +${amount} EXP${bonus?' · RASTRO +'+bonus+' EXP · REPOSO +25% PS':''}${mastery?' · LECCIÓN +'+mastery+' EXP':''}${gain.levelUp?' · ¡NIVEL! · REVISA HABILIDADES':''}${supporters.length?' · '+supporters.length+' ALIADOS +'+supporters[0]!.amount+' EXP':''}${trailReport?' · '+trailReport:''}`);if(Math.random()<.25)this.save.inventory.seals=Math.min(9999,this.save.inventory.seals+1);this.economy.echoes=Math.min(999999,this.economy.echoes+4+Math.floor(b.enemy.level*.9));}if(evolution)this.beginEvolution(evolution.from,evolution.to);this.saveNow(false);this.updateUI();}
+   }else if(b.type==='boss'){this.save.defeatedBoss=true;this.addFlag('first-word');this.dialog([{title:'El lenguaje se quiebra',text:'Hollowhart cae de rodillas. Entre sus astas aparece una palabra que no puede pronunciarse.'},{title:'LA PRIMERA PALABRA',text:'La primera sílaba del mundo es tuya. El bosque vuelve a respirar. Pero más allá del santuario alguien ha comenzado a borrar el cielo.'},{title:'FIN DEL CAPÍTULO I',text:'La Primera Palabra ha vuelto, pero Arken aún no puede recordarlo todo. Regresa a la aldea, desciende a la Cripta de los Ecos y busca el Último Signo.'}]);}else{if(!evolution)this.toast(`${originalName.toUpperCase()} VENCIDO · +${amount} EXP${bonus?' · RASTRO +'+bonus+' EXP · REPOSO +25% PS':''}${mastery?' · LECCIÓN +'+mastery+' EXP':''}${gain.levelUp?' · ¡NIVEL! · REVISA HABILIDADES':''}${supporters.length?' · '+supporters.length+' ALIADOS +'+supporters[0]!.amount+' EXP':''}${trailReport?' · '+trailReport:''}`);if(Math.random()<.25)this.save.inventory.seals=Math.min(9999,this.save.inventory.seals+1);this.economy.echoes=Math.min(999999,this.economy.echoes+4+Math.floor(b.enemy.level*.9));}if(evolution)this.beginEvolution(evolution.from,evolution.to);this.saveNow(false);this.updateUI();this.endurance.noteTransition('victory',performance.now()-perfStart);}
   private beginEvolution(from:string,to:string){
     this.evolution={from,to,startedAt:this.seconds,duration:this.reducedMotion?.65:3.2};this.resetJoystick();this.toggleDrawer(false);byId('viewport').classList.add('in-evolution');byId('toast').classList.add('hidden');
     const banner=byId('evolutionBanner');banner.innerHTML=`<small>REESCRITURA DEL NOMBRE</small><strong>${htmlEscape(SPECIES[from]!.name)} <span>→</span> ${htmlEscape(SPECIES[to]!.name)}</strong>`;
@@ -628,7 +636,7 @@ class AzurGame {
     this.setCombatCue('capture','ally',SPECIES[b.enemy.speciesId]!.element);this.sound.select();
     b.log='El sello cruza la bruma...';this.refreshBattle();window.setTimeout(()=>this.resolveCapture(),750);
   }
-  private resolveCapture(){const b=this.battle;if(!b||b.pending!=='capture')return;
+  private resolveCapture(){const perfStart=performance.now();const b=this.battle;if(!b||b.pending!=='capture')return;
     const ally=this.getAlly();if(!ally)return;
     const chance=capturePreview(ally,b.enemy,this.statuses(b.enemy)).chance;
     if(Math.random()<chance){
@@ -638,7 +646,7 @@ class AzurGame {
       this.finishBattle();if(b.encounterId)this.addFlag('roamer-'+b.encounterId);const trailReport=b.encounterId?witnessFieldAftermath(this.save.zone as ZoneId,b.encounterId,this.save.flags):null;this.sound.pick();
       if(this.save.dungeon?.active&&this.save.dungeon.pending!==null)this.finishDungeonEnemy();
       this.toast(`VÍNCULO ESTABLECIDO: ${SPECIES[captured.speciesId]!.name.toUpperCase()}${stored?' (RESERVA)':''} · ${discovery}${trailReport?' · '+trailReport:''}`);
-      this.addFlag('first-capture');this.saveNow(false);this.updateUI();
+      this.addFlag('first-capture');this.saveNow(false);this.updateUI();this.endurance.noteTransition('capture',performance.now()-perfStart);
     }else{
       b.pending='enemy';b.log='¡EL SELLO SE ROMPE! LA CRIATURA RESISTE.';
       this.refreshBattle();this.enemyTurn();
@@ -660,7 +668,7 @@ class AzurGame {
     window.setTimeout(()=>this.enemyTurn(),700);
   }
   private escape(){if(!this.battle||this.battle.busy||this.battle.type==='boss')return;recordJourney(this.save,'actions');if(Math.random()<escapeChance(this.getAlly()!,this.battle.enemy)){recordJourney(this.save,'escapes');this.finishBattle();this.saveNow(false);this.toast('ESCAPAS ENTRE LA NIEBLA');}else{this.battle.busy=true;this.battle.pending='enemy';this.battle.log='¡NO PUEDES ESCAPAR!';this.refreshBattle();window.setTimeout(()=>this.enemyTurn(),400);}}
-  private defeat(){if(this.battle)recordJourney(this.save,'losses');if(this.save.dungeon?.active){this.save.dungeon.active=false;this.save.dungeon.pending=null;}if(this.save.expedition?.pending){const consolation=settleExpedition(this.save.expedition,false);this.addExpeditionReward(consolation);this.expeditionMessage=`La expedición terminó en derrota. Recuperaste ${consolation.echoes} Ecos.`;delete this.save.expedition;}this.finishBattle();this.save.zone='village';this.cameraZone='';this.sound.setScene('village');this.save.x=15;this.save.y=14;this.lastReveal=-1;this.revealPosition();this.save.team.forEach(c=>c.hp=maxHp(c));this.encounterCooldown=6;this.sound.portal();this.dialog([{title:'Regresas a la Lumbre',text:'La oscuridad te ha vencido, pero tus vínculos no se han roto. Descansas y recuperas fuerzas en Velo de Arken.'}]);this.saveNow(false);this.updateUI();}
+  private defeat(){const perfStart=performance.now();if(this.battle)recordJourney(this.save,'losses');if(this.save.dungeon?.active){this.save.dungeon.active=false;this.save.dungeon.pending=null;}if(this.save.expedition?.pending){const consolation=settleExpedition(this.save.expedition,false);this.addExpeditionReward(consolation);this.expeditionMessage=`La expedición terminó en derrota. Recuperaste ${consolation.echoes} Ecos.`;delete this.save.expedition;}this.finishBattle();this.save.zone='village';this.cameraZone='';this.sound.setScene('village');this.save.x=15;this.save.y=14;this.lastReveal=-1;this.revealPosition();this.save.team.forEach(c=>c.hp=maxHp(c));this.encounterCooldown=6;this.sound.portal();this.dialog([{title:'Regresas a la Lumbre',text:'La oscuridad te ha vencido, pero tus vínculos no se han roto. Descansas y recuperas fuerzas en Velo de Arken.'}]);this.saveNow(false);this.updateUI();this.endurance.noteTransition('defeat',performance.now()-perfStart);}
   private finishBattle(){this.battleMenu='commands';this.sound.setScene(themeForZone(this.save.zone as ZoneId));delete this.save.activeBattle;this.battle=null;this.combatCue=null;byId('battleThreat').textContent='';byId('battleThreat').dataset.severity='normal';byId('battle').classList.add('hidden');byId('viewport').classList.remove('in-battle');this.encounterCooldown=7;}
   private interactNpc(id:NpcId){
     const e=this.economy;if(!e.visitedNpcs.includes(id))e.visitedNpcs.push(id);
@@ -1240,6 +1248,7 @@ class AzurGame {
     this.showModal('LABORATORIO DE ESTABILIDAD',`
       <div class="modal-content-block"><strong>MEDICIÓN LOCAL Y VOLUNTARIA</strong><p>Prueba una partida durante varios minutos recorriendo regiones, abriendo menús, entrando en combate y usando la cripta. El registro mide intervalos de fotogramas visibles (hilo principal), no tiempos GPU, temperatura, consumo de batería ni rendimiento Android certificado. No se envía ningún dato.</p><p>Estado: ${report.status==='recording'?'REGISTRANDO':'DETENIDO'} · ${report.totalFrames} frames · ${report.sampledSeconds}s de intervalos observados · ${report.orientationChanges} cambios de orientación · ${report.ignoredFrames} intervalos descartados.</p></div>
       ${rows}
+      <div class="modal-content-block"><strong>CIERRE DE COMBATE</strong> · Vict.: ${report.transitions.victory.events} / Capt.: ${report.transitions.capture.events} / Der.: ${report.transitions.defeat.events} · Coste máximo ${Math.max(...Object.values(report.transitions).map(s=>s.maxWorkMs))} ms · Fotogramas lentos posteriores ${Object.values(report.transitions).reduce((sum,s)=>sum+s.slowFrames,0)}.</div>
       <div class="modal-content-block">La medición permanece solo en memoria durante esta sesión. Puedes reiniciarla o exportar el resultado manualmente. No cambia el guardado ni necesita permisos adicionales.</div>
       <div class="settings-row"><button id="labStart">${report.status==='recording'?'REINICIAR MEDICIÓN':'INICIAR MEDICIÓN'}</button><button id="labStop" ${report.status!=='recording'?'disabled':''}>DETENER</button><button id="labExport" ${report.totalFrames===0?'disabled':''}>EXPORTAR JSON LOCAL</button></div>
       <div class="settings-row"><button id="labBack">← VOLVER A OPCIONES</button></div>`,true,true);
@@ -1252,7 +1261,7 @@ class AzurGame {
   private exportEndurance(){
     const r=this.endurance.report();
     if(!r.totalFrames){this.toast('INICIA UNA MEDICIÓN PRIMERO');return;}
-    const payload={...r,graphics:this.renderer.getGraphics().renderMode,renderer:this.renderer.mode,
+    const payload={...r,presentation:this.renderer.presentationMetrics(),graphics:this.renderer.getGraphics().renderMode,renderer:this.renderer.mode,
       adaptiveGlyphs:this.adaptiveGlyphs.active,reducedMotion:this.reducedMotion,
       touchPoints:Math.min(20,Math.max(0,Number(navigator.maxTouchPoints)||0)),
       recordedAt:new Date().toISOString(),
@@ -1311,7 +1320,20 @@ class AzurGame {
       const target=glyphCount(canvas.width,canvas.height,requested),rendered=glyphCount(canvas.width,canvas.height,{width:Math.ceil(actual.width*this.renderer.performanceScale),height:Math.ceil(actual.height*this.renderer.performanceScale)});
       byId('glyphStats').textContent=`Trama ~${Math.round(rendered).toLocaleString('es-ES')} caracteres · glifo ${(actual.width*this.renderer.performanceScale).toFixed(1)} px · ${this.renderer.mode==='gpu'?'WebGL2':'Canvas2D'}${rendered<target?' · límite de rendimiento aplicado':''}`;
       byId('adaptiveFpsStats').textContent=this.adaptiveGlyphs.active?`Objetivo 30 FPS · escala temporal ×${this.renderer.performanceScale.toFixed(2)} · ajustes artísticos originales conservados`:'Máxima fidelidad manual. Activa FPS estables solo si el dispositivo pierde fluidez.';};
-    const change=(patch:Partial<GraphicsProfile>)=>{this.renderer.setGraphics({...this.renderer.getGraphics(),...patch});this.storeGraphicSettings();sync();};
+    const change=(patch:Partial<GraphicsProfile>)=>{
+      this.renderer.setGraphics({...this.renderer.getGraphics(),...patch});this.storeGraphicSettings();
+      // A player may select microscopic mode after launch. Re-evaluate the
+      // protective first-run default but never override a stored manual choice.
+      try{if(localStorage.getItem('ascii-azur-adaptive-fps-v1')===null){
+        const profile=this.renderer.getGraphics(),touches=Number(navigator.maxTouchPoints)||0;
+        const enabled=adaptiveDefault(touches,this.renderer.mode,profile);
+        if(this.adaptiveGlyphs.active!==enabled){
+          this.adaptiveGlyphs.configure(enabled,enabled?initialAdaptiveScale(touches,this.renderer.mode,profile):1);
+          this.frameMetrics.reset();this.renderer.setPerformanceScale(this.adaptiveGlyphs.scale);
+        }
+      }}catch{/* no storage: preserve present preference */}
+      adaptive.checked=this.adaptiveGlyphs.active;sync();
+    };
     renderMode.onchange=()=>change({renderMode:renderMode.value==='glyph-pixel'?'glyph-pixel':'ascii'});
     pixelDetail.onchange=()=>change({pixelDetail:pixelDetail.value==='fine'?'fine':pixelDetail.value==='chunky'?'chunky':'balanced'});
     den.onchange=()=>change({density:Number(den.value)});qual.onchange=()=>change({quality:Number(qual.value)});
