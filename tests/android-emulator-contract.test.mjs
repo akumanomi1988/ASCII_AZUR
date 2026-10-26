@@ -36,3 +36,10 @@ test('Android compact intro is locally scrollable with a reachable 44px start co
  assert.match(css,/-webkit-overflow-scrolling: touch/);
  assert.match(runner,/androidNativeOsTaps/);
 });
+
+test('the starter modal is also a full-screen reachable selection on compact Android',()=>{
+ const css=readFileSync('style.css','utf8');
+ assert.match(css,/#starterScreen\.choice-overlay:not\(\.hidden\)\s*\{[^}]*position: fixed !important/s);
+ assert.match(css,/#starterScreen \.starter\s*\{[^}]*min-height: 92px/s);
+ assert.match(css,/#starterScreen \.starters\s*\{[^}]*grid-template-columns: repeat\(3, minmax\(0, 1fr\)\)/s);
+});
