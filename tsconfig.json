@@ -1,4 +1,4 @@
 {
- "compilerOptions": {"target":"ES2022","module":"ES2022","moduleResolution":"Bundler","lib":["ES2022","DOM","DOM.Iterable"],"rootDir":"src","outDir":"dist","strict":true,"noFallthroughCasesInSwitch":true,"noUncheckedIndexedAccess":true,"skipLibCheck":true,"sourceMap":false},
+ "compilerOptions": {"target":"ES2020","module":"ES2022","moduleResolution":"Bundler","lib":["ES2022","DOM","DOM.Iterable"],"rootDir":"src","outDir":"dist","strict":true,"noFallthroughCasesInSwitch":true,"noUncheckedIndexedAccess":true,"skipLibCheck":true,"sourceMap":false},
  "include":["src/**/*.ts"]
 }
