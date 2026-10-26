@@ -35,3 +35,7 @@
 - Keep `docs/AAA_ROADMAP.md` 21/32 (68.75%) until its **existing**
   independent/hardware acceptance criteria are observed. The new APK does not
   substitute any human signoff.
+
+## Native save import round-trip gate
+
+A complete native transfer is accepted only when Android Files opens through the real app import button, the test selects a synthetic `save-v1` document from Downloads, the native overwrite confirmation is displayed, the player approves it, and localStorage contains the validated imported record after the app's existing optimistic-save transaction. It must preserve world seed and creature identity; an invalid or canceled import must never overwrite a player's progress. No private storage injection, JS handler direct invocation, or network upload may substitute for this acceptance.

@@ -45,3 +45,7 @@ airplane-mode offline launch, Import/Export with Android picker, orientation,
 WebGL2/Canvas2D, and audio. The existing Chrome emulator acceptance is
 separate from an installed APK. Physical low-end phone G4/U2/A3, signing,
 distribution, and external usability acceptance remain open.
+
+## Native import acceptance
+
+The app explicitly enables Android's chooser-granted `content://` stream access while blocking unrelated URL loading in `shouldInterceptRequest`. A trusted, origin-scoped native JavaScript confirmation dialog handles import and existing overwrite prompts; denying the prompt preserves the save. The CI native gate now pushes a synthetic, valid prior-version save into emulator Downloads, selects it through the **actual Android DocumentsUI**, approves the explicit native replacement prompt and compares the persisted `save-v1` sentinel, team UID and world seed. A successful export-picker open alone is insufficient evidence of import success.

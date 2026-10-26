@@ -1,6 +1,7 @@
 package dev.akumano.asciiazur;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.content.res.Configuration;
@@ -12,6 +13,7 @@ import android.os.Looper;
 import android.util.Log;
 import android.view.View;
 import android.webkit.JavascriptInterface;
+import android.webkit.JsResult;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
@@ -50,7 +52,9 @@ public final class MainActivity extends Activity {
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
         settings.setAllowFileAccess(false);
-        settings.setAllowContentAccess(false);
+        // Required for a user-approved Storage Access Framework content:// URI.
+        // All WebView subresources remain restricted by shouldInterceptRequest.
+        settings.setAllowContentAccess(true);
         settings.setAllowFileAccessFromFileURLs(false);
         settings.setAllowUniversalAccessFromFileURLs(false);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
@@ -78,6 +82,21 @@ public final class MainActivity extends Activity {
             }
         });
         game.setWebChromeClient(new WebChromeClient() {
+            @Override public boolean onJsConfirm(WebView view, String url, String message, JsResult result) {
+                // Never display trusted app prompts for external or navigated content.
+                if (!ENTRY.equals(url) || game == null || isFinishing()) {
+                    result.cancel();
+                    return true;
+                }
+                new AlertDialog.Builder(MainActivity.this)
+                    .setTitle(R.string.app_name)
+                    .setMessage(message)
+                    .setPositiveButton("Continuar", (dialog, which) -> result.confirm())
+                    .setNegativeButton("Cancelar", (dialog, which) -> result.cancel())
+                    .setOnCancelListener(dialog -> result.cancel())
+                    .show();
+                return true;
+            }
             @Override public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> callback, FileChooserParams params) {
                 if (fileSelection != null) fileSelection.onReceiveValue(null);
                 fileSelection = callback;

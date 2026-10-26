@@ -100,6 +100,52 @@ async function connect() {
  }
  throw Error('Could not connect to the installed app native WebView: '+lastError);
 }
+
+/** Read an actual on-device accessibility tree, not a simulated HTML picker. */
+function nativeNodes() {
+  adb('shell','uiautomator','dump','/sdcard/azur-saf.xml');
+  const xml=adb('shell','cat','/sdcard/azur-saf.xml');
+  return [...xml.matchAll(/<node\b[^>]*\/>/g)].map(m=>{
+    const el=m[0],attr=(key)=>el.match(new RegExp(key+'="([^"]*)"'))?.[1]??'';
+    const v=attr('bounds').match(/\[(\d+),(\d+)\]\[(\d+),(\d+)\]/);
+    return {text:attr('text'),desc:attr('content-desc'),id:attr('resource-id'),
+      center:v?{x:Math.round((+v[1]+ +v[3])/2),y:Math.round((+v[2]+ +v[4])/2)}:null};
+  });
+}
+function nativePress(node){
+  if(!node?.center)throw Error('Android accessibility node not tappable');
+  adb('shell','input','tap',String(node.center.x),String(node.center.y));
+}
+async function importFromRealAndroidPicker(filename){
+  let navigation=false,last='';
+  for(let i=0;i<8;i++){
+    await delay(700);
+    const nodes=nativeNodes();
+    last=nodes.map(n=>n.text||n.desc).filter(Boolean).slice(0,40).join(' | ');
+    console.log('NATIVE_IMPORT_CHOOSER '+JSON.stringify({pass:i,labels:last.slice(0,850)}));
+    const file=nodes.find(n=>n.text===filename||n.desc===filename);
+    if(file){nativePress(file);return;}
+    const downloads=nodes.find(n=>/^(Downloads|Descargas)$/i.test(n.text));
+    if(downloads){nativePress(downloads);navigation=true;continue;}
+    const roots=nodes.find(n=>/Show roots|Mostrar raíces|Show navigation|Mostrar navegación|Browse files|Explorar archivos|Open navigation drawer/i.test(n.desc+' '+n.text));
+    if(roots){nativePress(roots);continue;}
+    if(navigation){
+      const size=adb('shell','wm','size'),m=size.match(/(\d+)x(\d+)/);
+      if(m){const x=Math.round(+m[1]*.55),y=Math.round(+m[2]*.68);adb('shell','input','swipe',String(x),String(y),String(x),String(Math.round(+m[2]*.25)),'300');}
+    }
+  }
+  throw Error('Real Android documents picker did not list '+filename+': '+last);
+}
+async function acceptNativeSaveReplacement() {
+  for(let i=0;i<5;i++){
+    const nodes=nativeNodes();
+    const approve=nodes.find(n=>/^(Continuar|Continue|Aceptar|OK)$/i.test(n.text));
+    if(approve && nodes.some(n=>/sustituirá|replace|importad/i.test(n.text))){nativePress(approve);return;}
+    await delay(500);
+  }
+  throw Error('Native confirmation dialog did not present explicit overwrite approval');
+}
+
 const info=JSON.parse(readFileSync('android/app/src/main/assets/package-info.json','utf8'));
 const apk=resolve('android/app/build/outputs/apk/debug/app-debug.apk');
 try{
@@ -178,6 +224,31 @@ try{
  adb('shell','input','keyevent','4');
  await delay(350);
  check((await active.eval('location.origin'))==='https://appassets.androidplatform.net','Native app origin remains isolated after SAF');
+ // Round trip through the Android system picker and real application file-input.
+ // Source fixture is the player's own newly generated save, with an explicit
+ // valid playSeconds sentinel; no privileged insert into app-private storage.
+ const originalImport=JSON.parse(await active.eval('localStorage.getItem("ascii-azur-save-v1")'));
+ const replacementSeconds=originalImport.playSeconds+1234;
+ const fixture={...originalImport,playSeconds:replacementSeconds};
+ const fixtureName='ascii-azur-import-qa.json';
+ const localFixture=resolve(dir,fixtureName);
+ writeFileSync(localFixture,JSON.stringify(fixture));
+ const targetPath='/sdcard/Download/'+fixtureName;
+ adb('push',localFixture,targetPath);
+ try{adb('shell','am','broadcast','-a','android.intent.action.MEDIA_SCANNER_SCAN_FILE','-d','file://'+targetPath);}catch{}
+ await active.tap('#importBtn');
+ await delay(850);
+ const pickerImport=adb('shell','dumpsys','activity','activities');
+ check(/documentsui|PickActivity/i.test(pickerImport),'Native import launches Android ACTION_OPEN_DOCUMENT');
+ await importFromRealAndroidPicker(fixtureName);
+ await acceptNativeSaveReplacement();
+ await active.until('JSON.parse(localStorage.getItem("ascii-azur-save-v1")||"{}").playSeconds >= '+replacementSeconds,17000);
+ const confirmed=JSON.parse(await active.eval('localStorage.getItem("ascii-azur-save-v1")'));
+ check(confirmed.team[0].uid===save.team[0].uid && confirmed.worldSeed===save.worldSeed,'Native SAF import preserved valid campaign identity');
+ check(confirmed.playSeconds>=replacementSeconds,'Real imported JSON replaced the live and durable save');
+ // Clean only the synthetic test fixture, never the user's genuine save.
+ adb('shell','rm','-f',targetPath);
+ report.importRoundtrip={validated:true,playSecondsBefore:originalImport.playSeconds,playSecondsAfter:confirmed.playSeconds};
  report.javascriptExceptions=active.exceptions;
  check(active.exceptions.length===0,'No JavaScript errors');
  console.log('ANDROID_NATIVE_APK_PASS '+JSON.stringify({api:API,checks:report.steps.length,apkSha256:report.apkSha256,offline:true}));
