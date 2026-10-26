@@ -134,6 +134,26 @@ test('audio mixing: overlapping effects share one duck envelope and restore the 
  }finally{e.cleanup();}
 });
 
+test('adaptive mixing: scene focus, user volume, EQ, ambience and profile remain independent',()=>{
+ const e=engine();try{
+  e.sound.setMusicVolume(.5);e.sound.setEffectsVolume(.6);
+  e.sound.setMixProfile('clarity');e.sound.setFocus('narration');e.sound.unlock();
+  const d=e.sound.diagnostics();assert.equal(d.mixProfile,'clarity');assert.equal(d.focus,'narration');
+  const target=(value)=>e.nodes.some(n=>n.gain.events.some(evt=>evt.method==='target'&&Math.abs(evt.value-value)<1e-6));
+  assert.ok(target(.5*.68*.48),'music profile × narration focus');
+  assert.ok(target(.6*1.06*.76),'effect profile × narration focus');
+  assert.ok(e.nodes.some(n=>n.kind==='filter'&&n.frequency.events.some(evt=>evt.value===6200)),'profile EQ');
+  e.sound.setFocus('game');e.sound.setMixProfile('night');
+  assert.ok(target(.5*.8));assert.ok(target(.6*.55));
+  assert.ok(e.nodes.some(n=>n.kind==='filter'&&n.frequency.events.some(evt=>evt.value===3700)),'night EQ');
+  assert.equal(e.sound.getMusicVolume(),.5);assert.equal(e.sound.getEffectsVolume(),.6);
+  e.sound.setScene('boss');e.sound.setIntensity(1);
+  assert.equal(e.sound.diagnostics().intensity,1);
+  e.sound.pause();e.sound.setFocus('menu');assert.equal(e.sound.diagnostics().scheduling,false);
+  e.sound.dispose();assert.ok(e.nodes.filter(n=>n.kind==='filter'&&n.frequency.events.some(v=>v.value===3700)).every(n=>n.disconnected));
+ }finally{e.cleanup();}
+});
+
 test('audio safety: invalid settings and effect parameters never reach Web Audio',()=>{
  const e=engine();try{
   e.sound.setMusicVolume(NaN);e.sound.setEffectsVolume(Infinity);

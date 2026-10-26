@@ -1,4 +1,5 @@
 /** ASCII AZUR procedural score: all sounds are synthesized locally with Web Audio. */
+import {MIX_PRESETS,FOCUS_LEVELS,activeMixProfile,type MixProfile,type AudioFocus} from './audio-direction.js';
 export type MusicScene = 'title' | 'village' | 'forest' | 'sanctuary' | 'marsh' | 'spire' | 'ossuary' | 'garden' | 'battle' | 'boss';
 type Note = number | null;
 type Theme = {
@@ -147,6 +148,9 @@ export class Sound {
   private master:GainNode|null=null;
   private musicMaster:GainNode|null=null;
   private musicDuck:GainNode|null=null;
+  private musicTone:BiquadFilterNode|null=null;
+  private mixProfile:MixProfile='balanced';
+  private focus:AudioFocus='game';
   private duckUntil=0;
   private fxMaster:GainNode|null=null;
   private echoInput:GainNode|null=null;
@@ -174,7 +178,7 @@ export class Sound {
   /** Bounded engine counters for QA; no audio nodes or mutable state escape. */
   diagnostics(){return {scene:this.scene,step:this.step,musicVoices:[...this.voices].filter(v=>v.kind==='music').length,
     effectVoices:[...this.voices].filter(v=>v.kind==='effect').length,retiringBuses:this.retiring.size,
-    scheduling:this.timer!==null,paused:this.paused,disposed:this.disposed,contextState:this.ctx?.state??'uninitialized'};}
+    scheduling:this.timer!==null,paused:this.paused,disposed:this.disposed,contextState:this.ctx?.state??'uninitialized',mixProfile:this.mixProfile,focus:this.focus,intensity:this.intensity};}
 
 
   get musicScene():MusicScene{return this.scene;}
@@ -182,6 +186,19 @@ export class Sound {
   get isEnabled():boolean{return this.enabled;}
   getMusicVolume():number{return this.musicVolume;}
   getEffectsVolume():number{return this.fxVolume;}
+  getMixProfile():MixProfile{return this.mixProfile;}
+  getFocus():AudioFocus{return this.focus;}
+  /** Settings are local and are never mixed into the save-v1 gameplay schema. */
+  setMixProfile(value:unknown){const next=activeMixProfile(value);if(this.mixProfile===next)return;this.mixProfile=next;this.applyMix();}
+  setFocus(focus:AudioFocus){if(this.focus===focus)return;this.focus=focus;this.applyMix();}
+  private applyMix(){
+    const ctx=this.ctx;if(!ctx)return;
+    const preset=MIX_PRESETS[this.mixProfile],focus=FOCUS_LEVELS[this.focus],now=ctx.currentTime;
+    this.musicMaster?.gain.setTargetAtTime(this.musicVolume*preset.music*focus.music,now,.13);
+    this.fxMaster?.gain.setTargetAtTime(this.fxVolume*preset.effects*focus.effects,now,.08);
+    this.musicTone?.frequency.setTargetAtTime(preset.lowpassHz,now,.22);
+    this.setAmbience();
+  }
 
   private init(){
     if(this.ctx)return;
@@ -200,7 +217,9 @@ export class Sound {
     }else highpass.connect(this.ctx.destination);
     this.musicMaster=this.ctx.createGain();this.musicMaster.gain.value=this.musicVolume;
     this.musicDuck=this.ctx.createGain();this.musicDuck.gain.value=1;
-    this.musicMaster.connect(this.musicDuck).connect(this.master);
+    this.musicTone=this.ctx.createBiquadFilter();this.musicTone.type='lowpass';
+    this.musicTone.frequency.value=MIX_PRESETS[this.mixProfile].lowpassHz;
+    this.musicMaster.connect(this.musicDuck).connect(this.musicTone).connect(this.master);
     // Shared low-feedback spatial tail prevents a dry, repetitive chiptune texture.
     // A single delay is cheaper than a convolution impulse on low-end mobile GPUs/CPUs.
     if(typeof this.ctx.createDelay==='function'){
@@ -213,7 +232,7 @@ export class Sound {
     }
     this.fxMaster=this.ctx.createGain();this.fxMaster.gain.value=this.fxVolume;
     this.fxMaster.connect(this.master);
-    this.newBus(true);this.startAmbience();
+    this.newBus(true);this.startAmbience();this.applyMix();
     this.nextAt=this.ctx.currentTime+.08;
     this.ctx.onstatechange=()=>this.updateScheduler();
     this.updateScheduler();
@@ -251,10 +270,10 @@ export class Sound {
   }
   setMusicVolume(v:number){
     this.musicVolume=unitLevel(v);
-    if(this.ctx&&this.musicMaster)this.musicMaster.gain.setTargetAtTime(this.musicVolume,this.ctx.currentTime,.05);
+    this.applyMix();
     this.updateScheduler();
   }
-  setEffectsVolume(v:number){this.fxVolume=unitLevel(v);if(this.ctx&&this.fxMaster)this.fxMaster.gain.setTargetAtTime(this.fxVolume,this.ctx.currentTime,.05);}
+  setEffectsVolume(v:number){this.fxVolume=unitLevel(v);this.applyMix();}
   setIntensity(value:number){
     const next=Number.isFinite(value)?Math.max(0,Math.min(1,value)):0;
     if(Math.abs(next-this.intensity)<.02)return;
@@ -288,8 +307,9 @@ export class Sound {
     const ctx=this.ctx;if(!ctx||!this.ambience||!this.ambientFilter)return;
     const a=ambienceForScene(this.scene);
     const mix=scoreMix(this.scene,this.intensity);
-    this.ambience.gain.setTargetAtTime(a.gain*mix.ambient,ctx.currentTime,.65);
-    this.windDepth?.gain.setTargetAtTime(a.gain*a.modulation*mix.ambient,ctx.currentTime,.65);
+    const level=a.gain*mix.ambient*MIX_PRESETS[this.mixProfile].ambience*FOCUS_LEVELS[this.focus].ambience;
+    this.ambience.gain.setTargetAtTime(level,ctx.currentTime,.65);
+    this.windDepth?.gain.setTargetAtTime(level*a.modulation,ctx.currentTime,.65);
     this.ambientFilter.frequency.setTargetAtTime(a.lowpassHz,ctx.currentTime,.6);
   }
   private releaseVoice(voice:Voice,stop=false){
@@ -437,9 +457,9 @@ export class Sound {
     try{this.windLfo?.stop();this.ambientSource?.stop();}catch{/* already stopped */}
     this.windLfo?.disconnect();this.windDepth?.disconnect();this.ambientSource?.disconnect();
     this.ambience?.disconnect();this.ambientFilter?.disconnect();
-    this.master?.disconnect();this.musicMaster?.disconnect();this.fxMaster?.disconnect();this.musicDuck?.disconnect();this.echoInput?.disconnect();
+    this.master?.disconnect();this.musicMaster?.disconnect();this.fxMaster?.disconnect();this.musicDuck?.disconnect();this.musicTone?.disconnect();this.echoInput?.disconnect();
     this.windLfo=null;this.windDepth=null;this.echoInput=null;this.ambientSource=null;this.ambience=null;this.ambientFilter=null;
-    this.master=null;this.musicMaster=null;this.fxMaster=null;this.musicDuck=null;
+    this.master=null;this.musicMaster=null;this.fxMaster=null;this.musicDuck=null;this.musicTone=null;
     const ctx=this.ctx;this.ctx=null;
     if(ctx){ctx.onstatechange=null;void ctx.close().catch(()=>{});}
   }
