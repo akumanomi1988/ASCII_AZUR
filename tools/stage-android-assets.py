@@ -28,9 +28,8 @@ def stage():
         shutil.copyfile(ROOT / p, dst)
     # The browser CSS uses a remote Google Fonts @import. Bundled Android
     # must never request network resources; system serif/mono fallbacks suffice.
-    import re
     css = (TARGET / 'style.css').read_text(encoding='utf-8')
-    css = re.sub(r"@import\\s+url\\(['\\\"]https?://[^)]+\\);\\s*", '', css, count=1)
+    css = ''.join(line for line in css.splitlines(keepends=True) if 'fonts.googleapis.com' not in line)
     assert 'fonts.googleapis.com' not in css, 'Native CSS still requests remote fonts'
     (TARGET / 'style.css').write_text(css, encoding='utf-8')
     shutil.copytree(ROOT / 'dist', TARGET / 'dist')
