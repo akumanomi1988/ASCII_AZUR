@@ -168,7 +168,7 @@ async function testAudio(){
   'const {Sound,AUDIO_LIMITS}=await import("./dist/audio.js");'+
   'const s=new Sound();s.setScene("forest");s.unlock();await new Promise(r=>setTimeout(r,420));const playing=s.diagnostics();'+
   's.setScene("battle");s.setIntensity(.8);s.hitElement("Éter");'+
-  'for(let i=0;i<160;i++){s.setScene(i%3===0?"boss":i%3===1?"garden":"marsh");s.hitElement(i%2?"Ceniza":"Bruma");}'+
+  'for(let i=0;i<160;i++){if(i%12===0)await new Promise(r=>setTimeout(r,20));s.setScene(i%3===0?"boss":i%3===1?"garden":"marsh");s.hitElement(i%2?"Ceniza":"Bruma");}'+
   'const stress=s.diagnostics();s.setScene("forest");s.pause();await new Promise(r=>setTimeout(r,420));const paused=s.diagnostics();'+
   's.resume();await new Promise(r=>setTimeout(r,420));const resumed=s.diagnostics();'+
   's.setEnabled(false);await new Promise(r=>setTimeout(r,420));const muted=s.diagnostics();s.dispose();const disposed=s.diagnostics();'+
@@ -192,7 +192,9 @@ async function frameProbe(){
  report.frameProbe=perf; // Not representative of physical-device fps.
 }
 async function journey(){
+ console.log('ANDROID_STAGE journey-start');
  await chrome.until('document.readyState==="complete"&&!!document.getElementById("newGame")',40000);
+ console.log('ANDROID_STAGE bootstrap');
  const ua=await chrome.evaluate('navigator.userAgent');
  check(ua.includes('Android'),'Native Android Chrome browser running');report.userAgent=ua;
  await chrome.evaluate('(()=>{window.__azurQaTouches=[];document.addEventListener("pointerdown",e=>window.__azurQaTouches.push({type:e.type,target:e.target.id,x:e.clientX,y:e.clientY,pointer:e.pointerType}),true);document.addEventListener("click",e=>window.__azurQaTouches.push({type:e.type,target:e.target.id}),true);})()');
@@ -209,12 +211,13 @@ async function journey(){
   await chrome.until('!!document.querySelector("#starters button")',15000);
  }
 
+ console.log('ANDROID_STAGE starter-buttons');
  await chrome.tap('#starters button');
  for(let i=0;i<15;i++){if(await chrome.evaluate('document.getElementById("dialogue").classList.contains("hidden")'))break;await chrome.tap('#closeDialogue');}
- check(await chrome.evaluate('document.getElementById("dialogue").classList.contains("hidden")'),'Native touch completes introduction');
+ check(await chrome.evaluate('document.getElementById("dialogue").classList.contains("hidden")'),'Native touch completes introduction');console.log('ANDROID_STAGE intro-complete');
  const initial=await chrome.evaluate('(()=>{const x=JSON.parse(localStorage.getItem("ascii-azur-save-v1"));return {seed:x.worldSeed,team:x.team.length,flags:x.flags.length}})()');
  check(initial.team===1,'Game saves native Android starter selection');report.initial=initial;
- if(Number(API)<=30){await chrome.evaluate('window.scrollTo(0,0)');await sleep(350);}
+ if(Number(API)<=30){await chrome.evaluate('window.scrollTo(0,0)');await sleep(350);}console.log('ANDROID_STAGE joystick-start');
  const pad=await chrome.evaluate('(()=>{const r=document.getElementById("joystick").getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2,dx:r.width*.25,width:r.width}})()');
  check(pad.width>=35,'Emulator displays virtual joystick');
  if(Number(API)<=30){
@@ -242,21 +245,21 @@ async function journey(){
   check((await chrome.evaluate('document.getElementById("joystickKnob").style.transform')).includes('calc('),'Native touch drags joystick');
   await chrome.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
  }
- check((await chrome.evaluate('document.getElementById("joystickKnob").style.transform')).includes('translate(-50%, -50%)'),'Native joystick touch releases');
- await chrome.tap('#quickSettings');
+ check((await chrome.evaluate('document.getElementById("joystickKnob").style.transform')).includes('translate(-50%, -50%)'),'Native joystick touch releases');console.log('ANDROID_STAGE joystick-complete');
+ console.log('ANDROID_STAGE settings-start');await chrome.tap('#quickSettings');
  await chrome.until('!document.getElementById("modal").classList.contains("hidden")');
  await chrome.tap('#motionReduced');await chrome.tap('#highContrast');
  check(await chrome.evaluate('document.documentElement.classList.contains("azur-high-contrast")'),'Native touch enables high contrast');
- await chrome.tap('#closeModal');await chrome.capture('portrait.png');
- await testAudio();await frameProbe();
- await resize(960,540,'landscape');await chrome.capture('landscape.png');await resize(540,960,'portrait');
+ await chrome.tap('#closeModal');await chrome.capture('portrait.png');console.log('ANDROID_STAGE settings-complete');
+ console.log('ANDROID_STAGE audio-start');await testAudio();console.log('ANDROID_STAGE audio-complete');await frameProbe();console.log('ANDROID_STAGE frame-complete');
+ console.log('ANDROID_STAGE landscape-start');await resize(960,540,'landscape');await chrome.capture('landscape.png');await resize(540,960,'portrait');
  adb('shell','input','keyevent','3');await sleep(1700);
  await startChrome();await sleep(2200);
  chrome.close();chrome=await connectChrome();await chrome.send('Page.navigate',{url:page});
  await chrome.until('document.readyState==="complete"&&!!document.getElementById("continue")',40000);
  check(await chrome.evaluate('!document.getElementById("continue").hidden'),'Android background/foreground retains save');
- await chrome.tap('#continue');
- const restored=await chrome.evaluate('(()=>{const x=JSON.parse(localStorage.getItem("ascii-azur-save-v1"));return {seed:x.worldSeed,team:x.team.length,contrast:document.documentElement.classList.contains("azur-high-contrast")}})()');
+ console.log('ANDROID_STAGE reload-start');await chrome.tap('#continue');
+ console.log('ANDROID_STAGE reload-clicked');const restored=await chrome.evaluate('(()=>{const x=JSON.parse(localStorage.getItem("ascii-azur-save-v1"));return {seed:x.worldSeed,team:x.team.length,contrast:document.documentElement.classList.contains("azur-high-contrast")}})()');
  check(restored.seed===initial.seed&&restored.team===initial.team,'Resume preserves same playable v1 save');
  check(restored.contrast,'Android retains high-contrast preference');
  report.restored=restored;await chrome.capture('resumed.png');
