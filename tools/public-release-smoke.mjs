@@ -108,22 +108,29 @@ async function startChrome(){
 async function play(cdp,root,version,mode,out){
  const mobile=mode==='mobile',width=mobile?390:1280,height=mobile?844:800;
  await cdp.send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile});
- await cdp.send('Emulation.setTouchEmulationEnabled',{enabled:mobile,maxTouchPoints:1});
+ // Native touchscreen correctness is enforced by Android API30/API35 acceptance.
+ // Here real Chromium mouse input exercises both public desktop and responsive mobile layouts.
+ await cdp.send('Emulation.setTouchEmulationEnabled',{enabled:false,maxTouchPoints:1});
  await cdp.send('Page.navigate',{url:new URL('?azur_smoke='+mode+'-'+Date.now(),root).toString()});
  await cdp.until('document.readyState==="complete"&&!!document.getElementById("newGame")',35000);
  const title=await cdp.eval('document.querySelector(".live-tag")?.textContent||""');
  if(!title.includes('WORLD ENGINE v'+version))throw Error('Live page version mismatch: '+title);
- await cdp.tap('#newGame',mobile);
- await cdp.until('!!document.querySelector("#starters button")');
- await cdp.tap('#starters button',mobile);
+ console.log('PUBLIC_STAGE '+mode+' start-new-game');
+ await cdp.tap('#newGame',false);
+ await cdp.until('!!document.querySelector("#starters button")&&!document.getElementById("starterScreen").classList.contains("hidden")');
+ console.log('PUBLIC_STAGE '+mode+' choose-starter');
+ await cdp.tap('#starters button',false);
  await cdp.until('(()=>{try{return JSON.parse(localStorage.getItem("ascii-azur-save-v1")).team.length===1}catch{return false}})()');
  const before=await cdp.eval('(()=>{const s=JSON.parse(localStorage.getItem("ascii-azur-save-v1"));return {seed:s.worldSeed,team:s.team.length,zone:s.zone}})()');
+ console.log('PUBLIC_STAGE '+mode+' saved-initial');
  await cdp.screenshot(join(out,mode+'-new-game.png'));
  await cdp.send('Page.reload',{ignoreCache:true});
  await cdp.until('document.readyState==="complete"&&document.getElementById("continue")?.hidden===false',35000);
- await cdp.tap('#continue',mobile);
+ console.log('PUBLIC_STAGE '+mode+' restore-save');
+ await cdp.tap('#continue',false);
  const after=await cdp.eval('(()=>{const s=JSON.parse(localStorage.getItem("ascii-azur-save-v1"));return {seed:s.worldSeed,team:s.team.length,zone:s.zone,playing:document.getElementById("titleScreen").classList.contains("hidden")}})()');
  if(before.seed!==after.seed||before.team!==after.team||before.zone!==after.zone||!after.playing)throw Error('Live '+mode+' saved game resume failed: '+JSON.stringify({before,after}));
+ console.log('PUBLIC_STAGE '+mode+' resumed');
  await cdp.screenshot(join(out,mode+'-continued.png'));
  if(cdp.exceptions.length)throw Error('Uncaught live browser errors: '+cdp.exceptions.join('; '));
  return {mode,width,height,version,seedPreserved:true,team:after.team,zone:after.zone};
