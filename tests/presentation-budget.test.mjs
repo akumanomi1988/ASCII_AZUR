@@ -15,9 +15,18 @@ test('real touch microscopic mode can default to protective scaling without chan
  assert.equal(adaptiveDefault(5,'gpu',tiny),true);
  assert.equal(adaptiveDefault(0,'gpu',tiny),false);
  assert.equal(adaptiveDefault(5,'gpu',DEFAULT_GRAPHICS),false);
+ assert.equal(adaptiveDefault(5,'gpu',readGraphics({renderMode:'glyph-pixel',pixelDetail:'fine'})),true);
+ assert.equal(adaptiveDefault(5,'gpu',readGraphics({renderMode:'ascii',density:.32,pixelDetail:'fine'})),false,
+  'a hidden pixel-art setting must not change ASCII stability defaults');
  assert.equal(adaptiveDefault(0,'fallback',tiny),true);
  assert.ok(initialAdaptiveScale(5,'gpu',tiny)>1);
  assert.equal(initialAdaptiveScale(0,'gpu',tiny),1);
  assert.equal(initialAdaptiveScale(0,'fallback',tiny),1.6);
  assert.equal(JSON.stringify(tiny),snapshot);
+});
+
+test('selecting microscopic mode mid-session respects manual opt-out and updates the live toggle',()=>{
+ const source=(await import('node:fs')).readFileSync('src/main.ts','utf8');
+ assert.match(source,/localStorage\.getItem\('ascii-azur-adaptive-fps-v1'\)===null/);
+ assert.match(source,/adaptive\.checked=this\.adaptiveGlyphs\.active;sync\(\)/);
 });

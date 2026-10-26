@@ -7,9 +7,9 @@ export function gpuResolutionFactor(scale:number):number{
 /** Touch microscopic art gets reversible adaptive support unless the user opts out. */
 export function adaptiveDefault(touches:number,backend:'gpu'|'fallback',profile:GraphicsProfile):boolean{
  return backend==='fallback'||Number.isFinite(touches)&&touches>0&&
-  (profile.pixelDetail==='fine'||profile.renderMode==='ascii'&&profile.density<=.24);
+  (profile.renderMode==='glyph-pixel'&&profile.pixelDetail==='fine'||profile.renderMode==='ascii'&&profile.density<=.24);
 }
 export function initialAdaptiveScale(touches:number,backend:'gpu'|'fallback',profile:GraphicsProfile):number{
  if(backend==='fallback')return 1.6;
- return touches>0&&(profile.pixelDetail==='fine'||profile.renderMode==='ascii'&&profile.density<=.24)?1.18:1;
+ return touches>0&&(profile.renderMode==='glyph-pixel'&&profile.pixelDetail==='fine'||profile.renderMode==='ascii'&&profile.density<=.24)?1.18:1;
 }

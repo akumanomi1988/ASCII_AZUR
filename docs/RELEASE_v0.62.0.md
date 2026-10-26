@@ -8,3 +8,5 @@ A real POCO X5 5G first playthrough reported intermittent post-battle jank, espe
 - Complete project regression, Android native Chrome, browser, offline and public Pages exact-source verification are required before production shipment.
 
 This is engineering mitigation and diagnostic evidence, NOT a demonstrated fix on the reported physical phone. A fresh sustained >=30 FPS / thermal / battery physical-device measurement and independent testers are still required. Formal progress 21/32, weighted 68.75%.
+
+Graphics changes within the existing session re-evaluate first-run adaptive defaults, so selecting microscopic mode without reloading is protected. An explicit saved manual disable is never overridden; the settings toggle reflects the actual state.

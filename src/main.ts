@@ -1320,7 +1320,20 @@ class AzurGame {
       const target=glyphCount(canvas.width,canvas.height,requested),rendered=glyphCount(canvas.width,canvas.height,{width:Math.ceil(actual.width*this.renderer.performanceScale),height:Math.ceil(actual.height*this.renderer.performanceScale)});
       byId('glyphStats').textContent=`Trama ~${Math.round(rendered).toLocaleString('es-ES')} caracteres · glifo ${(actual.width*this.renderer.performanceScale).toFixed(1)} px · ${this.renderer.mode==='gpu'?'WebGL2':'Canvas2D'}${rendered<target?' · límite de rendimiento aplicado':''}`;
       byId('adaptiveFpsStats').textContent=this.adaptiveGlyphs.active?`Objetivo 30 FPS · escala temporal ×${this.renderer.performanceScale.toFixed(2)} · ajustes artísticos originales conservados`:'Máxima fidelidad manual. Activa FPS estables solo si el dispositivo pierde fluidez.';};
-    const change=(patch:Partial<GraphicsProfile>)=>{this.renderer.setGraphics({...this.renderer.getGraphics(),...patch});this.storeGraphicSettings();sync();};
+    const change=(patch:Partial<GraphicsProfile>)=>{
+      this.renderer.setGraphics({...this.renderer.getGraphics(),...patch});this.storeGraphicSettings();
+      // A player may select microscopic mode after launch. Re-evaluate the
+      // protective first-run default but never override a stored manual choice.
+      try{if(localStorage.getItem('ascii-azur-adaptive-fps-v1')===null){
+        const profile=this.renderer.getGraphics(),touches=Number(navigator.maxTouchPoints)||0;
+        const enabled=adaptiveDefault(touches,this.renderer.mode,profile);
+        if(this.adaptiveGlyphs.active!==enabled){
+          this.adaptiveGlyphs.configure(enabled,enabled?initialAdaptiveScale(touches,this.renderer.mode,profile):1);
+          this.frameMetrics.reset();this.renderer.setPerformanceScale(this.adaptiveGlyphs.scale);
+        }
+      }}catch{/* no storage: preserve present preference */}
+      adaptive.checked=this.adaptiveGlyphs.active;sync();
+    };
     renderMode.onchange=()=>change({renderMode:renderMode.value==='glyph-pixel'?'glyph-pixel':'ascii'});
     pixelDetail.onchange=()=>change({pixelDetail:pixelDetail.value==='fine'?'fine':pixelDetail.value==='chunky'?'chunky':'balanced'});
     den.onchange=()=>change({density:Number(den.value)});qual.onchange=()=>change({quality:Number(qual.value)});
