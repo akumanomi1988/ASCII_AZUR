@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
 import {gpuResolutionFactor,adaptiveDefault,initialAdaptiveScale} from '../dist/core/presentation-budget.js';
 import {readGraphics,DEFAULT_GRAPHICS} from '../dist/render/graphics-profile.js';
 test('adaptive WebGL2 budget changes actual fragment load, restores full quality and stays bounded',()=>{
@@ -26,7 +27,7 @@ test('real touch microscopic mode can default to protective scaling without chan
 });
 
 test('selecting microscopic mode mid-session respects manual opt-out and updates the live toggle',()=>{
- const source=(await import('node:fs')).readFileSync('src/main.ts','utf8');
+ const source=readFileSync('src/main.ts','utf8');
  assert.match(source,/localStorage\.getItem\('ascii-azur-adaptive-fps-v1'\)===null/);
  assert.match(source,/adaptive\.checked=this\.adaptiveGlyphs\.active;sync\(\)/);
 });
