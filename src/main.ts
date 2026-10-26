@@ -23,6 +23,7 @@ import {combatMusicIntensity,explorationMusicIntensity} from './audio-direction.
 import {FrameMetrics} from './core/frame-metrics.js';
 import {EnduranceLab,type EndurancePhase} from './core/endurance-lab.js';
 import {AdaptiveGlyphs} from './core/adaptive-glyphs.js';
+import {adaptiveDefault,initialAdaptiveScale} from './core/presentation-budget.js';
 import {visibleViewportHeight} from './core/mobile-viewport.js';
 import {storyGuidance,guidanceToTarget,walkableRouteToTarget} from './story-navigation.js';
 import {ARKEN_STORY, ARKEN_FINALE_REWARD, arkenStoryBeat, arkenStoryIndex, concludeArken, canConcludeArken, guardianPreparation, guardianRecommendedLead, sanctuaryRoutePlan, sanctuaryOathProgress, SANCTUARY_OATHS_FLAG, SANCTUARY_OATHS_REWARD, type ArkenStoryState} from './story-campaign.js';
@@ -194,7 +195,14 @@ class AzurGame {
   private restoreGraphicSettings(){try{this.renderer.setGraphics(JSON.parse(localStorage.getItem('ascii-azur-graphics-v2')||'null'));}catch{this.renderer.setGraphics(DEFAULT_GRAPHICS);}this.updateGraphicsTheme();}
   private updateGraphicsTheme(){if(document.documentElement)document.documentElement.dataset.renderMode=this.renderer.renderMode;}
   private storeGraphicSettings(){try{localStorage.setItem('ascii-azur-graphics-v2',JSON.stringify(this.renderer.getGraphics()));}catch{/* storage unavailable */}}
-  private restoreAdaptiveGraphics(){try{const saved=localStorage.getItem('ascii-azur-adaptive-fps-v1');const enabled=saved===null?this.renderer.mode==='fallback':saved==='true';this.adaptiveGlyphs.configure(enabled,enabled&&this.renderer.mode==='fallback'?1.6:1);}catch{/* preserve manual mode */}this.renderer.setPerformanceScale(this.adaptiveGlyphs.scale);}
+  private restoreAdaptiveGraphics(){
+    const touches=Number(navigator.maxTouchPoints)||0,graphics=this.renderer.getGraphics();
+    try{const saved=localStorage.getItem('ascii-azur-adaptive-fps-v1');
+      const enabled=saved===null?adaptiveDefault(touches,this.renderer.mode,graphics):saved==='true';
+      this.adaptiveGlyphs.configure(enabled,enabled?initialAdaptiveScale(touches,this.renderer.mode,graphics):1);
+    }catch{/* preserve manual mode */}
+    this.renderer.setPerformanceScale(this.adaptiveGlyphs.scale);
+  }
   private setAdaptiveGraphics(enabled:boolean){this.adaptiveGlyphs.configure(enabled);this.frameMetrics.reset();this.renderer.setPerformanceScale(this.adaptiveGlyphs.scale);try{localStorage.setItem('ascii-azur-adaptive-fps-v1',String(this.adaptiveGlyphs.active));}catch{/* storage disabled */}}
   private restoreMotionSettings(){try{const v=localStorage.getItem('ascii-azur-reduced-motion');this.reducedMotion=v===null?!!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches:v==='true';}catch{this.reducedMotion=false;}}
   private restoreAccessibility(){
