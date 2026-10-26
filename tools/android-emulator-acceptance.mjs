@@ -243,7 +243,7 @@ async function journey(){
   await chrome.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
  }
  check((await chrome.evaluate('document.getElementById("joystickKnob").style.transform')).includes('translate(-50%, -50%)'),'Native joystick touch releases');
- await chrome.tap('#settings');
+ await chrome.tap('#quickSettings');
  await chrome.until('!document.getElementById("modal").classList.contains("hidden")');
  await chrome.tap('#motionReduced');await chrome.tap('#highContrast');
  check(await chrome.evaluate('document.documentElement.classList.contains("azur-high-contrast")'),'Native touch enables high contrast');
