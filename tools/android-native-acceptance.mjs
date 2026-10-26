@@ -28,11 +28,33 @@ class CDP {
   return r.result?.value;
  }
  async tap(selector){
-  const rect=await this.eval('(()=>{let e=document.querySelector('+JSON.stringify(selector)+');if(!e)return null;e.scrollIntoView({block:"center",behavior:"auto"});const r=e.getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2,w:r.width,h:r.height}})()');
-  if(!rect||rect.w<4||rect.h<4)throw Error('Not visible: '+selector);
-  await this.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:rect.x,y:rect.y,id:1}]});
+  const location=await this.eval('(()=>{const e=document.querySelector('+JSON.stringify(selector)+');if(!e)return null;const intro=e.closest("#titleScreen");if(intro){intro.scrollTop=99999;window.scrollTo(0,0);}else e.scrollIntoView({block:"center",behavior:"auto"});const r=e.getBoundingClientRect();const x=r.x+r.width/2,y=r.y+r.height/2;return {x,y,w:r.width,h:r.height,dpr:devicePixelRatio,vh:innerHeight,hit:document.elementFromPoint(x,y)?.id||document.elementFromPoint(x,y)?.tagName}})()');
+  if(!location||location.w<4||location.h<4)throw Error('Not visible: '+selector);
+  console.log('NATIVE_TAP_TARGET '+JSON.stringify({selector,location}));
+  await this.eval('(()=>{window.__nativeTapped=false;window.__nativeTarget='+JSON.stringify(selector)+';if(!window.__nativeTapProbe){document.addEventListener("click",e=>{if(e.target.closest(window.__nativeTarget))window.__nativeTapped=true},true);window.__nativeTapProbe=true;}})()');
+  await this.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:location.x,y:location.y,id:1}]});
   await this.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
-  await delay(220);
+  await delay(300);
+  let received=await this.eval('window.__nativeTapped===true');
+  if(!received){
+    const size=adb('shell','wm','size');
+    const match=size.match(/Override size:\s*(\d+)x(\d+)/)||size.match(/Physical size:\s*(\d+)x(\d+)/);
+    if(!match)throw Error('Unknown Android display size: '+size);
+    const actualHeight=Number(match[2]),actualWidth=Number(match[1]);
+    const extra=Math.max(0,actualHeight-location.vh*location.dpr);
+    const offsets=[extra/2,0,extra-24*location.dpr,extra-48*location.dpr,extra];
+    for(const offset of [...new Set(offsets.map(Math.round))]){
+      const x=Math.round(location.x*location.dpr),y=Math.round(location.y*location.dpr+offset);
+      if(x<0||x>=actualWidth||y<0||y>=actualHeight)continue;
+      console.log('NATIVE_OS_TAP '+JSON.stringify({selector,x,y,offset}));
+      adb('shell','input','tap',String(x),String(y));
+      await delay(350);
+      received=await this.eval('window.__nativeTapped===true');
+      if(received)break;
+    }
+  }
+  if(!received)throw Error('Native touch did not activate '+selector+' '+JSON.stringify(location));
+  console.log('NATIVE_TAP_PASS '+selector);
  }
  async until(js,timeout=25000){const begin=Date.now();while(Date.now()-begin<timeout){try{if(await this.eval(js))return;}catch{}await delay(300);}throw Error('WebView state timeout: '+js);}
  close(){this.ws.close();}
@@ -55,7 +77,7 @@ async function connect() {
    if(!tab)throw Error('No debuggable game page');
    const ws=new WebSocket(tab.webSocketDebuggerUrl);
    await new Promise((ok,fail)=>{const timer=setTimeout(()=>fail(Error('WebSocket open')),8000);ws.addEventListener('open',()=>{clearTimeout(timer);ok();},{once:true});ws.addEventListener('error',()=>fail(Error('WebSocket failed')),{once:true});});
-   const c=new CDP(ws);await c.send('Runtime.enable');await c.send('Page.enable');return c;
+   const c=new CDP(ws);await c.send('Runtime.enable');await c.send('Page.enable');try{await c.send('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:5});}catch{}return c;
   }catch(err){lastError=String(err);
    if(Date.now()-lastLog>12000){lastLog=Date.now();let process='unknown';try{process=adb('shell','pidof',pkg).trim();}catch{}console.log('NATIVE_CDP_WAIT '+JSON.stringify({lastError:lastError.slice(0,230),process}));}
    await delay(700);}
