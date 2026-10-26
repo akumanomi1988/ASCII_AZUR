@@ -87,7 +87,11 @@ test('actual Archivist visit claims reward through save CAS and persists after r
  game.save.zone='village';game.save.x=8;game.save.y=16;
  game.interactNpc('archivist');
  assert.match(dom.get('modalContent').innerHTML,/TESTIMONIO|ATLAS|AMANECER/);
- game.claimLegacyWitness();
+ const candidate=planLegacyClaim(game.save);
+ assert.ok(candidate,'real NPC action should meet all pure claim preconditions');
+ assert.equal(validateSave(candidate),true,'result must be a persistable v1 snapshot');
+ const committed=game.claimLegacyWitness();
+ assert.equal(committed,true,JSON.stringify({saveStatus:dom.get('saveStatus').textContent,dialogOpen:game.dialogOpen,modalOpen:game.modalOpen,zone:game.save.zone,flags:game.save.flags.length}));
  assert.equal(game.save.flags.includes(LEGACY_WITNESS_FLAG),true);
  assert.equal(game.save.relics['ember-tooth'],1);
  const raw=storage.getItem('ascii-azur-save-v1');
