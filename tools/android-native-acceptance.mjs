@@ -117,12 +117,19 @@ function nativePress(node){
   adb('shell','input','tap',String(node.center.x),String(node.center.y));
 }
 async function importFromRealAndroidPicker(filename){
-  let navigation=false,last='';
-  for(let i=0;i<8;i++){
+  let navigation=false,last='',listModeRequested=false;
+  for(let i=0;i<10;i++){
     await delay(700);
     const nodes=nativeNodes();
     last=nodes.map(n=>n.text||n.desc).filter(Boolean).slice(0,40).join(' | ');
     console.log('NATIVE_IMPORT_CHOOSER '+JSON.stringify({pass:i,labels:last.slice(0,850)}));
+    // Old Android DocumentsUI defaults to thumbnail GRID and the filename label
+    // is not the touch target. Change to LIST first; then the row is selectable.
+    const listToggle=nodes.find(n=>/^(List view|Vista de lista)$/i.test(n.desc||n.text));
+    if(listToggle && !listModeRequested){
+      console.log('NATIVE_IMPORT_GRID_TO_LIST');
+      nativePress(listToggle);listModeRequested=true;continue;
+    }
     const file=nodes.find(n=>n.text===filename||n.desc===filename);
     if(file){nativePress(file);return;}
     const downloads=nodes.find(n=>/^(Downloads|Descargas)$/i.test(n.text));
