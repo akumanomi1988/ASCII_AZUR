@@ -107,7 +107,8 @@ async function startChrome(){
 }
 async function play(cdp,root,version,mode,out){
  const mobile=mode==='mobile',width=mobile?390:1280,height=mobile?844:800;
- await cdp.send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile});
+ // This smoke checks responsive CSS width, not an Android user-agent or digitizer.
+ await cdp.send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});
  // Native touchscreen correctness is enforced by Android API30/API35 acceptance.
  // Here real Chromium mouse input exercises both public desktop and responsive mobile layouts.
  await cdp.send('Emulation.setTouchEmulationEnabled',{enabled:false,maxTouchPoints:1});
@@ -145,8 +146,11 @@ async function main(){
  try{
   report.deployed=await waitForRelease(root,sha);
   report.assets=await checkAssets(root,version);
-  browser=await startChrome();
-  for(const mode of ['desktop','mobile'])report.views.push(await play(browser.cdp,root,version,mode,out));
+  for(const mode of ['desktop','mobile']){
+   browser=await startChrome();
+   try{report.views.push(await play(browser.cdp,root,version,mode,out));}
+   finally{browser.cdp.close();browser.cleanup();browser=null;}
+  }
   report.status='PASS';
   console.log('PUBLIC_AZUR_PASS '+JSON.stringify({source:sha,views:report.views.map(v=>v.mode),attempts:report.deployed.attempts}));
  }catch(e){
