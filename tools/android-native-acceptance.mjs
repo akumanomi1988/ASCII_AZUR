@@ -28,7 +28,7 @@ class CDP {
   return r.result?.value;
  }
  async tap(selector){
-  const location=await this.eval('(()=>{const e=document.querySelector('+JSON.stringify(selector)+');if(!e)return null;const intro=e.closest("#titleScreen");if(intro){intro.scrollTop=99999;window.scrollTo(0,0);}else e.scrollIntoView({block:"center",behavior:"auto"});const r=e.getBoundingClientRect();const x=r.x+r.width/2,y=r.y+r.height/2;return {x,y,w:r.width,h:r.height,dpr:devicePixelRatio,vh:innerHeight,hit:document.elementFromPoint(x,y)?.id||document.elementFromPoint(x,y)?.tagName}})()');
+  const location=await this.eval('(()=>{const e=document.querySelector('+JSON.stringify(selector)+');if(!e)return null;const intro=e.closest("#titleScreen");if(intro)intro.scrollTop=0;e.scrollIntoView({block:"center",inline:"nearest",behavior:"auto"});const r=e.getBoundingClientRect();const x=r.x+r.width/2,y=r.y+r.height/2;return {x,y,w:r.width,h:r.height,dpr:devicePixelRatio,vh:innerHeight,hit:document.elementFromPoint(x,y)?.id||document.elementFromPoint(x,y)?.tagName}})()');
   if(!location||location.w<4||location.h<4)throw Error('Not visible: '+selector);
   console.log('NATIVE_TAP_TARGET '+JSON.stringify({selector,location}));
   await this.eval('(()=>{window.__nativeTapped=false;window.__nativeTarget='+JSON.stringify(selector)+';if(!window.__nativeTapProbe){document.addEventListener("click",e=>{if(e.target.closest(window.__nativeTarget))window.__nativeTapped=true},true);window.__nativeTapProbe=true;}})()');
