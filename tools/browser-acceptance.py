@@ -267,8 +267,13 @@ window.addEventListener('load',()=>setTimeout(async()=>{
   // Player-facing Arken mastery circuit must be actionable inside the real game.
   $('drawerToggle').click();$('duelBtn').click();
   check(!$('modal').classList.contains('hidden'),'Arken training menu did not open');
-  check($('modalContent').textContent.includes('CIRCUITO DE IRIA'),'Three-lesson training circuit missing');
-  check(document.querySelectorAll('[data-duel]').length===3,'Village training challenges missing');
+  check($('modalContent').textContent.includes('LECCIONES DE IRIA'),'Three-lesson training circuit missing');
+  check(document.querySelectorAll('[data-hunt]').length===3,'Village field hunts missing');
+  document.querySelector('[data-hunt="mireling"]').click();
+  check($('modalContent').textContent.includes('PREPARACIÓN TÁCTICA'),'Hunt briefing did not open');
+  check(!!$('huntLeadSelect').value,'Hunt briefing did not allow a living starting companion');
+  $('huntRetreat').click();
+  check(document.querySelectorAll('[data-hunt]').length===3,'Returning from hunt briefing lost the training board');
   $('closeModal').click();
   $('quickSettings').click();
   check(!$('modal').classList.contains('hidden'),'Graphics options did not open');

@@ -1,4 +1,7 @@
-# ASCII AZUR v0.66.0 — The Unwritten
+# ASCII AZUR v0.67.0 — The Unwritten
+
+> **v0.67 — Field Hunt tactical preparation:** the old one-click Duel menu becomes an integrated research/capture loop: eligible fauna follows the same chapter-aware biome as natural encounters; earlier Marsh/Spire travel keeps viable Sanctuary transition battles without prematurely revealing late fauna; each live wild challenge provides a combat-derived tactical briefing, alternate starting-ally selection, saved Codex sighting, capture progress and research link. No new currencies, saves or online systems. See docs/RELEASE_v0.67.0.md.
+
 
 > **v0.66 — Pilgrim's Field Trails:** seven authored three-act regional paths translate existing physical NPC/memory/rune/witness/guardian encounters into a visible optional route, fog-safe next-act tracking, permanent one-time relic equipment, and a region-specific story recognition claimed at a visited Lumbre. Progress is derived from existing save-v1 events; no new regions, currency, grind or required objectives. See docs/RELEASE_v0.66.0.md.
 
