@@ -1038,7 +1038,9 @@ class AzurGame {
   }
   private claimResearch(id:string){
     const previous={flags:[...this.save.flags],inventory:{...this.save.inventory},echoes:this.economy.echoes,relics:this.save.relics?{...this.save.relics}:undefined};
-    const outcome=claimResearchTier({flags:this.save.flags,team:this.save.team,storage:this.save.storage,inventory:this.save.inventory,rpg:this.economy,relics:this.save.relics},id);
+    const claimState={flags:this.save.flags,team:this.save.team,storage:this.save.storage,inventory:this.save.inventory,rpg:this.economy,relics:this.save.relics};
+    const outcome=claimResearchTier(claimState,id);
+    if(outcome==='claimed')this.save.relics=claimState.relics;
     if(outcome!=='claimed'){
       this.toast(outcome==='full'?'INVENTARIO O REGISTRO COMPLETO · LIBERA ESPACIO':outcome==='locked'?'INVESTIGACIÓN INCOMPLETA':'RECOMPENSA NO DISPONIBLE');return;
     }

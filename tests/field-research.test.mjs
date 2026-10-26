@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createCreature,validateSave} from '../dist/domain.js';
+import {mount} from './helpers/game-runtime.mjs';
 import {BIOME_DUEL_SPECIES,BIOME_WILD_SPECIES} from '../dist/world/encounters.js';
 import {RESEARCH_TIERS,RESEARCH_REWARD_PREFIX,recordSpeciesResearch,researchCatalogue,nextResearchLead,claimResearchTier} from '../dist/creatures/field-research.js';
 
@@ -155,4 +156,20 @@ test('chapter-locked later wilds are never recommended until their pool is activ
  const summary=researchCatalogue([creature('cindrel')],[],seen);
  assert.equal(nextResearchLead(summary,seen,['marsh'],'marsh'),null);
  assert.equal(nextResearchLead(summary,[...seen,'marsh-chapter-complete'],['marsh'],'marsh')?.id,'mourveil');
+});
+
+test('runtime Codex research claim actually updates, saves and resumes real equipment inventory',()=>{
+ const {game,storage}=mount({virtualTime:true,seed:721});
+ game.startNew();game.pickStarter('cindrel');
+ while(game.dialogOpen)game.nextDialog();
+ game.save.team.push(creature('velaria'),creature('briarling'));
+ game.openCodex();game.claimResearch('first-names');
+ assert.equal(game.save.relics['hearth-bead'],1);
+ const raw=storage.getItem('ascii-azur-save-v1');
+ assert.ok(raw);assert.equal(validateSave(JSON.parse(raw)),true);
+ const reopened=mount({virtualTime:true,priorSave:raw});
+ reopened.game.continueGame();
+ assert.equal(reopened.game.save.relics['hearth-bead'],1);
+ reopened.game.claimResearch('first-names');
+ assert.equal(reopened.game.save.relics['hearth-bead'],1);
 });

@@ -99,8 +99,10 @@ export function claimResearchTier(state:ResearchClaimState,id:string):ClaimOutco
  // Prefer the tier's specific item; use the next uncapped existing relic if full.
  // A fully stocked collector may still claim the one-time currency rewards.
  if(state.relics!==undefined&&(!state.relics||typeof state.relics!=='object'||Array.isArray(state.relics)))return'full';
- if(RELIC_IDS.some(key=>state.relics?.[key]!==undefined&&
-   (!Number.isSafeInteger(state.relics[key])||state.relics[key]!<1||state.relics[key]!>RELIC_COPY_LIMIT)))return'full';
+ if(RELIC_IDS.some(key=>{
+   const count=state.relics?.[key];
+   return count!==undefined&&(!Number.isSafeInteger(count)||count<1||count>RELIC_COPY_LIMIT);
+ }))return'full';
  const priority:RelicId[]=[tier.relic,...RELIC_IDS];
  const relic=priority.find((key,index)=>priority.indexOf(key)===index&&(state.relics?.[key]??0)<RELIC_COPY_LIMIT);
  if(state.flags.length>=200||
