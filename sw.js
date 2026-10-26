@@ -1,5 +1,5 @@
 // Versioned offline cache. Older saved games stay in localStorage, outside this cache.
-const CACHE='ascii-azur-v0601-q1';
+const CACHE='ascii-azur-v060-q2';
 // GitHub Pages caches unchanged .js URLs across releases. Version every fetch
 // as well as the precache key, so clients never mix old and new ESM exports.
 const RELEASE='0601';
