@@ -71,16 +71,26 @@ async function connect() {
    const pid=adb('shell','pidof',pkg).trim().split(/\s+/)[0];
    if(!pid)throw Error('Process not started');
    const sockets=adb('shell','cat','/proc/net/unix').split('\n').filter(x=>x.includes('webview_devtools_remote')).join('\n');
-   // DevTools sockets of prior or unrelated processes must never be selected.
-   const name=sockets.split(String.fromCharCode(10)).map(x=>x.match(/(@?webview_devtools_remote_\\d+)\\s*$/)?.[1]).filter(Boolean)
-     .find(x=>x.endsWith('_'+pid));
-   if(!name)throw Error('No debug WebView socket');
-   if(forwarded)adb('forward','--remove','tcp:'+PORT);
-   adb('forward','tcp:'+PORT,'localabstract:'+name.replace(/^@/,''));
-   forwarded=true;
-   const r=await fetch('http://127.0.0.1:'+PORT+'/json/list');
-   const tabs=await r.json(),tab=tabs.find(x=>x.type==='page'&&x.webSocketDebuggerUrl);
-   if(!tab)throw Error('No debuggable game page');
+   // The Android 11 WebView socket PID may not equal the hosting app PID.
+   // Resolve all sockets, accepting ONLY this game's trusted bundled origin.
+   const names=[...new Set(sockets.split(String.fromCharCode(10))
+     .map(x=>x.match(/(@?webview_devtools_remote_\d+)\s*$/)?.[1]).filter(Boolean))]
+     .sort((a,b)=>Number(b.endsWith('_'+pid))-Number(a.endsWith('_'+pid)));
+   if(!names.length)throw Error('No debug WebView socket');
+   let tab=null;
+   for(const name of names){
+     try {
+       if(forwarded)adb('forward','--remove','tcp:'+PORT);
+       adb('forward','tcp:'+PORT,'localabstract:'+name.replace(/^@/,''));
+       forwarded=true;
+       const response=await fetch('http://127.0.0.1:'+PORT+'/json/list',{signal:AbortSignal.timeout(3500)});
+       const candidates=await response.json();
+       tab=candidates.find(x=>x.webSocketDebuggerUrl
+         && String(x.url||'').startsWith('https://appassets.androidplatform.net/assets/'));
+       if(tab)break;
+     } catch {}
+   }
+   if(!tab)throw Error('No trusted game page among '+names.length+' WebView sockets');
    const ws=new WebSocket(tab.webSocketDebuggerUrl);
    await new Promise((ok,fail)=>{const timer=setTimeout(()=>fail(Error('WebSocket open')),8000);ws.addEventListener('open',()=>{clearTimeout(timer);ok();},{once:true});ws.addEventListener('error',()=>fail(Error('WebSocket failed')),{once:true});});
    const c=new CDP(ws);await c.send('Runtime.enable');await c.send('Page.enable');try{await c.send('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:5});}catch{}return c;
