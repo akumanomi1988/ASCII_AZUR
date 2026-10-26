@@ -575,3 +575,36 @@
     touch-action: manipulation;
   }
 }
+
+
+/* Immersive small-screen layout: Android 11 revealed the complete game stage
+   could scroll behind the browser header; a touch device must never lose its
+   virtual stick, settings or scene dialogs outside the visible viewport.
+   100vh works in Chrome 83; 100dvh is progressive enhancement. */
+@media (max-width:650px) {
+  html body #app #viewport.viewport {
+    position: fixed !important;
+    z-index: 30 !important;
+    inset: 0 !important;
+    width: 100vw !important;
+    max-width: none !important;
+    height: 100vh !important;
+    height: 100dvh !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    aspect-ratio: auto !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    overflow: hidden !important;
+  }
+  html body #app #viewport #quickSettings,
+  html body #app #viewport #quickFullscreen {
+    min-width: 44px;
+    min-height: 44px;
+    touch-action: manipulation;
+  }
+  html body #app #viewport #drawerToggle {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
