@@ -549,3 +549,29 @@
     margin: 7px 0;
   }
 }
+
+
+/* Android 11: the modal dialogue must be inside the physical viewport, not
+   clipped by the landscape-biased glyph canvas or a scrolled page. */
+@media (max-width:650px), (max-height:620px) {
+  html body #app #viewport #dialogue.dialogue:not(.hidden) {
+    position: fixed !important;
+    z-index: 9998 !important;
+    inset: auto 10px max(9px, env(safe-area-inset-bottom)) 10px !important;
+    transform: none !important;
+    width: auto !important;
+    max-width: none !important;
+    max-height: calc(100dvh - 22px) !important;
+    overflow-y: auto !important;
+    padding: 12px 15px !important;
+    overscroll-behavior: contain;
+  }
+  html body #app #viewport #dialogue #closeDialogue {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
+    touch-action: manipulation;
+  }
+}
