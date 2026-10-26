@@ -1,5 +1,8 @@
 # ASCII AZUR v0.67.0 — The Unwritten
 
+> **Android native APK candidate (engineering):** a separate, offline-capable native WebView shell now builds from the same compiled 0.67.0 game. Gradle and the Android emulator CI run APK installation, real WebView game startup, native touch, offline persistence, orientation and SAF export. See android/README.md; the Android package is **not** a signed store release. No website publication or game milestone weight change follows from adding the candidate.
+
+
 > **v0.67 — Field Hunt tactical preparation:** the old one-click Duel menu becomes an integrated research/capture loop: eligible fauna follows the same chapter-aware biome as natural encounters; earlier Marsh/Spire travel keeps viable Sanctuary transition battles without prematurely revealing late fauna; each live wild challenge provides a combat-derived tactical briefing, alternate starting-ally selection, saved Codex sighting, capture progress and research link. No new currencies, saves or online systems. See docs/RELEASE_v0.67.0.md.
 
 
