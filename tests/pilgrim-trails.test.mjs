@@ -43,7 +43,7 @@ test('route preview is pure and does not disclose fogged coordinates or future r
    assert.ok(t);assert.equal(t.done,0);assert.ok(t.acts.every(a=>!a.known&&!a.objective));assert.equal(planFieldTrailClaim(s,zone),null);
    const altar=ZONES[zone].landmarks.find(l=>l.kind==='altar');
    s.discovered=reveal(s.discovered,zone,altar.x,altar.y);
-   const seen=fieldTrail(s,zone);assert.ok(seen.acts.some(a=>a.known)||zone==='forest'||zone==='marsh'||zone==='spire'||zone==='ossuary'||zone==='garden');
+   const seen=fieldTrail(s,zone);assert.ok(seen.acts.every(a=>a.known===!!a.objective));assert.ok(seen.acts.every(a=>!a.objective||a.objective.known));
   }
   assert.ok(validateSave(s));assert.equal(before.includes('field-trail'),false);
   configureWorld(seed,s.worldSnapshot);assert.deepEqual(captureWorldSnapshot(),s.worldSnapshot);
