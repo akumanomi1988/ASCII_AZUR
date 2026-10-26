@@ -498,3 +498,54 @@
     padding: 5px 3px 28px !important;
   }
 }
+
+
+/* v0.60.1 Android 11 regression: starter selection is a second modal scene.
+   Centered inside the cropped 16:9 game viewport, its buttons were offscreen.
+   Match the title's full-screen compact treatment; preserve .hidden and focus. */
+@media (max-width:650px), (max-height:620px) {
+  html body #app #viewport #starterScreen.choice-overlay:not(.hidden) {
+    position: fixed !important;
+    z-index: 9999 !important;
+    inset: 0 !important;
+    width: 100vw !important;
+    height: 100dvh !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    display: flex !important;
+    align-items: flex-start !important;
+    justify-content: center !important;
+    padding: max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom)) !important;
+    background: #08131bf5 !important;
+  }
+  html body #app #viewport #starterScreen .choice-card {
+    width: min(660px, 100%);
+    max-width: 100%;
+    margin: auto;
+  }
+  html body #app #viewport #starterScreen .starters {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    margin: 12px 0;
+  }
+  html body #app #viewport #starterScreen .starter {
+    min-width: 0;
+    min-height: 92px;
+    padding: 10px 5px;
+    touch-action: manipulation;
+    overflow-wrap: anywhere;
+  }
+  html body #app #viewport #starterScreen .starter-symbol {
+    font-size: 29px;
+    margin-bottom: 5px;
+  }
+  html body #app #viewport #starterScreen .starter strong {
+    font-size: 12px;
+    line-height: 1.25;
+  }
+  html body #app #viewport #starterScreen h2 {
+    font-size: clamp(18px, 4vw, 26px);
+    margin: 7px 0;
+  }
+}
