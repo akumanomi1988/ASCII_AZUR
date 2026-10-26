@@ -77,5 +77,7 @@ test('physical runtime Journal preview, CAS-safe claim, repeat refusal and resum
  assert.equal(fieldTrail(resumed.game.save,'village').claimed,true);
  const stable=resumed.storage.getItem('ascii-azur-save-v1');resumed.game.openFieldJournal();
  assert.match(resumed.dom.get('modalContent').innerHTML,/RUTA COMPLETADA/);
+ assert.match(resumed.dom.get('modalContent').innerHTML,/RECONOCIMIENTO YA RECLAMADO/);
+ assert.doesNotMatch(resumed.dom.get('modalContent').innerHTML,/RECLAMAR RUTA EN LUMBRE<\/button>/);
  assert.equal(resumed.storage.getItem('ascii-azur-save-v1'),stable);
 });
