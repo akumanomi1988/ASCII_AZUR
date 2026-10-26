@@ -1186,8 +1186,15 @@ class AzurGame {
         const threatNode = byId('battleThreat');
         threatNode.dataset.severity = threat.severity;
         threatNode.textContent = threat.title + ' · ' + threat.detail;
-        const suggestion = suggestBattleAction(ally, b.enemy, this.statuses(ally), this.statuses(b.enemy), this.save.inventory.tonics, b.chargeStage, b.bossPhase, recoveryCastsLeft(b.recoveryUses, ally.uid));
-        byId('battleAdvice').textContent = b.busy ? '' : `${suggestion.kind === 'move' ? MOVES[suggestion.moveId]?.name : suggestion.kind === 'guard' ? 'GUARDIA' : 'TÓNICO'} · ${suggestion.reason}`;
+        const suggestion = suggestBattleAction(ally, b.enemy, this.statuses(ally), this.statuses(b.enemy), this.save.inventory.tonics, b.chargeStage, b.bossPhase, recoveryCastsLeft(b.recoveryUses, ally.uid), {
+            type: b.type, party: this.save.team, allyIndex: b.ally, seals: this.save.inventory.seals,
+            hasRoom: this.save.team.length < 6 || this.save.storage.length < 500,
+            ownedSpecies: [...this.save.team, ...this.save.storage].map(c => c.speciesId), flags: this.save.flags
+        });
+        const advised = suggestion.kind === 'move' ? MOVES[suggestion.moveId]?.name :
+            suggestion.kind === 'guard' ? 'GUARDIA' : suggestion.kind === 'tonic' ? 'TÓNICO' :
+                suggestion.kind === 'capture' ? 'VINCULAR' : suggestion.kind === 'switch' ? 'CAMBIAR A ' + SPECIES[this.save.team[suggestion.targetIndex].speciesId].name : 'GUARDIA';
+        byId('battleAdvice').textContent = b.busy ? '' : 'SUGERENCIA · ' + advised + ' · ' + suggestion.reason;
         this.sound.setIntensity(combatMusicIntensity({ allyHp: ally.hp, allyMaxHp: maxHp(ally), enemyHp: b.enemy.hp, enemyMaxHp: maxHp(b.enemy), boss: b.type === 'boss', bossPhase: b.bossPhase, chargeStage: b.chargeStage, allyStatusCount: this.statuses(ally).length }));
         this.announceAccessibility(`Combate contra ${es.name}. Enemigo ${b.enemy.hp} de ${maxHp(b.enemy)} puntos de vida. ${as.name} ${ally.hp} de ${maxHp(ally)} puntos de vida. ${threat.aria} ${b.log}`);
         const actions = byId('battleActions');
@@ -1201,27 +1208,48 @@ class AzurGame {
         actions.replaceChildren();
         const restoreActionFocus = () => { if (b.busy || !this.battleKeyboardFocus)
             return; const buttons = Array.from(actions.querySelectorAll('button:not([disabled])')); buttons[Math.min(this.selectedBattleAction, buttons.length - 1)]?.focus(); this.battleKeyboardFocus = false; };
-        const add = (name, func, special = false, disabled = false, detail = '', preview) => { const button = document.createElement('button'); button.dataset.battleCell = String(actions.children.length); button.textContent = name; button.disabled = b.busy || disabled; if (special)
-            button.classList.add('special'); if (threat.guardRecommended && name.includes('GUARDIA'))
-            button.classList.add('recommended-defense'); if (detail) {
-            button.title = detail;
-            if (!preview)
-                button.setAttribute('aria-label', `${name}. ${detail}`);
-        } if (preview) {
-            button.classList.add('battle-move');
-            button.textContent = '';
-            const label = document.createElement('span');
-            label.className = 'battle-move-name';
-            label.textContent = name;
-            const metrics = document.createElement('span');
-            metrics.className = 'battle-move-estimate';
-            metrics.textContent = preview.summary;
-            const effects = document.createElement('span');
-            effects.className = 'battle-move-extra';
-            effects.textContent = preview.extra;
-            button.append(label, metrics, effects);
-            button.setAttribute('aria-label', preview.accessible);
-        } button.onclick = func; actions.appendChild(button); };
+        const add = (name, func, special = false, disabled = false, detail = '', preview) => {
+            const button = document.createElement('button');
+            button.dataset.battleCell = String(actions.children.length);
+            button.textContent = name;
+            button.disabled = b.busy || disabled;
+            if (special)
+                button.classList.add('special');
+            if (threat.guardRecommended && name.includes('GUARDIA'))
+                button.classList.add('recommended-defense');
+            const advisedButton = (suggestion.kind === 'guard' && name.includes('GUARDIA') ||
+                suggestion.kind === 'tonic' && name.includes('TÓNICO') ||
+                suggestion.kind === 'capture' && name.includes('VINCULAR') ||
+                suggestion.kind === 'move' && name === MOVES[suggestion.moveId]?.name ||
+                suggestion.kind === 'switch' && ((name.includes('VÍNCULOS') && mode === 'commands') ||
+                    (mode === 'party' && name.startsWith('↻ ' + SPECIES[this.save.team[suggestion.targetIndex].speciesId].name + ' ·'))));
+            if (!b.busy && !disabled && advisedButton) {
+                button.classList.add('recommended-choice');
+                button.setAttribute('data-recommended', 'true');
+            }
+            if (detail) {
+                button.title = detail;
+                if (!preview)
+                    button.setAttribute('aria-label', `${name}. ${detail}`);
+            }
+            if (preview) {
+                button.classList.add('battle-move');
+                button.textContent = '';
+                const label = document.createElement('span');
+                label.className = 'battle-move-name';
+                label.textContent = name;
+                const metrics = document.createElement('span');
+                metrics.className = 'battle-move-estimate';
+                metrics.textContent = preview.summary;
+                const effects = document.createElement('span');
+                effects.className = 'battle-move-extra';
+                effects.textContent = preview.extra;
+                button.append(label, metrics, effects);
+                button.setAttribute('aria-label', preview.accessible);
+            }
+            button.onclick = func;
+            actions.appendChild(button);
+        };
         if (b.selecting) {
             this.selectedBattleAction = 0;
             for (const { c, i } of this.save.team.map((c, i) => ({ c, i }))) {
