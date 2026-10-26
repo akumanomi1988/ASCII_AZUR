@@ -71,8 +71,9 @@ async function connect() {
    const pid=adb('shell','pidof',pkg).trim().split(/\s+/)[0];
    if(!pid)throw Error('Process not started');
    const sockets=adb('shell','cat','/proc/net/unix').split('\n').filter(x=>x.includes('webview_devtools_remote')).join('\n');
-   const name=sockets.split('\n').map(x=>x.match(/(@?webview_devtools_remote_\d+)\s*$/)?.[1]).filter(Boolean)
-     .find(x=>x.endsWith('_'+pid)) || sockets.split('\n').map(x=>x.match(/(@?webview_devtools_remote_\d+)\s*$/)?.[1]).filter(Boolean)[0];
+   // DevTools sockets of prior or unrelated processes must never be selected.
+   const name=sockets.split(String.fromCharCode(10)).map(x=>x.match(/(@?webview_devtools_remote_\\d+)\\s*$/)?.[1]).filter(Boolean)
+     .find(x=>x.endsWith('_'+pid));
    if(!name)throw Error('No debug WebView socket');
    if(forwarded)adb('forward','--remove','tcp:'+PORT);
    adb('forward','tcp:'+PORT,'localabstract:'+name.replace(/^@/,''));
@@ -140,7 +141,17 @@ try{
  adb('shell','am','force-stop',pkg);
  adb('shell','svc','wifi','disable');adb('shell','svc','data','disable');
  adb('shell','am','start','-n',pkg+'/dev.akumano.asciiazur.MainActivity');
- active=await connect();
+ // A WebView DevTools socket can become stale across process restart.
+ // Retry just the inspector once after a bounded cold start, never gameplay steps.
+ try { active=await connect(); }
+ catch (error) {
+   report.inspectorRecovery={reason:String(error).slice(0,200),attempts:1};
+   console.log('NATIVE_DEBUG_REATTACH '+JSON.stringify(report.inspectorRecovery));
+   adb('shell','am','force-stop',pkg);
+   await delay(1000);
+   adb('shell','am','start','-n',pkg+'/dev.akumano.asciiazur.MainActivity');
+   active=await connect();
+ }
  await active.until('document.readyState==="complete" && !!document.querySelector("#continue")',40000);
  await active.tap('#continue');
  await active.until('document.querySelector("#titleScreen")?.classList.contains("hidden")',18000);
