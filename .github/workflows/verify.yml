@@ -72,6 +72,26 @@ jobs:
         run: python3 tools/browser-acceptance.py
       - name: Mobile viewport and synthetic touch acceptance
         run: python3 tools/mobile-acceptance.py
+      - name: Exercise production smoke harness against built local game
+        shell: bash
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+          AZUR_SMOKE_ROOT: http://127.0.0.1:18977/
+        run: |
+          set -euo pipefail
+          python3 -c 'import json,os; from pathlib import Path; from datetime import datetime,timezone; Path("build-info.json").write_text(json.dumps({"source_commit":os.environ["SOURCE_SHA"],"build":"verified-github-actions","published_at":datetime.now(timezone.utc).isoformat()}))'
+          python3 -m http.server 18977 --bind 127.0.0.1 >/tmp/azur-smoke-server.log 2>&1 &
+          server=$!
+          trap 'kill "$server" 2>/dev/null || true; rm -f build-info.json' EXIT
+          node tools/public-release-smoke.mjs
+      - name: Retain local public-smoke acceptance screenshots and report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ascii-azur-local-public-smoke
+          path: artifacts/public-smoke/*
+          retention-days: 14
+          if-no-files-found: warn
       - name: Retain mobile acceptance evidence
         if: always()
         uses: actions/upload-artifact@v4

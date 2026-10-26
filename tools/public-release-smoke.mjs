@@ -130,14 +130,16 @@ async function play(cdp,root,version,mode,out){
 }
 async function main(){
  const sha=checkedSha(process.env.SOURCE_SHA||process.argv[2]),version=JSON.parse(readFileSync('package.json','utf8')).version;
+ const root=process.env.AZUR_SMOKE_ROOT||PUBLIC_ROOT;
+ if(root!==PUBLIC_ROOT&&!/^http:\/\/127\.0\.0\.1:[1-9][0-9]{1,4}\/$/.test(root))throw Error('Only official Pages or loopback smoke fixture is permitted');
  const out=resolve('artifacts/public-smoke');mkdirSync(out,{recursive:true});
  const report={schema:'ascii-azur-public-smoke-v1',source:sha,version,status:'FAIL',assets:[],views:[]};
  let browser;
  try{
-  report.deployed=await waitForRelease(PUBLIC_ROOT,sha);
-  report.assets=await checkAssets(PUBLIC_ROOT,version);
+  report.deployed=await waitForRelease(root,sha);
+  report.assets=await checkAssets(root,version);
   browser=await startChrome();
-  for(const mode of ['desktop','mobile'])report.views.push(await play(browser.cdp,PUBLIC_ROOT,version,mode,out));
+  for(const mode of ['desktop','mobile'])report.views.push(await play(browser.cdp,root,version,mode,out));
   report.status='PASS';
   console.log('PUBLIC_AZUR_PASS '+JSON.stringify({source:sha,views:report.views.map(v=>v.mode),attempts:report.deployed.attempts}));
  }catch(e){

@@ -34,4 +34,6 @@ test('live release verification is downstream of validated Pages publishing',()=
  assert.match(yaml,/SOURCE_SHA: \$\{\{ github\.sha \}\}/);
  assert.match(yaml,/node tools\/public-release-smoke\.mjs/);
  assert.match(yaml,/azur-public-release-evidence/);
+ assert.match(yaml,/AZUR_SMOKE_ROOT: http:\/\/127\.0\.0\.1:18977\//);
+ assert.match(yaml,/ascii-azur-local-public-smoke/);
 });
