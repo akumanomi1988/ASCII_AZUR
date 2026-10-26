@@ -127,6 +127,17 @@ jobs:
           node-version: '22'
       - name: Build production JS for actual Android Chrome
         run: npm install --ignore-scripts --no-audit --no-fund && npm run build
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+      - name: Stage exact game JS and compile offline Android APK
+        run: |
+          python3 tools/stage-android-assets.py
+          gradle -p android :app:assembleDebug --no-daemon --stacktrace
       - name: Enable Android emulator KVM acceleration
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
@@ -145,13 +156,15 @@ jobs:
           disable-animations: true
           emulator-boot-timeout: 600
           emulator-options: -no-window -no-snapshot -gpu swiftshader_indirect -no-boot-anim -camera-back none -camera-front none
-          script: ANDROID_API_LEVEL=${{ matrix.api-level }} node tools/android-emulator-acceptance.mjs
+          script: ANDROID_API_LEVEL=${{ matrix.api-level }} node tools/android-emulator-acceptance.mjs && ANDROID_API_LEVEL=${{ matrix.api-level }} node tools/android-native-acceptance.mjs
       - name: Retain Android device screenshots, audio, memory and frame-time evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: ascii-azur-android-api-${{ matrix.api-level }}-evidence
-          path: artifacts/android-emulator/${{ matrix.api-level }}/*
+          path: |
+            artifacts/android-emulator/${{ matrix.api-level }}/*
+            android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 21
           if-no-files-found: warn
 

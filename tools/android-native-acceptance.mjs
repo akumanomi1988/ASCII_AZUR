@@ -1,0 +1,125 @@
+#!/usr/bin/env node
+/** Real installed APK boot, touch, offline resume and Storage Access Framework gate. */
+import {execFileSync} from 'node:child_process';
+import {readFileSync,writeFileSync,mkdirSync} from 'node:fs';
+import {resolve} from 'node:path';
+import {setTimeout as delay} from 'node:timers/promises';
+const ROOT=process.cwd(),API=process.env.ANDROID_API_LEVEL||'unknown';
+const pkg='dev.akumano.asciiazur',PORT=19293,dir=resolve(ROOT,'artifacts/android-emulator',API);
+mkdirSync(dir,{recursive:true});
+const report={schema:'ascii-azur-native-apk-v1',api:API,physicalDevice:false,steps:[],errors:[]};
+const check=(ok,label)=>{if(!ok)throw Error(label);report.steps.push(label);};
+const adb=(...args)=>execFileSync('adb',args,{encoding:'utf8',timeout:30000}).trim();
+const cmd=(command)=>adb('shell','sh','-c',command);
+let active,forwarded=false;
+class CDP {
+ constructor(ws){this.ws=ws;this.id=0;this.pending=new Map();this.exceptions=[];
+  ws.addEventListener('message',event=>{let msg;try{msg=JSON.parse(event.data);}catch{return;}
+   if(msg.id){const p=this.pending.get(msg.id);if(p){this.pending.delete(msg.id);clearTimeout(p.timer);msg.error?p.reject(Error(JSON.stringify(msg.error))):p.resolve(msg.result??{});}}
+   if(msg.method==='Runtime.exceptionThrown')this.exceptions.push(msg.params?.exceptionDetails?.text??'JS failure');
+  });
+ }
+ send(method,params={}){return new Promise((resolve,reject)=>{const id=++this.id;
+  const timer=setTimeout(()=>{this.pending.delete(id);reject(Error('CDP timed out '+method));},16000);
+  this.pending.set(id,{resolve,reject,timer});this.ws.send(JSON.stringify({id,method,params}));
+ });}
+ async eval(expr){const r=await this.send('Runtime.evaluate',{expression:expr,returnByValue:true,awaitPromise:true});
+  if(r.exceptionDetails)throw Error('JS '+JSON.stringify(r.exceptionDetails));
+  return r.result?.value;
+ }
+ async tap(selector){
+  const rect=await this.eval('(()=>{let e=document.querySelector('+JSON.stringify(selector)+');if(!e)return null;e.scrollIntoView({block:"center",behavior:"auto"});const r=e.getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2,w:r.width,h:r.height}})()');
+  if(!rect||rect.w<4||rect.h<4)throw Error('Not visible: '+selector);
+  await this.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:rect.x,y:rect.y,id:1}]});
+  await this.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+  await delay(220);
+ }
+ async until(js,timeout=25000){const begin=Date.now();while(Date.now()-begin<timeout){try{if(await this.eval(js))return;}catch{}await delay(300);}throw Error('WebView state timeout: '+js);}
+ close(){this.ws.close();}
+}
+async function connect() {
+ const start=Date.now();
+ while(Date.now()-start<60000){
+  try{
+   const pid=cmd('pidof '+pkg).trim().split(' ')[0];
+   if(!pid)throw Error('Process not started');
+   const sockets=cmd('cat /proc/net/unix | grep webview_devtools_remote || true');
+   const name=sockets.split('\n').map(x=>x.match(/(@?webview_devtools_remote_\d+)\s*$/)?.[1]).filter(Boolean)
+     .find(x=>x.endsWith('_'+pid)) || sockets.split('\n').map(x=>x.match(/(@?webview_devtools_remote_\d+)\s*$/)?.[1]).filter(Boolean)[0];
+   if(!name)throw Error('No debug WebView socket');
+   if(forwarded)adb('forward','--remove','tcp:'+PORT);
+   adb('forward','tcp:'+PORT,'localabstract:'+name.replace(/^@/,''));
+   forwarded=true;
+   const r=await fetch('http://127.0.0.1:'+PORT+'/json/list');
+   const tabs=await r.json(),tab=tabs.find(x=>x.type==='page'&&x.webSocketDebuggerUrl);
+   if(!tab)throw Error('No debuggable game page');
+   const ws=new WebSocket(tab.webSocketDebuggerUrl);
+   await new Promise((ok,fail)=>{const timer=setTimeout(()=>fail(Error('WebSocket open')),8000);ws.addEventListener('open',()=>{clearTimeout(timer);ok();},{once:true});ws.addEventListener('error',()=>fail(Error('WebSocket failed')),{once:true});});
+   const c=new CDP(ws);await c.send('Runtime.enable');await c.send('Page.enable');return c;
+  }catch(err){await delay(700);}
+ }
+ throw Error('Could not connect to the installed app native WebView');
+}
+const info=JSON.parse(readFileSync('android/app/src/main/assets/package-info.json','utf8'));
+const apk=resolve('android/app/build/outputs/apk/debug/app-debug.apk');
+try{
+ check(info.schema==='ascii-azur-android-package-v1','Manifest validated');
+ const bytes=readFileSync(apk);check(bytes.length>200_000,'Compiled APK exists');
+ const {createHash}=await import('node:crypto');
+ report.apkSha256=createHash('sha256').update(bytes).digest('hex');
+ adb('install','-r',apk);
+ adb('shell','am','force-stop',pkg);
+ adb('shell','am','start','-n',pkg+'/dev.akumano.asciiazur.MainActivity');
+ active=await connect();
+ await active.until('document.readyState==="complete" && !!document.querySelector("#newGame")',40000);
+ const origin=await active.eval('location.origin');check(origin==='https://appassets.androidplatform.net','Packaged HTTPS origin');
+ const version=await active.eval('document.querySelector(".live-tag")?.textContent||""');
+ check(version.includes('0.67.0'),'Native and web version match');
+ const stage=await active.eval('fetch("package-info.json").then(r=>r.json())');
+ check(stage.main_sha256===info.main_sha256 && stage.version===info.version,'Manifest source fingerprint');
+ const remote=await active.eval('performance.getEntriesByType("resource").map(x=>x.name).filter(x=>!x.startsWith("https://appassets.androidplatform.net/assets/"))');
+ check(remote.length===0,'No remote resources loaded');
+ await active.tap('#newGame');
+ await active.until('!!document.querySelector("#starters button")',15000);
+ await active.tap('#starters button');
+ for(let i=0;i<20;i++){if(await active.eval('document.getElementById("dialogue")?.classList.contains("hidden")'))break;await active.tap('#closeDialogue');}
+ await active.until('!!localStorage.getItem("ascii-azur-save-v1")',15000);
+ const save=JSON.parse(await active.eval('localStorage.getItem("ascii-azur-save-v1")'));
+ check(save.version===1 && save.team.length===1 && typeof save.zone==='string','Actual native-touch game saved');
+ report.saved={version:save.version,zone:save.zone,team:save.team.length};
+ const w=await active.eval('innerWidth');adb('shell','wm','size','820x1280');await delay(900);
+ const portrait=await active.eval('({w:innerWidth,h:innerHeight})');
+ adb('shell','wm','size','1280x820');await delay(900);
+ const landscape=await active.eval('({w:innerWidth,h:innerHeight})');
+ check(portrait.h>portrait.w && landscape.w>landscape.h,'Physical emulator window rotation preserved WebView');
+ check(!!(await active.eval('localStorage.getItem("ascii-azur-save-v1")')),'Save survives device rotation');
+ active.close();active=null;
+ adb('shell','am','force-stop',pkg);
+ adb('shell','svc','wifi','disable');adb('shell','svc','data','disable');
+ adb('shell','am','start','-n',pkg+'/dev.akumano.asciiazur.MainActivity');
+ active=await connect();
+ await active.until('document.readyState==="complete" && !!document.querySelector("#continue")',40000);
+ await active.tap('#continue');
+ await active.until('document.querySelector("#titleScreen")?.classList.contains("hidden")',18000);
+ const resumed=JSON.parse(await active.eval('localStorage.getItem("ascii-azur-save-v1")'));
+ check(resumed.team[0].uid===save.team[0].uid&&resumed.worldSeed===save.worldSeed,'Offline native process restart preserves saved campaign');
+ await active.tap('#drawerToggle');
+ await active.until('!!document.querySelector("#exportBtn")',6000);
+ await active.tap('#exportBtn');
+ await delay(850);
+ const picker=cmd('dumpsys activity activities | grep -E "mResumed|topResumed|mFocused" | tail -n 5');
+ check(/DocumentsUI|documentsui|ExternalStorageProvider/.test(picker),'JSON export opens Android document creation picker');
+ report.pickerEvidence=picker.slice(0,400);
+ adb('shell','input','keyevent','4');
+ await delay(350);
+ check((await active.eval('location.origin'))==='https://appassets.androidplatform.net','Native app origin remains isolated after SAF');
+ report.javascriptExceptions=active.exceptions;
+ check(active.exceptions.length===0,'No JavaScript errors');
+ console.log('ANDROID_NATIVE_APK_PASS '+JSON.stringify({api:API,checks:report.steps.length,apkSha256:report.apkSha256,offline:true}));
+}catch(error){report.errors.push(String(error));console.error('ANDROID_NATIVE_APK_FAIL '+String(error));process.exitCode=1;}
+finally{
+ try{active?.close();}catch{}
+ try{adb('shell','wm','size','reset');adb('shell','svc','wifi','enable');adb('shell','svc','data','enable');}catch{}
+ try{if(forwarded)adb('forward','--remove','tcp:'+PORT);}catch{}
+ writeFileSync(resolve(dir,'native-apk.json'),JSON.stringify(report,null,2));
+}
