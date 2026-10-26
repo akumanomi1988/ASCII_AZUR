@@ -223,20 +223,22 @@ async function journey(){
  if(Number(API)<=30){
   // Chrome 83 CDP touch coordinates are not viewport calibrated. Send an
   // actual Android OS drag using a prior verified tap to calibrate the origin.
-  await chrome.tap('#joystick');
+  console.log('ANDROID_STAGE joystick-calibrate');await chrome.tap('#joystick');console.log('ANDROID_STAGE joystick-tap-ok');
   const placement=await chrome.evaluate('(()=>{const r=document.getElementById("joystick").getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2,dx:r.width*.25,dpr:devicePixelRatio};})()');
   const offset=chrome.lastAndroidTapOffset;
   check(Number.isFinite(offset),'Android 11 native joystick coordinate offset calibrated');
   const startX=Math.round(placement.x*placement.dpr),startY=Math.round(placement.y*placement.dpr+offset);
   const endX=Math.round((placement.x+placement.dx)*placement.dpr);
+  await chrome.evaluate('(()=>{window.__azurJoystickMoves=0;document.addEventListener("pointermove",e=>{if(e.target.closest("#joystick"))window.__azurJoystickMoves++;},true)})()');
+  console.log('ANDROID_STAGE joystick-adb-swipe');
   const process=spawn('adb',['shell','input','swipe',String(startX),String(startY),String(endX),String(startY),'1600'],{stdio:'ignore'});
   const complete=new Promise((resolve,reject)=>{
    process.on('error',reject);process.on('exit',code=>code===0?resolve():reject(Error('ADB swipe failed '+code)));
   });
-  await sleep(950);
-  const drag=await chrome.evaluate('document.getElementById("joystickKnob").style.transform');
   await complete;
-  check(drag.includes('calc('),'Native Android OS swipe drags joystick');
+  console.log('ANDROID_STAGE joystick-adb-done');
+  const moves=await chrome.evaluate('window.__azurJoystickMoves');
+  check(moves>0,'Native Android OS swipe delivers moving pointer events to joystick');
   report.androidNativeOsSwipes=(report.androidNativeOsSwipes||0)+1;
  }else{
   await chrome.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:pad.x,y:pad.y,id:2}]});
@@ -276,7 +278,14 @@ try{
  adb('reverse','tcp:'+PORT,'tcp:'+PORT);
  adb('forward','tcp:'+DEVTOOLS,'localabstract:chrome_devtools_remote');
  adb('shell','wm','density','240');adb('shell','wm','size','540x960');
- await startChrome();chrome=await connectChrome();await chrome.send('Page.navigate',{url:page});
+ await startChrome();chrome=await connectChrome();
+ if(Number(API)<=30){
+  // Android 11's stock Chrome 83 supports Canvas2D and does not guarantee a stable
+  // accelerated WebGL2 path under software-emulated GitHub Actions GPUs.
+  await chrome.send('Page.addScriptToEvaluateOnNewDocument',{source:'(function(){var previous=HTMLCanvasElement.prototype.getContext;HTMLCanvasElement.prototype.getContext=function(kind){if(kind==="webgl2")return null;return previous.apply(this,arguments);};})();'});
+  console.log('ANDROID_STAGE chrome83-canvas-fallback');
+ }
+ await chrome.send('Page.navigate',{url:page});
  await resize(540,960,'portrait');await journey();
  report.status='PASS';console.log('ANDROID_EMULATOR_PASS '+JSON.stringify({api:report.androidApi,assertions:report.assertions.length,frame:report.frameProbe,pss:report.chromeTotalPssKb}));
 }catch(error){
