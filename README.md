@@ -1,4 +1,7 @@
-# ASCII AZUR v0.53.0 — The Unwritten
+# ASCII AZUR v0.64.0 — The Unwritten
+
+> **v0.64 — Collection with tactical purpose:** four finite collection tiers now reward equippable combat relics. The Codex recommends known uncaught creatures in accessible habitats and opens the field journal. Save-v1 compatibility and cache-safe offline updates are preserved. See docs/RELEASE_v0.64.0.md.
+
 
 > **v0.53 — The connected pilgrimage:** regional field objectives and finite recognitions, persistent cross-region tracking, visited-Lumbre travel, completed-site Atlas markers, and full keeper-epilogue continuity after the main ending. Travel cannot bypass undiscovered destinations, story gates, crypts or expeditions, and commits storage before moving the party. See `docs/RELEASE_v0.53.0.md`.
 

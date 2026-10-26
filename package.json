@@ -1,5 +1,5 @@
 {
-  "name":"ascii-azur", "version":"0.63.0", "private":true, "type":"module",
+  "name":"ascii-azur", "version":"0.64.0", "private":true, "type":"module",
   "description":"ASCII AZUR — dark fantasy creature-collection RPG",
   "scripts":{"build":"tsc -p tsconfig.json","test":"node --test --test-concurrency=2 tests/*.test.mjs","score:master":"node tools/render-score-master.mjs","verify":"npm run build && npm run score:master && python3 tools/build-standalone.py && npm test && python3 tools/check-release.py","release":"npm run verify && python3 tools/build-standalone.py && python3 tools/create-release.py","serve":"python3 -m http.server 8080"},
   "devDependencies":{"typescript":"5.8.3"}
