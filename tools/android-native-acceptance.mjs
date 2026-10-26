@@ -109,6 +109,8 @@ function nativeNodes() {
     const el=m[0],attr=(key)=>el.match(new RegExp(key+'="([^"]*)"'))?.[1]??'';
     const v=attr('bounds').match(/\[(\d+),(\d+)\]\[(\d+),(\d+)\]/);
     return {text:attr('text'),desc:attr('content-desc'),id:attr('resource-id'),
+      clickable:attr('clickable')==='true',enabled:attr('enabled')!=='false',
+      bounds:v?{left:+v[1],top:+v[2],right:+v[3],bottom:+v[4]}:null,
       center:v?{x:Math.round((+v[1]+ +v[3])/2),y:Math.round((+v[2]+ +v[4])/2)}:null};
   });
 }
@@ -131,7 +133,30 @@ async function importFromRealAndroidPicker(filename){
       nativePress(listToggle);listModeRequested=true;continue;
     }
     const file=nodes.find(n=>n.text===filename||n.desc===filename);
-    if(file){nativePress(file);return;}
+    if(file){
+      // On Android 11 DocumentsUI the filename TextView is not itself a
+      // selectable item. Hit the smallest clickable accessibility ancestor.
+      const inside=(outer,point)=>outer?.bounds && point
+        && outer.bounds.left<=point.x && outer.bounds.right>=point.x
+        && outer.bounds.top<=point.y && outer.bounds.bottom>=point.y;
+      const area=n=>(n.bounds.right-n.bounds.left)*(n.bounds.bottom-n.bounds.top);
+      const parents=nodes.filter(n=>n.clickable && n.enabled && inside(n,file.center))
+        .sort((a,b)=>area(a)-area(b));
+      const alternatives=[...parents,file];
+      console.log('NATIVE_IMPORT_FILE_TARGETS '+JSON.stringify({file,parents:parents.slice(0,6)}));
+      if(Number(API)>30){nativePress(alternatives[0]);return;}
+      // Android 11 can expose a valid filename accessibility node that
+      // cannot receive clicks. Use real OS touches on row/ancestor surfaces
+      // and require its document picker to actually leave the foreground.
+      for(const candidate of alternatives){
+        nativePress(candidate);await delay(700);
+        const now=nativeNodes();
+        const still=now.some(n=>n.text===filename||n.desc===filename);
+        console.log('NATIVE_IMPORT_TAP_RESULT '+JSON.stringify({candidate:candidate.center,stillPickerVisible:still}));
+        if(!still)return;
+      }
+      throw Error('Real Android document row not selected despite OS touches');
+    }
     const downloads=nodes.find(n=>/^(Downloads|Descargas)$/i.test(n.text));
     if(downloads){nativePress(downloads);navigation=true;continue;}
     const roots=nodes.find(n=>/Show roots|Mostrar raíces|Show navigation|Mostrar navegación|Browse files|Explorar archivos|Open navigation drawer/i.test(n.desc+' '+n.text));
