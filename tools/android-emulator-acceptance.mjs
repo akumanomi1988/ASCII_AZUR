@@ -243,6 +243,7 @@ async function journey(){
  check(pad.width>=35,'Emulator displays virtual joystick');
  const viewport=await chrome.evaluate('(()=>{const stage=document.getElementById("viewport"),stick=document.getElementById("joystick"),p=stage.getBoundingClientRect(),j=stick.getBoundingClientRect(),styles=getComputedStyle(stage);return {stage:{x:p.x,y:p.y,width:p.width,height:p.height},stick:{x:j.x,y:j.y,width:j.width,height:j.height},computedHeight:styles.height,position:styles.position,cssViewportHeight:document.documentElement.style.getPropertyValue("--azur-visible-height"),windowHeight:innerHeight,visualHeight:visualViewport?.height,scrollY,appTop:document.getElementById("app").getBoundingClientRect().y};})()');
  console.log('ANDROID_STAGE joystick-layout '+JSON.stringify({pad,viewport}));
+ check(Math.abs(viewport.stage.y)<=1&&Math.abs(viewport.stage.x)<=1,'Android Chrome stage anchored to browser viewport origin');
  check(pad.y-pad.width/2>=0&&pad.y+pad.width/2<=pad.visibleHeight-4,'Android joystick fully within the visible browser viewport: '+JSON.stringify({pad,viewport}));
  if(Number(API)<=30){
   // Exercise the actual Android OS touch pipeline at several plausible Chrome

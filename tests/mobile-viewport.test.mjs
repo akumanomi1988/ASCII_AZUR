@@ -19,6 +19,10 @@ test('mobile scene and native input acceptance enforce actual viewport visibilit
  const qa=readFileSync('tools/android-emulator-acceptance.mjs','utf8');
  const sw=readFileSync('sw.js','utf8');
  assert.match(css,/height: var\(--azur-visible-height, 100vh\) !important/);
+ assert.match(css,/top: 0 !important/);
+ assert.match(css,/left: 0 !important/);
+ assert.match(css,/right: 0 !important/);
+ assert.doesNotMatch(css,/z-index: 30 !important;\s*inset: 0 !important/);
  assert.match(main,/window\.visualViewport\?\.addEventListener\('resize',fit\)/);
  assert.match(qa,/Android joystick fully within the visible browser viewport/);
  assert.match(qa,/Touch target outside visible Chrome viewport/);

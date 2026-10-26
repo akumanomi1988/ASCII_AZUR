@@ -580,12 +580,16 @@
 /* Immersive small-screen layout: Android 11 revealed the complete game stage
    could scroll behind the browser header; a touch device must never lose its
    virtual stick, settings or scene dialogs outside the visible viewport.
-   100vh works in Chrome 83; 100dvh is progressive enhancement. */
+   Use measured viewport pixels and explicit fixed coordinates (Chrome 83 lacks CSS inset shorthand). */
 @media (max-width:650px) {
   html body #app #viewport.viewport {
     position: fixed !important;
     z-index: 30 !important;
-    inset: 0 !important;
+    /* Chrome 83 ignores the inset shorthand and otherwise leaves the stage at its old flow coordinates. */
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: auto !important;
     width: 100vw !important;
     max-width: none !important;
     height: 100vh !important;
