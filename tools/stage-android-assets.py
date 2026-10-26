@@ -26,6 +26,13 @@ def stage():
         dst = TARGET / p
         dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(ROOT / p, dst)
+    # The browser CSS uses a remote Google Fonts @import. Bundled Android
+    # must never request network resources; system serif/mono fallbacks suffice.
+    import re
+    css = (TARGET / 'style.css').read_text(encoding='utf-8')
+    css = re.sub(r"@import\\s+url\\(['\\\"]https?://[^)]+\\);\\s*", '', css, count=1)
+    assert 'fonts.googleapis.com' not in css, 'Native CSS still requests remote fonts'
+    (TARGET / 'style.css').write_text(css, encoding='utf-8')
     shutil.copytree(ROOT / 'dist', TARGET / 'dist')
     js = (ROOT / 'android/native-bridge.js').read_text(encoding='utf-8')
     (TARGET / 'native-bridge.js').write_text(js, encoding='utf-8')
