@@ -156,7 +156,7 @@ jobs:
           disable-animations: true
           emulator-boot-timeout: 600
           emulator-options: -no-window -no-snapshot -gpu swiftshader_indirect -no-boot-anim -camera-back none -camera-front none
-          script: ANDROID_API_LEVEL=${{ matrix.api-level }} node tools/android-emulator-acceptance.mjs && ANDROID_API_LEVEL=${{ matrix.api-level }} node tools/android-native-acceptance.mjs
+          script: ANDROID_API_LEVEL=${{ matrix.api-level }} node tools/android-native-acceptance.mjs && ANDROID_API_LEVEL=${{ matrix.api-level }} node tools/android-emulator-acceptance.mjs
       - name: Retain Android device screenshots, audio, memory and frame-time evidence
         if: always()
         uses: actions/upload-artifact@v4

@@ -10,7 +10,7 @@ mkdirSync(dir,{recursive:true});
 const report={schema:'ascii-azur-native-apk-v1',api:API,physicalDevice:false,steps:[],errors:[]};
 const check=(ok,label)=>{if(!ok)throw Error(label);report.steps.push(label);};
 const adb=(...args)=>execFileSync('adb',args,{encoding:'utf8',timeout:30000}).trim();
-const cmd=(command)=>adb('shell','sh','-c',command);
+
 let active,forwarded=false;
 class CDP {
  constructor(ws){this.ws=ws;this.id=0;this.pending=new Map();this.exceptions=[];
@@ -38,12 +38,12 @@ class CDP {
  close(){this.ws.close();}
 }
 async function connect() {
- const start=Date.now();
+ const start=Date.now();let lastError='',lastLog=0;
  while(Date.now()-start<60000){
   try{
-   const pid=cmd('pidof '+pkg).trim().split(' ')[0];
+   const pid=adb('shell','pidof',pkg).trim().split(/\s+/)[0];
    if(!pid)throw Error('Process not started');
-   const sockets=cmd('cat /proc/net/unix | grep webview_devtools_remote || true');
+   const sockets=adb('shell','cat','/proc/net/unix').split('\n').filter(x=>x.includes('webview_devtools_remote')).join('\n');
    const name=sockets.split('\n').map(x=>x.match(/(@?webview_devtools_remote_\d+)\s*$/)?.[1]).filter(Boolean)
      .find(x=>x.endsWith('_'+pid)) || sockets.split('\n').map(x=>x.match(/(@?webview_devtools_remote_\d+)\s*$/)?.[1]).filter(Boolean)[0];
    if(!name)throw Error('No debug WebView socket');
@@ -56,9 +56,11 @@ async function connect() {
    const ws=new WebSocket(tab.webSocketDebuggerUrl);
    await new Promise((ok,fail)=>{const timer=setTimeout(()=>fail(Error('WebSocket open')),8000);ws.addEventListener('open',()=>{clearTimeout(timer);ok();},{once:true});ws.addEventListener('error',()=>fail(Error('WebSocket failed')),{once:true});});
    const c=new CDP(ws);await c.send('Runtime.enable');await c.send('Page.enable');return c;
-  }catch(err){await delay(700);}
+  }catch(err){lastError=String(err);
+   if(Date.now()-lastLog>12000){lastLog=Date.now();let process='unknown';try{process=adb('shell','pidof',pkg).trim();}catch{}console.log('NATIVE_CDP_WAIT '+JSON.stringify({lastError:lastError.slice(0,230),process}));}
+   await delay(700);}
  }
- throw Error('Could not connect to the installed app native WebView');
+ throw Error('Could not connect to the installed app native WebView: '+lastError);
 }
 const info=JSON.parse(readFileSync('android/app/src/main/assets/package-info.json','utf8'));
 const apk=resolve('android/app/build/outputs/apk/debug/app-debug.apk');
@@ -107,7 +109,7 @@ try{
  await active.until('!!document.querySelector("#exportBtn")',6000);
  await active.tap('#exportBtn');
  await delay(850);
- const picker=cmd('dumpsys activity activities | grep -E "mResumed|topResumed|mFocused" | tail -n 5');
+ const picker=adb('shell','dumpsys','activity','activities').split('\n').filter(x=>/mResumed|topResumed|mFocused/.test(x)).slice(-5).join('\n');
  check(/DocumentsUI|documentsui|ExternalStorageProvider/.test(picker),'JSON export opens Android document creation picker');
  report.pickerEvidence=picker.slice(0,400);
  adb('shell','input','keyevent','4');
