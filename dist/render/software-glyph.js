@@ -1,13 +1,8 @@
 /** Rasterized ASCII for Canvas2D-only devices. Draws a single ImageData per frame
  * rather than tens of thousands of drawImage calls. All marks originate in glyph masks. */
 export class SoftwareGlyphFrame {
-    data;
-    packed;
-    alpha;
-    scaled = new Map();
-    width;
-    height;
     constructor(width, height, glyphs) {
+        this.scaled = new Map();
         this.width = width;
         this.height = height;
         this.data = new ImageData(width, height);

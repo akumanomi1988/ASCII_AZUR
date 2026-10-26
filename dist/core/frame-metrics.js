@@ -1,11 +1,9 @@
 export class FrameMetrics {
-    capacity;
-    budgetMs;
-    times = [];
-    next = 0;
     constructor(capacity = 240, budgetMs = 1000 / 30) {
         this.capacity = capacity;
         this.budgetMs = budgetMs;
+        this.times = [];
+        this.next = 0;
         if (!Number.isInteger(capacity) || capacity < 2 || !Number.isFinite(budgetMs) || budgetMs <= 0)
             throw Error('Invalid frame metrics configuration');
     }

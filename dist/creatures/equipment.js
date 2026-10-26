@@ -8,7 +8,7 @@ export const RELICS = {
 };
 export const RELIC_IDS = Object.keys(RELICS);
 export const RELIC_COPY_LIMIT = 6;
-export function isRelicId(value) { return typeof value === 'string' && Object.hasOwn(RELICS, value); }
+export function isRelicId(value) { return typeof value === 'string' && Object.prototype.hasOwnProperty.call(RELICS, value); }
 export function relicAttackFactor(c, element) { return c.equipment && RELICS[c.equipment]?.element === element ? 1.12 : 1; }
 export function relicGuardFactor(c) { return c.equipment === 'pilgrim-ward' ? .90 : 1; }
 export function relicHealingFactor(c) { return c.equipment === 'hearth-bead' ? 1.20 : 1; }

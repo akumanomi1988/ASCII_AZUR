@@ -29,10 +29,9 @@ export function glyphPaletteIndex(r, g, b) {
     return color * 3 + shade;
 }
 export class CanvasGlyphCache {
-    glyphs;
-    atlases = [];
     constructor(glyphs) {
         this.glyphs = glyphs;
+        this.atlases = [];
         for (const [r, g, b] of BASE_PALETTE) {
             for (const shade of [.61, .93, 1.24]) {
                 const canvas = document.createElement('canvas');

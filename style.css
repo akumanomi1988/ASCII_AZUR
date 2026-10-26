@@ -374,3 +374,257 @@
  .battle-interface #battleActions button{min-height:44px;min-width:0}
 }
 @media (prefers-reduced-motion:reduce){#battleActions button.recommended-defense{animation:none;transition:none}}
+
+
+/* Android emulator QA v0.60.1: keep the title's start/save controls accessible
+   on short Chrome viewports. An absolute intro centered inside a narrow 16:9
+   scene could overflow its clipped parent, leaving Start under the sidebar.
+   Scroll the intro itself: never scroll the document to reach hidden controls. */
+@media (max-width: 650px), (max-height: 620px) {
+  #viewport #titleScreen.intro {
+    align-items: flex-start;
+    justify-content: flex-start;
+    padding: 12px max(10px, env(safe-area-inset-left)) 20px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+  #viewport #titleScreen .intro-content {
+    box-sizing: border-box;
+    flex: 0 0 auto;
+    width: 100%;
+    max-width: 100%;
+    margin: auto 0;
+    padding: 2px 4px 7px;
+    transform: none;
+  }
+  #viewport #titleScreen .intro-buttons {
+    gap: 8px;
+    flex-wrap: wrap;
+    margin: 10px 0 0;
+  }
+  #viewport #titleScreen .intro-buttons button {
+    min-width: 135px;
+    min-height: 44px;
+    padding: 11px 13px;
+  }
+  #viewport #titleScreen .intro-glyph { font-size: 26px; }
+  #viewport #titleScreen .tiny-caps { margin: 4px 0 10px; }
+  #viewport #titleScreen h1 { font-size: clamp(32px, 10vw, 58px); letter-spacing: 3px; }
+  #viewport #titleScreen h1 em { letter-spacing: 6px; }
+  #viewport #titleScreen .intro-line { margin: 8px auto; }
+  #viewport #titleScreen p { font-size: 12px; line-height: 1.35; }
+  #viewport #titleScreen .azur-save-slot-entry,
+  #viewport #titleScreen .azur-seed-entry { margin-top: 7px; }
+  #viewport #titleScreen .intro-footer { margin-top: 8px; }
+}
+
+
+/* Preserve an always-tappable call to action on older Android Chrome engines.
+   On small portrait screens scrolling a centred absolute overlay may scroll the
+   *page* while the clipped game viewport hides its bottom children. Anchor the
+   start buttons to the intro's own visible bounds, not the long copy content. */
+@media (max-width: 650px), (max-height: 620px) {
+  #viewport #titleScreen.intro { position: absolute; overflow-y: auto; isolation: isolate; }
+  #viewport #titleScreen .intro-content { padding-bottom: 77px; }
+  #viewport #titleScreen .intro-buttons {
+    position: absolute;
+    left: 8px;
+    right: 8px;
+    bottom: max(6px, env(safe-area-inset-bottom));
+    z-index: 8;
+    display: flex;
+    align-items: stretch;
+    justify-content: center;
+    padding: 7px;
+    background: #0b1824ef;
+    border: 1px solid #4d626d;
+    margin: 0;
+  }
+  #viewport #titleScreen .intro-buttons button { flex: 1 1 0; min-height: 48px; min-width: 0; }
+}
+
+
+/* Smallest Android Chrome screens: the Start controls must be visible BEFORE
+   any document scroll, rather than anchored at a clipped viewport bottom. */
+@media (max-width: 650px), (max-height: 620px) {
+  #viewport #titleScreen .intro-buttons {
+    top: 5px;
+    bottom: auto;
+    left: 6px;
+    right: 6px;
+    padding: 4px;
+  }
+  #viewport #titleScreen .intro-content {
+    padding-top: 86px;
+    padding-bottom: 12px;
+  }
+}
+
+
+/* Mobile-only, full-screen opening surface. The game viewport may be a clipped
+   landscape letterbox on Android Chrome 11, whose overlay start button was
+   obscured by the layout sidebar. Pull the title out of that clipping context.
+   Hide immediately after entering game by the existing .hidden class. */
+@media (max-width:650px), (max-height:620px) {
+  html body #app #viewport #titleScreen.intro:not(.hidden) {
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 9999 !important;
+    width: 100vw !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    padding: 68px 12px 20px !important;
+    align-items: flex-start !important;
+    justify-content: flex-start !important;
+    background: radial-gradient(ellipse at 50% 20%,#203947,#07131deF 80%);
+  }
+  html body #app #viewport #titleScreen .intro-buttons {
+    position: fixed !important;
+    top: 8px !important;
+    left: 8px !important;
+    right: 8px !important;
+    bottom: auto !important;
+    z-index: 10000 !important;
+    padding: 5px !important;
+  }
+  html body #app #viewport #titleScreen .intro-content {
+    flex: 0 0 auto !important;
+    min-width: 0;
+    margin: 0 auto;
+    padding: 5px 3px 28px !important;
+  }
+}
+
+
+/* v0.60.1 Android 11 regression: starter selection is a second modal scene.
+   Centered inside the cropped 16:9 game viewport, its buttons were offscreen.
+   Match the title's full-screen compact treatment; preserve .hidden and focus. */
+@media (max-width:650px), (max-height:620px) {
+  html body #app #viewport #starterScreen.choice-overlay:not(.hidden) {
+    position: fixed !important;
+    z-index: 9999 !important;
+    inset: 0 !important;
+    width: 100vw !important;
+    height: 100dvh !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    display: flex !important;
+    align-items: flex-start !important;
+    justify-content: center !important;
+    padding: max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom)) !important;
+    background: #08131bf5 !important;
+  }
+  html body #app #viewport #starterScreen .choice-card {
+    width: min(660px, 100%);
+    max-width: 100%;
+    margin: auto;
+  }
+  html body #app #viewport #starterScreen .starters {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    margin: 12px 0;
+  }
+  html body #app #viewport #starterScreen .starter {
+    min-width: 0;
+    min-height: 92px;
+    padding: 10px 5px;
+    touch-action: manipulation;
+    overflow-wrap: anywhere;
+  }
+  html body #app #viewport #starterScreen .starter-symbol {
+    font-size: 29px;
+    margin-bottom: 5px;
+  }
+  html body #app #viewport #starterScreen .starter strong {
+    font-size: 12px;
+    line-height: 1.25;
+  }
+  html body #app #viewport #starterScreen h2 {
+    font-size: clamp(18px, 4vw, 26px);
+    margin: 7px 0;
+  }
+}
+
+
+/* Android 11: the modal dialogue must be inside the physical viewport, not
+   clipped by the landscape-biased glyph canvas or a scrolled page. */
+@media (max-width:650px), (max-height:620px) {
+  html body #app #viewport #dialogue.dialogue:not(.hidden) {
+    position: fixed !important;
+    z-index: 9998 !important;
+    inset: auto 10px max(9px, env(safe-area-inset-bottom)) 10px !important;
+    transform: none !important;
+    width: auto !important;
+    max-width: none !important;
+    max-height: calc(100dvh - 22px) !important;
+    overflow-y: auto !important;
+    padding: 12px 15px !important;
+    overscroll-behavior: contain;
+  }
+  html body #app #viewport #dialogue #closeDialogue {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
+    touch-action: manipulation;
+  }
+}
+
+
+/* Immersive small-screen layout: Android 11 revealed the complete game stage
+   could scroll behind the browser header; a touch device must never lose its
+   virtual stick, settings or scene dialogs outside the visible viewport.
+   Use measured viewport pixels and explicit fixed coordinates (Chrome 83 lacks CSS inset shorthand). */
+@media (max-width:650px) {
+  html body #app #viewport.viewport {
+    position: fixed !important;
+    z-index: 30 !important;
+    /* Chrome 83 ignores the inset shorthand and otherwise leaves the stage at its old flow coordinates. */
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: auto !important;
+    width: 100vw !important;
+    max-width: none !important;
+    height: 100vh !important;
+    height: var(--azur-visible-height, 100vh) !important;
+    max-height: var(--azur-visible-height, 100vh) !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    aspect-ratio: auto !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    overflow: hidden !important;
+  }
+  html body #app #viewport #quickSettings,
+  html body #app #viewport #quickFullscreen {
+    min-width: 44px;
+    min-height: 44px;
+    touch-action: manipulation;
+  }
+  html body #app #viewport #drawerToggle {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  /* Native label text is a 44px touch target, independently of the small checkbox. */
+  #viewport .settings-row label[for="motionReduced"],
+  #viewport .settings-row label[for="highContrast"] {
+    flex: 1;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+  }
+  #viewport .settings-row input[type="checkbox"] {
+    width: 24px;
+    height: 24px;
+    flex: none;
+    margin: 0 10px;
+    accent-color: #d5ad79;
+  }
+}

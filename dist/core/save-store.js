@@ -16,7 +16,7 @@ export function backupKeyForSlot(slot) {
 export class SaveConflictError extends Error {
     constructor() { super('Otra pestaña ha modificado esta partida. Exporta tu progreso antes de recargar.'); this.name = 'SaveConflictError'; }
 }
-const MAX_SAVE_LENGTH = 1_000_000;
+const MAX_SAVE_LENGTH = 1000000;
 function decode(raw) {
     if (!raw || raw.length > MAX_SAVE_LENGTH)
         return null;

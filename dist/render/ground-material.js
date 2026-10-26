@@ -139,10 +139,9 @@ export function paintGroundMotifs(ctx, zone, surface, tileX, tileY, seed, screen
 }
 /** Bounded source-art cache: animated worlds do not repaint thousands of strokes every frame. */
 export class GroundMaterialCache {
-    capacity;
-    tiles = new Map();
     constructor(capacity = 384) {
         this.capacity = capacity;
+        this.tiles = new Map();
     }
     get size() { return this.tiles.size; }
     draw(ctx, zone, surface, tileX, tileY, seed, screenX, screenY, palette, tileSize = 48) {

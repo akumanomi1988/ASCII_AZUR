@@ -22,13 +22,15 @@ function summarizeEndurancePhase(s) {
         maxMs: Number(s.maxMs.toFixed(2)) };
 }
 export class EnduranceLab {
-    enabled = false;
-    stats = { explore: emptyEnduranceStats(), battle: emptyEnduranceStats(), crypt: emptyEnduranceStats(), menu: emptyEnduranceStats() };
-    dropped = 0;
-    orientation = null;
-    orientationChanges = 0;
-    orientationFrames = { portrait: 0, landscape: 0 };
-    viewport = null;
+    constructor() {
+        this.enabled = false;
+        this.stats = { explore: emptyEnduranceStats(), battle: emptyEnduranceStats(), crypt: emptyEnduranceStats(), menu: emptyEnduranceStats() };
+        this.dropped = 0;
+        this.orientation = null;
+        this.orientationChanges = 0;
+        this.orientationFrames = { portrait: 0, landscape: 0 };
+        this.viewport = null;
+    }
     get recording() { return this.enabled; }
     start() { this.reset(); this.enabled = true; }
     stop() { this.enabled = false; }

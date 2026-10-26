@@ -81,31 +81,37 @@ function shader(gl, type, src) { const s = gl.createShader(type); if (!s)
 function texture(gl) { const t = gl.createTexture(); if (!t)
     throw Error('texture'); gl.bindTexture(gl.TEXTURE_2D, t); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE); return t; }
 export class AsciiRenderer {
-    canvas;
-    source;
-    ctx;
-    gl = null;
-    program = null;
-    tex = null;
-    atlas = null;
-    uniforms = {};
-    renderMode = 'ascii';
-    pixelDetail = 'balanced';
-    quality = 1;
-    density = .32;
-    glyphScale = .8;
-    contrast = 1.18;
-    edgeStrength = 1.2;
-    brightness = .02;
-    performanceScale = 1;
-    software = null;
-    pixelPresentation = null;
-    frame = 0;
-    fpsStart = performance.now();
-    fps = 0;
-    mode = 'fallback';
-    constructor(canvas) { this.canvas = canvas; this.source = document.createElement('canvas'); this.source.width = W; this.source.height = H; const ctx = this.source.getContext('2d', { alpha: false }); if (!ctx)
-        throw Error('Canvas2D no disponible'); this.ctx = ctx; this.initGPU(); }
+    constructor(canvas) {
+        this.gl = null;
+        this.program = null;
+        this.tex = null;
+        this.atlas = null;
+        this.uniforms = {};
+        this.renderMode = 'ascii';
+        this.pixelDetail = 'balanced';
+        this.quality = 1;
+        this.density = .32;
+        this.glyphScale = .8;
+        this.contrast = 1.18;
+        this.edgeStrength = 1.2;
+        this.brightness = .02;
+        this.performanceScale = 1;
+        this.software = null;
+        this.pixelPresentation = null;
+        this.frame = 0;
+        this.fpsStart = performance.now();
+        this.fps = 0;
+        this.mode = 'fallback';
+        this.canvas = canvas;
+        this.source = document.createElement('canvas');
+        this.source.width = W;
+        this.source.height = H;
+        const ctx = this.source.getContext('2d', { alpha: false });
+        if (!ctx)
+            throw Error('Canvas2D no disponible');
+        this.ctx = ctx;
+        this.initGPU();
+    }
     initGPU() { const gl = this.canvas.getContext('webgl2', { alpha: false, antialias: false, preserveDrawingBuffer: true, powerPreference: 'high-performance' }); if (!gl) {
         this.initFallback();
         return;
@@ -224,7 +230,7 @@ export class AsciiRenderer {
         if (!c)
             return;
         if (this.renderMode === 'glyph-pixel') {
-            this.pixelPresentation ??= new GlyphPixelPresentation();
+            this.pixelPresentation ?? (this.pixelPresentation = new GlyphPixelPresentation());
             this.pixelPresentation.present(this.source, this.canvas, c, this.crop(), this.pixelDetail, this.performanceScale);
             return;
         }

@@ -126,9 +126,9 @@ export function validateBattleCheckpoint(value, team) {
         return false;
     if (e?.potential !== undefined && !validPotential(e.potential))
         return false;
-    if (e?.knownMoves !== undefined && (!Array.isArray(e.knownMoves) || e.knownMoves.length > Object.keys(MOVES).length || new Set(e.knownMoves).size !== e.knownMoves.length || e.knownMoves.some(id => typeof id !== 'string' || !Object.hasOwn(MOVES, id))))
+    if (e?.knownMoves !== undefined && (!Array.isArray(e.knownMoves) || e.knownMoves.length > Object.keys(MOVES).length || new Set(e.knownMoves).size !== e.knownMoves.length || e.knownMoves.some(id => typeof id !== 'string' || !Object.prototype.hasOwnProperty.call(MOVES, id))))
         return false;
-    if (!e || typeof e.uid !== 'string' || e.uid.length > 80 || typeof e.speciesId !== 'string' || !Object.hasOwn(SPECIES, e.speciesId) || !Number.isInteger(e.level) || e.level < 1 || e.level > 30 || !Number.isInteger(e.hp) || e.hp < 0 || e.hp > maxHp(e) || !Number.isInteger(e.exp) || e.exp < 0 || !Array.isArray(e.moves) || e.moves.length < 1 || e.moves.length > 4 || e.moves.some(m => typeof m !== 'string' || !Object.hasOwn(MOVES, m)))
+    if (!e || typeof e.uid !== 'string' || e.uid.length > 80 || typeof e.speciesId !== 'string' || !Object.prototype.hasOwnProperty.call(SPECIES, e.speciesId) || !Number.isInteger(e.level) || e.level < 1 || e.level > 30 || !Number.isInteger(e.hp) || e.hp < 0 || e.hp > maxHp(e) || !Number.isInteger(e.exp) || e.exp < 0 || !Array.isArray(e.moves) || e.moves.length < 1 || e.moves.length > 4 || e.moves.some(m => typeof m !== 'string' || !Object.prototype.hasOwnProperty.call(MOVES, m)))
         return false;
     if (!['wild', 'boss', 'expedition'].includes(b.type || '') || !Number.isInteger(b.ally) || b.ally < 0 || b.ally >= team.length || typeof b.guarding !== 'boolean' || ![1, 2].includes(b.bossPhase || 0) || ![0, 1, 2].includes(b.chargeStage ?? -1))
         return false;
@@ -150,7 +150,7 @@ export function validateSave(data) {
         if (!c || typeof c !== 'object')
             return false;
         const a = c;
-        return (a.potential === undefined || validPotential(a.potential)) && (a.knownMoves === undefined || (Array.isArray(a.knownMoves) && a.knownMoves.length <= Object.keys(MOVES).length && new Set(a.knownMoves).size === a.knownMoves.length && a.knownMoves.every(id => typeof id === 'string' && Object.hasOwn(MOVES, id)))) && (a.equipment === undefined || isRelicId(a.equipment)) && typeof a.speciesId === 'string' && Object.hasOwn(SPECIES, a.speciesId) && typeof a.uid === 'string' && a.uid.length <= 80 && Number.isInteger(a.level) && a.level > 0 && a.level <= 30 && Number.isInteger(a.exp) && a.exp >= 0 && Number.isInteger(a.hp) && a.hp >= 0 && a.hp <= maxHp(a) && Array.isArray(a.moves) && a.moves.length >= 1 && a.moves.length <= 4 && a.moves.every(m => typeof m === 'string' && Object.hasOwn(MOVES, m));
+        return (a.potential === undefined || validPotential(a.potential)) && (a.knownMoves === undefined || (Array.isArray(a.knownMoves) && a.knownMoves.length <= Object.keys(MOVES).length && new Set(a.knownMoves).size === a.knownMoves.length && a.knownMoves.every(id => typeof id === 'string' && Object.prototype.hasOwnProperty.call(MOVES, id)))) && (a.equipment === undefined || isRelicId(a.equipment)) && typeof a.speciesId === 'string' && Object.prototype.hasOwnProperty.call(SPECIES, a.speciesId) && typeof a.uid === 'string' && a.uid.length <= 80 && Number.isInteger(a.level) && a.level > 0 && a.level <= 30 && Number.isInteger(a.exp) && a.exp >= 0 && Number.isInteger(a.hp) && a.hp >= 0 && a.hp <= maxHp(a) && Array.isArray(a.moves) && a.moves.length >= 1 && a.moves.length <= 4 && a.moves.every(m => typeof m === 'string' && Object.prototype.hasOwnProperty.call(MOVES, m));
     };
     return v.version === 1 && ['village', 'forest', 'sanctuary', 'marsh', 'spire', 'ossuary', 'garden'].includes(v.zone || '')
         && typeof v.x === 'number' && Number.isFinite(v.x) && v.x >= 0 && v.x < 46
@@ -159,7 +159,7 @@ export function validateSave(data) {
         && Array.isArray(v.storage) && v.storage.length <= 500 && v.storage.every(validCreature)
         && new Set([...v.team, ...v.storage].map(c => c.uid)).size === v.team.length + v.storage.length
         && (v.primaryUid === undefined || (typeof v.primaryUid === 'string' && v.team.some(c => c.uid === v.primaryUid)))
-        && (v.fallen === undefined || (Array.isArray(v.fallen) && v.fallen.length <= 200 && new Set(v.fallen.map(c => c?.uid)).size === v.fallen.length && v.fallen.every(c => c && typeof c.uid === 'string' && c.uid.length <= 80 && typeof c.speciesId === 'string' && Object.hasOwn(SPECIES, c.speciesId) && Number.isInteger(c.level) && c.level >= 1 && c.level <= 30 && ![...v.team, ...v.storage].some(live => live.uid === c.uid))))
+        && (v.fallen === undefined || (Array.isArray(v.fallen) && v.fallen.length <= 200 && new Set(v.fallen.map(c => c?.uid)).size === v.fallen.length && v.fallen.every(c => c && typeof c.uid === 'string' && c.uid.length <= 80 && typeof c.speciesId === 'string' && Object.prototype.hasOwnProperty.call(SPECIES, c.speciesId) && Number.isInteger(c.level) && c.level >= 1 && c.level <= 30 && ![...v.team, ...v.storage].some(live => live.uid === c.uid))))
         && (v.fieldTarget === undefined || validFieldTarget(v.fieldTarget))
         && validRelicOwnership(v.relics, [...v.team, ...v.storage]) && validJourneyMetrics(v.journey)
         && !!v.inventory && Number.isInteger(v.inventory.seals) && v.inventory.seals >= 0 && v.inventory.seals <= 9999

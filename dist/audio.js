@@ -126,36 +126,38 @@ export function scoreSignal(kind) { return AZUR_SIGNAL_PATTERNS[kind].map(n => (
 const unitLevel = (value, fallback = 0) => Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : fallback;
 /** Audio-time scheduling and resource ownership stay independent of rendering FPS. */
 export class Sound {
-    ctx = null;
-    master = null;
-    musicMaster = null;
-    musicDuck = null;
-    duckUntil = 0;
-    fxMaster = null;
-    echoInput = null;
-    bus = null;
-    ambience = null;
-    ambientFilter = null;
-    ambientSource = null;
-    windLfo = null;
-    windDepth = null;
-    enabled = true;
-    musicVolume = .38;
-    fxVolume = .55;
-    scene = 'title';
-    intensity = 0;
-    timer = null;
-    nextAt = 0;
-    step = 0;
-    lookAhead = .28;
-    paused = false;
-    disposed = false;
-    contextTransition = null;
-    voices = new Set();
-    retiring = new Map();
-    busStartedAt = 0;
-    busInitial = true;
-    phraseBookmarks = new Map();
+    constructor() {
+        this.ctx = null;
+        this.master = null;
+        this.musicMaster = null;
+        this.musicDuck = null;
+        this.duckUntil = 0;
+        this.fxMaster = null;
+        this.echoInput = null;
+        this.bus = null;
+        this.ambience = null;
+        this.ambientFilter = null;
+        this.ambientSource = null;
+        this.windLfo = null;
+        this.windDepth = null;
+        this.enabled = true;
+        this.musicVolume = .38;
+        this.fxVolume = .55;
+        this.scene = 'title';
+        this.intensity = 0;
+        this.timer = null;
+        this.nextAt = 0;
+        this.step = 0;
+        this.lookAhead = .28;
+        this.paused = false;
+        this.disposed = false;
+        this.contextTransition = null;
+        this.voices = new Set();
+        this.retiring = new Map();
+        this.busStartedAt = 0;
+        this.busInitial = true;
+        this.phraseBookmarks = new Map();
+    }
     /** Bounded engine counters for QA; no audio nodes or mutable state escape. */
     diagnostics() {
         return { scene: this.scene, step: this.step, musicVoices: [...this.voices].filter(v => v.kind === 'music').length,

@@ -24,11 +24,10 @@ export function visibleGroundChunks(camX, camY, width, height) {
     return result;
 }
 export class GroundChunkCache {
-    capacity;
-    cache = new Map();
-    revision = -1;
     constructor(capacity = GROUND_CHUNK_CAPACITY) {
         this.capacity = capacity;
+        this.cache = new Map();
+        this.revision = -1;
         if (!Number.isInteger(capacity) || capacity < 12)
             throw Error('Ground cache capacity must cover the viewport');
     }

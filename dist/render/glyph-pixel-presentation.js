@@ -21,9 +21,8 @@ function jitter(x, y) {
 /** Source colors occupy every pixel. Sparse glyph ink is reserved for real edges.
  * This avoids allocating and painting an output-sized ImageData on every frame. */
 export class GlyphPixelPresentation {
-    reduced = document.createElement('canvas');
-    context;
     constructor() {
+        this.reduced = document.createElement('canvas');
         const context = this.reduced.getContext('2d', { alpha: false, willReadFrequently: true });
         if (!context)
             throw Error('Canvas2D pixel presentation unavailable');

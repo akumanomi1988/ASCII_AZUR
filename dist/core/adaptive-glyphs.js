@@ -1,12 +1,14 @@
 /** Conservative frame-pacing controller. Canvas2D may opt in by default; saved art settings are untouched. */
 export class AdaptiveGlyphs {
-    targetFps = 30;
-    maxScale = 2.4;
-    enabled = false;
-    factor = 1;
-    lastCheck = -Infinity;
-    slowWindows = 0;
-    fastWindows = 0;
+    constructor() {
+        this.targetFps = 30;
+        this.maxScale = 2.4;
+        this.enabled = false;
+        this.factor = 1;
+        this.lastCheck = -Infinity;
+        this.slowWindows = 0;
+        this.fastWindows = 0;
+    }
     get active() { return this.enabled; }
     get scale() { return this.factor; }
     configure(enabled, initialScale = 1) {

@@ -22,6 +22,7 @@ import { Sound, themeForZone } from './audio.js';
 import { FrameMetrics } from './core/frame-metrics.js';
 import { EnduranceLab } from './core/endurance-lab.js';
 import { AdaptiveGlyphs } from './core/adaptive-glyphs.js';
+import { visibleViewportHeight } from './core/mobile-viewport.js';
 import { storyGuidance, guidanceToTarget, walkableRouteToTarget } from './story-navigation.js';
 import { ARKEN_STORY, ARKEN_FINALE_REWARD, arkenStoryBeat, arkenStoryIndex, concludeArken, canConcludeArken, guardianPreparation, guardianRecommendedLead, sanctuaryRoutePlan, sanctuaryOathProgress, SANCTUARY_OATHS_FLAG, SANCTUARY_OATHS_REWARD } from './story-campaign.js';
 import { marshChapterProgress, marshDecision, marshFinish, MARSH_REWARDS } from './story-marsh.js';
@@ -45,57 +46,146 @@ const byId = (id) => { const el = document.getElementById(id); if (!el)
     throw Error('Falta elemento UI: ' + id); return el; };
 const htmlEscape = (v) => v.replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
 class AzurGame {
-    renderer = new AsciiRenderer(byId('game'));
-    frameMetrics = new FrameMetrics();
-    endurance = new EnduranceLab();
-    adaptiveGlyphs = new AdaptiveGlyphs();
-    lastAdaptiveUpdate = 0;
-    debugPerformance = false;
-    lastDebugUpdate = 0;
-    lastCompassUpdate = 0;
-    sound = new Sound();
-    soundEnabled = true;
-    reducedMotion = false;
-    combatCue = null;
-    saveBaseline;
-    activeSlot = 1;
-    atlasTarget = null;
-    lastAccessibleMessage = '';
-    save = { version: 1, zone: 'village', x: 4, y: 16, team: [], storage: [], inventory: { seals: 5, tonics: 3 }, defeatedBoss: false, flags: [], playSeconds: 0, rpg: newEconomy() };
-    expeditionMessage = '';
-    roamingCache = new Map();
-    started = false;
-    keys = new Set();
-    battle = null;
-    dialogQueue = [];
-    modalInvoking = null;
-    modalBack = null;
-    drawerInvoking = null;
-    battleKeyboardFocus = false;
-    battleMenu = 'commands';
-    dialogOpen = false;
-    modalOpen = false;
-    flash = 0;
-    last = 0;
-    seconds = 0;
-    stepCounter = 0;
-    notifyTimer;
-    momentTimer;
-    encounterCooldown = 3;
-    timeSinceSave = 0;
-    stick = { x: 0, y: 0, pointerId: -1 };
-    padStick = { x: 0, y: 0 };
-    padButtons = new Set();
-    selectedBattleAction = 0;
-    facing = 2;
-    moving = false;
-    lastDungeonChamber = -1;
-    lastReveal = -1;
-    camera = { x: 4, y: 16 };
-    cameraZone = 'village';
-    evolution = null;
-    constructor() { this.restoreAudioSettings(); this.restoreMotionSettings(); this.restoreGraphicSettings(); this.restoreAdaptiveGraphics(); this.restoreAccessibility(); this.restoreActiveSlot(); this.mountDrawer(); this.wire(); this.loadState(); requestAnimationFrame(this.loop); window.addEventListener('resize', () => this.renderer.resize()); if ('serviceWorker' in navigator && location.protocol.startsWith('http'))
-        navigator.serviceWorker.register('./sw.js').catch(() => { }); }
+    constructor() {
+        this.renderer = new AsciiRenderer(byId('game'));
+        this.frameMetrics = new FrameMetrics();
+        this.endurance = new EnduranceLab();
+        this.adaptiveGlyphs = new AdaptiveGlyphs();
+        this.lastAdaptiveUpdate = 0;
+        this.debugPerformance = false;
+        this.lastDebugUpdate = 0;
+        this.lastCompassUpdate = 0;
+        this.sound = new Sound();
+        this.soundEnabled = true;
+        this.reducedMotion = false;
+        this.combatCue = null;
+        this.activeSlot = 1;
+        this.atlasTarget = null;
+        this.lastAccessibleMessage = '';
+        this.save = { version: 1, zone: 'village', x: 4, y: 16, team: [], storage: [], inventory: { seals: 5, tonics: 3 }, defeatedBoss: false, flags: [], playSeconds: 0, rpg: newEconomy() };
+        this.expeditionMessage = '';
+        this.roamingCache = new Map();
+        this.started = false;
+        this.keys = new Set();
+        this.battle = null;
+        this.dialogQueue = [];
+        this.modalInvoking = null;
+        this.modalBack = null;
+        this.drawerInvoking = null;
+        this.battleKeyboardFocus = false;
+        this.battleMenu = 'commands';
+        this.dialogOpen = false;
+        this.modalOpen = false;
+        this.flash = 0;
+        this.last = 0;
+        this.seconds = 0;
+        this.stepCounter = 0;
+        this.encounterCooldown = 3;
+        this.timeSinceSave = 0;
+        this.stick = { x: 0, y: 0, pointerId: -1 };
+        this.padStick = { x: 0, y: 0 };
+        this.padButtons = new Set();
+        this.selectedBattleAction = 0;
+        this.facing = 2;
+        this.moving = false;
+        this.lastDungeonChamber = -1;
+        this.lastReveal = -1;
+        this.camera = { x: 4, y: 16 };
+        this.cameraZone = 'village';
+        this.evolution = null;
+        this.openShopAfterDialog = false;
+        this.loop = (now) => {
+            this.pollGamepad();
+            if (this.last > 0) {
+                const frame = now - this.last;
+                this.frameMetrics.add(frame);
+                const phase = this.modalOpen || !this.started || this.dialogOpen ? 'menu' : this.battle ? 'battle' : this.save.dungeon?.active ? 'crypt' : 'explore';
+                this.endurance.sample(frame, phase, !document.hidden, window.innerWidth || 960, window.innerHeight || 540);
+            }
+            const dt = Math.min(.055, (now - this.last) / 1000 || 0);
+            this.last = now;
+            this.seconds += dt;
+            this.flash = Math.max(0, this.flash - dt * 1.7);
+            if (this.started && !this.dialogOpen && !this.modalOpen && !this.battle && !this.evolution && !byId('gameDrawer').classList.contains('open')) {
+                this.move(dt);
+                this.save.playSeconds += dt;
+                this.timeSinceSave += dt;
+                if (this.timeSinceSave > 90) {
+                    this.timeSinceSave = 0;
+                    this.saveNow(false);
+                }
+            }
+            if (this.evolution && this.seconds - this.evolution.startedAt >= this.evolution.duration) {
+                const newSpecies = this.evolution.to;
+                this.evolution = null;
+                byId('viewport').classList.remove('in-evolution');
+                byId('evolutionBanner').classList.add('hidden');
+                this.sound.setScene(themeForZone(this.save.zone));
+                this.toast(`${SPECIES[newSpecies].name.toUpperCase()} HA DESPERTADO`);
+            }
+            byId('viewport').classList.toggle('in-dungeon', !!this.save.dungeon?.active && !this.battle);
+            const ctx = this.renderer.ctx;
+            ctx.clearRect(0, 0, 960, 540);
+            if (this.evolution) {
+                drawEvolution(ctx, this.evolution.from, this.evolution.to, this.seconds - this.evolution.startedAt, this.reducedMotion);
+            }
+            else if (this.battle && this.save.team.length) {
+                drawBattle(ctx, this.battle.enemy, this.getAlly(), this.seconds, this.flash, sampleCombatCue(this.combatCue, this.seconds, this.reducedMotion), this.reducedMotion, { enemy: this.statuses(this.battle.enemy).map(e => e.kind), ally: this.statuses(this.getAlly()).map(e => e.kind) });
+            }
+            else if (this.save.dungeon?.active) {
+                const d = this.save.dungeon;
+                drawDungeon(ctx, d, { x: d.x, y: d.y, facing: this.facing, walking: this.moving && !this.dialogOpen }, this.seconds, this.reducedMotion);
+            }
+            else {
+                if (this.cameraZone !== this.save.zone) {
+                    this.camera = { x: this.save.x, y: this.save.y };
+                    this.cameraZone = this.save.zone;
+                }
+                const follow = 1 - Math.exp(-dt * 9);
+                this.camera.x += (this.save.x - this.camera.x) * follow;
+                this.camera.y += (this.save.y - this.camera.y) * follow;
+                drawWorld(ctx, this.save.zone, { x: this.save.x, y: this.save.y, facing: this.facing, walking: this.moving && !this.dialogOpen }, this.seconds, this.flash, this.save.defeatedBoss, this.camera, this.reducedMotion, this.roamers(), this.flag(CROWN_BOSS_FLAG));
+            }
+            this.renderer.present(now);
+            if (now - this.lastAdaptiveUpdate > 1900) {
+                this.lastAdaptiveUpdate = now;
+                if (this.adaptiveGlyphs.observe(this.frameMetrics.report(), now, this.started && !document.hidden && !this.modalOpen)) {
+                    this.renderer.setPerformanceScale(this.adaptiveGlyphs.scale);
+                    this.frameMetrics.reset();
+                }
+                const d = document.getElementById('adaptiveFpsStats');
+                if (d && this.modalOpen)
+                    d.textContent = this.adaptiveGlyphs.active ? `Objetivo 30 FPS · escala temporal ×${this.renderer.performanceScale.toFixed(2)} · ajustes artísticos originales conservados` : 'Máxima fidelidad manual. Activa FPS estables solo si el dispositivo pierde fluidez.';
+            }
+            if (this.started && now - this.lastCompassUpdate > 180) {
+                this.lastCompassUpdate = now;
+                this.updateStoryCompass();
+            }
+            if (now - this.lastDebugUpdate > 750) {
+                this.lastDebugUpdate = now;
+                const perf = this.frameMetrics.report();
+                byId('fps').textContent = this.debugPerformance ? `${this.renderer.mode.toUpperCase()} · ${this.renderer.fps} FPS · MAIN p95 ${perf.p95Ms.toFixed(1)}ms · ${perf.overBudget}/${perf.samples} >33ms` : `${this.renderer.mode.toUpperCase()} · ${this.renderer.fps} FPS${this.adaptiveGlyphs.active ? ' · AUTO ×' + this.renderer.performanceScale.toFixed(2) : ''}`;
+            }
+            requestAnimationFrame(this.loop);
+        };
+        this.restoreAudioSettings();
+        this.restoreMotionSettings();
+        this.restoreGraphicSettings();
+        this.restoreAdaptiveGraphics();
+        this.restoreAccessibility();
+        this.restoreActiveSlot();
+        this.mountDrawer();
+        this.wire();
+        this.loadState();
+        const fit = () => { const height = visibleViewportHeight(window.innerHeight, window.visualViewport?.height); if (height > 0)
+            document.documentElement.style.setProperty('--azur-visible-height', height + 'px'); this.renderer.resize(); };
+        fit();
+        requestAnimationFrame(this.loop);
+        window.addEventListener('resize', fit);
+        window.visualViewport?.addEventListener('resize', fit);
+        if ('serviceWorker' in navigator && location.protocol.startsWith('http'))
+            navigator.serviceWorker.register('./sw.js').catch(() => { });
+    }
     wire() {
         byId('newGame').addEventListener('click', () => this.startNew());
         byId('continue').addEventListener('click', () => this.continueGame());
@@ -1666,7 +1756,6 @@ class AzurGame {
                 }
             };
     }
-    openShopAfterDialog = false;
     openShop() {
         if (!this.started || this.battle || this.dialogOpen)
             return;
@@ -2847,80 +2936,6 @@ class AzurGame {
             this.announceAccessibility(`Región: ${where}. Objetivo: ${goal}. Equipo: ${this.save.team.length} criaturas. Pulsa E para interactuar cerca de un punto de interés.`);
         }
     }
-    loop = (now) => {
-        this.pollGamepad();
-        if (this.last > 0) {
-            const frame = now - this.last;
-            this.frameMetrics.add(frame);
-            const phase = this.modalOpen || !this.started || this.dialogOpen ? 'menu' : this.battle ? 'battle' : this.save.dungeon?.active ? 'crypt' : 'explore';
-            this.endurance.sample(frame, phase, !document.hidden, window.innerWidth || 960, window.innerHeight || 540);
-        }
-        const dt = Math.min(.055, (now - this.last) / 1000 || 0);
-        this.last = now;
-        this.seconds += dt;
-        this.flash = Math.max(0, this.flash - dt * 1.7);
-        if (this.started && !this.dialogOpen && !this.modalOpen && !this.battle && !this.evolution && !byId('gameDrawer').classList.contains('open')) {
-            this.move(dt);
-            this.save.playSeconds += dt;
-            this.timeSinceSave += dt;
-            if (this.timeSinceSave > 90) {
-                this.timeSinceSave = 0;
-                this.saveNow(false);
-            }
-        }
-        if (this.evolution && this.seconds - this.evolution.startedAt >= this.evolution.duration) {
-            const newSpecies = this.evolution.to;
-            this.evolution = null;
-            byId('viewport').classList.remove('in-evolution');
-            byId('evolutionBanner').classList.add('hidden');
-            this.sound.setScene(themeForZone(this.save.zone));
-            this.toast(`${SPECIES[newSpecies].name.toUpperCase()} HA DESPERTADO`);
-        }
-        byId('viewport').classList.toggle('in-dungeon', !!this.save.dungeon?.active && !this.battle);
-        const ctx = this.renderer.ctx;
-        ctx.clearRect(0, 0, 960, 540);
-        if (this.evolution) {
-            drawEvolution(ctx, this.evolution.from, this.evolution.to, this.seconds - this.evolution.startedAt, this.reducedMotion);
-        }
-        else if (this.battle && this.save.team.length) {
-            drawBattle(ctx, this.battle.enemy, this.getAlly(), this.seconds, this.flash, sampleCombatCue(this.combatCue, this.seconds, this.reducedMotion), this.reducedMotion, { enemy: this.statuses(this.battle.enemy).map(e => e.kind), ally: this.statuses(this.getAlly()).map(e => e.kind) });
-        }
-        else if (this.save.dungeon?.active) {
-            const d = this.save.dungeon;
-            drawDungeon(ctx, d, { x: d.x, y: d.y, facing: this.facing, walking: this.moving && !this.dialogOpen }, this.seconds, this.reducedMotion);
-        }
-        else {
-            if (this.cameraZone !== this.save.zone) {
-                this.camera = { x: this.save.x, y: this.save.y };
-                this.cameraZone = this.save.zone;
-            }
-            const follow = 1 - Math.exp(-dt * 9);
-            this.camera.x += (this.save.x - this.camera.x) * follow;
-            this.camera.y += (this.save.y - this.camera.y) * follow;
-            drawWorld(ctx, this.save.zone, { x: this.save.x, y: this.save.y, facing: this.facing, walking: this.moving && !this.dialogOpen }, this.seconds, this.flash, this.save.defeatedBoss, this.camera, this.reducedMotion, this.roamers(), this.flag(CROWN_BOSS_FLAG));
-        }
-        this.renderer.present(now);
-        if (now - this.lastAdaptiveUpdate > 1900) {
-            this.lastAdaptiveUpdate = now;
-            if (this.adaptiveGlyphs.observe(this.frameMetrics.report(), now, this.started && !document.hidden && !this.modalOpen)) {
-                this.renderer.setPerformanceScale(this.adaptiveGlyphs.scale);
-                this.frameMetrics.reset();
-            }
-            const d = document.getElementById('adaptiveFpsStats');
-            if (d && this.modalOpen)
-                d.textContent = this.adaptiveGlyphs.active ? `Objetivo 30 FPS · escala temporal ×${this.renderer.performanceScale.toFixed(2)} · ajustes artísticos originales conservados` : 'Máxima fidelidad manual. Activa FPS estables solo si el dispositivo pierde fluidez.';
-        }
-        if (this.started && now - this.lastCompassUpdate > 180) {
-            this.lastCompassUpdate = now;
-            this.updateStoryCompass();
-        }
-        if (now - this.lastDebugUpdate > 750) {
-            this.lastDebugUpdate = now;
-            const perf = this.frameMetrics.report();
-            byId('fps').textContent = this.debugPerformance ? `${this.renderer.mode.toUpperCase()} · ${this.renderer.fps} FPS · MAIN p95 ${perf.p95Ms.toFixed(1)}ms · ${perf.overBudget}/${perf.samples} >33ms` : `${this.renderer.mode.toUpperCase()} · ${this.renderer.fps} FPS${this.adaptiveGlyphs.active ? ' · AUTO ×' + this.renderer.performanceScale.toFixed(2) : ''}`;
-        }
-        requestAnimationFrame(this.loop);
-    };
     move(dt) {
         if (!byId('titleScreen').classList.contains('hidden') || !byId('starterScreen').classList.contains('hidden')) {
             this.moving = false;
