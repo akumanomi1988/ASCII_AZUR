@@ -538,7 +538,7 @@ class AzurGame {
     });
     const advised=suggestion.kind==='move'?MOVES[suggestion.moveId]?.name:
       suggestion.kind==='guard'?'GUARDIA':suggestion.kind==='tonic'?'TÓNICO':
-      suggestion.kind==='capture'?'VINCULAR':suggestion.kind==='switch'?'CAMBIAR A '+SPECIES[this.save.team[suggestion.targetIndex]!.speciesId]!.name:'GUARDIA;
+      suggestion.kind==='capture'?'VINCULAR':suggestion.kind==='switch'?'CAMBIAR A '+SPECIES[this.save.team[suggestion.targetIndex]!.speciesId]!.name:'GUARDIA';
     byId('battleAdvice').textContent=b.busy?'':'SUGERENCIA · '+advised+' · '+suggestion.reason;
     this.sound.setIntensity(combatMusicIntensity({allyHp:ally.hp,allyMaxHp:maxHp(ally),enemyHp:b.enemy.hp,enemyMaxHp:maxHp(b.enemy),boss:b.type==='boss',bossPhase:b.bossPhase,chargeStage:b.chargeStage,allyStatusCount:this.statuses(ally).length}));
     this.announceAccessibility(`Combate contra ${es.name}. Enemigo ${b.enemy.hp} de ${maxHp(b.enemy)} puntos de vida. ${as.name} ${ally.hp} de ${maxHp(ally)} puntos de vida. ${threat.aria} ${b.log}`);
