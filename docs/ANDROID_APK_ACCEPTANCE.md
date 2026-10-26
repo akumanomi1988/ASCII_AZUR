@@ -8,7 +8,7 @@
 - Build artifact: `android/app/build/outputs/apk/debug/app-debug.apk`.
 - Check provenance: `assets/package-info.json.main_sha256` must equal
   `sha256sum dist/main.js`, and versions must match.
-- No user data to external endpoints; app origin is private to APK, so
+- Installed APK requests the game's existing Canvas2D fallback, with no gameplay or save format change. Native FPS is not assumed sufficient without physical measurements.\n- No user data to external endpoints; app origin is private to APK, so
   PWA/browser data **must be exported/imported** when migrating.
 - No Android release keystore in source; NEVER sign commercial artifacts with
   the debug key or report a signed Android release from a debug APK.
