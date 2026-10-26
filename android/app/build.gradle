@@ -1,0 +1,26 @@
+plugins { id 'com.android.application' }
+android {
+    namespace 'dev.akumano.asciiazur'
+    compileSdk 35
+    defaultConfig {
+        applicationId 'dev.akumano.asciiazur'
+        minSdk 26
+        targetSdk 35
+        versionCode 67
+        versionName '0.67.0'
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            // Release signing is deliberately NOT embedded or invented.
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+dependencies {
+    // Explicitly pinned; AssetLoader is the stable offline origin implementation.
+    implementation 'androidx.webkit:webkit:1.12.1'
+}
