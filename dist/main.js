@@ -23,6 +23,7 @@ import { combatMusicIntensity, explorationMusicIntensity } from './audio-directi
 import { FrameMetrics } from './core/frame-metrics.js';
 import { EnduranceLab } from './core/endurance-lab.js';
 import { AdaptiveGlyphs } from './core/adaptive-glyphs.js';
+import { adaptiveDefault, initialAdaptiveScale } from './core/presentation-budget.js';
 import { visibleViewportHeight } from './core/mobile-viewport.js';
 import { storyGuidance, guidanceToTarget, walkableRouteToTarget } from './story-navigation.js';
 import { ARKEN_STORY, ARKEN_FINALE_REWARD, arkenStoryBeat, arkenStoryIndex, concludeArken, canConcludeArken, guardianPreparation, guardianRecommendedLead, sanctuaryRoutePlan, sanctuaryOathProgress, SANCTUARY_OATHS_FLAG, SANCTUARY_OATHS_REWARD } from './story-campaign.js';
@@ -424,12 +425,16 @@ class AzurGame {
         localStorage.setItem('ascii-azur-graphics-v2', JSON.stringify(this.renderer.getGraphics()));
     }
     catch { /* storage unavailable */ } }
-    restoreAdaptiveGraphics() { try {
-        const saved = localStorage.getItem('ascii-azur-adaptive-fps-v1');
-        const enabled = saved === null ? this.renderer.mode === 'fallback' : saved === 'true';
-        this.adaptiveGlyphs.configure(enabled, enabled && this.renderer.mode === 'fallback' ? 1.6 : 1);
+    restoreAdaptiveGraphics() {
+        const touches = Number(navigator.maxTouchPoints) || 0, graphics = this.renderer.getGraphics();
+        try {
+            const saved = localStorage.getItem('ascii-azur-adaptive-fps-v1');
+            const enabled = saved === null ? adaptiveDefault(touches, this.renderer.mode, graphics) : saved === 'true';
+            this.adaptiveGlyphs.configure(enabled, enabled ? initialAdaptiveScale(touches, this.renderer.mode, graphics) : 1);
+        }
+        catch { /* preserve manual mode */ }
+        this.renderer.setPerformanceScale(this.adaptiveGlyphs.scale);
     }
-    catch { /* preserve manual mode */ } this.renderer.setPerformanceScale(this.adaptiveGlyphs.scale); }
     setAdaptiveGraphics(enabled) { this.adaptiveGlyphs.configure(enabled); this.frameMetrics.reset(); this.renderer.setPerformanceScale(this.adaptiveGlyphs.scale); try {
         localStorage.setItem('ascii-azur-adaptive-fps-v1', String(this.adaptiveGlyphs.active));
     }
@@ -1417,6 +1422,7 @@ class AzurGame {
         this.refreshBattle();
     }
     winBattle() {
+        const perfStart = performance.now();
         const b = this.battle, ally = this.getAlly();
         if (!b || !ally)
             return;
@@ -1453,6 +1459,7 @@ class AzurGame {
                 this.beginEvolution(evolution.from, evolution.to);
             this.saveNow(false);
             this.updateUI();
+            this.endurance.noteTransition('victory', performance.now() - perfStart);
             window.setTimeout(() => this.openExpedition(), evolution ? 3500 : 620);
             return;
         }
@@ -1477,6 +1484,7 @@ class AzurGame {
             this.beginEvolution(evolution.from, evolution.to);
         this.saveNow(false);
         this.updateUI();
+        this.endurance.noteTransition('victory', performance.now() - perfStart);
     }
     beginEvolution(from, to) {
         this.evolution = { from, to, startedAt: this.seconds, duration: this.reducedMotion ? .65 : 3.2 };
@@ -1508,6 +1516,7 @@ class AzurGame {
         window.setTimeout(() => this.resolveCapture(), 750);
     }
     resolveCapture() {
+        const perfStart = performance.now();
         const b = this.battle;
         if (!b || b.pending !== 'capture')
             return;
@@ -1538,6 +1547,7 @@ class AzurGame {
             this.addFlag('first-capture');
             this.saveNow(false);
             this.updateUI();
+            this.endurance.noteTransition('capture', performance.now() - perfStart);
         }
         else {
             b.pending = 'enemy';
@@ -1610,7 +1620,7 @@ class AzurGame {
         this.refreshBattle();
         window.setTimeout(() => this.enemyTurn(), 400);
     } }
-    defeat() { if (this.battle)
+    defeat() { const perfStart = performance.now(); if (this.battle)
         recordJourney(this.save, 'losses'); if (this.save.dungeon?.active) {
         this.save.dungeon.active = false;
         this.save.dungeon.pending = null;
@@ -1619,7 +1629,7 @@ class AzurGame {
         this.addExpeditionReward(consolation);
         this.expeditionMessage = `La expedición terminó en derrota. Recuperaste ${consolation.echoes} Ecos.`;
         delete this.save.expedition;
-    } this.finishBattle(); this.save.zone = 'village'; this.cameraZone = ''; this.sound.setScene('village'); this.save.x = 15; this.save.y = 14; this.lastReveal = -1; this.revealPosition(); this.save.team.forEach(c => c.hp = maxHp(c)); this.encounterCooldown = 6; this.sound.portal(); this.dialog([{ title: 'Regresas a la Lumbre', text: 'La oscuridad te ha vencido, pero tus vínculos no se han roto. Descansas y recuperas fuerzas en Velo de Arken.' }]); this.saveNow(false); this.updateUI(); }
+    } this.finishBattle(); this.save.zone = 'village'; this.cameraZone = ''; this.sound.setScene('village'); this.save.x = 15; this.save.y = 14; this.lastReveal = -1; this.revealPosition(); this.save.team.forEach(c => c.hp = maxHp(c)); this.encounterCooldown = 6; this.sound.portal(); this.dialog([{ title: 'Regresas a la Lumbre', text: 'La oscuridad te ha vencido, pero tus vínculos no se han roto. Descansas y recuperas fuerzas en Velo de Arken.' }]); this.saveNow(false); this.updateUI(); this.endurance.noteTransition('defeat', performance.now() - perfStart); }
     finishBattle() { this.battleMenu = 'commands'; this.sound.setScene(themeForZone(this.save.zone)); delete this.save.activeBattle; this.battle = null; this.combatCue = null; byId('battleThreat').textContent = ''; byId('battleThreat').dataset.severity = 'normal'; byId('battle').classList.add('hidden'); byId('viewport').classList.remove('in-battle'); this.encounterCooldown = 7; }
     interactNpc(id) {
         const e = this.economy;
@@ -2611,6 +2621,7 @@ class AzurGame {
         this.showModal('LABORATORIO DE ESTABILIDAD', `
       <div class="modal-content-block"><strong>MEDICIÓN LOCAL Y VOLUNTARIA</strong><p>Prueba una partida durante varios minutos recorriendo regiones, abriendo menús, entrando en combate y usando la cripta. El registro mide intervalos de fotogramas visibles (hilo principal), no tiempos GPU, temperatura, consumo de batería ni rendimiento Android certificado. No se envía ningún dato.</p><p>Estado: ${report.status === 'recording' ? 'REGISTRANDO' : 'DETENIDO'} · ${report.totalFrames} frames · ${report.sampledSeconds}s de intervalos observados · ${report.orientationChanges} cambios de orientación · ${report.ignoredFrames} intervalos descartados.</p></div>
       ${rows}
+      <div class="modal-content-block"><strong>CIERRE DE COMBATE</strong> · Vict.: ${report.transitions.victory.events} / Capt.: ${report.transitions.capture.events} / Der.: ${report.transitions.defeat.events} · Coste máximo ${Math.max(...Object.values(report.transitions).map(s => s.maxWorkMs))} ms · Fotogramas lentos posteriores ${Object.values(report.transitions).reduce((sum, s) => sum + s.slowFrames, 0)}.</div>
       <div class="modal-content-block">La medición permanece solo en memoria durante esta sesión. Puedes reiniciarla o exportar el resultado manualmente. No cambia el guardado ni necesita permisos adicionales.</div>
       <div class="settings-row"><button id="labStart">${report.status === 'recording' ? 'REINICIAR MEDICIÓN' : 'INICIAR MEDICIÓN'}</button><button id="labStop" ${report.status !== 'recording' ? 'disabled' : ''}>DETENER</button><button id="labExport" ${report.totalFrames === 0 ? 'disabled' : ''}>EXPORTAR JSON LOCAL</button></div>
       <div class="settings-row"><button id="labBack">← VOLVER A OPCIONES</button></div>`, true, true);
@@ -2626,7 +2637,7 @@ class AzurGame {
             this.toast('INICIA UNA MEDICIÓN PRIMERO');
             return;
         }
-        const payload = { ...r, graphics: this.renderer.getGraphics().renderMode, renderer: this.renderer.mode,
+        const payload = { ...r, presentation: this.renderer.presentationMetrics(), graphics: this.renderer.getGraphics().renderMode, renderer: this.renderer.mode,
             adaptiveGlyphs: this.adaptiveGlyphs.active, reducedMotion: this.reducedMotion,
             touchPoints: Math.min(20, Math.max(0, Number(navigator.maxTouchPoints) || 0)),
             recordedAt: new Date().toISOString(),
@@ -2702,7 +2713,26 @@ class AzurGame {
             byId('glyphStats').textContent = `Trama ~${Math.round(rendered).toLocaleString('es-ES')} caracteres · glifo ${(actual.width * this.renderer.performanceScale).toFixed(1)} px · ${this.renderer.mode === 'gpu' ? 'WebGL2' : 'Canvas2D'}${rendered < target ? ' · límite de rendimiento aplicado' : ''}`;
             byId('adaptiveFpsStats').textContent = this.adaptiveGlyphs.active ? `Objetivo 30 FPS · escala temporal ×${this.renderer.performanceScale.toFixed(2)} · ajustes artísticos originales conservados` : 'Máxima fidelidad manual. Activa FPS estables solo si el dispositivo pierde fluidez.';
         };
-        const change = (patch) => { this.renderer.setGraphics({ ...this.renderer.getGraphics(), ...patch }); this.storeGraphicSettings(); sync(); };
+        const change = (patch) => {
+            this.renderer.setGraphics({ ...this.renderer.getGraphics(), ...patch });
+            this.storeGraphicSettings();
+            // A player may select microscopic mode after launch. Re-evaluate the
+            // protective first-run default but never override a stored manual choice.
+            try {
+                if (localStorage.getItem('ascii-azur-adaptive-fps-v1') === null) {
+                    const profile = this.renderer.getGraphics(), touches = Number(navigator.maxTouchPoints) || 0;
+                    const enabled = adaptiveDefault(touches, this.renderer.mode, profile);
+                    if (this.adaptiveGlyphs.active !== enabled) {
+                        this.adaptiveGlyphs.configure(enabled, enabled ? initialAdaptiveScale(touches, this.renderer.mode, profile) : 1);
+                        this.frameMetrics.reset();
+                        this.renderer.setPerformanceScale(this.adaptiveGlyphs.scale);
+                    }
+                }
+            }
+            catch { /* no storage: preserve present preference */ }
+            adaptive.checked = this.adaptiveGlyphs.active;
+            sync();
+        };
         renderMode.onchange = () => change({ renderMode: renderMode.value === 'glyph-pixel' ? 'glyph-pixel' : 'ascii' });
         pixelDetail.onchange = () => change({ pixelDetail: pixelDetail.value === 'fine' ? 'fine' : pixelDetail.value === 'chunky' ? 'chunky' : 'balanced' });
         den.onchange = () => change({ density: Number(den.value) });

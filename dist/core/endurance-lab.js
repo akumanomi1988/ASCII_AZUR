@@ -1,5 +1,6 @@
 export const FRAME_BINS_MS = [17, 25, 34, 50, 75, 100, 150, 250, 500, 2000];
 const ENDURANCE_PHASES = ['explore', 'battle', 'crypt', 'menu'];
+const emptyTransition = () => ({ events: 0, maxWorkMs: 0, slowWorkEvents: 0, frames: 0, slowFrames: 0, maxFrameMs: 0 });
 function emptyEnduranceStats() { return { frames: 0, sumMs: 0, overBudget: 0, maxMs: 0, bins: FRAME_BINS_MS.map(() => 0) }; }
 function percentileUpperBound(bins, count) {
     if (count === 0)
@@ -25,6 +26,8 @@ export class EnduranceLab {
     constructor() {
         this.enabled = false;
         this.stats = { explore: emptyEnduranceStats(), battle: emptyEnduranceStats(), crypt: emptyEnduranceStats(), menu: emptyEnduranceStats() };
+        this.transitions = { victory: emptyTransition(), capture: emptyTransition(), defeat: emptyTransition() };
+        this.pending = null;
         this.dropped = 0;
         this.orientation = null;
         this.orientationChanges = 0;
@@ -37,11 +40,24 @@ export class EnduranceLab {
     reset() {
         this.enabled = false;
         this.stats = { explore: emptyEnduranceStats(), battle: emptyEnduranceStats(), crypt: emptyEnduranceStats(), menu: emptyEnduranceStats() };
+        this.transitions = { victory: emptyTransition(), capture: emptyTransition(), defeat: emptyTransition() };
+        this.pending = null;
         this.dropped = 0;
         this.orientation = null;
         this.orientationChanges = 0;
         this.orientationFrames = { portrait: 0, landscape: 0 };
         this.viewport = null;
+    }
+    /** Record end-of-combat synchronous work and 30 subsequent visible frames only by consent. */
+    noteTransition(kind, workMs) {
+        if (!this.enabled || !(kind in this.transitions) || !Number.isFinite(workMs) || workMs < 0)
+            return;
+        const s = this.transitions[kind];
+        s.events++;
+        s.maxWorkMs = Math.max(s.maxWorkMs, Number(workMs.toFixed(2)));
+        if (workMs > 1000 / 30)
+            s.slowWorkEvents++;
+        this.pending = { kind, remaining: 30 };
     }
     sample(intervalMs, phase, visible, width, height) {
         if (!this.enabled)
@@ -54,6 +70,15 @@ export class EnduranceLab {
         const s = this.stats[phase];
         s.frames++;
         s.sumMs += intervalMs;
+        if (this.pending) {
+            const t = this.transitions[this.pending.kind];
+            t.frames++;
+            t.maxFrameMs = Math.max(t.maxFrameMs, Number(intervalMs.toFixed(2)));
+            if (intervalMs > 1000 / 30)
+                t.slowFrames++;
+            if (--this.pending.remaining <= 0)
+                this.pending = null;
+        }
         if (intervalMs > 1000 / 30)
             s.overBudget++;
         s.maxMs = Math.max(s.maxMs, intervalMs);
@@ -84,6 +109,7 @@ export class EnduranceLab {
             ignoredFrames: this.dropped, orientationChanges: this.orientationChanges,
             orientationFrames: { ...this.orientationFrames }, orientation: this.orientation ?? 'unobserved',
             viewport: this.viewport ? { ...this.viewport } : null, phases: out,
-            meaning: 'Visible requestAnimationFrame main-thread pacing only. P95 is an upper histogram bound. Not GPU time, energy, temperature, physical device, human acceptance or play-duration proof.' };
+            transitions: { victory: { ...this.transitions.victory }, capture: { ...this.transitions.capture }, defeat: { ...this.transitions.defeat } },
+            meaning: 'Visible requestAnimationFrame main-thread pacing and voluntary battle transition work. P95 is an upper histogram bound. Not GPU time, energy, temperature, physical device, human acceptance or play-duration proof.' };
     }
 }
