@@ -87,6 +87,7 @@ class Devtools{
   console.log('ANDROID_TOUCH_BEGIN '+selector);
   const p=await this.evaluate('(()=>{const e=document.querySelector('+JSON.stringify(selector)+');if(!e)return null;if(e.closest("#titleScreen")){document.querySelector("#titleScreen").scrollTop=99999;window.scrollTo(0,0);}else if(e.closest("#joystick")){window.scrollTo(0,0);}else{e.scrollIntoView({block:"nearest"});}const r=e.getBoundingClientRect();return r.width&&r.height?{x:r.x+r.width/2,y:r.y+r.height/2,dpr:devicePixelRatio,vh:innerHeight,hit:document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)?.outerHTML?.slice(0,160)}:null})()');
   if(!p)throw Error('Touch target unavailable: '+selector);
+  if(p.y<2||p.y>=p.vh-2)throw Error('Touch target outside visible Chrome viewport: '+selector+' '+JSON.stringify(p));
   console.log('ANDROID_TOUCH_GEOMETRY '+JSON.stringify({selector,p}));
   if(Number(API)<=30){
    // Android 11 Chrome maps CDP touch coordinates incorrectly after window
@@ -238,8 +239,9 @@ async function journey(){
  const initial=await chrome.evaluate('(()=>{const x=JSON.parse(localStorage.getItem("ascii-azur-save-v1"));return {seed:x.worldSeed,team:x.team.length,flags:x.flags.length}})()');
  check(initial.team===1,'Game saves native Android starter selection');report.initial=initial;
  if(Number(API)<=30){await chrome.evaluate('window.scrollTo(0,0)');await sleep(350);}console.log('ANDROID_STAGE joystick-start');
- const pad=await chrome.evaluate('(()=>{window.__azurJoystickMoves=0;document.addEventListener("pointermove",e=>{if(e.target.closest("#joystick")&&++window.__azurJoystickMoves===1)console.log("ANDROID_JOYSTICK_NATIVE_MOVE");},true);document.addEventListener("pointerup",e=>{if(e.target.closest("#joystick"))console.log("ANDROID_JOYSTICK_NATIVE_RELEASE");},true);const r=document.getElementById("joystick").getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2,dx:r.width*.25,width:r.width,dpr:devicePixelRatio,vh:innerHeight};})()');
+ const pad=await chrome.evaluate('(()=>{window.__azurJoystickMoves=0;document.addEventListener("pointermove",e=>{if(e.target.closest("#joystick")&&++window.__azurJoystickMoves===1)console.log("ANDROID_JOYSTICK_NATIVE_MOVE");},true);document.addEventListener("pointerup",e=>{if(e.target.closest("#joystick"))console.log("ANDROID_JOYSTICK_NATIVE_RELEASE");},true);const r=document.getElementById("joystick").getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2,dx:r.width*.25,width:r.width,dpr:devicePixelRatio,vh:innerHeight,visibleHeight:Math.min(innerHeight,window.visualViewport?.height||innerHeight)};})()');
  check(pad.width>=35,'Emulator displays virtual joystick');
+ check(pad.y-pad.width/2>=0&&pad.y+pad.width/2<=pad.visibleHeight-4,'Android joystick fully within the visible browser viewport');
  if(Number(API)<=30){
   // Exercise the actual Android OS touch pipeline at several plausible Chrome
   // content-area offsets. Capture pointer events via DevTools console events;

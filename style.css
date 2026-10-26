@@ -589,7 +589,8 @@
     width: 100vw !important;
     max-width: none !important;
     height: 100vh !important;
-    height: 100dvh !important;
+    height: var(--azur-visible-height, 100vh) !important;
+    max-height: var(--azur-visible-height, 100vh) !important;
     min-height: 0 !important;
     margin: 0 !important;
     aspect-ratio: auto !important;
