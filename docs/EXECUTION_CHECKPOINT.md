@@ -36,3 +36,6 @@ Feature branch feature/v069-combat-pacing-menu-light carries slower combat react
 
 ### Android stale accessibility hierarchy correction
 - CI 40500037773 shows native `topResumedActivity=AZUR` while UIAutomator still displayed export `SAVE`. The previous bounded retry issued another `Back`, leaving the game for Launcher. The updated driver now waits when AZUR is resumed, refreshes the game activity only after repeated stale readings and reserves Back solely for genuinely foregrounded external activities. Final approval still requires a clean native import replay.
+
+### Android acceptance verified 2026-10-27
+- CI 40501006762: Android APK 19 checks PASS, real SAF JSON export/import and replace-dialog PASS; Android Chrome 27 checks PASS. Chromium browser PASS. Node suite 497/498 PASS: sole failure was a stale test assertion matching the old helper expression; this test is corrected here without modifying runtime/gameplay code. Full required CI must pass on this test-only revision before merge.

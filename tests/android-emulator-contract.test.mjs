@@ -62,7 +62,7 @@ test('native SAF confirms return from exported DocumentsUI before importing',()=
  assert.match(native,/async function dismissNativeExportPicker\(/);
  assert.match(native,/NATIVE_EXPORT_DISMISS/);
  assert.match(native,/await dismissNativeExportPicker\(\)/);
- assert.match(native,/focused\.includes\(pkg\)\|\|resumed\.includes\(pkg\)/);
+ assert.match(native,/const gameResumed=resumed\.includes\(pkg\)\|\|focused\.includes\(pkg\)/);
  assert.match(native,/Android export DocumentsUI remains foregrounded/);
 });
 
