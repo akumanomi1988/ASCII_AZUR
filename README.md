@@ -1,4 +1,6 @@
-# ASCII AZUR v0.67.0 — The Unwritten
+# ASCII AZUR v0.68.0 — The Unwritten
+
+> **v0.68 — A World Written in Ash:** new journeys now open with a ten-scene, two-minute, original in-engine prologue introducing Azur, its creature bonds, the threat of forgetting names, Lumbres and the call from Arken. Includes next/skip/cancel controls, title-screen replay, reduced-motion and keyboard access, offline browser/Android support, and no changes to save-v1. See docs/RELEASE_v0.68.0.md.
 
 > **Android native APK candidate (engineering):** a separate, offline-capable native WebView shell now builds from the same compiled 0.67.0 game. Gradle and the Android emulator CI run APK installation, real WebView game startup, native touch, offline persistence, orientation and SAF export. See android/README.md; the Android package is **not** a signed store release. No website publication or game milestone weight change follows from adding the candidate.
 
