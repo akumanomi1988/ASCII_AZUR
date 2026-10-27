@@ -24,3 +24,18 @@ GitHub connector has write access and provides Actions CI. The local sandbox is 
 
 ## v0.69 candidate (2026-10-27)
 Feature branch feature/v069-combat-pacing-menu-light carries slower combat reactions, delayed visual HP, low-health warnings and spatial keyboard/glowing bond focus. The authoritative save format is unchanged. CI, Pages source provenance and human acceptance pending; frozen progress remains 21/32 = 68.75%.
+
+## v0.69.1 continuity polish — candidate
+- Visual focus orb follows mouse across whole active menus, retains individual hover glow and native text caret. No gameplay/JSON format changes.
+- Confirm TypeScript, Node, desktop/mobile browser, Android API 35 and exact deployed-source verification before release. Official 21/32 = 68.75% remains unchanged.
+
+### Native DocumentsUI regression recovery (v0.69.1)
+- CI 40498917862 passed Node + Chromium. Android native APK reached SAF import but surfaced the previous export SAVE dialog; this is not evidence of gameplay/data loss.
+- The native acceptance driver now checks the system's focused/resumed activity and accessibility tree after export, and uses bounded real Android Back events until the app is foregrounded. It refuses to continue with the import while export DocumentsUI remains active.
+- Re-run native APK JSON export/import and full CI before merge. Commercial/human QA percentage remains unchanged.
+
+### Android stale accessibility hierarchy correction
+- CI 40500037773 shows native `topResumedActivity=AZUR` while UIAutomator still displayed export `SAVE`. The previous bounded retry issued another `Back`, leaving the game for Launcher. The updated driver now waits when AZUR is resumed, refreshes the game activity only after repeated stale readings and reserves Back solely for genuinely foregrounded external activities. Final approval still requires a clean native import replay.
+
+### Android acceptance verified 2026-10-27
+- CI 40501006762: Android APK 19 checks PASS, real SAF JSON export/import and replace-dialog PASS; Android Chrome 27 checks PASS. Chromium browser PASS. Node suite 497/498 PASS: sole failure was a stale test assertion matching the old helper expression; this test is corrected here without modifying runtime/gameplay code. Full required CI must pass on this test-only revision before merge.

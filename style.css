@@ -730,5 +730,18 @@
 .azur-cursor-orb{opacity:0;border:2px solid #f7f4eb;box-shadow:0 0 5px #fff,0 0 17px 4px var(--azur-bond-glow),inset 0 0 9px var(--azur-bond-glow);background:radial-gradient(circle,#fff 0 16%,var(--azur-bond-glow) 18% 43%,transparent 65%);transition:opacity .15s}
 .azur-cursor-orb.visible{opacity:.95}
 .azur-cursor-particle{top:-4px;left:-4px;width:8px;height:8px;background:var(--azur-bond-glow);box-shadow:0 0 12px 2px var(--azur-bond-glow);opacity:0}
-@media(pointer:fine){html.azur-magic-cursor :is(#titleScreen,#starterScreen,#modal,#gameDrawer,#battleActions,#openingCinematic) :is(button,[role="button"],a[href]){cursor:none}}
+@media(pointer:fine){
+ html.azur-magic-cursor :is(#titleScreen,#starterScreen,#modal,#gameDrawer,#battleActions,#openingCinematic),
+ html.azur-magic-cursor :is(#titleScreen,#starterScreen,#modal,#gameDrawer,#battleActions,#openingCinematic) *{cursor:none}
+ html.azur-magic-cursor :is(#titleScreen,#starterScreen,#modal,#gameDrawer,#battleActions,#openingCinematic) :is(input,textarea,select,[contenteditable="true"]){cursor:auto}
+}
+:is(#titleScreen,#starterScreen,#modal,#gameDrawer,#battleActions,#openingCinematic) .azur-nav-hover:not(:disabled){
+ outline:2px solid var(--azur-bond-glow);outline-offset:2px;
+ box-shadow:0 0 12px var(--azur-bond-glow),inset 0 0 14px #d7f6ee22;filter:brightness(1.13)
+}
 @media(prefers-reduced-motion:reduce){#battle .health-track i{animation:none!important;transition:none!important}.azur-cursor-particle{display:none}.azur-cursor-orb{transition:none}}
+
+/* Respect in-game reduced motion independently of system preferences. */
+html.azur-ui-reduced-motion .azur-cursor-particle{display:none!important}
+html.azur-ui-reduced-motion .azur-cursor-orb{transition:none!important}
+html.azur-ui-reduced-motion #battle .health-track[data-critical="true"] i{animation:none!important}
