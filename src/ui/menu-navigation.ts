@@ -1,49 +1,65 @@
-/** One keyboard focus policy for viewport menus, combat buttons and modal controls. */
+/** Direction-aware keyboard navigation for title, modal, drawer and battle controls. */
 export function isTypingTarget(target:EventTarget|null):boolean{
- const element=target as HTMLElement|null;
- const tag=(element?.tagName||'').toUpperCase();
- return tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT'||element?.isContentEditable===true;
+ const el=target as HTMLElement|null;
+ const tag=(el?.tagName||'').toUpperCase();
+ return tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT'||el?.isContentEditable===true;
+}
+export interface MenuBounds {left:number;top:number;right:number;bottom:number}
+const center=(r:MenuBounds)=>({x:(r.left+r.right)/2,y:(r.top+r.bottom)/2});
+export function nextSpatialIndex(rects:readonly MenuBounds[],current:number,key:string):number{
+ if(!rects.length)return -1;
+ if(key==='Home')return 0;
+ if(key==='End')return rects.length-1;
+ const directions:Record<string,[number,number]>={
+  ArrowUp:[0,-1],ArrowDown:[0,1],ArrowLeft:[-1,0],ArrowRight:[1,0],
+  w:[0,-1],W:[0,-1],s:[0,1],S:[0,1],a:[-1,0],A:[-1,0],d:[1,0],D:[1,0]
+ };
+ const direction=directions[key];if(!direction)return current;
+ if(current<0||current>=rects.length)return 0;
+ const origin=center(rects[current]!);
+ let best=current,bestScore=Infinity;
+ for(let i=0;i<rects.length;i++){
+  if(i===current)continue;
+  const point=center(rects[i]!);
+  const dx=point.x-origin.x,dy=point.y-origin.y;
+  const forward=dx*direction[0]+dy*direction[1];
+  if(forward<=1)continue;
+  const sideways=Math.abs(dx*direction[1]-dy*direction[0]);
+  const score=forward+sideways*2.7+(sideways>forward?sideways:0);
+  if(score<bestScore-0.01||(Math.abs(score-bestScore)<0.01&&i<best)){best=i;bestScore=score;}
+ }
+ return best;
 }
 export function menuButtons(root:HTMLElement):HTMLElement[]{
  return Array.from(root.querySelectorAll<HTMLElement>('button:not([disabled]),[role="button"]:not([aria-disabled="true"]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])'))
-   .filter(el=>!el.hidden&&el.getAttribute('aria-hidden')!=='true'&&el.getClientRects().length>0);
+ .filter(el=>!el.hidden&&!el.closest('.hidden,[aria-hidden="true"],fieldset[disabled]')&&el.getClientRects().length>0&&getComputedStyle(el).visibility!=='hidden');
 }
-export function focusMenuFirst(root:HTMLElement):void{menuButtons(root)[0]?.focus();}
+export function focusMenuFirst(root:HTMLElement):void{
+ const nodes=menuButtons(root);
+ const content=root.querySelector<HTMLElement>('#modalContent');
+ const first=content?nodes.find(node=>content.contains(node)):undefined;
+ (first||nodes[0])?.focus({preventScroll:true});
+}
 export function navigateMenuKey(root:HTMLElement,key:string,trapTab=false):boolean{
  const nodes=menuButtons(root);if(!nodes.length)return false;
+ if(key==='Tab')return false;
  const active=document.activeElement as HTMLElement|null;
+ if(isTypingTarget(active)&&root.contains(active))return false;
  const current=nodes.indexOf(active!);
- if(key==='Tab'){
-   if(!trapTab)return false;
-   // Shift+Tab is handled by native traversal; the caller supplies Shift separately.
-   return false;
- }
- if(isTypingTarget(active)){
-   // Arrows on sliders, selects and form fields retain native browser semantics.
-   return false;
- }
  if(key==='Enter'||key===' '){
-   const selected=current>=0?nodes[current]:nodes[0];
-   if(selected?.tagName==='BUTTON'||selected?.getAttribute('role')==='button'){selected.click();return true;}
-   return false;
+  const chosen=current>=0?nodes[current]:nodes[0];
+  if(chosen?.tagName==='BUTTON'||chosen?.getAttribute('role')==='button'){chosen.click();return true;}
+  return false;
  }
- const vertical=['ArrowUp','ArrowDown','w','W','s','S'];
- const horizontal=['ArrowLeft','ArrowRight','a','A','d','D'];
- if(!vertical.includes(key)&&!horizontal.includes(key)&&key!=='Home'&&key!=='End')return false;
- let next=0;
- if(key==='Home')next=0;
- else if(key==='End')next=nodes.length-1;
- else{
-   const backwards=['ArrowUp','ArrowLeft','w','W','a','A'].includes(key);
-   // When focus starts outside this menu, enter at the nearest edge instead of skipping an item.
-   next=current<0?(backwards?nodes.length-1:0):(current+(backwards?-1:1)+nodes.length)%nodes.length;
- }
- nodes[next]?.focus();
- nodes[next]?.scrollIntoView?.({block:'nearest',inline:'nearest'});
+ if(!['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','w','W','a','A','s','S','d','D','Home','End'].includes(key))return false;
+ const rects=nodes.map(node=>node.getBoundingClientRect());
+ const next=nextSpatialIndex(rects,current,key);
+ if(next<0)return false;
+ nodes[next]?.focus({preventScroll:true});
+ nodes[next]?.scrollIntoView?.({block:'nearest',inline:'nearest',behavior:'auto'});
  return true;
 }
-
-/** Two-column turn menu. Disabled/empty slots never shift another slot's position. */
+/** Preserved two-column abstract battle topology for previous keyboard contract. */
 export function nextBattleCell(available:readonly number[],current:number,key:string):number{
  if(!available.length)return -1;
  if(!available.includes(current)||key==='Home')return available[0]!;
@@ -55,12 +71,4 @@ export function nextBattleCell(available:readonly number[],current:number,key:st
  choices.sort((a,b)=>Math.abs(Math.floor(a/2)-row)-Math.abs(Math.floor(b/2)-row)||Math.abs(a%2-col)-Math.abs(b%2-col));
  return choices[0]??current;
 }
-export function navigateBattleMenuKey(root:HTMLElement,key:string):boolean{
- const nodes=menuButtons(root);if(!nodes.length)return false;
- if(key==='Enter'||key===' '){const selected=nodes.find(n=>n===document.activeElement)??nodes[0];selected?.click();return true;}
- if(!['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Home','End','w','a','s','d'].includes(key))return false;
- const cells=nodes.map(n=>Number(n.dataset.battleCell));
- const current=nodes.find(n=>n===document.activeElement);
- const next=nextBattleCell(cells,current?Number(current.dataset.battleCell):-1,key);
- nodes.find(n=>Number(n.dataset.battleCell)===next)?.focus();return true;
-}
+export function navigateBattleMenuKey(root:HTMLElement,key:string):boolean{return navigateMenuKey(root,key);}
