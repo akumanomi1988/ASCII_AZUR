@@ -56,3 +56,12 @@ test('native SAF import uses Android OS taps without suspending the CDP inspecto
  assert.match(native,/Input\.dispatchTouchEvent/);
  assert.match(native,/ACTION_OPEN_DOCUMENT/);
 });
+
+test('native SAF confirms return from exported DocumentsUI before importing',()=>{
+ const native=readFileSync('tools/android-native-acceptance.mjs','utf8');
+ assert.match(native,/async function dismissNativeExportPicker\(/);
+ assert.match(native,/NATIVE_EXPORT_DISMISS/);
+ assert.match(native,/await dismissNativeExportPicker\(\)/);
+ assert.match(native,/focused\.includes\(pkg\)\|\|resumed\.includes\(pkg\)/);
+ assert.match(native,/Android export DocumentsUI remains foregrounded/);
+});

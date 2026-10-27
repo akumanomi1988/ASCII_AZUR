@@ -221,6 +221,26 @@ async function saveThroughRealAndroidPicker(){
   throw Error('Unable to save actual game export via Android DocumentsUI: '+last);
 }
 
+/** Native export must actually close before the next SAF import begins.
+ * A single Android Back can dismiss only a document sub-dialog. */
+async function dismissNativeExportPicker() {
+ for(let attempt=0;attempt<5;attempt++){
+  const windowState=adb('shell','dumpsys','window','windows');
+  const focused=windowState.split('\n').filter(line=>/mCurrentFocus|mFocusedApp/.test(line)).slice(-3).join(' | ');
+  const activityState=adb('shell','dumpsys','activity','activities');
+  const resumed=activityState.split('\n').filter(line=>/topResumedActivity|mResumedActivity/.test(line)).slice(-3).join(' | ');
+  const labels=nativeNodes().map(n=>n.text||n.desc).filter(Boolean);
+  const exportUi=labels.some(label=>/^(SAVE|Guardar)$/i.test(label)) &&
+    labels.some(label=>/Downloads|Descargas|Recent|Recientes/i.test(label));
+  const inGame=(focused.includes(pkg)||resumed.includes(pkg))&&!exportUi;
+  console.log('NATIVE_EXPORT_DISMISS '+JSON.stringify({attempt,inGame,exportUi,focused:focused.slice(0,230),resumed:resumed.slice(0,230),labels:labels.slice(0,10)}));
+  if(inGame)return;
+  adb('shell','input','keyevent','4');
+  await delay(850);
+ }
+ throw Error('Android export DocumentsUI remains foregrounded; refusing to treat export as import');
+}
+
 async function acceptNativeSaveReplacement() {
   for(let i=0;i<5;i++){
     const nodes=nativeNodes();
@@ -324,8 +344,7 @@ try{
    report.exportCreatedByNativePicker=true;
    check(true,'Android 11 SAF exported a real game save document');
  } else {
-   adb('shell','input','keyevent','4');
-   await delay(350);
+   await dismissNativeExportPicker();
  }
  check((await active.eval('location.origin'))==='https://appassets.androidplatform.net','Native app origin remains isolated after SAF');
  // Round trip through the Android system picker and real application file-input.

@@ -28,3 +28,8 @@ Feature branch feature/v069-combat-pacing-menu-light carries slower combat react
 ## v0.69.1 continuity polish — candidate
 - Visual focus orb follows mouse across whole active menus, retains individual hover glow and native text caret. No gameplay/JSON format changes.
 - Confirm TypeScript, Node, desktop/mobile browser, Android API 35 and exact deployed-source verification before release. Official 21/32 = 68.75% remains unchanged.
+
+### Native DocumentsUI regression recovery (v0.69.1)
+- CI 40498917862 passed Node + Chromium. Android native APK reached SAF import but surfaced the previous export SAVE dialog; this is not evidence of gameplay/data loss.
+- The native acceptance driver now checks the system's focused/resumed activity and accessibility tree after export, and uses bounded real Android Back events until the app is foregrounded. It refuses to continue with the import while export DocumentsUI remains active.
+- Re-run native APK JSON export/import and full CI before merge. Commercial/human QA percentage remains unchanged.
