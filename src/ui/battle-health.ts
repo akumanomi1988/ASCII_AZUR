@@ -18,12 +18,12 @@ export class BattleHealthPresentation {
   if(previous.to===value)return;
   const impact=cue?.kind==='attack'&&cue.actor!==side;
   const healing=cue?.kind==='heal'&&cue.actor===side;
-  const delay=impact?(cue!.duration*.46):healing?.24:.15;
-  this.meters[side]={uid,max,from:visibleHp(previous,now),to:value,at:now,delay,duration:impact?.82:healing?.65:.58};
+  const delay=impact?(cue!.duration*.72):healing?.24:.15;
+  this.meters[side]={uid,max,from:visibleHp(previous,now),to:value,at:now,delay,duration:impact?.65:healing?.65:.58};
  }
  sample(side:CombatSide,now:number,reducedMotion=false):{hp:number;max:number;critical:boolean;warning:boolean}|null{
   const m=this.meters[side];if(!m)return null;
   const hp=visibleHp(m,now,reducedMotion);
-  return {hp,max:m.max,critical:m.to>0&&m.to/m.max<=.23,warning:m.to>0&&m.to/m.max<=.45};
+  return {hp,max:m.max,critical:hp>0&&hp/m.max<=.23,warning:hp>0&&hp/m.max<=.45};
  }
 }

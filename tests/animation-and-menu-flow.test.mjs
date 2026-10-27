@@ -22,7 +22,8 @@ test('health display waits for impact and rolls to true damage without modifying
  hp.retarget('enemy','enemy-1',35,50,10,cue);
  assert.equal(hp.sample('enemy',10).hp,50);
  assert.equal(hp.sample('enemy',10+cue.duration*.25).hp,50);
- assert.ok(hp.sample('enemy',10+cue.duration*.46+.4).hp<50);
+ assert.equal(hp.sample('enemy',10+cue.duration*.68).hp,50);
+ assert.ok(hp.sample('enemy',10+cue.duration*.72+.35).hp<50);
  assert.equal(hp.sample('enemy',13).hp,35);
  assert.equal(hp.sample('enemy',10,true).hp,35);
 });
