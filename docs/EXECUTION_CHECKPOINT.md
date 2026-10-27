@@ -39,3 +39,6 @@ Feature branch feature/v069-combat-pacing-menu-light carries slower combat react
 
 ### Android acceptance verified 2026-10-27
 - CI 40501006762: Android APK 19 checks PASS, real SAF JSON export/import and replace-dialog PASS; Android Chrome 27 checks PASS. Chromium browser PASS. Node suite 497/498 PASS: sole failure was a stale test assertion matching the old helper expression; this test is corrected here without modifying runtime/gameplay code. Full required CI must pass on this test-only revision before merge.
+
+## v0.70 performance engineering candidate
+Branch `feature/mobile-render-budget-v070`: preallocated WebGL source texture + subimage uploads, adaptive low-hardware mobile hints respecting persisted user opt-out, testable 180-frame API contract, unchanged save/AI/audio. Verify main release and public source before claiming deployment. Frozen 21/32 = 68.75% until external hardware/human acceptance.
