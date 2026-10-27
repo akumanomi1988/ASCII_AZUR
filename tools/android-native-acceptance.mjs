@@ -247,7 +247,7 @@ try{
  await active.until('document.readyState==="complete" && !!document.querySelector("#newGame")',40000);
  const origin=await active.eval('location.origin');check(origin==='https://appassets.androidplatform.net','Packaged HTTPS origin');
  const version=await active.eval('document.querySelector(".live-tag")?.textContent||""');
- check(version.includes('0.67.0'),'Native and web version match');
+ check(version.includes(info.version),'Native and web version match');
  const stage=await active.eval('fetch("package-info.json").then(r=>r.json())');
  check(stage.main_sha256===info.main_sha256 && stage.version===info.version,'Manifest source fingerprint');
  const remote=await active.eval('performance.getEntriesByType("resource").map(x=>x.name).filter(x=>!x.startsWith("https://appassets.androidplatform.net/assets/"))');
