@@ -85,7 +85,11 @@ export class OpeningCinematic{
   this.root.classList.remove('hidden');
   this.root.setAttribute('aria-hidden','false');
   this.render();
-  this.buttons[0]!.focus();
+  // On Android a new-game button can be reached by scrolling the title panel.
+  // Focus without implicit document scrolling, then center the actual game
+  // viewport so Next/Skip/Back remain physically visible and tappable.
+  this.root.parentElement?.scrollIntoView?.({behavior:'instant',block:'center',inline:'nearest'});
+  this.buttons[0]!.focus({preventScroll:true});
   this.frame=requestAnimationFrame(this.tick);
  }
  private readonly tick=(now:number)=>{
