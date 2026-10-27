@@ -32,10 +32,24 @@ localStorage.setItem('ascii-azur-graphics-v2',JSON.stringify({renderMode:params.
 // Headless acceptance intentionally captures a bounded number of real rendered frames.
 // Sustained-performance profiling is a separate measurement, not this CI interaction gate.
 {
- const nativeFrame=window.requestAnimationFrame.bind(window);let frames=0;
- const frameBudget=params.has('fallback')?12:20;let stalled=null;
- window.requestAnimationFrame=callback=>{if(frames++<frameBudget)return nativeFrame(callback);stalled=callback;return 0};
- window.__azurQaAdvance=()=>{frames=frameBudget-3;if(stalled){const callback=stalled;stalled=null;nativeFrame(callback)}};
+ // Multiple animation owners (renderer + prologue) must never overwrite each other's
+ // throttled callback; synthetic IDs also make cancelAnimationFrame effective.
+ const nativeFrame=window.requestAnimationFrame.bind(window),nativeCancel=window.cancelAnimationFrame.bind(window);
+ let frames=0,nextSynthetic=-1;
+ const frameBudget=params.has('fallback')?12:20,stalled=new Map();
+ window.requestAnimationFrame=callback=>{
+  if(frames++<frameBudget)return nativeFrame(callback);
+  const id=nextSynthetic--;stalled.set(id,callback);return id;
+ };
+ window.cancelAnimationFrame=id=>{
+  if(stalled.delete(id))return;
+  nativeCancel(id);
+ };
+ window.__azurQaAdvance=()=>{
+  frames=frameBudget-3;
+  const pending=[...stalled.values()];stalled.clear();
+  for(const callback of pending)nativeFrame(callback);
+ };
 }
 window.addEventListener('load',()=>setTimeout(async()=>{
  const check=(ok,msg)=>{if(!ok)throw Error(msg)};
