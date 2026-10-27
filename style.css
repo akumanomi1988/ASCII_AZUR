@@ -631,3 +631,80 @@
     accent-color: #d5ad79;
   }
 }
+
+/* v0.67 — The Unwritten: original, asset-free two-minute opening cinematic.
+   Animation is contained inside the gameplay viewport and respects motion settings. */
+#viewport .opening-cinematic{position:absolute;inset:0;z-index:19;isolation:isolate;overflow:hidden;background:#060d17;--cinematic-accent:#d0b78a;color:#e9e7df}
+#viewport .cinematic-stage,#viewport .cinematic-vignette{position:absolute;inset:0;pointer-events:none}
+#viewport .cinematic-stage{overflow:hidden;background:linear-gradient(180deg,#07111e,#183040 58%,#141b25);transition:background 1.4s ease}
+#viewport .cinematic-stars{position:absolute;inset:-10%;background-image:radial-gradient(#d6e7ef 1px,transparent 1.5px),radial-gradient(#b2bbdf 1px,transparent 1.8px);background-size:59px 61px,107px 97px;background-position:6px 8px,32px 51px;opacity:.55;animation:cinematicStarDrift 65s linear infinite}
+#viewport .cinematic-halo{position:absolute;width:34%;aspect-ratio:1;left:33%;top:10%;border-radius:50%;background:radial-gradient(circle at 35% 37%,#f4e9c7,#9fbbc1 19%,#52758b 30%,#253f5b 43%,transparent 47%);filter:drop-shadow(0 0 32px #819ba988);opacity:.78;animation:cinematicHalo 16s ease-in-out infinite}
+#viewport .cinematic-orbits{position:absolute;left:24%;top:-20%;width:52%;aspect-ratio:1;border:1px solid #99babb55;border-radius:50%;box-shadow:0 0 0 23px #a6bbd20c,0 0 0 67px #b0c9cf0b;animation:cinematicOrbit 65s linear infinite}
+#viewport .cinematic-backdrop{position:absolute;inset:45% -10% -30%;background:radial-gradient(ellipse at center top,#4e6c7088,transparent 60%);transform:rotate(-5deg)}
+#viewport .cinematic-horizon{position:absolute;inset:auto -10% 0;height:39%;background:linear-gradient(165deg,#101e2e 0 22%,#162b36 35%,#0b1723 35% 55%,#0d1c26 61%,#06111d 63%);clip-path:polygon(0 45%,12% 54%,20% 22%,30% 54%,41% 11%,52% 50%,62% 20%,74% 59%,86% 29%,100% 54%,100% 100%,0 100%);animation:cinematicLandscape 17s ease-in-out infinite alternate}
+#viewport .cinematic-towers{position:absolute;bottom:12%;left:40%;height:27%;width:20%;background:linear-gradient(180deg,#354c58,#0e1a23);clip-path:polygon(4% 100%,4% 48%,19% 48%,19% 30%,24% 12%,29% 30%,29% 50%,39% 50%,39% 19%,50% 0,61% 19%,61% 50%,71% 50%,71% 30%,76% 12%,81% 30%,81% 48%,96% 48%,96% 100%);box-shadow:0 0 26px #cbb38a44;opacity:.55;transform:translateY(4%)}
+#viewport .cinematic-embers{position:absolute;inset:0;background-image:radial-gradient(circle,#e2b986bb 0 2px,transparent 3px),radial-gradient(circle,#e4cf95aa 0 1px,transparent 3px);background-size:107px 89px,139px 113px;background-position:24px 51px,61px 8px;opacity:.3;animation:cinematicEmbers 13s linear infinite}
+#viewport .cinematic-mist{position:absolute;inset:15% -40% 10%;background:radial-gradient(ellipse at 20% 65%,#c7d6df19,transparent 50%),radial-gradient(ellipse at 70% 48%,#cfdae01e,transparent 52%);animation:cinematicMist 19s ease-in-out infinite alternate}
+#viewport .cinematic-glyph{position:absolute;top:31%;left:50%;transform:translate(-50%,-50%);font:500 clamp(45px,10vw,105px)/1 Cinzel,Georgia,serif;color:var(--cinematic-accent);text-shadow:0 0 28px var(--cinematic-accent),0 0 75px #c6b8ad55;white-space:nowrap;letter-spacing:16px;opacity:.8;animation:cinematicSigil 9s ease-in-out infinite}
+#viewport .cinematic-vignette{z-index:1;box-shadow:inset 0 0 110px #020508,inset 0 -140px 120px #020912ee;background:linear-gradient(0deg,#050c17d9 0,transparent 70%)}
+#viewport .cinematic-topline{position:absolute;z-index:3;top:4%;left:4%;right:4%;display:flex;justify-content:space-between;gap:8px;color:#b5c6c6;font:500 clamp(8px,1.1vw,10px) 'DM Mono',monospace;letter-spacing:1.7px;text-shadow:0 2px 4px #000}
+#viewport .cinematic-topline span:last-child{color:#d0b78a}
+#viewport .cinematic-caption{position:absolute;z-index:4;bottom:21%;left:7%;right:7%;text-align:center;text-shadow:0 2px 15px #000,0 1px 3px #000}
+#viewport .cinematic-chapter{color:var(--cinematic-accent);font:600 clamp(9px,1.1vw,12px) 'DM Mono',monospace;letter-spacing:3px;margin:0 0 8px}
+#viewport .cinematic-caption h2{color:#f4e6cd;font:600 clamp(21px,3.8vw,45px)/1.14 Cinzel,Georgia,serif;letter-spacing:1px;margin:0 0 11px}
+#viewport .cinematic-narration{color:#e5eded;font:500 clamp(12px,1.6vw,18px)/1.5 Inter,system-ui,sans-serif;max-width:680px;margin:0 auto;letter-spacing:.15px;text-wrap:balance}
+#viewport .cinematic-footer{position:absolute;z-index:5;left:4%;right:4%;bottom:4%;display:grid;gap:9px}
+#viewport .cinematic-timeline{display:flex;align-items:center;gap:10px}
+#viewport .cinematic-track{flex:1;height:3px;background:#8c989b4a;border-radius:3px;overflow:hidden}
+#viewport .cinematic-progress{height:100%;background:linear-gradient(90deg,#88b4b8,var(--cinematic-accent));width:0;box-shadow:0 0 9px var(--cinematic-accent)}
+#viewport .cinematic-clock{min-width:40px;text-align:right;color:#e1d3b7;font:600 12px 'DM Mono',monospace;font-variant-numeric:tabular-nums}
+#viewport .cinematic-controls{display:flex;align-items:center;justify-content:center;gap:8px}
+#viewport .cinematic-button{min-height:40px;border:1px solid #9aafaa6b;padding:9px 14px;border-radius:2px;letter-spacing:1px;background:#102431e8;color:#e6eee9;font:600 clamp(9px,1.15vw,11px) 'DM Mono',monospace;white-space:nowrap}
+#viewport .cinematic-button.prominent{background:#bf9564;color:#121b22;border-color:#e4c490}
+#viewport .cinematic-button:hover{filter:brightness(1.18)}
+#viewport .cinematic-button:focus-visible{outline:3px solid #fbe0a4;outline-offset:2px}
+#viewport .opening-cinematic[data-scene="world"] .cinematic-stage{background:linear-gradient(180deg,#152e3a,#3e6568 65%,#222d2d)}
+#viewport .opening-cinematic[data-scene="bonds"] .cinematic-stage{background:linear-gradient(180deg,#0b2933,#24554b 62%,#122221)}
+#viewport .opening-cinematic[data-scene="silence"] .cinematic-stage{background:linear-gradient(180deg,#05091a,#24253f 63%,#0c0c22)}
+#viewport .opening-cinematic[data-scene="erasure"] .cinematic-stage{background:linear-gradient(180deg,#0c0d1d,#30263a 68%,#110d19)}
+#viewport .opening-cinematic[data-scene="embers"] .cinematic-stage{background:linear-gradient(180deg,#211a28,#624132 68%,#231e22)}
+#viewport .opening-cinematic[data-scene="companions"] .cinematic-stage{background:linear-gradient(180deg,#182e34,#385443 65%,#141e23)}
+#viewport .opening-cinematic[data-scene="arken"] .cinematic-stage{background:linear-gradient(180deg,#1b2632,#434c53 62%,#1d292c)}
+#viewport .opening-cinematic[data-scene="choice"] .cinematic-stage{background:linear-gradient(180deg,#131927,#433b51 63%,#151c2c)}
+#viewport .opening-cinematic[data-scene="begin"] .cinematic-stage{background:linear-gradient(180deg,#14283c,#71624f 66%,#24262a)}
+#viewport .opening-cinematic[data-scene="silence"] :is(.cinematic-halo,.cinematic-embers,.cinematic-towers),
+#viewport .opening-cinematic[data-scene="erasure"] :is(.cinematic-halo,.cinematic-embers,.cinematic-towers){opacity:.12}
+#viewport .opening-cinematic[data-scene="embers"] .cinematic-embers{opacity:.85}
+#viewport .opening-cinematic[data-scene="arken"] .cinematic-towers{opacity:1}
+#viewport .opening-cinematic[data-scene="companions"] .cinematic-glyph{font-size:clamp(29px,6vw,68px)}
+@keyframes cinematicStarDrift{to{transform:translate3d(-6%,7%,0)}}
+@keyframes cinematicHalo{50%{transform:translateY(6px) scale(1.04)}}
+@keyframes cinematicOrbit{to{transform:rotate(360deg)}}
+@keyframes cinematicLandscape{to{transform:translateX(4%) scale(1.06)}}
+@keyframes cinematicEmbers{to{background-position:24px -210px,61px -260px}}
+@keyframes cinematicMist{to{transform:translateX(9%)}}
+@keyframes cinematicSigil{50%{transform:translate(-50%,-54%) scale(1.07);opacity:.55}}
+@media(max-width:650px),(max-height:440px){
+ #viewport .cinematic-topline{top:3%;letter-spacing:.5px;font-size:8px}
+ #viewport .cinematic-caption{left:4%;right:4%;bottom:25%}
+ #viewport .cinematic-caption h2{font-size:clamp(18px,4.5vw,29px);margin-bottom:5px}
+ #viewport .cinematic-chapter{font-size:9px;letter-spacing:1.3px;margin-bottom:5px}
+ #viewport .cinematic-narration{font-size:clamp(11px,2.3vw,13px);line-height:1.32}
+ #viewport .cinematic-glyph{top:26%;font-size:clamp(39px,7vw,68px)}
+ #viewport .cinematic-halo{top:7%;width:35%}
+ #viewport .cinematic-footer{bottom:3%;gap:5px;left:3%;right:3%}
+ #viewport .cinematic-controls{gap:4px}
+ #viewport .cinematic-button{min-height:44px;padding:8px 7px;font-size:9px;letter-spacing:0}
+}
+@media(orientation:portrait) and (max-width:550px){
+ #viewport .cinematic-caption{bottom:24%}
+ #viewport .cinematic-glyph{top:36%;font-size:65px}
+ #viewport .cinematic-halo{top:20%;width:55%;left:22%}
+ #viewport .cinematic-topline span:last-child{display:none}
+ #viewport .cinematic-narration{font-size:14px;line-height:1.55}
+}
+@media(prefers-reduced-motion:reduce){
+ #viewport .opening-cinematic *,#viewport .opening-cinematic *::before,#viewport .opening-cinematic *::after{animation:none!important;transition:none!important}
+}
+:root.azur-high-contrast #viewport .opening-cinematic{background:#000}
+:root.azur-high-contrast #viewport .cinematic-narration{color:#fff;background:#000b}
