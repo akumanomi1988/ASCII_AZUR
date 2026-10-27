@@ -708,3 +708,27 @@
 }
 :root.azur-high-contrast #viewport .opening-cinematic{background:#000}
 :root.azur-high-contrast #viewport .cinematic-narration{color:#fff;background:#000b}
+
+/* v0.69: stage damage and display a bond-tinted navigation cursor. */
+:root{--azur-bond-glow:#d5ad79}
+#battle .health-track{height:9px;border:1px solid #4b5963;border-radius:6px;overflow:visible;position:relative;background:#25343b}
+#battle .health-track i{height:100%;border-radius:5px;transition:none;box-shadow:0 0 12px #72c5a870}
+#battle .health-track[data-warning="true"] i{background:linear-gradient(90deg,#b37e39,#f3cc75);box-shadow:0 0 13px #e2a75199}
+#battle .health-track[data-critical="true"] i{background:linear-gradient(90deg,#c44044,#fa6d60);box-shadow:0 0 14px #e34958c8;animation:azur-health-danger .66s ease-in-out infinite alternate}
+#battle .health-track[data-critical="true"]{border-color:#c44a51;box-shadow:0 0 12px #9e2e3b55}
+#battle .health-value{font-variant-numeric:tabular-nums;transition:color .3s}
+#battle .health-track[data-critical="true"]+.health-value{color:#ff8c87}
+@keyframes azur-health-danger{from{opacity:1;filter:brightness(1)}to{opacity:.58;filter:brightness(1.6)}}
+:is(#titleScreen,#starterScreen,#modal,#gameDrawer,#battleActions,#openingCinematic) :is(button,[role="button"],a[href],select):focus-visible,
+:is(#titleScreen,#starterScreen,#modal,#gameDrawer,#battleActions,#openingCinematic) .azur-nav-active:not(:disabled){
+ outline:2px solid var(--azur-bond-glow);outline-offset:2px;
+ box-shadow:0 0 0 1px #f7f6ee91,0 0 11px var(--azur-bond-glow),inset 0 0 18px #d7f6ee22;
+ filter:brightness(1.13);transition:outline-color .18s,box-shadow .23s,filter .2s,background-color .2s;
+}
+.azur-cursor-layer{position:fixed;inset:0;pointer-events:none;z-index:200;overflow:visible}
+.azur-cursor-orb,.azur-cursor-particle{position:absolute;top:-9px;left:-9px;width:18px;height:18px;border-radius:50%;pointer-events:none;will-change:transform}
+.azur-cursor-orb{opacity:0;border:2px solid #f7f4eb;box-shadow:0 0 5px #fff,0 0 17px 4px var(--azur-bond-glow),inset 0 0 9px var(--azur-bond-glow);background:radial-gradient(circle,#fff 0 16%,var(--azur-bond-glow) 18% 43%,transparent 65%);transition:opacity .15s}
+.azur-cursor-orb.visible{opacity:.95}
+.azur-cursor-particle{top:-4px;left:-4px;width:8px;height:8px;background:var(--azur-bond-glow);box-shadow:0 0 12px 2px var(--azur-bond-glow);opacity:0}
+@media(pointer:fine){html.azur-magic-cursor :is(#titleScreen,#starterScreen,#modal,#gameDrawer,#battleActions,#openingCinematic) :is(button,[role="button"],a[href]){cursor:none}}
+@media(prefers-reduced-motion:reduce){#battle .health-track i{animation:none!important;transition:none!important}.azur-cursor-particle{display:none}.azur-cursor-orb{transition:none}}

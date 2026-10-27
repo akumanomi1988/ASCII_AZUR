@@ -14,6 +14,8 @@ import { newJourneyMetrics, recordJourney, journeyReport } from './core/journey-
 import { suggestBattleAction } from './combat/planning.js';
 import { AsciiRenderer, drawWorld, drawBattle, drawEvolution } from './render.js';
 import { navigateMenuKey, navigateBattleMenuKey, focusMenuFirst, isTypingTarget, menuButtons } from './ui/menu-navigation.js';
+import { MenuFocusTrail } from './ui/focus-trail.js';
+import { BattleHealthPresentation } from './ui/battle-health.js';
 import { DEFAULT_GRAPHICS, glyphCell, canvasGlyphCell, glyphCount } from './render/graphics-profile.js';
 import { visibleEncounters, nearbyEncounter, firstRoamerVictoryBonus, recoverTrailParty, activeWildBiome, drawBiomeWild, biomeWildLevel, VILLAGE_TRAINING_XP, VILLAGE_TRAINING_REWARD_FLAG, villageTrainingBonus, villageTrainingProgress } from './world/encounters.js';
 import { drawDungeon } from './dungeons/draw-dungeon.js';
@@ -66,6 +68,9 @@ class AzurGame {
         this.soundEnabled = true;
         this.reducedMotion = false;
         this.combatCue = null;
+        this.battleHealth = new BattleHealthPresentation();
+        this.focusTrail = (document.body ? new MenuFocusTrail() : null);
+        this.combatInputLock = false;
         this.activeSlot = 1;
         this.atlasTarget = null;
         this.lastAccessibleMessage = '';
@@ -158,6 +163,8 @@ class AzurGame {
                 drawWorld(ctx, this.save.zone, { x: this.save.x, y: this.save.y, facing: this.facing, walking: this.moving && !this.dialogOpen }, this.seconds, this.flash, this.save.defeatedBoss, this.camera, this.reducedMotion, this.roamers(), this.flag(CROWN_BOSS_FLAG));
             }
             this.renderer.present(now);
+            if (this.battle)
+                this.paintBattleHealth(this.seconds);
             if (now - this.lastAdaptiveUpdate > 1900) {
                 this.lastAdaptiveUpdate = now;
                 if (this.adaptiveGlyphs.observe(this.frameMetrics.report(), now, this.started && !document.hidden && !this.modalOpen)) {
@@ -323,7 +330,7 @@ class AzurGame {
                 e.preventDefault();
                 return;
             }
-            if (!this.battle.busy && navigateBattleMenuKey(byId('battleActions'), e.key))
+            if (!this.battle.busy && !this.combatInputLock && navigateBattleMenuKey(byId('battleActions'), e.key))
                 e.preventDefault();
             return;
         }
@@ -388,7 +395,7 @@ class AzurGame {
             navigateMenuKey(root, pressed(12) || pressed(14) ? 'ArrowUp' : 'ArrowDown');
         }
         if (pressed(12) || pressed(14) || pressed(13) || pressed(15)) {
-            if (this.battle && !this.battle.busy)
+            if (this.battle && !this.battle.busy && !this.combatInputLock)
                 navigateBattleMenuKey(byId('battleActions'), pressed(12) ? 'ArrowUp' : pressed(13) ? 'ArrowDown' : pressed(14) ? 'ArrowLeft' : 'ArrowRight');
         }
         if (pressed(0)) {
@@ -674,6 +681,8 @@ class AzurGame {
         this.save = raw;
         this.battle = null;
         this.combatCue = null;
+        this.battleHealth.reset();
+        this.combatInputLock = false;
         this.battleMenu = 'commands';
         byId('battle').classList.add('hidden');
         byId('viewport').classList.remove('in-battle');
@@ -1130,7 +1139,7 @@ class AzurGame {
         ally = leadIndex; if (ally < 0) {
         this.defeat();
         return;
-    } recordJourney(this.save, 'battles'); recordSpeciesResearch(this.save.flags, id, 'seen'); this.sound.setScene(type === 'boss' ? 'boss' : 'battle'); this.battleMenu = 'commands'; this.battleKeyboardFocus = true; this.battle = { recoveryUses: {}, enemy: createCreature(id, level), type, encounterId, busy: false, ally, guarding: false, selecting: false, bossPhase: 1, chargeStage: 0, effects: {}, log: type === 'boss' ? `${SPECIES[id].name.toUpperCase()}, EL ESCRIBA DEL SILENCIO, DESPIERTA.` : type === 'expedition' ? `LA GRIETA SE ABRE: ${SPECIES[id].name.toUpperCase()} TE DESAFÍA.` : `¡UN ${SPECIES[id].name.toUpperCase()} SALVAJE APARECE!` }; this.combatCue = null; this.encounterCooldown = 9; byId('battle').classList.remove('hidden'); byId('viewport').classList.add('in-battle'); byId('prompt').classList.add('hidden'); this.sound.portal(); this.refreshBattle(); }
+    } recordJourney(this.save, 'battles'); recordSpeciesResearch(this.save.flags, id, 'seen'); this.sound.setScene(type === 'boss' ? 'boss' : 'battle'); this.battleMenu = 'commands'; this.battleKeyboardFocus = true; this.battle = { recoveryUses: {}, enemy: createCreature(id, level), type, encounterId, busy: false, ally, guarding: false, selecting: false, bossPhase: 1, chargeStage: 0, effects: {}, log: type === 'boss' ? `${SPECIES[id].name.toUpperCase()}, EL ESCRIBA DEL SILENCIO, DESPIERTA.` : type === 'expedition' ? `LA GRIETA SE ABRE: ${SPECIES[id].name.toUpperCase()} TE DESAFÍA.` : `¡UN ${SPECIES[id].name.toUpperCase()} SALVAJE APARECE!` }; this.combatCue = null; this.battleHealth.reset(); this.combatInputLock = false; this.encounterCooldown = 9; byId('battle').classList.remove('hidden'); byId('viewport').classList.add('in-battle'); byId('prompt').classList.add('hidden'); this.sound.portal(); this.refreshBattle(); }
     /** Explicit warning and tactical plan before the point-of-no-return boss encounter.
      * Players may still challenge the boss underlevelled; this never gates progression. */
     prepareGuardianBattle() {
@@ -1182,6 +1191,33 @@ class AzurGame {
     }
     setCombatCue(kind, actor, element, damageValue = 0, effective = false) {
         this.combatCue = createCombatCue(kind, actor, element, this.seconds, damageValue, effective);
+        if (actor === 'enemy' && (kind === 'attack' || kind === 'heal')) {
+            const battle = this.battle, cue = this.combatCue;
+            this.combatInputLock = true;
+            window.setTimeout(() => { if (this.battle === battle && this.combatCue === cue) {
+                this.combatInputLock = false;
+                this.refreshBattle();
+            } }, this.reducedMotion ? 260 : Math.ceil((cue.duration + .16) * 1000));
+        }
+    }
+    combatPause(milliseconds) { return this.reducedMotion ? Math.min(350, milliseconds) : milliseconds; }
+    paintBattleHealth(now) {
+        for (const side of ['enemy', 'ally']) {
+            const reading = this.battleHealth.sample(side, now, this.reducedMotion);
+            if (!reading)
+                continue;
+            const id = side === 'enemy' ? 'enemy' : 'ally';
+            const bar = byId(id + 'Health');
+            const width = (Math.max(0, reading.hp / reading.max) * 100).toFixed(2) + '%';
+            if (bar.style.width !== width)
+                bar.style.width = width;
+            const value = byId(id + 'HpText'), label = reading.hp + '/' + reading.max;
+            if (value.textContent !== label)
+                value.textContent = label;
+            const track = byId(id + 'HealthTrack');
+            track.dataset.critical = String(reading.critical);
+            track.dataset.warning = String(reading.warning);
+        }
     }
     /** Resolve a completed battle with a visible final reaction, without granting a second turn. */
     cueFaint(side, complete) {
@@ -1208,14 +1244,13 @@ class AzurGame {
         const es = SPECIES[b.enemy.speciesId], as = SPECIES[ally.speciesId];
         byId('enemyName').textContent = es.name;
         byId('enemyLv').textContent = 'NV. ' + b.enemy.level + (b.type === 'boss' && b.bossPhase === 2 ? ' · II' : '') + (this.statuses(b.enemy).length ? ' · ' + statusLabel(this.statuses(b.enemy)) : '');
-        byId('enemyHpText').textContent = `${b.enemy.hp}/${maxHp(b.enemy)}`;
-        byId('enemyHealth').style.width = Math.max(0, b.enemy.hp / maxHp(b.enemy) * 100) + '%';
+        this.battleHealth.retarget('enemy', b.enemy.uid, b.enemy.hp, maxHp(b.enemy), this.seconds, this.combatCue);
         this.updateHealthMeter('enemyHealthTrack', es.name, b.enemy.hp, maxHp(b.enemy));
         byId('allyName').textContent = as.name + (ally.equipment ? ' · ' + RELICS[ally.equipment].name : '');
         byId('allyLv').textContent = 'NV. ' + ally.level + (this.statuses(ally).length ? ' · ' + statusLabel(this.statuses(ally)) : '');
-        byId('allyHpText').textContent = `${ally.hp}/${maxHp(ally)}`;
-        byId('allyHealth').style.width = Math.max(0, ally.hp / maxHp(ally) * 100) + '%';
+        this.battleHealth.retarget('ally', ally.uid, ally.hp, maxHp(ally), this.seconds, this.combatCue);
         this.updateHealthMeter('allyHealthTrack', as.name, ally.hp, maxHp(ally));
+        this.paintBattleHealth(this.seconds);
         byId('battleLog').textContent = b.log;
         const threat = battleReadout({ boss: b.type === 'boss', bossPhase: b.bossPhase, chargeStage: b.chargeStage, guarding: b.guarding, hp: ally.hp, maxHp: maxHp(ally), enemyHp: b.enemy.hp, enemyMaxHp: maxHp(b.enemy), busy: b.busy, pending: b.pending, statuses: this.statuses(ally).map(s => statusLabel([s])), enemyStatuses: this.statuses(b.enemy).map(s => statusLabel([s])) });
         const threatNode = byId('battleThreat');
@@ -1247,7 +1282,7 @@ class AzurGame {
             const button = document.createElement('button');
             button.dataset.battleCell = String(actions.children.length);
             button.textContent = name;
-            button.disabled = b.busy || disabled;
+            button.disabled = b.busy || this.combatInputLock || disabled;
             if (special)
                 button.classList.add('special');
             if (threat.guardRecommended && name.includes('GUARDIA'))
@@ -1382,14 +1417,14 @@ class AzurGame {
         b.pending = b.enemy.hp <= 0 ? 'victory' : !this.save.team.some(c => c.hp > 0) ? 'defeat' : 'enemy';
         this.refreshBattle();
         if (b.pending === 'victory') {
-            window.setTimeout(() => this.cueFaint('enemy', () => this.winBattle()), 660);
+            window.setTimeout(() => this.cueFaint('enemy', () => this.winBattle()), this.combatPause(1700));
             return;
         }
         if (b.pending === 'defeat') {
-            window.setTimeout(() => this.cueFaint('ally', () => this.defeat()), 660);
+            window.setTimeout(() => this.cueFaint('ally', () => this.defeat()), this.combatPause(1700));
             return;
         }
-        window.setTimeout(() => this.enemyTurn(), 1000);
+        window.setTimeout(() => this.enemyTurn(), this.combatPause(1900));
     }
     defend() {
         const b = this.battle, ally = this.getAlly();
@@ -1418,7 +1453,7 @@ class AzurGame {
         }
         b.pending = 'enemy';
         this.refreshBattle();
-        window.setTimeout(() => this.enemyTurn(), 680);
+        window.setTimeout(() => this.enemyTurn(), this.combatPause(1050));
     }
     enemyTurn() {
         const b = this.battle, ally = this.getAlly();
@@ -1469,7 +1504,7 @@ class AzurGame {
             if (next < 0) {
                 b.pending = 'defeat';
                 this.refreshBattle();
-                window.setTimeout(() => this.cueFaint('ally', () => this.defeat()), 690);
+                window.setTimeout(() => this.cueFaint('ally', () => this.defeat()), this.combatPause(1720));
                 return;
             }
             b.ally = next;
@@ -1478,7 +1513,7 @@ class AzurGame {
         if (b.enemy.hp <= 0) {
             b.pending = 'victory';
             this.refreshBattle();
-            window.setTimeout(() => this.cueFaint('enemy', () => this.winBattle()), 650);
+            window.setTimeout(() => this.cueFaint('enemy', () => this.winBattle()), this.combatPause(1720));
             return;
         }
         b.busy = false;
@@ -1576,7 +1611,7 @@ class AzurGame {
         this.sound.select();
         b.log = 'El sello cruza la bruma...';
         this.refreshBattle();
-        window.setTimeout(() => this.resolveCapture(), 750);
+        window.setTimeout(() => this.resolveCapture(), this.combatPause(1450));
     }
     resolveCapture() {
         const perfStart = performance.now();
@@ -1637,7 +1672,7 @@ class AzurGame {
         b.log = `${SPECIES[ally.speciesId].name} recupera ${restored} puntos de salud y limpia el ARDOR.`;
         this.sound.pick();
         this.refreshBattle();
-        window.setTimeout(() => this.enemyTurn(), 550);
+        window.setTimeout(() => this.enemyTurn(), this.combatPause(1350));
     }
     switchCreature() {
         const b = this.battle;
@@ -1667,7 +1702,7 @@ class AzurGame {
         this.setCombatCue('switch', 'ally', SPECIES[selected.speciesId].element);
         this.sound.select();
         this.refreshBattle();
-        window.setTimeout(() => this.enemyTurn(), 700);
+        window.setTimeout(() => this.enemyTurn(), this.combatPause(1200));
     }
     escape() { if (!this.battle || this.battle.busy || this.battle.type === 'boss')
         return; recordJourney(this.save, 'actions'); if (Math.random() < escapeChance(this.getAlly(), this.battle.enemy)) {
@@ -1681,7 +1716,7 @@ class AzurGame {
         this.battle.pending = 'enemy';
         this.battle.log = '¡NO PUEDES ESCAPAR!';
         this.refreshBattle();
-        window.setTimeout(() => this.enemyTurn(), 400);
+        window.setTimeout(() => this.enemyTurn(), this.combatPause(950));
     } }
     defeat() { const perfStart = performance.now(); if (this.battle)
         recordJourney(this.save, 'losses'); if (this.save.dungeon?.active) {
@@ -1693,7 +1728,7 @@ class AzurGame {
         this.expeditionMessage = `La expedición terminó en derrota. Recuperaste ${consolation.echoes} Ecos.`;
         delete this.save.expedition;
     } this.finishBattle(); this.save.zone = 'village'; this.cameraZone = ''; this.sound.setScene('village'); this.save.x = 15; this.save.y = 14; this.lastReveal = -1; this.revealPosition(); this.save.team.forEach(c => c.hp = maxHp(c)); this.encounterCooldown = 6; this.sound.portal(); this.dialog([{ title: 'Regresas a la Lumbre', text: 'La oscuridad te ha vencido, pero tus vínculos no se han roto. Descansas y recuperas fuerzas en Velo de Arken.' }]); this.saveNow(false); this.updateUI(); this.endurance.noteTransition('defeat', performance.now() - perfStart); }
-    finishBattle() { this.battleMenu = 'commands'; this.sound.setScene(themeForZone(this.save.zone)); delete this.save.activeBattle; this.battle = null; this.combatCue = null; byId('battleThreat').textContent = ''; byId('battleThreat').dataset.severity = 'normal'; byId('battle').classList.add('hidden'); byId('viewport').classList.remove('in-battle'); this.encounterCooldown = 7; }
+    finishBattle() { this.battleMenu = 'commands'; this.sound.setScene(themeForZone(this.save.zone)); delete this.save.activeBattle; this.battle = null; this.combatCue = null; this.battleHealth.reset(); this.combatInputLock = false; byId('battleThreat').textContent = ''; byId('battleThreat').dataset.severity = 'normal'; byId('battle').classList.add('hidden'); byId('viewport').classList.remove('in-battle'); this.encounterCooldown = 7; }
     interactNpc(id) {
         const e = this.economy;
         if (!e.visitedNpcs.includes(id))
@@ -3117,6 +3152,9 @@ class AzurGame {
         node.classList.toggle('is-near', cue.kind === 'interaction' || cue.kind === 'completed');
     }
     updateUI() {
+        const originalBond = this.save.team.find(c => c.uid === this.save.primaryUid) ?? this.save.team[0];
+        if (originalBond)
+            this.focusTrail?.setTone(SPECIES[originalBond.speciesId]?.color ?? '#d5ad79');
         this.updateStoryCompass();
         const z = ZONES[this.save.zone];
         byId('zoneName').textContent = this.save.dungeon?.active ? 'Cripta de los Ecos' : z.name;
