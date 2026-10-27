@@ -33,6 +33,8 @@ SCRIPT=r'''
    if(sessionStorage.getItem('azur-mobile-qa')!=='resume'){
     $('worldSeedInput').value='5507';
     $('newGame').click();
+    check(!$('openingCinematic').classList.contains('hidden'),'Mobile cinematic did not open');
+    $('cinematicSkip').click();
     const starter=document.querySelector('#starters button');
     check(!!starter,'Starter cannot be selected');starter.click();
     for(let i=0;i<9&&!$('dialogue').classList.contains('hidden');i++)$('closeDialogue').click();
