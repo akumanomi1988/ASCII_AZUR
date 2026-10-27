@@ -41,7 +41,7 @@ test('live release verification is downstream of validated Pages publishing',()=
 test('live smoke waits for fully initialized game listeners, not just loaded HTML',()=>{
  const game=readFileSync('src/main.ts','utf8');
  const smoke=readFileSync('tools/public-release-smoke.mjs','utf8');
- assert.match(game,/document\.documentElement\.dataset\.azurReady='true'/);
- assert.match(smoke,/document\.documentElement\?\.dataset\.azurReady===\\"true\\"/);
- assert.doesNotMatch(smoke,/await cdp\.until\('document\.readyState===\\"complete\\"&&!!document\.getElementById/);
+ assert.ok(game.includes("document.documentElement.dataset.azurReady='true'"));
+ assert.ok(smoke.includes('document.documentElement?.dataset.azurReady==="true"'));
+ assert.ok(!smoke.includes('document.readyState==="complete"&&!!document.getElementById'));
 });
