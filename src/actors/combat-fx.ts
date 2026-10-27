@@ -20,8 +20,11 @@ const attackClip=clip('combat-lunge','attack',[
 ]);
 const targetClip=clip('combat-impact','hurt',[
  {time:0,pose:pose()},{time:.37,pose:pose()},
- {time:.47,pose:pose(11,1,.96,1.04,-.055,.69)},
- {time:.62,pose:pose(4,0,.98,1.01,-.015,.9)},{time:1,pose:pose()}
+ {time:.44,pose:pose(3,0,.99,1.01,0,1)},
+ {time:.50,pose:pose(13,2,.94,1.06,-.07,.35)},
+ {time:.56,pose:pose(9,0,.97,1.03,-.03,1)},
+ {time:.63,pose:pose(7,0,.96,1.04,-.04,.3)},
+ {time:.70,pose:pose(3,0,.99,1.01,-.01,1)},{time:1,pose:pose()}
 ]);
 const healClip=clip('combat-heal','interact',[
  {time:0,pose:pose()},{time:.25,pose:pose(0,-9,1.04,1.04)},
@@ -58,7 +61,7 @@ const CLIPS:Readonly<Record<FxKind,AnimationClip>>={
 export function combatClips():readonly AnimationClip[]{return [...Object.values(CLIPS),targetClip,captureTargetClip];}
 export function createCombatCue(kind:FxKind,actor:CombatSide,element:string,nowSeconds:number,damage=0,effective=false):CombatCue{
  if(!Number.isFinite(nowSeconds))throw Error('Invalid combat cue time');
- const duration=kind==='attack'?.9:kind==='capture'?1.05:kind==='faint'?1.12:kind==='switch'?.82:.72;
+ const duration=kind==='attack'?1.68:kind==='capture'?1.42:kind==='faint'?1.34:kind==='switch'?1.15:kind==='heal'?1.25:1.05;
  return {kind,actor,element,startedAt:nowSeconds,duration,damage,effective};
 }
 export function sampleCombatCue(cue:CombatCue|null,nowSeconds:number,reducedMotion=false):CombatFxFrame|null{
