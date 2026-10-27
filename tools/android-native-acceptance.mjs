@@ -32,34 +32,26 @@ class CDP {
   if(!location||location.w<4||location.h<4)throw Error('Not visible: '+selector);
   console.log('NATIVE_TAP_TARGET '+JSON.stringify({selector,location}));
   await this.eval('(()=>{window.__nativeTapped=false;window.__nativeTarget='+JSON.stringify(selector)+';if(!window.__nativeTapProbe){document.addEventListener("click",e=>{if(e.target.closest(window.__nativeTarget))window.__nativeTapped=true},true);window.__nativeTapProbe=true;}})()');
-  // Android 11 WebView CDP touch can freeze its inspector; native OS taps
-  // are the supported and stricter route here (real pointerdown + click).
+  // DevTools touch injection can hang when Android SAF pickers steal focus.
+  // Inject an actual OS tap at every API level and verify the WebView click.
+  const size=adb('shell','wm','size');
+  const match=size.match(/Override size:\s*(\d+)x(\d+)/)||size.match(/Physical size:\s*(\d+)x(\d+)/);
+  if(!match)throw Error('Unknown Android display size: '+size);
+  const actualHeight=Number(match[2]),actualWidth=Number(match[1]);
+  const extra=Math.max(0,actualHeight-location.vh*location.dpr);
+  const offsets=[extra/2,0,extra-24*location.dpr,extra-48*location.dpr,extra];
   let received=false;
-  if (Number(API)>30) {
-    await this.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:location.x,y:location.y,id:1}]});
-    await this.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
-    await delay(300);
-    received=await this.eval('window.__nativeTapped===true');
-  }
-  if(!received){
-    const size=adb('shell','wm','size');
-    const match=size.match(/Override size:\s*(\d+)x(\d+)/)||size.match(/Physical size:\s*(\d+)x(\d+)/);
-    if(!match)throw Error('Unknown Android display size: '+size);
-    const actualHeight=Number(match[2]),actualWidth=Number(match[1]);
-    const extra=Math.max(0,actualHeight-location.vh*location.dpr);
-    const offsets=[extra/2,0,extra-24*location.dpr,extra-48*location.dpr,extra];
-    for(const offset of [...new Set(offsets.map(Math.round))]){
-      const x=Math.round(location.x*location.dpr),y=Math.round(location.y*location.dpr+offset);
-      if(x<0||x>=actualWidth||y<0||y>=actualHeight)continue;
-      console.log('NATIVE_OS_TAP '+JSON.stringify({selector,x,y,offset}));
-      adb('shell','input','tap',String(x),String(y));
-      await delay(350);
-      received=await this.eval('window.__nativeTapped===true');
-      if(received)break;
-    }
+  for(const offset of [...new Set(offsets.map(Math.round))]){
+   const x=Math.round(location.x*location.dpr),y=Math.round(location.y*location.dpr+offset);
+   if(x<0||x>=actualWidth||y<0||y>=actualHeight)continue;
+   console.log('NATIVE_OS_TAP '+JSON.stringify({selector,x,y,offset}));
+   adb('shell','input','tap',String(x),String(y));
+   await delay(350);
+   received=await this.eval('window.__nativeTapped===true');
+   if(received)break;
   }
   if(!received)throw Error('Native touch did not activate '+selector+' '+JSON.stringify(location));
-  console.log('NATIVE_TAP_PASS '+selector);
+    console.log('NATIVE_TAP_PASS '+selector);
  }
  async until(js,timeout=25000){const begin=Date.now();while(Date.now()-begin<timeout){try{if(await this.eval(js))return;}catch{}await delay(300);}throw Error('WebView state timeout: '+js);}
  close(){this.ws.close();}
