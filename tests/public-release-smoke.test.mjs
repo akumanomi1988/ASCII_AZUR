@@ -37,3 +37,11 @@ test('live release verification is downstream of validated Pages publishing',()=
  assert.match(yaml,/AZUR_SMOKE_ROOT: http:\/\/127\.0\.0\.1:18977\//);
  assert.match(yaml,/ascii-azur-local-public-smoke/);
 });
+
+test('live smoke waits for fully initialized game listeners, not just loaded HTML',()=>{
+ const game=readFileSync('src/main.ts','utf8');
+ const smoke=readFileSync('tools/public-release-smoke.mjs','utf8');
+ assert.match(game,/document\.documentElement\.dataset\.azurReady='true'/);
+ assert.match(smoke,/document\.documentElement\?\.dataset\.azurReady===\\"true\\"/);
+ assert.doesNotMatch(smoke,/await cdp\.until\('document\.readyState===\\"complete\\"&&!!document\.getElementById/);
+});
