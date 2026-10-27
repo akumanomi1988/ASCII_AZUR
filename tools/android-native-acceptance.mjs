@@ -253,7 +253,9 @@ try{
  const remote=await active.eval('performance.getEntriesByType("resource").map(x=>x.name).filter(x=>!x.startsWith("https://appassets.androidplatform.net/assets/"))');
  check(remote.length===0,'No remote resources loaded');
  await active.tap('#newGame');
- await active.until('!!document.querySelector("#starters button")',15000);
+ await active.until('!document.getElementById("openingCinematic").classList.contains("hidden")',15000);
+ await active.tap('#cinematicSkip');
+ await active.until('!!document.querySelector("#starters button")&&!document.getElementById("starterScreen").classList.contains("hidden")',15000);
  await active.tap('#starters button');
  await active.until('document.querySelector("#titleScreen")?.classList.contains("hidden")',15000);
  check(await active.eval('document.querySelector("#titleScreen").classList.contains("hidden")'),'Gameplay surface opened after native starter touch');
