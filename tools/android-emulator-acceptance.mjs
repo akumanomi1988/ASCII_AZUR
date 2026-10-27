@@ -244,6 +244,9 @@ async function journey(){
   await chrome.tap('#newGame');
   await chrome.until('!document.getElementById("openingCinematic").classList.contains("hidden")',15000);
  }
+ const openingBounds=await chrome.evaluate('(()=>{const r=document.getElementById("cinematicSkip").getBoundingClientRect();return {top:r.top,bottom:r.bottom,innerHeight,visualHeight:visualViewport?.height,cssHeight:document.documentElement.style.getPropertyValue("--azur-visible-height")}})()');
+ console.log('ANDROID_CINEMATIC_BOUNDS '+JSON.stringify(openingBounds));
+ check(openingBounds.top>=0&&openingBounds.bottom<=Math.min(openingBounds.innerHeight,openingBounds.visualHeight||openingBounds.innerHeight),'Cinematic Skip must remain inside visible Chrome viewport');
  await chrome.tap('#cinematicSkip');
  await chrome.until('!!document.querySelector("#starters button")&&!document.getElementById("starterScreen").classList.contains("hidden")',15000);
 
