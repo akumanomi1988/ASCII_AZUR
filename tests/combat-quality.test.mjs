@@ -4,14 +4,14 @@ import {createCombatCue, sampleCombatCue,guardDamage} from '../dist/actors/comba
 
 test('combat cue is deterministic, finishes, and keeps game state separate',()=>{
  const cue=createCombatCue('attack','ally','Ceniza',10,13,true);
- const a=sampleCombatCue(cue,10.40),b=sampleCombatCue(cue,10.40);
+ const a=sampleCombatCue(cue,10+cue.duration*.42),b=sampleCombatCue(cue,10+cue.duration*.42);
  assert.deepEqual(a,b);assert.equal(a.damage,13);assert.ok(a.attacker.x>0);
- assert.equal(sampleCombatCue(cue,11.5),null);
+ assert.equal(sampleCombatCue(cue,10+cue.duration),null);
  assert.equal(cue.damage,13);
 });
 test('enemy cue lunges in opposite direction and impact recoils',()=>{
  const cue=createCombatCue('attack','enemy','Bruma',1,12);
- const fx=sampleCombatCue(cue,1.4);
+ const fx=sampleCombatCue(cue,1+cue.duration*.48);
  assert.equal(fx.actor,'enemy');assert.ok(fx.attacker.x<0);
  assert.ok(fx.impact>0);assert.ok(fx.target.x<0);
 });

@@ -21,3 +21,6 @@ GitHub connector has write access and provides Actions CI. The local sandbox is 
 ## v0.68 native regression follow-up
 - PR run 40467809790: browser succeeded. Native Android's OS-only tap implementation reached new-game, dialogue, rotation and resume but failed to open the export DocumentsUI picker after touching `#exportBtn`.
 - Proven previous run 40461641746 opened the export picker via CDP, but froze at `Input.dispatchTouchEvent` for `#importBtn`. Use CDP for the proven normal API 35 WebView controls and actual Android OS taps for SAF **import**, checking the system DocumentsUI activity rather than depending on CDP while the application is backgrounded. Recheck before merging.
+
+## v0.69 candidate (2026-10-27)
+Feature branch feature/v069-combat-pacing-menu-light carries slower combat reactions, delayed visual HP, low-health warnings and spatial keyboard/glowing bond focus. The authoritative save format is unchanged. CI, Pages source provenance and human acceptance pending; frozen progress remains 21/32 = 68.75%.

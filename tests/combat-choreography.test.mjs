@@ -21,7 +21,7 @@ test('G3: six combat actions are deterministic, distinct and bounded',()=>{
  const signatures=new Set();
  for(const kind of actions){
   const cue=createCombatCue(kind,'ally','Bruma',10,kind==='attack'?19:0,true);
-  assert.ok(cue.duration>=.7&&cue.duration<=1.2,kind);
+  assert.ok(cue.duration>=1.0&&cue.duration<=2.1,kind);
   const frames=[];
   for(const phase of [0,.2,.4,.6,.8,.98]){
    const time=10+cue.duration*phase;
