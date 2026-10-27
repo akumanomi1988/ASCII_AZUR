@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {gpuResolutionFactor,adaptiveDefault,initialAdaptiveScale} from '../dist/core/presentation-budget.js';
+import {gpuResolutionFactor,adaptiveDefault,initialAdaptiveScale,limitedMobileHardware} from '../dist/core/presentation-budget.js';
 import {readGraphics,DEFAULT_GRAPHICS} from '../dist/render/graphics-profile.js';
 test('adaptive WebGL2 budget changes actual fragment load, restores full quality and stays bounded',()=>{
  const ratios=[1,1.2,1.44,1.73,2.4].map(gpuResolutionFactor);
@@ -30,4 +30,26 @@ test('selecting microscopic mode mid-session respects manual opt-out and updates
  const source=readFileSync('src/main.ts','utf8');
  assert.match(source,/localStorage\.getItem\('ascii-azur-adaptive-fps-v1'\)===null/);
  assert.match(source,/adaptive\.checked=this\.adaptiveGlyphs\.active;sync\(\)/);
+});
+
+test('low-end mobile hints enable reversible performance protection without changing user choices',()=>{
+ assert.equal(limitedMobileHardware(0,2,2),false);
+ assert.equal(limitedMobileHardware(5,2,2),true);
+ assert.equal(limitedMobileHardware(5,4,4),true);
+ assert.equal(limitedMobileHardware(5,8,8),false);
+ assert.equal(limitedMobileHardware(5,8,undefined),false);
+ assert.equal(limitedMobileHardware(5,0,0),false);
+ assert.equal(limitedMobileHardware(5,NaN,NaN),false);
+ assert.equal(limitedMobileHardware(5,6,2),true);
+ assert.equal(adaptiveDefault(5,'gpu',DEFAULT_GRAPHICS,2,2),true);
+ assert.equal(adaptiveDefault(5,'gpu',DEFAULT_GRAPHICS,8,8),false);
+ assert.equal(adaptiveDefault(0,'gpu',DEFAULT_GRAPHICS,2,2),false);
+ assert.equal(initialAdaptiveScale(5,'gpu',DEFAULT_GRAPHICS,2,2),1.4);
+ assert.equal(initialAdaptiveScale(5,'gpu',DEFAULT_GRAPHICS,8,8),1);
+ assert.equal(initialAdaptiveScale(5,'fallback',DEFAULT_GRAPHICS,2,2),1.6);
+ const source=readFileSync('src/main.ts','utf8');
+ assert.match(source,/const enabled=saved===null\?adaptiveDefault\(/);
+ assert.match(source,/:saved==='true'/);
+ assert.match(source,/hardwareConcurrency/);
+ assert.match(source,/deviceMemory/);
 });
