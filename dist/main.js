@@ -445,10 +445,11 @@ class AzurGame {
     catch { /* storage unavailable */ } }
     restoreAdaptiveGraphics() {
         const touches = Number(navigator.maxTouchPoints) || 0, graphics = this.renderer.getGraphics();
+        const cores = Number(navigator.hardwareConcurrency) || 0, memoryGiB = Number(navigator.deviceMemory) || 0;
         try {
             const saved = localStorage.getItem('ascii-azur-adaptive-fps-v1');
-            const enabled = saved === null ? adaptiveDefault(touches, this.renderer.mode, graphics) : saved === 'true';
-            this.adaptiveGlyphs.configure(enabled, enabled ? initialAdaptiveScale(touches, this.renderer.mode, graphics) : 1);
+            const enabled = saved === null ? adaptiveDefault(touches, this.renderer.mode, graphics, cores, memoryGiB) : saved === 'true';
+            this.adaptiveGlyphs.configure(enabled, enabled ? initialAdaptiveScale(touches, this.renderer.mode, graphics, cores, memoryGiB) : 1);
         }
         catch { /* preserve manual mode */ }
         this.renderer.setPerformanceScale(this.adaptiveGlyphs.scale);

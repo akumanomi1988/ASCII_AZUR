@@ -15,6 +15,7 @@ import { materialGlyphIndex, materialColors } from './render/glyph-material.js';
 import { GroundMaterialCache, isFocalGroundTile } from './render/ground-material.js';
 import { readGraphics, glyphCell, canvasGlyphCell } from './render/graphics-profile.js';
 import { gpuResolutionFactor } from './core/presentation-budget.js';
+import { allocateSceneTexture, updateSceneTexture } from './render/scene-texture.js';
 export const W = 960, H = 540;
 /** World-only camera magnification; battle composition and DOM controls are unaffected. */
 const WORLD_PRESENTATION_ZOOM = 1.16;
@@ -133,6 +134,7 @@ export class AsciiRenderer {
         gl.enableVertexAttribArray(pos);
         gl.vertexAttribPointer(pos, 2, gl.FLOAT, false, 0, 0);
         this.tex = texture(gl);
+        allocateSceneTexture(gl, W, H);
         gl.activeTexture(gl.TEXTURE1);
         this.atlas = texture(gl);
         const atlas = document.createElement('canvas');
@@ -233,7 +235,7 @@ export class AsciiRenderer {
             gl.activeTexture(gl.TEXTURE0);
             gl.bindTexture(gl.TEXTURE_2D, this.tex);
             gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
-            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this.source);
+            updateSceneTexture(gl, this.source);
             gl.uniform2f(this.uniforms.u_resolution, this.canvas.width, this.canvas.height);
             const rect = this.canvas.getBoundingClientRect();
             const dpr = this.canvas.width / (rect.width || W);
