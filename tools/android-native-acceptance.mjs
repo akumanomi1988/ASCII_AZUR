@@ -232,10 +232,23 @@ async function dismissNativeExportPicker() {
   const labels=nativeNodes().map(n=>n.text||n.desc).filter(Boolean);
   const exportUi=labels.some(label=>/^(SAVE|Guardar)$/i.test(label)) &&
     labels.some(label=>/Downloads|Descargas|Recent|Recientes/i.test(label));
-  const inGame=(focused.includes(pkg)||resumed.includes(pkg))&&!exportUi;
-  console.log('NATIVE_EXPORT_DISMISS '+JSON.stringify({attempt,inGame,exportUi,focused:focused.slice(0,230),resumed:resumed.slice(0,230),labels:labels.slice(0,10)}));
+  const gameResumed=resumed.includes(pkg)||focused.includes(pkg);
+  const inGame=gameResumed&&!exportUi;
+  console.log('NATIVE_EXPORT_DISMISS '+JSON.stringify({attempt,inGame,exportUi,gameResumed,focused:focused.slice(0,230),resumed:resumed.slice(0,230),labels:labels.slice(0,10)}));
   if(inGame)return;
-  adb('shell','input','keyevent','4');
+  if(gameResumed){
+   // Android 35 may report the app as resumed before UIAutomator stops showing
+   // the previous DocumentsUI SAVE sheet. Another Back would exit the game.
+   if(attempt===3)adb('shell','am','start','-n',pkg+'/dev.akumano.asciiazur.MainActivity');
+   await delay(1150);
+   continue;
+  }
+  if(/NexusLauncherActivity|launcher/i.test(resumed)){
+   // Recover focus without touching saves; never accept Launcher as the game.
+   adb('shell','am','start','-n',pkg+'/dev.akumano.asciiazur.MainActivity');
+  } else {
+   adb('shell','input','keyevent','4');
+  }
   await delay(850);
  }
  throw Error('Android export DocumentsUI remains foregrounded; refusing to treat export as import');

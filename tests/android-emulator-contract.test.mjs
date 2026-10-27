@@ -65,3 +65,11 @@ test('native SAF confirms return from exported DocumentsUI before importing',()=
  assert.match(native,/focused\.includes\(pkg\)\|\|resumed\.includes\(pkg\)/);
  assert.match(native,/Android export DocumentsUI remains foregrounded/);
 });
+
+test('native SAF must not press Back after AZUR resumes with a stale picker tree',()=>{
+ const native=readFileSync('tools/android-native-acceptance.mjs','utf8');
+ assert.match(native,/const gameResumed=resumed\.includes\(pkg\)\|\|focused\.includes\(pkg\)/);
+ assert.match(native,/if\(gameResumed\)\{/);
+ assert.match(native,/await delay\(1150\);\s*continue;/);
+ assert.match(native,/if\(\/NexusLauncherActivity/);
+});

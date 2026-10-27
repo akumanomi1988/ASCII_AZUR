@@ -33,3 +33,6 @@ Feature branch feature/v069-combat-pacing-menu-light carries slower combat react
 - CI 40498917862 passed Node + Chromium. Android native APK reached SAF import but surfaced the previous export SAVE dialog; this is not evidence of gameplay/data loss.
 - The native acceptance driver now checks the system's focused/resumed activity and accessibility tree after export, and uses bounded real Android Back events until the app is foregrounded. It refuses to continue with the import while export DocumentsUI remains active.
 - Re-run native APK JSON export/import and full CI before merge. Commercial/human QA percentage remains unchanged.
+
+### Android stale accessibility hierarchy correction
+- CI 40500037773 shows native `topResumedActivity=AZUR` while UIAutomator still displayed export `SAVE`. The previous bounded retry issued another `Back`, leaving the game for Launcher. The updated driver now waits when AZUR is resumed, refreshes the game activity only after repeated stale readings and reserves Back solely for genuinely foregrounded external activities. Final approval still requires a clean native import replay.
