@@ -205,6 +205,8 @@ class AzurGame {
         window.visualViewport?.addEventListener('resize', fit);
         if ('serviceWorker' in navigator && location.protocol.startsWith('http'))
             navigator.serviceWorker.register('./sw.js').catch(() => { });
+        if (document.documentElement)
+            document.documentElement.dataset.azurReady = 'true';
     }
     wire() {
         byId('newGame').addEventListener('click', () => this.startNew());
