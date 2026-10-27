@@ -104,6 +104,26 @@ window.addEventListener('load',()=>setTimeout(async()=>{
    check(capture.ok,'Canvas screenshot failed: '+zone);
   };
   check($('game')&&$('newGame'),'Missing game bootstrap');
+  // Browser DOM regression: the cursor glows between controls while retaining
+  // the native input caret, keyboard focus, and click pass-through.
+  const cursorOrb=document.querySelector('.azur-cursor-orb');
+  check(!!cursorOrb,'Missing luminous menu cursor');
+  const gap=$('titleScreen').querySelector('.intro-line');
+  check(!!gap,'Missing gap between title controls');
+  gap.dispatchEvent(new PointerEvent('pointermove',{pointerType:'mouse',clientX:180,clientY:160,bubbles:true}));
+  check(cursorOrb.classList.contains('visible'),'Cursor disappears between menu controls');
+  $('newGame').dispatchEvent(new PointerEvent('pointermove',{pointerType:'mouse',clientX:195,clientY:175,bubbles:true}));
+  check($('newGame').classList.contains('azur-nav-hover'),'Pointer did not illuminate hovered button');
+  gap.dispatchEvent(new PointerEvent('pointermove',{pointerType:'mouse',clientX:185,clientY:162,bubbles:true}));
+  check(!$('newGame').classList.contains('azur-nav-hover'),'Hover glow was left behind on inactive control');
+  check(cursorOrb.classList.contains('visible'),'Cursor light disappeared while crossing a menu gap');
+  $('worldSeedInput').dispatchEvent(new PointerEvent('pointermove',{pointerType:'mouse',clientX:205,clientY:180,bubbles:true}));
+  check(!cursorOrb.classList.contains('visible'),'Native text caret was replaced by the decoration');
+  gap.dispatchEvent(new PointerEvent('pointermove',{pointerType:'mouse',clientX:190,clientY:170,bubbles:true}));
+  $('game').dispatchEvent(new PointerEvent('pointermove',{pointerType:'mouse',clientX:230,clientY:190,bubbles:true}));
+  check(!cursorOrb.classList.contains('visible'),'Cursor leaked into exploration outside menus');
+  check(getComputedStyle(document.querySelector('.azur-cursor-layer')).pointerEvents==='none','Decorative trail intercepts clicks');
+
   $('worldSeedInput').value='AZUR-QA-STABLE-SEED';
   $('newGame').click();
   check(!$('openingCinematic').classList.contains('hidden'),'New journey prologue must open');

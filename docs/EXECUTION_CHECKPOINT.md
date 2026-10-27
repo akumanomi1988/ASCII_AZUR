@@ -24,3 +24,7 @@ GitHub connector has write access and provides Actions CI. The local sandbox is 
 
 ## v0.69 candidate (2026-10-27)
 Feature branch feature/v069-combat-pacing-menu-light carries slower combat reactions, delayed visual HP, low-health warnings and spatial keyboard/glowing bond focus. The authoritative save format is unchanged. CI, Pages source provenance and human acceptance pending; frozen progress remains 21/32 = 68.75%.
+
+## v0.69.1 continuity polish — candidate
+- Visual focus orb follows mouse across whole active menus, retains individual hover glow and native text caret. No gameplay/JSON format changes.
+- Confirm TypeScript, Node, desktop/mobile browser, Android API 35 and exact deployed-source verification before release. Official 21/32 = 68.75% remains unchanged.
