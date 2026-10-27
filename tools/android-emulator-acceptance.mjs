@@ -235,15 +235,17 @@ async function journey(){
  await chrome.tap('#newGame');
  // Older Android Chrome may eat the first OS-to-renderer touch while warming up.
  // Retry once with another actual Chrome touch, never bypassing the native event.
- try{await chrome.until('!!document.querySelector("#starters button")',16000);}
+ try{await chrome.until('!document.getElementById("openingCinematic").classList.contains("hidden")',16000);}
  catch(error){
   const state=await chrome.evaluate('({title:document.getElementById("titleScreen")?.className,starter:document.getElementById("starterScreen")?.className,touches:window.__azurQaTouches,modal:document.getElementById("modal")?.className,body:document.body.innerText.slice(0,400)})');
   const extra=await chrome.evaluate('({ua:navigator.userAgent,ready:document.readyState,early:window.__azurEarlyErrors||[],imports:performance.getEntriesByType("resource").filter(x=>x.name.includes("/dist/")).map(x=>({url:x.name.split("/").pop(),size:x.transferSize,duration:x.duration})).slice(0,20),script:document.querySelector("script[type=module]")?.outerHTML,starter:document.querySelector("#starterScreen")?.outerHTML.slice(0,250)})');
   console.log('ANDROID_STARTER_DEBUG '+JSON.stringify({state,extra,exceptions:chrome.exceptions,networkFailures:chrome.networkFailures}));
   await chrome.capture('debug-before-start.png');
   await chrome.tap('#newGame');
-  await chrome.until('!!document.querySelector("#starters button")',15000);
+  await chrome.until('!document.getElementById("openingCinematic").classList.contains("hidden")',15000);
  }
+ await chrome.tap('#cinematicSkip');
+ await chrome.until('!!document.querySelector("#starters button")&&!document.getElementById("starterScreen").classList.contains("hidden")',15000);
 
  console.log('ANDROID_STAGE starter-buttons');
  await chrome.tap('#starters button');
