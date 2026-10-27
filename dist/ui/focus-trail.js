@@ -1,6 +1,7 @@
 /** Keyboard focus and mouse share one bond-colored, non-interactive light trail. */
 const MENU_SCOPE = '#titleScreen,#starterScreen,#modal,#gameDrawer,#battleActions,#openingCinematic';
 const FOCUS_SELECTOR = 'button:not(:disabled),[role="button"],a[href],select,input:not([type="hidden"]),textarea';
+const TEXT_EDIT_SELECTOR = 'input,select,textarea,[contenteditable="true"]';
 export class MenuFocusTrail {
     constructor() {
         this.points = [];
@@ -13,6 +14,7 @@ export class MenuFocusTrail {
         this.last = 0;
         this.history = [];
         this.previous = null;
+        this.hovered = null;
         this.reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
         this.tick = (now) => {
             this.animation = 0;
@@ -62,25 +64,43 @@ export class MenuFocusTrail {
         document.addEventListener('pointermove', e => this.pointer(e), { passive: true });
         document.addEventListener('pointerdown', e => { if (e.pointerType === 'touch')
             this.hide(); }, { passive: true });
+        document.addEventListener('click', () => queueMicrotask(() => {
+            if (this.visible && !this.surface(document.elementFromPoint(this.targetX, this.targetY)))
+                this.hide();
+        }));
         window.addEventListener('blur', () => this.hide());
+        window.addEventListener('mouseleave', () => this.hide());
         document.addEventListener('visibilitychange', () => { if (document.hidden)
             this.hide(); });
     }
     setTone(color) { if (/^#[a-f0-9]{6}$/i.test(color))
         document.documentElement.style.setProperty('--azur-bond-glow', color); }
-    valid(target) {
-        const el = target instanceof HTMLElement ? target : null;
-        if (!el || !el.closest(MENU_SCOPE) || el.closest('.hidden,[aria-hidden="true"]'))
+    setReducedMotion(value) { this.reduced = value; document.documentElement.classList.toggle('azur-ui-reduced-motion', value); if (value) {
+        this.history = [];
+        for (const dot of this.points)
+            dot.style.opacity = '0';
+    } }
+    surface(target) {
+        const el = target instanceof Element ? target : null;
+        const root = el?.closest(MENU_SCOPE) ?? null;
+        if (!root || root.closest('.hidden,[aria-hidden="true"]') || root.getClientRects().length === 0)
             return null;
-        const control = el.closest(FOCUS_SELECTOR);
-        return control && !control.hasAttribute('disabled') && control.getClientRects().length > 0 ? control : null;
+        return root;
+    }
+    valid(target) {
+        const root = this.surface(target), el = target instanceof Element ? target : null;
+        const control = el?.closest(FOCUS_SELECTOR) ?? null;
+        return root && control && root.contains(control) && !control.matches(':disabled,[aria-disabled="true"]') && control.getClientRects().length > 0 ? control : null;
     }
     focus(target) {
         this.previous?.classList.remove('azur-nav-active');
         const control = this.valid(target);
         this.previous = control;
-        if (!control)
+        if (!control) {
+            if (!this.hovered)
+                this.hide();
             return;
+        }
         control.classList.add('azur-nav-active');
         const r = control.getBoundingClientRect();
         this.travel(r.left + r.width / 2, r.top + r.height / 2);
@@ -88,11 +108,19 @@ export class MenuFocusTrail {
     pointer(e) {
         if (e.pointerType !== 'mouse' && e.pointerType !== 'pen')
             return;
-        const control = this.valid(e.target);
-        if (!control) {
+        const root = this.surface(e.target), node = e.target instanceof Element ? e.target : null;
+        this.hovered?.classList.remove('azur-nav-hover');
+        this.hovered = null;
+        if (!root || node?.closest(TEXT_EDIT_SELECTOR)) {
             this.hide();
             return;
         }
+        const control = this.valid(e.target);
+        if (control) {
+            control.classList.add('azur-nav-hover');
+            this.hovered = control;
+        }
+        // Keep light visible between controls, without stealing clicks or focus.
         this.travel(e.clientX, e.clientY);
     }
     travel(x, y) {
@@ -110,6 +138,6 @@ export class MenuFocusTrail {
         if (!this.animation)
             this.animation = requestAnimationFrame(this.tick);
     }
-    hide() { this.visible = false; this.orb.classList.remove('visible'); this.history = []; for (const node of this.points)
+    hide() { this.visible = false; this.orb.classList.remove('visible'); this.hovered?.classList.remove('azur-nav-hover'); this.hovered = null; this.history = []; for (const node of this.points)
         node.style.opacity = '0'; }
 }
