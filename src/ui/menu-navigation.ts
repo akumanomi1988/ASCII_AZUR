@@ -5,7 +5,7 @@ export function isTypingTarget(target:EventTarget|null):boolean{
  return tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT'||el?.isContentEditable===true;
 }
 export interface MenuBounds {left:number;top:number;right:number;bottom:number}
-const center=(r:MenuBounds)=>({x:(r.left+r.right)/2,y:(r.top+r.bottom)/2});
+const menuCenter=(r:MenuBounds)=>({x:(r.left+r.right)/2,y:(r.top+r.bottom)/2});
 export function nextSpatialIndex(rects:readonly MenuBounds[],current:number,key:string):number{
  if(!rects.length)return -1;
  if(key==='Home')return 0;
@@ -16,11 +16,11 @@ export function nextSpatialIndex(rects:readonly MenuBounds[],current:number,key:
  };
  const direction=directions[key];if(!direction)return current;
  if(current<0||current>=rects.length)return 0;
- const origin=center(rects[current]!);
+ const origin=menuCenter(rects[current]!);
  let best=current,bestScore=Infinity;
  for(let i=0;i<rects.length;i++){
   if(i===current)continue;
-  const point=center(rects[i]!);
+  const point=menuCenter(rects[i]!);
   const dx=point.x-origin.x,dy=point.y-origin.y;
   const forward=dx*direction[0]+dy*direction[1];
   if(forward<=1)continue;
