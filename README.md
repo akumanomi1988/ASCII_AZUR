@@ -11,7 +11,7 @@ A dark-fantasy creature-bonding RPG set in a persistent, procedurally generated 
 
 [**Play in your browser**](https://akumanomi1988.github.io/ASCII_AZUR/) · [Explore the world](#the-world) · [Get started](#run-locally) · [Architecture](docs/ARCHITECTURE.md)
 
-<sub>v0.67.0 · Browser-first distribution · Android engineering candidate</sub>
+<sub>v0.68.0 · Browser-first distribution · Android engineering candidate</sub>
 
 </div>
 
@@ -49,11 +49,11 @@ The journey begins in **Arken**, then expands through interconnected regions, cr
 - **Offline-minded saves:** three independent local campaigns, backup recovery, export/import and a standalone HTML build.
 
 <details>
-<summary><strong>What changed in v0.67.0?</strong></summary>
+<summary><strong>What changed in v0.68.0?</strong></summary>
 
-The Field Hunt flow connects biome-aware wild encounters with tactical briefings, starting-ally selection, Codex research and capture progress. Early chapter travel does not reveal later creatures prematurely.
+New journeys now begin with a skippable, two-minute cinematic prologue introducing the world of Azur. The Field Hunt flow continues to connect biome-aware wild encounters with tactical briefings, starting-ally selection, Codex research and capture progress. Early chapter travel does not reveal later creatures prematurely.
 
-Read the [v0.67.0 release notes](docs/RELEASE_v0.67.0.md) for precise behavior and validation boundaries.
+Read the [v0.68.0 release notes](docs/RELEASE_v0.68.0.md) for precise behavior and validation boundaries.
 
 </details>
 
@@ -138,7 +138,7 @@ Automated tests and emulator checks are engineering evidence, **not** substitute
 <summary><strong>Technical documentation and release history</strong></summary>
 
 - [Architecture and code ownership](docs/ARCHITECTURE.md)
-- [Latest release: v0.67.0](docs/RELEASE_v0.67.0.md)
+- [Latest release: v0.68.0](docs/RELEASE_v0.68.0.md)
 - [Android shell and build instructions](android/README.md)
 - [Release documentation directory](docs/)
 - [GitHub commit history](https://github.com/akumanomi1988/ASCII_AZUR/commits/main) — previous README revisions preserve the detailed historical changelog.

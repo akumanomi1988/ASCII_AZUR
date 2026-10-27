@@ -32,31 +32,36 @@ class CDP {
   if(!location||location.w<4||location.h<4)throw Error('Not visible: '+selector);
   console.log('NATIVE_TAP_TARGET '+JSON.stringify({selector,location}));
   await this.eval('(()=>{window.__nativeTapped=false;window.__nativeTarget='+JSON.stringify(selector)+';if(!window.__nativeTapProbe){document.addEventListener("click",e=>{if(e.target.closest(window.__nativeTarget))window.__nativeTapped=true},true);window.__nativeTapProbe=true;}})()');
-  // Android 11 WebView CDP touch can freeze its inspector; native OS taps
-  // are the supported and stricter route here (real pointerdown + click).
+  // API 35 can drive normal WebView controls through CDP, but Android's
+  // file picker suspends the WebView input pipeline. Import MUST use OS taps.
   let received=false;
-  if (Number(API)>30) {
-    await this.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:location.x,y:location.y,id:1}]});
-    await this.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
-    await delay(300);
-    received=await this.eval('window.__nativeTapped===true');
+  if(Number(API)>30 && selector!=='#importBtn'){
+   await this.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:location.x,y:location.y,id:1}]});
+   await this.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+   await delay(300);
+   received=await this.eval('window.__nativeTapped===true');
   }
   if(!received){
-    const size=adb('shell','wm','size');
-    const match=size.match(/Override size:\s*(\d+)x(\d+)/)||size.match(/Physical size:\s*(\d+)x(\d+)/);
-    if(!match)throw Error('Unknown Android display size: '+size);
-    const actualHeight=Number(match[2]),actualWidth=Number(match[1]);
-    const extra=Math.max(0,actualHeight-location.vh*location.dpr);
-    const offsets=[extra/2,0,extra-24*location.dpr,extra-48*location.dpr,extra];
-    for(const offset of [...new Set(offsets.map(Math.round))]){
-      const x=Math.round(location.x*location.dpr),y=Math.round(location.y*location.dpr+offset);
-      if(x<0||x>=actualWidth||y<0||y>=actualHeight)continue;
-      console.log('NATIVE_OS_TAP '+JSON.stringify({selector,x,y,offset}));
-      adb('shell','input','tap',String(x),String(y));
-      await delay(350);
-      received=await this.eval('window.__nativeTapped===true');
-      if(received)break;
-    }
+   const size=adb('shell','wm','size');
+   const match=size.match(/Override size:\s*(\d+)x(\d+)/)||size.match(/Physical size:\s*(\d+)x(\d+)/);
+   if(!match)throw Error('Unknown Android display size: '+size);
+   const actualHeight=Number(match[2]),actualWidth=Number(match[1]);
+   const extra=Math.max(0,actualHeight-location.vh*location.dpr);
+   const offsets=[extra/2,0,extra-24*location.dpr,extra-48*location.dpr,extra];
+   for(const offset of [...new Set(offsets.map(Math.round))]){
+    const x=Math.round(location.x*location.dpr),y=Math.round(location.y*location.dpr+offset);
+    if(x<0||x>=actualWidth||y<0||y>=actualHeight)continue;
+    console.log('NATIVE_OS_TAP '+JSON.stringify({selector,x,y,offset}));
+    adb('shell','input','tap',String(x),String(y));
+    await delay(selector==='#importBtn'?750:350);
+    if(selector==='#importBtn'){
+     // A completed picker launch is stronger evidence than an inspector click
+     // probe, because DocumentsUI can suspend the app's DevTools runtime.
+     const activities=adb('shell','dumpsys','activity','activities');
+     received=/documentsui|PickActivity/i.test(activities);
+    }else received=await this.eval('window.__nativeTapped===true');
+    if(received)break;
+   }
   }
   if(!received)throw Error('Native touch did not activate '+selector+' '+JSON.stringify(location));
   console.log('NATIVE_TAP_PASS '+selector);
@@ -247,13 +252,18 @@ try{
  await active.until('document.readyState==="complete" && !!document.querySelector("#newGame")',40000);
  const origin=await active.eval('location.origin');check(origin==='https://appassets.androidplatform.net','Packaged HTTPS origin');
  const version=await active.eval('document.querySelector(".live-tag")?.textContent||""');
- check(version.includes('0.67.0'),'Native and web version match');
+ check(version.includes(info.version),'Native and web version match');
  const stage=await active.eval('fetch("package-info.json").then(r=>r.json())');
  check(stage.main_sha256===info.main_sha256 && stage.version===info.version,'Manifest source fingerprint');
  const remote=await active.eval('performance.getEntriesByType("resource").map(x=>x.name).filter(x=>!x.startsWith("https://appassets.androidplatform.net/assets/"))');
  check(remote.length===0,'No remote resources loaded');
  await active.tap('#newGame');
- await active.until('!!document.querySelector("#starters button")',15000);
+ await active.until('!document.getElementById("openingCinematic").classList.contains("hidden")',15000);
+ const introLayout=await active.eval('(()=>{const pick=id=>{const r=document.getElementById(id).getBoundingClientRect();return {top:r.top,bottom:r.bottom,left:r.left,right:r.right}};return {intro:pick("openingCinematic"),skip:pick("cinematicSkip"),viewport:pick("viewport"),innerHeight:innerHeight,scrollY:scrollY}})()');
+ console.log('ANDROID_CINEMATIC_LAYOUT '+JSON.stringify(introLayout));
+ check(introLayout.skip.top>=0 && introLayout.skip.bottom<=introLayout.innerHeight,'Native prologue skip control within visible WebView');
+ await active.tap('#cinematicSkip');
+ await active.until('!!document.querySelector("#starters button")&&!document.getElementById("starterScreen").classList.contains("hidden")',15000);
  await active.tap('#starters button');
  await active.until('document.querySelector("#titleScreen")?.classList.contains("hidden")',15000);
  check(await active.eval('document.querySelector("#titleScreen").classList.contains("hidden")'),'Gameplay surface opened after native starter touch');

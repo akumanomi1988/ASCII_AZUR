@@ -26,9 +26,9 @@ export function mount({virtualTime=false,seed=1,priorSave=null}={}){
  };
  const make=(id='')=>{
   const classes=new Set(['hidden']);
-  return {id,style:{},dataset:{},hidden:false,innerHTML:'',textContent:'',classList:{add:(x)=>classes.add(x),remove:(x)=>classes.delete(x),contains:(x)=>classes.has(x),toggle:(x,on)=>{if(on===undefined? !classes.has(x):on){classes.add(x);return true;}classes.delete(x);return false;}},
+  return {id,style:{setProperty(){}},dataset:{},hidden:false,innerHTML:'',textContent:'',classList:{add:(x)=>classes.add(x),remove:(x)=>classes.delete(x),contains:(x)=>classes.has(x),toggle:(x,on)=>{if(on===undefined? !classes.has(x):on){classes.add(x);return true;}classes.delete(x);return false;}},
     addEventListener(){},focus(){},attributes:{},children:[],setAttribute(k,v){this.attributes[k]=v},getAttribute(k){return this.attributes[k]||''},replaceWith(){},replaceChildren(...xs){this.children=xs},appendChild(x){this.children.push(x)},append(...xs){this.children.push(...xs)},after(){},closest(){return make('sidebar')},
-    querySelector(){return null},querySelectorAll(){return[]},getBoundingClientRect(){return{left:0,top:0,width:960,height:540}},
+    querySelector(selector){return id==='openingCinematic'&&selector.startsWith('#')?doc.getElementById(selector.slice(1)):null},querySelectorAll(){return[]},getBoundingClientRect(){return{left:0,top:0,width:960,height:540}},
     getContext:(mode)=>mode==='2d'?fakeContext:null,
     set width(x){this._w=x},get width(){return this._w||960},set height(x){this._h=x},get height(){return this._h||540}
   };
@@ -38,7 +38,7 @@ export function mount({virtualTime=false,seed=1,priorSave=null}={}){
  const storage={setItem:(k,v)=>store.set(k,v),getItem:(k)=>store.get(k)||null};
  const html=fs.readFileSync(new URL('../../play.html',import.meta.url),'utf8');
  const source=html.split('<script>\n').at(-1).split('\n</script>')[0].replace(/new AzurGame\(\);\s*$/, 'globalThis.GAME = new AzurGame(); globalThis.AZUR_TEST_WORLD = {ZONES,canOccupy,sweepMove,WORLD_W,WORLD_H};');
- const sandbox={document:doc,window:win,localStorage:storage,navigator:{},performance,console,AudioContext:class{constructor(){throw new Error('audio unavailable')}},ImageData:class{constructor(width,height){this.width=width;this.height=height;this.data=new Uint8ClampedArray(width*height*4)}},requestAnimationFrame(){},setTimeout:virtualTime?virtualSetTimeout:setTimeout,clearTimeout:virtualTime?virtualClearTimeout:clearTimeout,Math:virtualTime?randomMath:Math};
+ const sandbox={document:doc,window:win,localStorage:storage,navigator:{},performance,console,AudioContext:class{constructor(){throw new Error('audio unavailable')}},ImageData:class{constructor(width,height){this.width=width;this.height=height;this.data=new Uint8ClampedArray(width*height*4)}},requestAnimationFrame(){return 0},cancelAnimationFrame(){},setTimeout:virtualTime?virtualSetTimeout:setTimeout,clearTimeout:virtualTime?virtualClearTimeout:clearTimeout,Math:virtualTime?randomMath:Math};
  vm.runInNewContext(source,sandbox,{timeout:5000});
  return{game:sandbox.GAME,dom,storage,flushTimers,world:sandbox.AZUR_TEST_WORLD};
 }

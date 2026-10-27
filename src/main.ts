@@ -1,3 +1,4 @@
+import {OpeningCinematic} from './ui/opening-cinematic.js';
 import {azurOpening,azurNarrativeBeat,azurNpcReflection,azurMarshChoiceMeaning,azurCrownChoiceMeaning,azurBondLegacy,azurAfterlightIntroduction} from './story-agency.js';
 import {LEGACY_WITNESS_FLAG,legacyBranch,legacyClaimed,legacyReceipt,planLegacyClaim} from './story-legacy.js';
 import {regionFieldGuide,nextKnownFieldLead,wildPacing,witnessFieldAftermath} from './world/exploration-flow.js';
@@ -60,6 +61,7 @@ class AzurGame {
   private lastAccessibleMessage='';
   private save:SaveGame={version:1,zone:'village',x:4,y:16,team:[],storage:[],inventory:{seals:5,tonics:3},defeatedBoss:false,flags:[],playSeconds:0,rpg:newEconomy()};
   private expeditionMessage='';private roamingCache=new Map<string,RoamingEncounter[]>();
+  private cinematic:OpeningCinematic;
   private started=false;private keys=new Set<string>();private battle:Battle|null=null;private dialogQueue:{title:string;text:string}[]=[];
   private modalInvoking:HTMLElement|null=null;private modalBack:(()=>void)|null=null;private drawerInvoking:HTMLElement|null=null;
   private battleKeyboardFocus=false;private battleMenu:'commands'|'moves'|'items'='commands';
@@ -67,9 +69,10 @@ class AzurGame {
   private notifyTimer:number|undefined;private momentTimer:number|undefined;private encounterCooldown=3;private timeSinceSave=0;
   private stick={x:0,y:0,pointerId:-1};private padStick={x:0,y:0};private padButtons=new Set<number>();private selectedBattleAction=0;private facing=2;private moving=false;
   private lastDungeonChamber=-1;private lastReveal=-1;private camera={x:4,y:16};private cameraZone='village';private evolution:{from:string;to:string;startedAt:number;duration:number}|null=null;
-  constructor(){this.restoreAudioSettings();this.restoreMotionSettings();this.restoreGraphicSettings();this.restoreAdaptiveGraphics();this.restoreAccessibility();this.restoreActiveSlot();this.mountDrawer();this.wire();this.loadState();const fit=()=>{const height=visibleViewportHeight(window.innerHeight,window.visualViewport?.height);if(height>0)document.documentElement.style.setProperty('--azur-visible-height',height+'px');this.renderer.resize();};fit();requestAnimationFrame(this.loop);window.addEventListener('resize',fit);window.visualViewport?.addEventListener('resize',fit);if('serviceWorker'in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('./sw.js').catch(()=>{});}
+  constructor(){this.cinematic=new OpeningCinematic(byId('openingCinematic'));this.restoreAudioSettings();this.restoreMotionSettings();this.restoreGraphicSettings();this.restoreAdaptiveGraphics();this.restoreAccessibility();this.restoreActiveSlot();this.mountDrawer();this.wire();this.loadState();const fit=()=>{const height=visibleViewportHeight(window.innerHeight,window.visualViewport?.height);if(height>0)document.documentElement.style.setProperty('--azur-visible-height',height+'px');this.renderer.resize();};fit();requestAnimationFrame(this.loop);window.addEventListener('resize',fit);window.visualViewport?.addEventListener('resize',fit);if('serviceWorker'in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('./sw.js').catch(()=>{});}
   private wire(){
     byId('newGame').addEventListener('click',()=>this.startNew());
+    byId('watchIntro').addEventListener('click',()=>{this.sound.unlock();this.beginOpening(false);});
     byId('continue').addEventListener('click',()=>this.continueGame());
     byId<HTMLSelectElement>('saveSlotSelect').addEventListener('change',e=>this.selectSaveSlot(Number((e.target as HTMLSelectElement).value)));
 
@@ -109,6 +112,7 @@ class AzurGame {
 
   /** Only the active interaction layer owns keyboard input. Native form editing is never intercepted. */
   private handleKeyDown(e:KeyboardEvent){
+    if(this.cinematic.active){this.cinematic.handleKey(e);return;}
     if(e.key==='F3'&&!e.repeat){e.preventDefault();this.debugPerformance=!this.debugPerformance;return;}
     const key=e.key.toLowerCase(),drawerOpen=byId('gameDrawer').classList.contains('open');
     if(isTypingTarget(e.target)){
@@ -311,10 +315,27 @@ class AzurGame {
     }
   }
   private reset(){this.endurance.reset();this.atlasTarget=null;this.resetJoystick();this.toggleDrawer(false);this.roamingCache.clear();this.save={version:1,zone:'village',x:4,y:16,team:[],storage:[],inventory:{seals:5,tonics:3},defeatedBoss:false,flags:[],playSeconds:0,rpg:newEconomy(),worldSeed:freshWorldSeed()};configureWorld(this.save.worldSeed!);this.save.worldSnapshot=captureWorldSnapshot()!;this.battle=null;this.evolution=null;this.combatCue=null;this.keys.clear();this.encounterCooldown=4;this.camera={x:4,y:16};this.cameraZone='village';this.lastReveal=-1;}
-  private startNew(){try{if(readSave(localStorage,this.activeSlot)&&!window.confirm(`Crear un viaje nuevo sustituirá la partida del espacio ${this.activeSlot}. Los otros viajes se conservarán. ¿Continuar?`))return;this.saveBaseline=localStorage.getItem(saveKeyForSlot(this.activeSlot));}catch{/* storage may be disabled */}this.sound.unlock();this.sound.setScene('title');const requested=(byId<HTMLInputElement>('worldSeedInput').value||'').trim();this.reset();if(requested){this.save.worldSeed=/^\d{1,10}$/.test(requested)&&Number(requested)<=4294967295?Number(requested)||1:seedFromText(requested);configureWorld(this.save.worldSeed);this.save.worldSnapshot=captureWorldSnapshot()!;} byId('titleScreen').classList.add('hidden');byId('starterScreen').classList.remove('hidden');this.renderStarters();this.sound.select();}
+  private startNew(){try{if(readSave(localStorage,this.activeSlot)&&!window.confirm(`Crear un viaje nuevo sustituirá la partida del espacio ${this.activeSlot}. Los otros viajes se conservarán. ¿Continuar?`))return;this.saveBaseline=localStorage.getItem(saveKeyForSlot(this.activeSlot));}catch{/* storage may be disabled */}this.sound.unlock();this.sound.setScene('title');const requested=(byId<HTMLInputElement>('worldSeedInput').value||'').trim();this.reset();if(requested){this.save.worldSeed=/^\d{1,10}$/.test(requested)&&Number(requested)<=4294967295?Number(requested)||1:seedFromText(requested);configureWorld(this.save.worldSeed);this.save.worldSnapshot=captureWorldSnapshot()!;} this.beginOpening(true);this.sound.select();}
+  /** A new journey is only saved after the player chooses a partner. Replays do not touch save state. */
+  private beginOpening(newJourney:boolean){
+    this.keys.clear();this.resetJoystick();this.toggleDrawer(false);
+    byId('titleScreen').classList.add('hidden');byId('starterScreen').classList.add('hidden');
+    this.sound.setScene('title');
+    const returnToTitle=()=>{
+      byId('titleScreen').classList.remove('hidden');
+      if(newJourney)this.loadState();
+      focusMenuFirst(byId('titleScreen'));
+    };
+    this.cinematic.start(()=>{
+      if(!newJourney){returnToTitle();return;}
+      byId('starterScreen').classList.remove('hidden');
+      this.renderStarters();
+      this.sound.select();
+    },returnToTitle);
+  }
   private continueGame(){try{const result=readSave(localStorage,this.activeSlot);if(!result)throw Error('Guardado inválido');this.saveBaseline=localStorage.getItem(saveKeyForSlot(this.activeSlot));const raw=result.state;this.atlasTarget=null;this.save=raw;this.battle=null;this.combatCue=null;this.battleMenu='commands';byId('battle').classList.add('hidden');byId('viewport').classList.remove('in-battle');const primaryEstablished=establishPrimary(this.save);const storedSnapshot=this.save.worldSnapshot;configureWorld(this.save.worldSeed??0,storedSnapshot);const expandSnapshot=!!this.save.worldSeed&&(!storedSnapshot||ZONE_IDS.some(id=>!storedSnapshot.tiles[id]||!storedSnapshot.poi[id]));if(expandSnapshot)this.save.worldSnapshot=captureWorldSnapshot()??storedSnapshot;this.roamingCache.clear();this.save.rpg=normalizeEconomy(raw.rpg);this.camera={x:this.save.x,y:this.save.y};this.cameraZone=this.save.zone;this.lastReveal=-1;this.revealPosition();this.started=true;if(expandSnapshot||primaryEstablished)this.saveNow(false);this.sound.unlock();this.sound.setScene(this.save.dungeon?.active?'sanctuary':themeForZone(this.save.zone as ZoneId));this.encounterCooldown=4;byId('titleScreen').classList.add('hidden');this.sound.portal();this.toast(result.source==='backup'?'PARTIDA RECUPERADA DESDE RESPALDO':'PARTIDA RECUPERADA');this.updateUI();this.restoreBattle();}catch{this.toast('EL GUARDADO NO SE PUDO RECUPERAR');}}
   private renderStarters(){const chars:{id:string;glyph:string;title:string}[]=[{id:'cindrel',glyph:'♨',title:'EL FUEGO'},{id:'velaria',glyph:'≋',title:'LA BRUMA'},{id:'thorne',glyph:'✣',title:'LA RAÍZ'}];byId('starters').innerHTML=chars.map(c=>`<button class="starter" data-starter="${c.id}"><span class="starter-symbol" style="color:${SPECIES[c.id]!.color}">${c.glyph}</span><strong>${SPECIES[c.id]!.name}</strong><small>${c.title}</small></button>`).join('');for(const el of byId('starters').querySelectorAll<HTMLButtonElement>('[data-starter]'))el.addEventListener('click',()=>this.pickStarter(el.dataset.starter!));focusMenuFirst(byId('starterScreen'));}
-  private pickStarter(id:string){this.sound.setScene('village');this.save.team=[createCreature(id,5)];this.save.journey=newJourneyMetrics(id);this.save.primaryUid=this.save.team[0]!.uid;this.revealPosition();this.started=true;byId('starterScreen').classList.add('hidden');this.sound.pick();this.toast('NUEVO MUNDO · SEMILLA '+this.save.worldSeed);this.dialog(azurOpening());this.updateUI();this.saveNow(false);}
+  private pickStarter(id:string){if(this.cinematic.active)this.cinematic.finish();this.sound.setScene('village');this.save.team=[createCreature(id,5)];this.save.journey=newJourneyMetrics(id);this.save.primaryUid=this.save.team[0]!.uid;this.revealPosition();this.started=true;byId('starterScreen').classList.add('hidden');this.sound.pick();this.toast('NUEVO MUNDO · SEMILLA '+this.save.worldSeed);this.dialog(azurOpening());this.updateUI();this.saveNow(false);}
   private flag(id:string){return this.save.flags.includes(id);}
   private get storyState():ArkenStoryState{return{flags:this.save.flags,defeatedBoss:this.save.defeatedBoss,dungeonFinished:!!this.save.dungeon?.finished};}
   private storyBeat(){return arkenStoryBeat(this.storyState);}

@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 const workflow=readFileSync('.github/workflows/verify.yml','utf8');
 const runner=readFileSync('tools/android-emulator-acceptance.mjs','utf8');
-test('Android emulator CI covers two Google Play API generations and gates Pages',()=>{
+test('Android emulator CI covers a representative Android target and gates Pages',()=>{
  assert.match(workflow,/android-emulator:\s*\n/);
- assert.match(workflow,/api-level: \[30, 35\]/);
+ assert.match(workflow,/api-level: \[35\]/);
  assert.match(workflow,/reactivecircus\/android-emulator-runner@v2/);
  assert.match(workflow,/target: google_apis/);
  assert.match(workflow,/if \[ -e \/dev\/kvm \]/);
@@ -46,4 +46,13 @@ test('the starter modal is also a full-screen reachable selection on compact And
  assert.match(css,/#starterScreen\.choice-overlay:not\(\.hidden\)\s*\{[^}]*position: fixed !important/s);
  assert.match(css,/#starterScreen \.starter\s*\{[^}]*min-height: 92px/s);
  assert.match(css,/#starterScreen \.starters\s*\{[^}]*grid-template-columns: repeat\(3, minmax\(0, 1fr\)\)/s);
+});
+
+test('native SAF import uses Android OS taps without suspending the CDP inspector',()=>{
+ const native=readFileSync('tools/android-native-acceptance.mjs','utf8');
+ assert.match(native,/adb\('shell','input','tap'/);
+ assert.match(native,/selector!=='#importBtn'/);
+ assert.match(native,/documentsui\|PickActivity/);
+ assert.match(native,/Input\.dispatchTouchEvent/);
+ assert.match(native,/ACTION_OPEN_DOCUMENT/);
 });

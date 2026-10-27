@@ -32,10 +32,24 @@ localStorage.setItem('ascii-azur-graphics-v2',JSON.stringify({renderMode:params.
 // Headless acceptance intentionally captures a bounded number of real rendered frames.
 // Sustained-performance profiling is a separate measurement, not this CI interaction gate.
 {
- const nativeFrame=window.requestAnimationFrame.bind(window);let frames=0;
- const frameBudget=params.has('fallback')?12:20;let stalled=null;
- window.requestAnimationFrame=callback=>{if(frames++<frameBudget)return nativeFrame(callback);stalled=callback;return 0};
- window.__azurQaAdvance=()=>{frames=frameBudget-3;if(stalled){const callback=stalled;stalled=null;nativeFrame(callback)}};
+ // Multiple animation owners (renderer + prologue) must never overwrite each other's
+ // throttled callback; synthetic IDs also make cancelAnimationFrame effective.
+ const nativeFrame=window.requestAnimationFrame.bind(window),nativeCancel=window.cancelAnimationFrame.bind(window);
+ let frames=0,nextSynthetic=-1;
+ const frameBudget=params.has('fallback')?12:20,stalled=new Map();
+ window.requestAnimationFrame=callback=>{
+  if(frames++<frameBudget)return nativeFrame(callback);
+  const id=nextSynthetic--;stalled.set(id,callback);return id;
+ };
+ window.cancelAnimationFrame=id=>{
+  if(stalled.delete(id))return;
+  nativeCancel(id);
+ };
+ window.__azurQaAdvance=()=>{
+  frames=frameBudget-3;
+  const pending=[...stalled.values()];stalled.clear();
+  for(const callback of pending)nativeFrame(callback);
+ };
 }
 window.addEventListener('load',()=>setTimeout(async()=>{
  const check=(ok,msg)=>{if(!ok)throw Error(msg)};
@@ -92,6 +106,13 @@ window.addEventListener('load',()=>setTimeout(async()=>{
   check($('game')&&$('newGame'),'Missing game bootstrap');
   $('worldSeedInput').value='AZUR-QA-STABLE-SEED';
   $('newGame').click();
+  check(!$('openingCinematic').classList.contains('hidden'),'New journey prologue must open');
+  check($('cinematicHeading').textContent.includes('Hubo un tiempo'),'First prologue scene is missing');
+  $('cinematicNext').click();
+  check($('openingCinematic').dataset.scene==='world','Prologue forward control failed');
+  $('cinematicSkip').click();
+  window.__azurQaAdvance(); // Return the bounded renderer budget after the extra cinematic rAF.
+  check($('openingCinematic').classList.contains('hidden'),'Skipped prologue remains visible');
   check(document.querySelectorAll('#starters button').length===3,'Missing starters');
   check(document.activeElement?.matches('#starters button'),'Starter selection is not keyboard-focused');
   document.querySelector('#starters button').click();
@@ -487,6 +508,8 @@ window.addEventListener('load',()=>setTimeout(async()=>{
   check($('continue').hidden,'Empty second campaign incorrectly offers Continue');
   $('worldSeedInput').value='independent-second-campaign';
   $('newGame').click();
+  check(!$('openingCinematic').classList.contains('hidden'),'Second campaign opening missing');
+  $('cinematicSkip').click();
   check(!$('starterScreen').classList.contains('hidden'),'Second campaign starter selection missing');
   document.querySelector('[data-starter="cindrel"]').click();
   for(let i=0;i<12&&!$('dialogue').classList.contains('hidden');i++)$('closeDialogue').click();

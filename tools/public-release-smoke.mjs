@@ -118,6 +118,8 @@ async function play(cdp,root,version,mode,out){
  if(!title.includes('WORLD ENGINE v'+version))throw Error('Live page version mismatch: '+title);
  console.log('PUBLIC_STAGE '+mode+' start-new-game');
  await cdp.tap('#newGame',false);
+ await cdp.until('!document.getElementById("openingCinematic").classList.contains("hidden")');
+ await cdp.tap('#cinematicSkip',false);
  await cdp.until('!!document.querySelector("#starters button")&&!document.getElementById("starterScreen").classList.contains("hidden")');
  console.log('PUBLIC_STAGE '+mode+' choose-starter');
  await cdp.tap('#starters button',false);
