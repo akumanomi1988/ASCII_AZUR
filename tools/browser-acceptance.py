@@ -97,6 +97,7 @@ window.addEventListener('load',()=>setTimeout(async()=>{
   $('cinematicNext').click();
   check($('openingCinematic').dataset.scene==='world','Prologue forward control failed');
   $('cinematicSkip').click();
+  window.__azurQaAdvance(); // Return the bounded renderer budget after the extra cinematic rAF.
   check($('openingCinematic').classList.contains('hidden'),'Skipped prologue remains visible');
   check(document.querySelectorAll('#starters button').length===3,'Missing starters');
   check(document.activeElement?.matches('#starters button'),'Starter selection is not keyboard-focused');
