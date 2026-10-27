@@ -27,6 +27,7 @@ export class MenuFocusTrail {
   document.addEventListener('visibilitychange',()=>{if(document.hidden)this.hide();});
  }
  setTone(color:string){if(/^#[a-f0-9]{6}$/i.test(color))document.documentElement.style.setProperty('--azur-bond-glow',color);}
+ setReducedMotion(value:boolean){this.reduced=value;document.documentElement.classList.toggle('azur-ui-reduced-motion',value);if(value){this.history=[];for(const dot of this.points)dot.style.opacity='0';}}
  private surface(target:EventTarget|null):HTMLElement|null{
   const el=target instanceof Element?target:null;
   const root=el?.closest<HTMLElement>(MENU_SCOPE)??null;

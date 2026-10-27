@@ -740,3 +740,8 @@
  box-shadow:0 0 12px var(--azur-bond-glow),inset 0 0 14px #d7f6ee22;filter:brightness(1.13)
 }
 @media(prefers-reduced-motion:reduce){#battle .health-track i{animation:none!important;transition:none!important}.azur-cursor-particle{display:none}.azur-cursor-orb{transition:none}}
+
+/* Respect in-game reduced motion independently of system preferences. */
+html.azur-ui-reduced-motion .azur-cursor-particle{display:none!important}
+html.azur-ui-reduced-motion .azur-cursor-orb{transition:none!important}
+html.azur-ui-reduced-motion #battle .health-track[data-critical="true"] i{animation:none!important}

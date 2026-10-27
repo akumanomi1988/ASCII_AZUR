@@ -318,6 +318,14 @@ window.addEventListener('load',()=>setTimeout(async()=>{
   $('closeModal').click();
   $('quickSettings').click();
   check(!$('modal').classList.contains('hidden'),'Graphics options did not open');
+  const motionPreference=$('motionReduced');
+  check(motionPreference instanceof HTMLInputElement,'Reduced-motion setting missing');
+  const initialMotionPreference=motionPreference.checked;
+  motionPreference.checked=true;motionPreference.dispatchEvent(new Event('change',{bubbles:true}));
+  check(document.documentElement.classList.contains('azur-ui-reduced-motion'),'In-game reduced-motion failed to disable menu particles');
+  check(getComputedStyle(document.querySelector('.azur-cursor-particle')).display==='none','Luminous particles remain animated during reduced-motion');
+  motionPreference.checked=initialMotionPreference;motionPreference.dispatchEvent(new Event('change',{bubbles:true}));
+  check(document.documentElement.classList.contains('azur-ui-reduced-motion')===initialMotionPreference,'Reduced-motion setting was not restored');
   const mode=new URLSearchParams(location.search).get('mode')||'ascii';
   const selector=$('renderModeSelect');
   selector.value=mode==='ascii'?'glyph-pixel':'ascii';

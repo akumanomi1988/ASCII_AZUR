@@ -10,3 +10,5 @@
 - Browser acceptance explicitly checks menu-gap continuity, hover cleanup, text-input preservation, leaving menu surfaces and non-intercepting pointer events.
 - Full TypeScript/Node, Chromium, Android API 35, offline standalone, GitHub Pages source provenance and live public smoke are required before the patch can ship.
 - No independent physical Android, external pacing or commercial acceptance milestones are claimed.
+
+The in-game reduced-motion preference suppresses cursor particles and critical-HP flashing independently of OS settings. Browser acceptance toggles this setting and restores its previous value.
