@@ -42,3 +42,6 @@ Feature branch feature/v069-combat-pacing-menu-light carries slower combat react
 
 ## v0.70 performance engineering candidate
 Branch `feature/mobile-render-budget-v070`: preallocated WebGL source texture + subimage uploads, adaptive low-hardware mobile hints respecting persisted user opt-out, testable 180-frame API contract, unchanged save/AI/audio. Verify main release and public source before claiming deployment. Frozen 21/32 = 68.75% until external hardware/human acceptance.
+
+## v0.70.1 live public smoke startup race
+Main v0.70.0 Actions 40564069723: 501 Node checks, Chromium and Android API 35 passed, Pages published source c6fe46ad; public desktop smoke passed but responsive mobile smoke tapped New Game immediately after HTML document.complete, before verified JavaScript application readiness. The new game exposes `document.documentElement.dataset.azurReady=true` only after constructor initialization; public smoke waits for this signal before attempting any input. This is a fail-closed user-interaction readiness gate, not a browser-performance timeout increase alone. Revalidate live source, desktop/mobile smoke after merged hotfix; commercial roadmap still 21/32.
