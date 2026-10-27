@@ -19,7 +19,7 @@ export const OPENING_BEATS:readonly OpeningBeat[]=[
   {id:'erasure',chapter:'EL OLVIDO AVANZA',title:'Cuando un nombre se apaga',glyph:'⌁',color:'#b89bb2',
    narration:'No queda una tumba ni una despedida. Queda un hueco que nadie sabe explicar. El mundo pierde algo... y continúa como si nada.'},
   {id:'embers',chapter:'LO QUE RESISTE',title:'Pero aún quedan Lumbres',glyph:'✦',color:'#e6bc80',
-   narration:'Pequeñas llamas mantienen a salvo los recuerdos. En su luz, los viajeros descansan y escuchan historias que todavía merecen ser contadas.'},
+   narration:'Las Lumbres, pequeñas llamas antiguas, mantienen a salvo los recuerdos. En su luz, los viajeros descansan y escuchan historias que todavía merecen ser contadas.'},
   {id:'companions',chapter:'EL PODER DEL VÍNCULO',title:'Alguien puede recordarte',glyph:'♨  ≋  ✣',color:'#e4b88a',
    narration:'Un vínculo verdadero no necesita las palabras perfectas. Nace cuando dos vidas deciden protegerse, incluso frente a aquello que las quiere borrar.'},
   {id:'arken',chapter:'EL ÚLTIMO REFUGIO',title:'Arken sigue encendida',glyph:'⌂',color:'#d8c498',
