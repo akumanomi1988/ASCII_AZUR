@@ -634,7 +634,7 @@
 
 /* v0.67 — The Unwritten: original, asset-free two-minute opening cinematic.
    Animation is contained inside the gameplay viewport and respects motion settings. */
-#viewport .opening-cinematic{position:fixed;inset:0;width:100vw;height:100vh;height:100dvh;z-index:19;isolation:isolate;overflow:hidden;background:#060d17;--cinematic-accent:#d0b78a;color:#e9e7df;overscroll-behavior:contain}
+#viewport .opening-cinematic{position:fixed;inset:0;width:100vw;height:100vh;height:100dvh;height:var(--azur-visible-height,100dvh);z-index:19;isolation:isolate;overflow:hidden;background:#060d17;--cinematic-accent:#d0b78a;color:#e9e7df;overscroll-behavior:contain}
 #viewport .cinematic-stage,#viewport .cinematic-vignette{position:absolute;inset:0;pointer-events:none}
 #viewport .cinematic-stage{overflow:hidden;background:linear-gradient(180deg,#07111e,#183040 58%,#141b25);transition:background 1.4s ease}
 #viewport .cinematic-stars{position:absolute;inset:-10%;background-image:radial-gradient(#d6e7ef 1px,transparent 1.5px),radial-gradient(#b2bbdf 1px,transparent 1.8px);background-size:59px 61px,107px 97px;background-position:6px 8px,32px 51px;opacity:.55;animation:cinematicStarDrift 65s linear infinite}
