@@ -113,7 +113,7 @@ async function play(cdp,root,version,mode,out){
  // Here real Chromium mouse input exercises both public desktop and responsive mobile layouts.
  await cdp.send('Emulation.setTouchEmulationEnabled',{enabled:false,maxTouchPoints:1});
  await cdp.send('Page.navigate',{url:new URL('?azur_smoke='+mode+'-'+Date.now(),root).toString()});
- await cdp.until('document.readyState==="complete"&&!!document.getElementById("newGame")',35000);
+ await cdp.until('document.readyState==="complete"&&document.documentElement?.dataset.azurReady==="true"&&!!document.getElementById("newGame")',45000);
  const title=await cdp.eval('document.querySelector(".live-tag")?.textContent||""');
  if(!title.includes('WORLD ENGINE v'+version))throw Error('Live page version mismatch: '+title);
  console.log('PUBLIC_STAGE '+mode+' start-new-game');
