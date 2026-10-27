@@ -9,7 +9,12 @@ import {createCreature as createCharacter} from '../dist/domain.js';
 import {generateDungeon as makeCrypt} from '../dist/dungeons/labyrinth.js';
 test('runtime: start a game, select creature, dismiss story, save',()=>{
  const {game,dom,storage}=mount();
- game.startNew();assert.equal(dom.get('starterScreen').classList.contains('hidden'),false);
+ game.startNew();
+ assert.equal(dom.get('openingCinematic').classList.contains('hidden'),false);
+ assert.equal(dom.get('starterScreen').classList.contains('hidden'),true);
+ game.cinematic.finish();
+ assert.equal(dom.get('openingCinematic').classList.contains('hidden'),true);
+ assert.equal(dom.get('starterScreen').classList.contains('hidden'),false);
  game.pickStarter('cindrel');assert.equal(game.save.team.length,1);assert.equal(game.save.team[0].speciesId,'cindrel');
  assert.equal(dom.get('dialogue').classList.contains('hidden'),false);
  for(let i=0;i<26;i++)game.nextDialog();
