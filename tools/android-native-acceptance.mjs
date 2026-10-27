@@ -254,6 +254,9 @@ try{
  check(remote.length===0,'No remote resources loaded');
  await active.tap('#newGame');
  await active.until('!document.getElementById("openingCinematic").classList.contains("hidden")',15000);
+ const introLayout=await active.eval('(()=>{const pick=id=>{const r=document.getElementById(id).getBoundingClientRect();return {top:r.top,bottom:r.bottom,left:r.left,right:r.right}};return {intro:pick("openingCinematic"),skip:pick("cinematicSkip"),viewport:pick("viewport"),innerHeight:innerHeight,scrollY:scrollY}})()');
+ console.log('ANDROID_CINEMATIC_LAYOUT '+JSON.stringify(introLayout));
+ check(introLayout.skip.top>=0 && introLayout.skip.bottom<=introLayout.innerHeight,'Native prologue skip control within visible WebView');
  await active.tap('#cinematicSkip');
  await active.until('!!document.querySelector("#starters button")&&!document.getElementById("starterScreen").classList.contains("hidden")',15000);
  await active.tap('#starters button');
