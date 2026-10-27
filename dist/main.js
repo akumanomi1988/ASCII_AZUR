@@ -1,3 +1,4 @@
+import { OpeningCinematic } from './ui/opening-cinematic.js';
 import { azurOpening, azurNarrativeBeat, azurNpcReflection, azurMarshChoiceMeaning, azurCrownChoiceMeaning, azurBondLegacy, azurAfterlightIntroduction } from './story-agency.js';
 import { legacyBranch, legacyClaimed, legacyReceipt, planLegacyClaim } from './story-legacy.js';
 import { regionFieldGuide, nextKnownFieldLead, wildPacing, witnessFieldAftermath } from './world/exploration-flow.js';
@@ -178,6 +179,7 @@ class AzurGame {
             }
             requestAnimationFrame(this.loop);
         };
+        this.cinematic = new OpeningCinematic(byId('openingCinematic'));
         this.restoreAudioSettings();
         this.restoreMotionSettings();
         this.restoreGraphicSettings();
@@ -198,6 +200,7 @@ class AzurGame {
     }
     wire() {
         byId('newGame').addEventListener('click', () => this.startNew());
+        byId('watchIntro').addEventListener('click', () => { this.sound.unlock(); this.beginOpening(false); });
         byId('continue').addEventListener('click', () => this.continueGame());
         byId('saveSlotSelect').addEventListener('change', e => this.selectSaveSlot(Number(e.target.value)));
         byId('settings').addEventListener('click', () => this.settings());
@@ -252,6 +255,10 @@ class AzurGame {
     }
     /** Only the active interaction layer owns keyboard input. Native form editing is never intercepted. */
     handleKeyDown(e) {
+        if (this.cinematic.active) {
+            this.cinematic.handleKey(e);
+            return;
+        }
         if (e.key === 'F3' && !e.repeat) {
             e.preventDefault();
             this.debugPerformance = !this.debugPerformance;
@@ -632,7 +639,31 @@ class AzurGame {
         this.save.worldSeed = /^\d{1,10}$/.test(requested) && Number(requested) <= 4294967295 ? Number(requested) || 1 : seedFromText(requested);
         configureWorld(this.save.worldSeed);
         this.save.worldSnapshot = captureWorldSnapshot();
-    } byId('titleScreen').classList.add('hidden'); byId('starterScreen').classList.remove('hidden'); this.renderStarters(); this.sound.select(); }
+    } this.beginOpening(true); this.sound.select(); }
+    /** A new journey is only saved after the player chooses a partner. Replays do not touch save state. */
+    beginOpening(newJourney) {
+        this.keys.clear();
+        this.resetJoystick();
+        this.toggleDrawer(false);
+        byId('titleScreen').classList.add('hidden');
+        byId('starterScreen').classList.add('hidden');
+        this.sound.setScene('title');
+        const returnToTitle = () => {
+            byId('titleScreen').classList.remove('hidden');
+            if (newJourney)
+                this.loadState();
+            focusMenuFirst(byId('titleScreen'));
+        };
+        this.cinematic.start(() => {
+            if (!newJourney) {
+                returnToTitle();
+                return;
+            }
+            byId('starterScreen').classList.remove('hidden');
+            this.renderStarters();
+            this.sound.select();
+        }, returnToTitle);
+    }
     continueGame() { try {
         const result = readSave(localStorage, this.activeSlot);
         if (!result)
@@ -675,7 +706,8 @@ class AzurGame {
     } }
     renderStarters() { const chars = [{ id: 'cindrel', glyph: '♨', title: 'EL FUEGO' }, { id: 'velaria', glyph: '≋', title: 'LA BRUMA' }, { id: 'thorne', glyph: '✣', title: 'LA RAÍZ' }]; byId('starters').innerHTML = chars.map(c => `<button class="starter" data-starter="${c.id}"><span class="starter-symbol" style="color:${SPECIES[c.id].color}">${c.glyph}</span><strong>${SPECIES[c.id].name}</strong><small>${c.title}</small></button>`).join(''); for (const el of byId('starters').querySelectorAll('[data-starter]'))
         el.addEventListener('click', () => this.pickStarter(el.dataset.starter)); focusMenuFirst(byId('starterScreen')); }
-    pickStarter(id) { this.sound.setScene('village'); this.save.team = [createCreature(id, 5)]; this.save.journey = newJourneyMetrics(id); this.save.primaryUid = this.save.team[0].uid; this.revealPosition(); this.started = true; byId('starterScreen').classList.add('hidden'); this.sound.pick(); this.toast('NUEVO MUNDO · SEMILLA ' + this.save.worldSeed); this.dialog(azurOpening()); this.updateUI(); this.saveNow(false); }
+    pickStarter(id) { if (this.cinematic.active)
+        this.cinematic.finish(); this.sound.setScene('village'); this.save.team = [createCreature(id, 5)]; this.save.journey = newJourneyMetrics(id); this.save.primaryUid = this.save.team[0].uid; this.revealPosition(); this.started = true; byId('starterScreen').classList.add('hidden'); this.sound.pick(); this.toast('NUEVO MUNDO · SEMILLA ' + this.save.worldSeed); this.dialog(azurOpening()); this.updateUI(); this.saveNow(false); }
     flag(id) { return this.save.flags.includes(id); }
     get storyState() { return { flags: this.save.flags, defeatedBoss: this.save.defeatedBoss, dungeonFinished: !!this.save.dungeon?.finished }; }
     storyBeat() { return arkenStoryBeat(this.storyState); }
