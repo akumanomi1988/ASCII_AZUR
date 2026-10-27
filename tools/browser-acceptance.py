@@ -211,8 +211,8 @@ window.addEventListener('load',()=>setTimeout(async()=>{
   }
   await captureZone('village');
   $('drawerToggle').click();$('resumeBtn').focus();
-  document.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowDown',bubbles:true,cancelable:true}));
-  check(document.activeElement===$('teamBtn'),'Menu ArrowDown did not focus Team');
+  document.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true,cancelable:true}));
+  check(document.activeElement===$('teamBtn'),'Spatial ArrowRight did not focus adjacent Team');
   document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true}));
   check(!$('gameDrawer').classList.contains('open'),'Escape did not close drawer');
   // Actual Chromium DOM integration for the newly shipped optional Sanctuary route.
