@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="assets/icon.svg" width="104" alt="ASCII AZUR emblem" />
+<a href="https://akumanomi1988.github.io/ASCII_AZUR/"><img src="docs/assets/readme/azur-hero.svg" width="100%" alt="ASCII AZUR — The Unwritten, atmospheric animated title banner" /></a>
 
 # ASCII AZUR
 ### THE UNWRITTEN
@@ -16,6 +16,8 @@ A dark-fantasy creature-bonding RPG set in a persistent, procedurally generated 
 </div>
 
 ---
+
+[![GitHub stars](https://img.shields.io/github/stars/akumanomi1988/ASCII_AZUR?style=flat-square&label=Stars)](https://github.com/akumanomi1988/ASCII_AZUR/stargazers) [![GitHub forks](https://img.shields.io/github/forks/akumanomi1988/ASCII_AZUR?style=flat-square&label=Forks)](https://github.com/akumanomi1988/ASCII_AZUR/network/members) [![Last commit](https://img.shields.io/github/last-commit/akumanomi1988/ASCII_AZUR?style=flat-square&label=Last%20commit)](https://github.com/akumanomi1988/ASCII_AZUR/commits/main)
 
 ## A world that remembers
 
