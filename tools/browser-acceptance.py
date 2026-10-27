@@ -92,6 +92,12 @@ window.addEventListener('load',()=>setTimeout(async()=>{
   check($('game')&&$('newGame'),'Missing game bootstrap');
   $('worldSeedInput').value='AZUR-QA-STABLE-SEED';
   $('newGame').click();
+  check(!$('openingCinematic').classList.contains('hidden'),'New journey prologue must open');
+  check($('cinematicHeading').textContent.includes('Hubo un tiempo'),'First prologue scene is missing');
+  $('cinematicNext').click();
+  check($('openingCinematic').dataset.scene==='world','Prologue forward control failed');
+  $('cinematicSkip').click();
+  check($('openingCinematic').classList.contains('hidden'),'Skipped prologue remains visible');
   check(document.querySelectorAll('#starters button').length===3,'Missing starters');
   check(document.activeElement?.matches('#starters button'),'Starter selection is not keyboard-focused');
   document.querySelector('#starters button').click();
@@ -487,6 +493,8 @@ window.addEventListener('load',()=>setTimeout(async()=>{
   check($('continue').hidden,'Empty second campaign incorrectly offers Continue');
   $('worldSeedInput').value='independent-second-campaign';
   $('newGame').click();
+  check(!$('openingCinematic').classList.contains('hidden'),'Second campaign opening missing');
+  $('cinematicSkip').click();
   check(!$('starterScreen').classList.contains('hidden'),'Second campaign starter selection missing');
   document.querySelector('[data-starter="cindrel"]').click();
   for(let i=0;i<12&&!$('dialogue').classList.contains('hidden');i++)$('closeDialogue').click();
