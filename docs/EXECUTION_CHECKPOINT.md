@@ -17,3 +17,7 @@
 
 ## Environment limits
 GitHub connector has write access and provides Actions CI. The local sandbox is writable but cannot resolve `github.com` to clone/restore dependencies, so automated verification must be backed by actual CI evidence. Physical device, human sessions and signing remain external.
+
+## v0.68 native regression follow-up
+- PR run 40467809790: browser succeeded. Native Android's OS-only tap implementation reached new-game, dialogue, rotation and resume but failed to open the export DocumentsUI picker after touching `#exportBtn`.
+- Proven previous run 40461641746 opened the export picker via CDP, but froze at `Input.dispatchTouchEvent` for `#importBtn`. Use CDP for the proven normal API 35 WebView controls and actual Android OS taps for SAF **import**, checking the system DocumentsUI activity rather than depending on CDP while the application is backgrounded. Recheck before merging.

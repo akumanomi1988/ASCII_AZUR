@@ -48,10 +48,11 @@ test('the starter modal is also a full-screen reachable selection on compact And
  assert.match(css,/#starterScreen \.starters\s*\{[^}]*grid-template-columns: repeat\(3, minmax\(0, 1fr\)\)/s);
 });
 
-test('native APK acceptance uses OS touches rather than CDP injection around SAF',()=>{
+test('native SAF import uses Android OS taps without suspending the CDP inspector',()=>{
  const native=readFileSync('tools/android-native-acceptance.mjs','utf8');
  assert.match(native,/adb\('shell','input','tap'/);
- assert.match(native,/window\.__nativeTapped===true/);
- assert.doesNotMatch(native,/Input\.dispatchTouchEvent/);
+ assert.match(native,/selector!=='#importBtn'/);
+ assert.match(native,/documentsui\|PickActivity/);
+ assert.match(native,/Input\.dispatchTouchEvent/);
  assert.match(native,/ACTION_OPEN_DOCUMENT/);
 });
