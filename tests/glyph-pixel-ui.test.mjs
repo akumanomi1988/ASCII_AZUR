@@ -75,9 +75,10 @@ test('menu navigation cycles and activates same click action',()=>{
  const oldDocument=globalThis.document;
  try{
    const state={active:null,clicks:0};
-   const createButton=(id)=>({id,tagName:'BUTTON',hidden:false,getAttribute:()=>null,getClientRects:()=>[{}],
+   const createButton=(id,i)=>({id,tagName:'BUTTON',hidden:false,getAttribute:()=>null,getClientRects:()=>[{}],closest:()=>null,
+     getBoundingClientRect:()=>({left:0,top:i*55,right:100,bottom:i*55+35}),
      focus(){state.active=this},click(){state.clicks++},scrollIntoView(){}});
-   const items=[createButton('a'),createButton('b'),createButton('c')];
+   const items=[createButton('a',0),createButton('b',1),createButton('c',2)];
    const root={querySelectorAll:()=>items};
    globalThis.document={get activeElement(){return state.active;}};
    assert.equal(navigateMenuKey(root,'ArrowDown'),true);assert.equal(state.active.id,'a');
@@ -94,13 +95,15 @@ test('reverse navigation enters at the last item and disabled options remain exc
  const oldDocument=globalThis.document;
  try{
    let active=null;
-   const item=(id)=>({id,tagName:'BUTTON',hidden:false,getAttribute:()=>null,getClientRects:()=>[{}],focus(){active=this},scrollIntoView(){}});
-   const first=item('first'),last=item('last');
+   const item=(id,i)=>({id,tagName:'BUTTON',hidden:false,getAttribute:()=>null,getClientRects:()=>[{}],closest:()=>null,getBoundingClientRect:()=>({left:0,top:i*55,right:100,bottom:i*55+35}),focus(){active=this},scrollIntoView(){}});
+   const first=item('first',0),last=item('last',1);
    globalThis.document={get activeElement(){return active;}};
    const root={querySelectorAll:()=>[first,last]};
    assert.equal(navigateMenuKey(root,'ArrowUp'),true);
    assert.equal(active.id,'last');
    assert.equal(navigateMenuKey(root,'ArrowDown'),true);
+   assert.equal(active.id,'last');
+   assert.equal(navigateMenuKey(root,'ArrowUp'),true);
    assert.equal(active.id,'first');
    active=null;
    assert.equal(navigateMenuKey(root,'a'),true);

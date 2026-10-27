@@ -13,7 +13,7 @@ test('spatial keyboard navigation selects aligned neighbors',()=>{
  assert.equal(nextSpatialIndex(grid,0,'ArrowUp'),0);
  assert.equal(nextSpatialIndex(grid,2,'Home'),0);
  assert.equal(nextSpatialIndex(grid,1,'End'),3);
- assert.equal(nextSpatialIndex(grid,-1,'ArrowLeft'),0);
+ assert.equal(nextSpatialIndex(grid,-1,'ArrowLeft'),3);
  assert.equal(nextSpatialIndex([],0,'ArrowDown'),-1);
 });
 test('health display waits for impact and rolls to true damage without modifying HP',()=>{

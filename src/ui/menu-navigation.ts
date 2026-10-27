@@ -15,7 +15,7 @@ export function nextSpatialIndex(rects:readonly MenuBounds[],current:number,key:
   w:[0,-1],W:[0,-1],s:[0,1],S:[0,1],a:[-1,0],A:[-1,0],d:[1,0],D:[1,0]
  };
  const direction=directions[key];if(!direction)return current;
- if(current<0||current>=rects.length)return 0;
+ if(current<0||current>=rects.length)return direction[0]<0||direction[1]<0?rects.length-1:0;
  const origin=menuCenter(rects[current]!);
  let best=current,bestScore=Infinity;
  for(let i=0;i<rects.length;i++){
@@ -32,7 +32,7 @@ export function nextSpatialIndex(rects:readonly MenuBounds[],current:number,key:
 }
 export function menuButtons(root:HTMLElement):HTMLElement[]{
  return Array.from(root.querySelectorAll<HTMLElement>('button:not([disabled]),[role="button"]:not([aria-disabled="true"]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])'))
- .filter(el=>!el.hidden&&!el.closest('.hidden,[aria-hidden="true"],fieldset[disabled]')&&el.getClientRects().length>0&&getComputedStyle(el).visibility!=='hidden');
+ .filter(el=>!el.hidden&&!el.closest?.('.hidden,[aria-hidden="true"],fieldset[disabled]')&&el.getClientRects().length>0&&(typeof getComputedStyle!=='function'||getComputedStyle(el).visibility!=='hidden'));
 }
 export function focusMenuFirst(root:HTMLElement):void{
  const nodes=menuButtons(root);

@@ -66,8 +66,9 @@ export function createCombatCue(kind:FxKind,actor:CombatSide,element:string,nowS
 }
 export function sampleCombatCue(cue:CombatCue|null,nowSeconds:number,reducedMotion=false):CombatFxFrame|null{
  if(!cue)return null;
- const progress=Math.min(1,Math.max(0,(nowSeconds-cue.startedAt)/cue.duration));
- if(progress>=1)return null;
+ const elapsed=nowSeconds-cue.startedAt;
+ if(elapsed>=cue.duration-1e-7)return null;
+ const progress=Math.min(1,Math.max(0,elapsed/cue.duration));
  const base={kind:cue.kind,actor:cue.actor,element:cue.element,phase:progress,active:true,
   damage:cue.damage??0,effective:!!cue.effective};
  if(reducedMotion)return {...base,attacker:{...BASE_POSE},target:{...BASE_POSE},impact:0,
