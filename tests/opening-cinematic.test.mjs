@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {OPENING_BEATS,OPENING_DURATION_MS,OPENING_SCENE_MS,openingCueAt} from '../dist/ui/opening-cinematic.js';
+import {readFileSync} from 'node:fs';
+import {OPENING_BEATS,OPENING_DURATION_MS,OPENING_SCENE_MS,openingCueAt,OpeningPlaybackClock} from '../dist/ui/opening-cinematic.js';
 
 test('opening is exactly two minutes with ten authored twelve-second scenes',()=>{
  assert.equal(OPENING_BEATS.length,10);
@@ -32,4 +33,41 @@ test('the world introduction is a spoiler-safe prelude, not later-chapter walkth
  assert.match(combined,/Lumbres/);
  assert.match(combined,/vínculo/);
  assert.doesNotMatch(combined,/Nullscribe|Nael|Oriel|Marisma del Espejo Roto|Corona de lo No Escrito/);
+});
+
+
+test('interactive story clock pauses without consuming the two-minute runtime and resumes at the exact frame',()=>{
+ const clock=new OpeningPlaybackClock();
+ clock.advance(750);assert.equal(clock.elapsed,750);
+ assert.equal(clock.togglePause(),true);
+ for(let i=0;i<50;i++)clock.advance(1000);
+ assert.equal(clock.elapsed,750,'paused prologue must not skip unattended narration');
+ assert.equal(clock.togglePause(),false);
+ clock.advance(400);assert.equal(clock.elapsed,1150);
+ clock.advance(Infinity);clock.advance(NaN);assert.equal(clock.elapsed,1150);
+ clock.advance(60_000);assert.equal(clock.elapsed,2150,'background throttling may advance no more than 1000ms per frame');
+ clock.reset();assert.equal(clock.elapsed,0);assert.equal(clock.paused,false);
+});
+test('story navigation allows replaying an unfinished scene or returning to the previous beat',()=>{
+ const clock=new OpeningPlaybackClock();
+ clock.next();assert.equal(clock.elapsed,OPENING_SCENE_MS);
+ // The browser clock intentionally caps each rAF step at 1000ms, so simulate three visible frames.
+ clock.advance(1000);clock.advance(1000);clock.advance(300);
+ clock.previous();assert.equal(clock.elapsed,OPENING_SCENE_MS,'rewind current scene when it is underway');
+ clock.previous();assert.equal(clock.elapsed,0,'from a beat boundary navigate to prior beat');
+ clock.previous();assert.equal(clock.elapsed,0,'first beat has no negative index');
+ for(let i=0;i<9;i++)clock.next();
+ assert.equal(clock.elapsed,108_000);
+ clock.next();assert.equal(clock.elapsed,OPENING_DURATION_MS);
+ clock.previous();assert.equal(clock.elapsed,OPENING_DURATION_MS-OPENING_SCENE_MS);
+ clock.reset();assert.equal(openingCueAt(clock.elapsed).index,0);
+});
+test('cinematic pause, previous, skip and title replay are first-class accessible controls',()=>{
+ const html=readFileSync('index.html','utf8'),css=readFileSync('style.css','utf8'),source=readFileSync('src/ui/opening-cinematic.ts','utf8');
+ assert.match(html,/id="cinematicPause"[^>]*aria-pressed="false"/);
+ assert.match(html,/id="cinematicPrevious"/);
+ assert.match(source,/e\.key==='ArrowLeft'/);
+ assert.match(source,/e\.key\.toLowerCase\(\)==='p'/);
+ assert.match(css,/data-paused="true"/);
+ assert.match(css,/cinematic-controls #cinematicNext\{grid-column:span 2\}/);
 });

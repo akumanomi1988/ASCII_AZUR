@@ -39,9 +39,25 @@ export function openingCueAt(elapsedMs:number):{index:number;progress:number;fin
  return {index,progress:elapsed/OPENING_DURATION_MS,finished:false};
 }
 
+/** Explicit player-controlled story clock, independent of rendering and storage. */
+export class OpeningPlaybackClock{
+ elapsed=0;
+ paused=false;
+ reset(){this.elapsed=0;this.paused=false;}
+ togglePause(){this.paused=!this.paused;return this.paused;}
+ advance(ms:number){
+  if(this.paused||!Number.isFinite(ms))return;
+  this.elapsed=Math.min(OPENING_DURATION_MS,this.elapsed+Math.max(0,Math.min(ms,1000)));
+ }
+ next(){this.elapsed=Math.min(OPENING_DURATION_MS,(openingCueAt(this.elapsed).index+1)*OPENING_SCENE_MS);}
+ previous(){
+  const start=openingCueAt(this.elapsed).index*OPENING_SCENE_MS;
+  this.elapsed=this.elapsed-start>1500?start:Math.max(0,start-OPENING_SCENE_MS);
+ }
+}
 /** The animation owns its focus and rAF; callers own game state transitions. */
 export class OpeningCinematic{
- private elapsed=0;
+ private readonly timeline=new OpeningPlaybackClock();
  private priorFrame=0;
  private frame=0;
  private index=-1;
@@ -49,6 +65,8 @@ export class OpeningCinematic{
  private onComplete:()=>void=()=>{};
  private onCancel:()=>void=()=>{};
  private readonly buttons:HTMLButtonElement[];
+ private readonly previousButton:HTMLButtonElement;
+ private readonly pauseButton:HTMLButtonElement;
  private readonly announcement:HTMLElement;
  private readonly heading:HTMLElement;
  private readonly chapter:HTMLElement;
@@ -83,18 +101,24 @@ export class OpeningCinematic{
   const next=required<HTMLButtonElement>('cinematicNext');
   const skip=required<HTMLButtonElement>('cinematicSkip');
   const back=required<HTMLButtonElement>('cinematicBack');
-  this.buttons=[next,skip,back];
+  this.previousButton=required<HTMLButtonElement>('cinematicPrevious');
+  this.pauseButton=required<HTMLButtonElement>('cinematicPause');
+  this.buttons=[back,this.previousButton,this.pauseButton,skip,next];
   next.addEventListener('click',()=>this.next());
+  this.previousButton.addEventListener('click',()=>this.previous());
+  this.pauseButton.addEventListener('click',()=>this.togglePause());
   skip.addEventListener('click',()=>this.finish());
   back.addEventListener('click',()=>this.cancel());
   document.addEventListener('visibilitychange',this.onVisibility);
  }
  get active(){return this.activeState;}
+ get paused(){return this.timeline.paused;}
  setReducedMotion(enabled:boolean){this.root.classList.toggle('motion-reduced',enabled);}
  start(onComplete:()=>void,onCancel:()=>void){
   this.stop();
   this.onComplete=onComplete;this.onCancel=onCancel;
-  this.elapsed=0;this.index=-1;this.activeState=true;
+  this.timeline.reset();this.index=-1;this.activeState=true;
+  this.root.dataset.paused='false';this.pauseButton.textContent='PAUSAR';this.pauseButton.setAttribute('aria-pressed','false');
   this.root.classList.remove('hidden');
   this.root.setAttribute('aria-hidden','false');
   this.render();
@@ -102,29 +126,41 @@ export class OpeningCinematic{
   // Focus without implicit document scrolling, then center the actual game
   // viewport so Next/Skip/Back remain physically visible and tappable.
   this.root.parentElement?.scrollIntoView?.({behavior:'instant',block:'center',inline:'nearest'});
-  this.buttons[0]!.focus({preventScroll:true});
+  this.buttons[this.buttons.length-1]!.focus({preventScroll:true});
   this.frame=requestAnimationFrame(this.tick);
  }
  private readonly tick=(now:number)=>{
   if(!this.activeState)return;
-  if(!document.hidden&&this.priorFrame>0)this.elapsed+=Math.max(0,Math.min(now-this.priorFrame,1000));
+  if(!document.hidden&&this.priorFrame>0)this.timeline.advance(now-this.priorFrame);
   this.priorFrame=now;
-  if(this.elapsed>=OPENING_DURATION_MS){this.finish();return;}
+  if(this.timeline.elapsed>=OPENING_DURATION_MS){this.finish();return;}
   this.render();
   this.frame=requestAnimationFrame(this.tick);
  };
  next(){
   if(!this.activeState)return;
-  const current=openingCueAt(this.elapsed).index;
-  this.elapsed=(current+1)*OPENING_SCENE_MS;
-  this.priorFrame=0;
-  if(this.elapsed>=OPENING_DURATION_MS)this.finish();
+  this.timeline.next();this.priorFrame=0;
+  if(this.timeline.elapsed>=OPENING_DURATION_MS)this.finish();
   else this.render();
+ }
+ previous(){
+  if(!this.activeState)return;
+  this.timeline.previous();this.priorFrame=0;this.index=-1;this.render();
+ }
+ togglePause(){
+  if(!this.activeState)return;
+  const paused=this.timeline.togglePause();
+  this.priorFrame=0;this.root.dataset.paused=String(paused);
+  this.pauseButton.textContent=paused?'REANUDAR':'PAUSAR';
+  this.pauseButton.setAttribute('aria-pressed',String(paused));
+  this.announcement.textContent=(paused?'Prólogo en pausa. ':'Prólogo reanudado. ')+OPENING_BEATS[openingCueAt(this.timeline.elapsed).index]!.narration;
  }
  handleKey(e:KeyboardEvent){
   if(!this.activeState)return;
   if(e.key==='Escape'){e.preventDefault();this.cancel();return;}
   if(e.key==='ArrowRight'){e.preventDefault();this.next();return;}
+  if(e.key==='ArrowLeft'){e.preventDefault();this.previous();return;}
+  if(e.key.toLowerCase()==='p'&&!e.ctrlKey&&!e.altKey&&!e.metaKey){e.preventDefault();this.togglePause();return;}
   if(e.key==='Tab'){
    const index=this.buttons.indexOf(document.activeElement as HTMLButtonElement);
    if(index<0){e.preventDefault();this.buttons[0]!.focus();return;}
@@ -137,7 +173,8 @@ export class OpeningCinematic{
   }
  }
  private render(){
-  const cue=openingCueAt(this.elapsed);
+  const cue=openingCueAt(this.timeline.elapsed);
+  this.previousButton.disabled=cue.index===0;
   const beat=OPENING_BEATS[cue.index]!;
   if(this.index!==cue.index){
    this.index=cue.index;
@@ -152,7 +189,7 @@ export class OpeningCinematic{
    this.buttons[0]!.textContent=cue.index===OPENING_BEATS.length-1?'COMENZAR VIAJE':'SIGUIENTE ESCENA';
   }
   this.progress.style.width=(cue.progress*100).toFixed(2)+'%';
-  const secondsRemaining=Math.ceil((OPENING_DURATION_MS-this.elapsed)/1000);
+  const secondsRemaining=Math.ceil((OPENING_DURATION_MS-this.timeline.elapsed)/1000);
   const time=Math.max(0,secondsRemaining);
   const clock=Math.floor(time/60)+':'+String(time%60).padStart(2,'0');
   if(this.clock.textContent!==clock)this.clock.textContent=clock;
