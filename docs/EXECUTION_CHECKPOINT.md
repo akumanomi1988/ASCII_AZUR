@@ -48,3 +48,8 @@ Main v0.70.0 Actions 40564069723: 501 Node checks, Chromium and Android API 35 p
 
 ## v0.71 — Coherent illustrated cinematic candidate
 A player's complete browser playthrough identified the old 2-minute prologue as atmospheric but visually incoherent. Branch `feature/v071-storyboard-prologue` replaces symbol-only stage with ten connected in-engine authored SVG panels: recurring Arken village, a hooded traveler, the Archivist and canonical Cindrel/Velaria/Thorne with continuous path, Lumbre, shadows, pages and bond energy. Local CSS provides parallax, walking, hovering, breathing, luminous effects, deliberate fades and high-contrast/reduced-motion variants. No network resources or new dependencies. Full offline browser/Android CI, 120-second+skip/replay/save regression and exact Pages provenance pending. Fixed weighted roadmap 21/32 = 68.75% until independent art/narrative acceptance.
+
+## v0.71.1 narrative accessibility — proposed
+- Playback improvements for the existing ten-scene opening: pause/resume narration pace without changing the original two-minute auto-play duration, rewind to the current/previous scene, explicit keyboard arrows/P, paused animated SVG and accessible pressed state. Responsive five-button control grid guarantees 44px minimum touch height on narrow screens.
+- Preserve intro skip, title replay, starter selection, save-v1 and all local/offline assets. Tests cover deterministic clock operations and real Chromium DOM interaction. One Android API 35 CI matrix only.
+- Candidate release requires passing TypeScript, Node, browser, native APK/Chrome, Pages source provenance and public desktop/mobile smoke. G2/N4/U4 and physical/human gate statuses remain OPEN; original 21/32 (68.75%) is unchanged.
