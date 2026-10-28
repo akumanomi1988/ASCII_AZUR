@@ -745,3 +745,60 @@
 html.azur-ui-reduced-motion .azur-cursor-particle{display:none!important}
 html.azur-ui-reduced-motion .azur-cursor-orb{transition:none!important}
 html.azur-ui-reduced-motion #battle .health-track[data-critical="true"] i{animation:none!important}
+
+
+/* v0.71: connected, character-led illustrated prologue.
+ * The same Arken village, traveler, Archivist and Cindrel/Velaria/Thorne
+ * recur across the ten narrative beats. SVGs are local and read-only. */
+#viewport .cinematic-stage > :not(.cinematic-artwork){opacity:0!important;animation:none!important}
+#viewport .cinematic-artwork{position:absolute;inset:0;z-index:2;pointer-events:none;isolation:isolate}
+#viewport .cinematic-storyboard{position:absolute;left:0;top:-2%;height:81%;width:100%;overflow:visible;animation:introSceneArrive .95s cubic-bezier(.2,.75,.2,1) both}
+#viewport .cinematic-storyboard .intro-land{animation:introParallaxDrift 11.6s ease-in-out infinite alternate}
+#viewport .cinematic-storyboard .intro-woodland{animation:introTreeDrift 9.8s ease-in-out infinite alternate}
+#viewport .cinematic-storyboard .intro-walk{animation:introHeroWalk 2.3s ease-in-out infinite alternate;transform-box:fill-box;transform-origin:bottom center}
+#viewport .cinematic-storyboard .intro-float{animation:introSpiritFloat 3.5s ease-in-out infinite alternate;transform-box:fill-box;transform-origin:bottom center}
+#viewport .cinematic-storyboard .intro-breathe{animation:introCreatureBreathe 3.2s ease-in-out infinite alternate;transform-box:fill-box;transform-origin:bottom center}
+#viewport .cinematic-storyboard .intro-panorama{animation:introBuildingRise 4.7s ease-out both;transform-box:fill-box;transform-origin:bottom center}
+#viewport .cinematic-storyboard .intro-glow{animation:introGlowing 3.2s ease-in-out infinite alternate;transform-box:fill-box;transform-origin:center}
+#viewport .cinematic-storyboard .intro-light-thread{stroke-linecap:round;animation:introConnection 4s linear infinite}
+#viewport .cinematic-storyboard .intro-shadow{animation:introShadowCreep 9s ease-out both}
+#viewport .cinematic-storyboard .intro-cloud{animation:introCloudSail 8s ease-in-out infinite alternate}
+#viewport .cinematic-storyboard .intro-missing-pages{animation:introPagesScatter 7s ease-in-out infinite alternate}
+#viewport .cinematic-storyboard .intro-pulse{animation:introLumbrePulse 2.6s ease-in-out infinite alternate;transform-box:fill-box;transform-origin:center}
+#viewport .cinematic-storyboard .intro-nameplates text{font:700 21px 'DM Mono',monospace;letter-spacing:2px;text-anchor:middle;fill:#f4e4cc;paint-order:stroke;stroke:#172a31;stroke-width:6px}
+#viewport .opening-cinematic .cinematic-vignette{z-index:3;box-shadow:inset 0 0 48px #020508,inset 0 -135px 95px #060e19e6;background:linear-gradient(0deg,#05101ce5,transparent 54%)}
+#viewport .opening-cinematic .cinematic-caption{bottom:19%;padding:12px 4px;background:linear-gradient(90deg,transparent,#09162477 22% 78%,transparent);border-radius:12px}
+#viewport .opening-cinematic .cinematic-chapter{text-shadow:0 2px 10px #000}
+#viewport .opening-cinematic .cinematic-caption h2{text-shadow:0 3px 8px #000,0 0 20px #172e3e}
+#viewport .opening-cinematic .cinematic-narration{max-width:720px}
+@keyframes introSceneArrive{from{opacity:0;filter:blur(8px);transform:scale(1.055)}to{opacity:1;filter:blur(0);transform:scale(1)}}
+@keyframes introParallaxDrift{to{transform:translate3d(-12px,3px,0)}}
+@keyframes introTreeDrift{to{transform:translate3d(14px,-4px,0)}}
+@keyframes introHeroWalk{to{translate:6px -5px;rotate:1deg}}
+@keyframes introSpiritFloat{to{translate:-4px -15px;rotate:-3deg}}
+@keyframes introCreatureBreathe{to{translate:0 -5px;scale:1.035 .97}}
+@keyframes introBuildingRise{from{translate:0 15px;opacity:.2}to{translate:0 0;opacity:1}}
+@keyframes introGlowing{to{opacity:.53;scale:1.12}}
+@keyframes introConnection{to{stroke-dashoffset:-95}}
+@keyframes introShadowCreep{from{translate:75px 0;opacity:.25}to{translate:-50px 0;opacity:.98}}
+@keyframes introCloudSail{to{translate:24px 0}}
+@keyframes introPagesScatter{to{translate:20px -15px;rotate:4deg}}
+@keyframes introLumbrePulse{to{scale:1.10}}
+@media(max-width:650px),(max-height:440px){
+ #viewport .opening-cinematic .cinematic-storyboard{height:76%;top:-1%}
+ #viewport .opening-cinematic .cinematic-caption{bottom:23%;padding:4px}
+ #viewport .opening-cinematic .cinematic-narration{font-size:clamp(11px,2.15vw,13px)}
+ #viewport .opening-cinematic .cinematic-storyboard .intro-nameplates text{font-size:19px}
+}
+@media(orientation:portrait) and (max-width:550px){
+ #viewport .opening-cinematic .cinematic-storyboard{width:145%;height:77%;left:-22.5%;top:1%}
+ #viewport .opening-cinematic .cinematic-caption{bottom:23%;left:3%;right:3%}
+ #viewport .opening-cinematic .cinematic-narration{font-size:13px;line-height:1.5}
+}
+@media(prefers-reduced-motion:reduce){
+ #viewport .opening-cinematic .cinematic-storyboard *,#viewport .opening-cinematic .cinematic-storyboard{animation:none!important;transition:none!important}
+}
+#viewport .opening-cinematic.motion-reduced .cinematic-storyboard *,
+#viewport .opening-cinematic.motion-reduced .cinematic-storyboard{animation:none!important;transition:none!important}
+:root.azur-high-contrast #viewport .cinematic-storyboard{filter:contrast(1.14) saturate(.82)}
+:root.azur-high-contrast #viewport .opening-cinematic .cinematic-caption{background:#000e}
