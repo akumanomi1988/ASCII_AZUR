@@ -108,7 +108,15 @@ async function connect() {
 
 /** Read an actual on-device accessibility tree, not a simulated HTML picker. */
 function nativeNodes() {
-  adb('shell','uiautomator','dump','/sdcard/azur-saf.xml');
+  // UiAutomator can return a transient null-root error while DocumentsUI
+  // moves to the background. Never parse the *previous* successful dump:
+  // that would falsely report an already dismissed SAVE sheet as foreground.
+  let dump=adb('shell','uiautomator','dump','/sdcard/azur-saf.xml');
+  if(/ERROR:|failed|could not dump/i.test(dump)){
+    console.log('NATIVE_UI_TREE_RETRY '+dump.slice(0,160));
+    dump=adb('shell','uiautomator','dump','/sdcard/azur-saf.xml');
+    if(/ERROR:|failed|could not dump/i.test(dump))return [];
+  }
   const xml=adb('shell','cat','/sdcard/azur-saf.xml');
   return [...xml.matchAll(/<node\b[^>]*\/>/g)].map(m=>{
     const el=m[0],attr=(key)=>el.match(new RegExp(key+'="([^"]*)"'))?.[1]??'';
@@ -232,8 +240,11 @@ async function dismissNativeExportPicker() {
   const labels=nativeNodes().map(n=>n.text||n.desc).filter(Boolean);
   const exportUi=labels.some(label=>/^(SAVE|Guardar)$/i.test(label)) &&
     labels.some(label=>/Downloads|Descargas|Recent|Recientes/i.test(label));
+  // Android's top-resumed Activity is authoritative; a stale UIAutomator
+  // SAVE hierarchy is not. The next steps still require a live, isolated
+  // WebView *and* an independently opened ACTION_OPEN_DOCUMENT picker.
   const gameResumed=resumed.includes(pkg)||focused.includes(pkg);
-  const inGame=gameResumed&&!exportUi;
+  const inGame=/topResumedActivity[^\n]*dev\.akumano\.asciiazur/.test(resumed);
   console.log('NATIVE_EXPORT_DISMISS '+JSON.stringify({attempt,inGame,exportUi,gameResumed,focused:focused.slice(0,230),resumed:resumed.slice(0,230),labels:labels.slice(0,10)}));
   if(inGame)return;
   if(gameResumed){

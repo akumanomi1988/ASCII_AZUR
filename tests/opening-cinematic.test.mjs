@@ -51,7 +51,9 @@ test('interactive story clock pauses without consuming the two-minute runtime an
 test('story navigation allows replaying an unfinished scene or returning to the previous beat',()=>{
  const clock=new OpeningPlaybackClock();
  clock.next();assert.equal(clock.elapsed,OPENING_SCENE_MS);
- clock.advance(2300);clock.previous();assert.equal(clock.elapsed,OPENING_SCENE_MS,'rewind current scene when it is underway');
+ // The browser clock intentionally caps each rAF step at 1000ms, so simulate three visible frames.
+ clock.advance(1000);clock.advance(1000);clock.advance(300);
+ clock.previous();assert.equal(clock.elapsed,OPENING_SCENE_MS,'rewind current scene when it is underway');
  clock.previous();assert.equal(clock.elapsed,0,'from a beat boundary navigate to prior beat');
  clock.previous();assert.equal(clock.elapsed,0,'first beat has no negative index');
  for(let i=0;i<9;i++)clock.next();
