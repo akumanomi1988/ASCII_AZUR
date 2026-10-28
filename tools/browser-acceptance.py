@@ -21,6 +21,8 @@ if not CHROME: raise SystemExit('Chromium is required for browser acceptance')
 HTML=(ROOT/'index.html').read_text(encoding='utf-8')
 INJECTION=r'''<script>
 window.__azurErrors=[];
+window.__azurQaPhase='loading';
+setInterval(()=>{try{navigator.sendBeacon('/__qa_phase',window.__azurQaPhase);}catch{/* diagnostic only */}},3000);
 window.addEventListener('error',e=>window.__azurErrors.push(e.message));
 if(new URLSearchParams(location.search).has('fallback')){
  const real=HTMLCanvasElement.prototype.getContext;
@@ -52,7 +54,7 @@ localStorage.setItem('ascii-azur-graphics-v2',JSON.stringify({renderMode:params.
  };
 }
 window.addEventListener('load',()=>setTimeout(async()=>{
- const check=(ok,msg)=>{if(!ok)throw Error(msg)};
+ const check=(ok,msg)=>{window.__azurQaPhase=msg;if(!ok)throw Error(msg)};
  try{
   // Real Web Audio graph lifecycle, independent of the scene-rendering frame budget.
   // Autoplay is explicitly allowed only in this acceptance browser; production still
@@ -132,6 +134,8 @@ window.addEventListener('load',()=>setTimeout(async()=>{
   check(!!$('openingCinematic').querySelector('use[href="#intro-traveler"]'),'Opening traveler is missing');
   check(!!$('openingCinematic').querySelector('use[href="#intro-arken"]'),'Arken village is missing');
   check($('cinematicPrevious').disabled,'Previous should be unavailable before the first scene');
+  check($('cinematicBack').textContent==='VOLVER','Back action must not be mislabeled as scene navigation');
+  check($('cinematicNext').textContent==='SIGUIENTE ESCENA','Scene advance action must have the correct label');
   $('cinematicPause').click();
   check($('openingCinematic').dataset.paused==='true'&&$('cinematicPause').getAttribute('aria-pressed')==='true','Prologue did not pause');
   check(getComputedStyle($('openingCinematic').querySelector('.cinematic-storyboard')).animationPlayState==='paused','Pausing did not freeze illustrated motion');
@@ -140,6 +144,7 @@ window.addEventListener('load',()=>setTimeout(async()=>{
   check($('openingCinematic').dataset.paused==='false','Keyboard resume did not work');
   $('cinematicNext').click();
   check($('openingCinematic').dataset.scene==='world','Prologue forward control failed');
+  check($('cinematicBack').textContent==='VOLVER'&&$('cinematicNext').textContent==='SIGUIENTE ESCENA','Scene switch relabeled the wrong action');
   $('cinematicPrevious').click();
   check($('openingCinematic').dataset.scene==='creation','Prologue scene rewind failed');
   $('cinematicNext').click();
@@ -151,6 +156,15 @@ window.addEventListener('load',()=>setTimeout(async()=>{
   $('cinematicNext').click();
   check($('openingCinematic').dataset.scene==='bonds','Companions did not follow the journey');
   check($('openingCinematic').querySelectorAll('.intro-nameplates text').length===3,'Cindrel, Velaria and Thorne must be identifiable');
+  for(let i=0;i<7;i++)$('cinematicNext').click();
+  check($('openingCinematic').dataset.scene==='begin','Last illustrated scene is unreachable');
+  check($('cinematicBack').textContent==='VOLVER','Final scene must preserve the cancel label');
+  check($('cinematicNext').textContent==='COMENZAR VIAJE','Final scene must expose the explicit start action');
+  $('cinematicPrevious').click();
+  check($('openingCinematic').dataset.scene==='choice','Final-scene rewind selected the wrong beat');
+  check($('cinematicNext').textContent==='SIGUIENTE ESCENA','Rewind did not restore the advance label');
+  $('cinematicNext').click();
+  check($('cinematicNext').textContent==='COMENZAR VIAJE','Revisiting the final scene lost the start label');
   $('cinematicSkip').click();
   window.__azurQaAdvance(); // Return the bounded renderer budget after the extra cinematic rAF.
   check($('openingCinematic').classList.contains('hidden'),'Skipped prologue remains visible');
@@ -586,11 +600,15 @@ QA=ROOT/'.azur-browser-acceptance.html'
 QA.write_text(HTML.replace('</head>',INJECTION+'</head>',1),encoding='utf-8')
 QA_DONE=threading.Event()
 QA_RESULTS=[]
+QA_PHASE=['browser not started']
 class Handler(http.server.SimpleHTTPRequestHandler):
  def __init__(self,*args,**kwargs): super().__init__(*args,directory=str(ROOT),**kwargs)
  def log_message(self,*args): pass
  def do_POST(self):
   request=urllib.parse.urlparse(self.path)
+  if request.path=='/__qa_phase':
+   QA_PHASE[0]=self.rfile.read(min(int(self.headers.get('Content-Length','0')),1000)).decode('utf-8','replace')
+   self.send_response(204);self.end_headers();return
   if request.path=='/__qa_result':
    outcome=self.rfile.read(int(self.headers.get('Content-Length','0'))).decode('utf-8','replace')
    QA_RESULTS.append(outcome);QA_DONE.set()
@@ -617,13 +635,13 @@ try:
    url=f'http://127.0.0.1:{server.server_port}/{QA.name}?{query}'
    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as profile:
     args=[CHROME,'--headless=new','--no-sandbox','--enable-unsafe-swiftshader','--disable-dev-shm-usage','--disable-background-networking','--autoplay-policy=no-user-gesture-required','--no-first-run','--window-size=1280,850',f'--user-data-dir={profile}',url]
-    QA_DONE.clear();QA_RESULTS.clear()
+    QA_DONE.clear();QA_RESULTS.clear();QA_PHASE[0]='waiting for browser load'
     process=subprocess.Popen(args,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,start_new_session=True)
     try:
      for _ in range(90):
       if QA_DONE.wait(1):break
       if process.poll() is not None:raise AssertionError(f'{mode} fallback={fallback}: Chromium exited before acceptance callback')
-     else:raise TimeoutError(f'{mode} fallback={fallback}: no acceptance callback after 90 seconds')
+     else:raise TimeoutError(f'{mode} fallback={fallback}: no acceptance callback after 90 seconds; last checkpoint={QA_PHASE[0]}')
     finally:
      try:os.killpg(process.pid,signal.SIGTERM)
      except ProcessLookupError:pass
