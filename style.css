@@ -663,6 +663,8 @@
 #viewport .cinematic-button.prominent{background:#bf9564;color:#121b22;border-color:#e4c490}
 #viewport .cinematic-button:hover{filter:brightness(1.18)}
 #viewport .cinematic-button:focus-visible{outline:3px solid #fbe0a4;outline-offset:2px}
+#viewport .cinematic-button:disabled{opacity:.38;cursor:not-allowed}
+#viewport .opening-cinematic[data-paused="true"] .cinematic-stage *,#viewport .opening-cinematic[data-paused="true"] .cinematic-stage *::before,#viewport .opening-cinematic[data-paused="true"] .cinematic-stage *::after{animation-play-state:paused!important}
 #viewport .opening-cinematic[data-scene="world"] .cinematic-stage{background:linear-gradient(180deg,#152e3a,#3e6568 65%,#222d2d)}
 #viewport .opening-cinematic[data-scene="bonds"] .cinematic-stage{background:linear-gradient(180deg,#0b2933,#24554b 62%,#122221)}
 #viewport .opening-cinematic[data-scene="silence"] .cinematic-stage{background:linear-gradient(180deg,#05091a,#24253f 63%,#0c0c22)}
@@ -693,8 +695,9 @@
  #viewport .cinematic-glyph{top:26%;font-size:clamp(39px,7vw,68px)}
  #viewport .cinematic-halo{top:7%;width:35%}
  #viewport .cinematic-footer{bottom:3%;gap:5px;left:3%;right:3%}
- #viewport .cinematic-controls{gap:4px}
- #viewport .cinematic-button{min-height:44px;padding:8px 7px;font-size:9px;letter-spacing:0}
+ #viewport .cinematic-controls{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px}
+ #viewport .cinematic-controls #cinematicNext{grid-column:span 2}
+ #viewport .cinematic-button{min-height:44px;width:100%;padding:8px 5px;font-size:9px;letter-spacing:0}
 }
 @media(orientation:portrait) and (max-width:550px){
  #viewport .cinematic-caption{bottom:24%}
@@ -767,7 +770,7 @@ html.azur-ui-reduced-motion #battle .health-track[data-critical="true"] i{animat
 #viewport .cinematic-storyboard .intro-pulse{animation:introLumbrePulse 2.6s ease-in-out infinite alternate;transform-box:fill-box;transform-origin:center}
 #viewport .cinematic-storyboard .intro-nameplates text{font:700 21px 'DM Mono',monospace;letter-spacing:2px;text-anchor:middle;fill:#f4e4cc;paint-order:stroke;stroke:#172a31;stroke-width:6px}
 #viewport .opening-cinematic .cinematic-vignette{z-index:3;box-shadow:inset 0 0 48px #020508,inset 0 -135px 95px #060e19e6;background:linear-gradient(0deg,#05101ce5,transparent 54%)}
-#viewport .opening-cinematic .cinematic-caption{bottom:19%;padding:12px 4px;background:linear-gradient(90deg,transparent,#09162477 22% 78%,transparent);border-radius:12px}
+#viewport .opening-cinematic .cinematic-caption{bottom:24%;padding:12px 4px;background:linear-gradient(90deg,transparent,#09162477 22% 78%,transparent);border-radius:12px}
 #viewport .opening-cinematic .cinematic-chapter{text-shadow:0 2px 10px #000}
 #viewport .opening-cinematic .cinematic-caption h2{text-shadow:0 3px 8px #000,0 0 20px #172e3e}
 #viewport .opening-cinematic .cinematic-narration{max-width:720px}
@@ -786,13 +789,13 @@ html.azur-ui-reduced-motion #battle .health-track[data-critical="true"] i{animat
 @keyframes introLumbrePulse{to{scale:1.10}}
 @media(max-width:650px),(max-height:440px){
  #viewport .opening-cinematic .cinematic-storyboard{height:76%;top:-1%}
- #viewport .opening-cinematic .cinematic-caption{bottom:23%;padding:4px}
+ #viewport .opening-cinematic .cinematic-caption{bottom:30%;padding:4px}
  #viewport .opening-cinematic .cinematic-narration{font-size:clamp(11px,2.15vw,13px)}
  #viewport .opening-cinematic .cinematic-storyboard .intro-nameplates text{font-size:19px}
 }
 @media(orientation:portrait) and (max-width:550px){
  #viewport .opening-cinematic .cinematic-storyboard{width:145%;height:77%;left:-22.5%;top:1%}
- #viewport .opening-cinematic .cinematic-caption{bottom:23%;left:3%;right:3%}
+ #viewport .opening-cinematic .cinematic-caption{bottom:30%;left:3%;right:3%}
  #viewport .opening-cinematic .cinematic-narration{font-size:13px;line-height:1.5}
 }
 @media(prefers-reduced-motion:reduce){
