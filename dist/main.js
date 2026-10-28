@@ -189,6 +189,7 @@ class AzurGame {
         this.cinematic = new OpeningCinematic(byId('openingCinematic'));
         this.restoreAudioSettings();
         this.restoreMotionSettings();
+        this.cinematic.setReducedMotion(this.reducedMotion);
         this.focusTrail?.setReducedMotion(this.reducedMotion);
         this.restoreGraphicSettings();
         this.restoreAdaptiveGraphics();
@@ -2972,7 +2973,7 @@ class AzurGame {
         sync();
         const motion = byId('motionReduced');
         motion.checked = this.reducedMotion;
-        motion.onchange = () => { this.reducedMotion = motion.checked; this.focusTrail?.setReducedMotion(this.reducedMotion); try {
+        motion.onchange = () => { this.reducedMotion = motion.checked; this.cinematic.setReducedMotion(this.reducedMotion); this.focusTrail?.setReducedMotion(this.reducedMotion); try {
             localStorage.setItem('ascii-azur-reduced-motion', String(this.reducedMotion));
         }
         catch { /* storage blocked */ } };
