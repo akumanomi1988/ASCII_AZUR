@@ -101,6 +101,7 @@ export class OpeningCinematic {
         this.progress = required('cinematicProgress');
         this.clock = required('cinematicClock');
         const next = required('cinematicNext');
+        this.nextButton = next;
         const skip = required('cinematicSkip');
         const back = required('cinematicBack');
         this.previousButton = required('cinematicPrevious');
@@ -225,7 +226,7 @@ export class OpeningCinematic {
             if (this.artwork)
                 this.artwork.innerHTML = renderOpeningStoryboard(beat.id);
             this.announcement.textContent = beat.chapter + '. ' + beat.title + '. ' + beat.narration;
-            this.buttons[0].textContent = cue.index === OPENING_BEATS.length - 1 ? 'COMENZAR VIAJE' : 'SIGUIENTE ESCENA';
+            this.nextButton.textContent = cue.index === OPENING_BEATS.length - 1 ? 'COMENZAR VIAJE' : 'SIGUIENTE ESCENA';
         }
         this.progress.style.width = (cue.progress * 100).toFixed(2) + '%';
         const secondsRemaining = Math.ceil((OPENING_DURATION_MS - this.timeline.elapsed) / 1000);
