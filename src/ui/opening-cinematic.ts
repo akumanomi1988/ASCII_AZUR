@@ -54,7 +54,7 @@ export class OpeningCinematic{
  private readonly chapter:HTMLElement;
  private readonly narration:HTMLElement;
  private readonly glyph:HTMLElement;
- private readonly artwork:HTMLDivElement;
+ private readonly artwork:HTMLDivElement|null;
  private readonly progress:HTMLElement;
  private readonly clock:HTMLElement;
  private readonly onVisibility=()=>{this.priorFrame=0;};
@@ -69,11 +69,14 @@ export class OpeningCinematic{
   this.narration=required('cinematicNarration');
   this.glyph=required('cinematicGlyph');
   const stage=root.querySelector<HTMLElement>('.cinematic-stage');
-  if(!stage)throw new Error('Missing cinematic stage');
-  this.artwork=document.createElement('div');
-  this.artwork.className='cinematic-artwork';
-  this.artwork.setAttribute('aria-hidden','true');
-  stage.appendChild(this.artwork);
+  // Headless gameplay tests intentionally supply a semantic cinematic root only.
+  // Real browser acceptance requires and verifies the illustrated stage.
+  this.artwork=stage?document.createElement('div'):null;
+  if(this.artwork){
+   this.artwork.className='cinematic-artwork';
+   this.artwork.setAttribute('aria-hidden','true');
+   stage!.appendChild(this.artwork);
+  }
   this.announcement=required('cinematicAnnouncement');
   this.progress=required('cinematicProgress');
   this.clock=required('cinematicClock');
@@ -144,7 +147,7 @@ export class OpeningCinematic{
    this.chapter.textContent=beat.chapter;
    this.narration.textContent=beat.narration;
    this.glyph.textContent=beat.glyph;
-   this.artwork.innerHTML=renderOpeningStoryboard(beat.id);
+   if(this.artwork)this.artwork.innerHTML=renderOpeningStoryboard(beat.id);
    this.announcement.textContent=beat.chapter+'. '+beat.title+'. '+beat.narration;
    this.buttons[0]!.textContent=cue.index===OPENING_BEATS.length-1?'COMENZAR VIAJE':'SIGUIENTE ESCENA';
   }
@@ -156,7 +159,7 @@ export class OpeningCinematic{
  }
  private stop(){
   // Detached SVGs cannot keep animating while another screen owns the focus.
-  this.artwork.replaceChildren();
+  this.artwork?.replaceChildren();
   cancelAnimationFrame(this.frame);this.frame=0;this.priorFrame=0;
   this.activeState=false;
   this.root.classList.add('hidden');
