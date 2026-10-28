@@ -128,8 +128,15 @@ window.addEventListener('load',()=>setTimeout(async()=>{
   $('newGame').click();
   check(!$('openingCinematic').classList.contains('hidden'),'New journey prologue must open');
   check($('cinematicHeading').textContent.includes('Hubo un tiempo'),'First prologue scene is missing');
+  check($('openingCinematic').querySelectorAll('.cinematic-storyboard').length===1,'Missing authored prologue storyboard');
+  check(!!$('openingCinematic').querySelector('use[href="#intro-traveler"]'),'Opening traveler is missing');
+  check(!!$('openingCinematic').querySelector('use[href="#intro-arken"]'),'Arken village is missing');
   $('cinematicNext').click();
   check($('openingCinematic').dataset.scene==='world','Prologue forward control failed');
+  check(!!$('openingCinematic').querySelector('use[href="#intro-cindrel"]'),'The world has no creature companion');
+  $('cinematicNext').click();
+  check($('openingCinematic').dataset.scene==='bonds','Companions did not follow the journey');
+  check($('openingCinematic').querySelectorAll('.intro-nameplates text').length===3,'Cindrel, Velaria and Thorne must be identifiable');
   $('cinematicSkip').click();
   window.__azurQaAdvance(); // Return the bounded renderer budget after the extra cinematic rAF.
   check($('openingCinematic').classList.contains('hidden'),'Skipped prologue remains visible');
