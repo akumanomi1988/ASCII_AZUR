@@ -132,6 +132,8 @@ window.addEventListener('load',()=>setTimeout(async()=>{
   check(!!$('openingCinematic').querySelector('use[href="#intro-traveler"]'),'Opening traveler is missing');
   check(!!$('openingCinematic').querySelector('use[href="#intro-arken"]'),'Arken village is missing');
   check($('cinematicPrevious').disabled,'Previous should be unavailable before the first scene');
+  check($('cinematicBack').textContent==='VOLVER','Back action must not be mislabeled as scene navigation');
+  check($('cinematicNext').textContent==='SIGUIENTE ESCENA','Scene advance action must have the correct label');
   $('cinematicPause').click();
   check($('openingCinematic').dataset.paused==='true'&&$('cinematicPause').getAttribute('aria-pressed')==='true','Prologue did not pause');
   check(getComputedStyle($('openingCinematic').querySelector('.cinematic-storyboard')).animationPlayState==='paused','Pausing did not freeze illustrated motion');
@@ -140,6 +142,7 @@ window.addEventListener('load',()=>setTimeout(async()=>{
   check($('openingCinematic').dataset.paused==='false','Keyboard resume did not work');
   $('cinematicNext').click();
   check($('openingCinematic').dataset.scene==='world','Prologue forward control failed');
+  check($('cinematicBack').textContent==='VOLVER'&&$('cinematicNext').textContent==='SIGUIENTE ESCENA','Scene switch relabeled the wrong action');
   $('cinematicPrevious').click();
   check($('openingCinematic').dataset.scene==='creation','Prologue scene rewind failed');
   $('cinematicNext').click();
@@ -151,6 +154,15 @@ window.addEventListener('load',()=>setTimeout(async()=>{
   $('cinematicNext').click();
   check($('openingCinematic').dataset.scene==='bonds','Companions did not follow the journey');
   check($('openingCinematic').querySelectorAll('.intro-nameplates text').length===3,'Cindrel, Velaria and Thorne must be identifiable');
+  for(let i=0;i<7;i++)$('cinematicNext').click();
+  check($('openingCinematic').dataset.scene==='begin','Last illustrated scene is unreachable');
+  check($('cinematicBack').textContent==='VOLVER','Final scene must preserve the cancel label');
+  check($('cinematicNext').textContent==='COMENZAR VIAJE','Final scene must expose the explicit start action');
+  $('cinematicPrevious').click();
+  check($('openingCinematic').dataset.scene==='choice','Final-scene rewind selected the wrong beat');
+  check($('cinematicNext').textContent==='SIGUIENTE ESCENA','Rewind did not restore the advance label');
+  $('cinematicNext').click();
+  check($('cinematicNext').textContent==='COMENZAR VIAJE','Revisiting the final scene lost the start label');
   $('cinematicSkip').click();
   window.__azurQaAdvance(); // Return the bounded renderer budget after the extra cinematic rAF.
   check($('openingCinematic').classList.contains('hidden'),'Skipped prologue remains visible');
