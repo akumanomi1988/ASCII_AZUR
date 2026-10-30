@@ -22,7 +22,9 @@ export function fieldHuntBoard(save) {
         const status = research.entries.find(e => e.id === id)?.status ?? 'unknown';
         const known = status === 'bonded' || status === 'seen' ? status : 'unseen';
         const recommendation = teamGuide(save.team, enemy, save.flags);
-        const recommended = save.team.find(c => c.hp > 0 && c.speciesId === recommendation.recommended)
+        // Several companions can share a species but differ in level, HP, moves and relics.
+        // Carry the exact recommendation UID into the selected battle leader.
+        const recommended = save.team.find(c => c.hp > 0 && c.uid === recommendation.recommendedUid)
             ?? save.team.find(c => c.hp > 0);
         const profile = recommended ? tacticalProfile(recommended, enemy, save.flags) : null;
         const counter = Object.entries(TYPE_ADV).find(([, target]) => target === species.element)?.[0];
