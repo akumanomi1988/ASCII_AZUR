@@ -89,3 +89,28 @@ test('identity never advertises an unlocked but unequipped healing role',()=>{
  assert.match(creatureRole(c),/ATAQUE/);
  assert.doesNotMatch(creatureRole(c),/CURACIÓN/);
 });
+
+
+test('scouting detects a real weaker equipped counter when the best hit is neutral',()=>{
+ const ally=unit('velaria',12),enemy=unit('cindrel',12);
+ const snapshot=JSON.stringify({ally,enemy});
+ const profile=tacticalProfile(ally,enemy),guide=teamGuide([ally],enemy);
+ assert.equal(profile.bestMoveId,'tide');
+ assert.equal(profile.effective,false,'the top-damage move is neutral');
+ assert.equal(profile.counterMoveId,'pulse','a weaker equipped Ether attack counters Ash');
+ assert.ok(profile.counterMaxDamage>0&&profile.counterMaxDamage<profile.maxDamage);
+ assert.match(profile.summary,/alternativa eficaz: Pulso/);
+ assert.equal(guide.missingCounter,false,'do not wrongly warn that no counter exists');
+ assert.equal(guide.recommendedUid,ally.uid);
+ assert.equal(JSON.stringify({ally,enemy}),snapshot,'scouting is read-only');
+});
+test('scouting recommends an exact UID rather than the first copy of a species',()=>{
+ const weak=unit('velaria',3),strong=unit('velaria',18),enemy=unit('cindrel',12);
+ weak.uid='weak-velaria';weak.hp=2;strong.uid='strong-velaria';
+ const roster=[weak,strong],before=JSON.stringify(roster);
+ const guide=teamGuide(roster,enemy);
+ assert.equal(guide.recommended,'velaria');
+ assert.equal(guide.recommendedUid,strong.uid);
+ assert.equal(guide.members[0].uid,strong.uid);
+ assert.equal(JSON.stringify(roster),before,'no equipment, leader or save mutations');
+});
