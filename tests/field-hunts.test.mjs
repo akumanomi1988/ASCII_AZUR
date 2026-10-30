@@ -104,3 +104,24 @@ test('real runtime blocks early late-stage duel IDs and unlocks only after chapt
  game.save.flags.push('marsh-chapter-complete');
  game.openDuel();assert.equal(game.prepareFieldDuel('mourveil'),true);
 });
+
+
+test('hunt briefing selects the exact stronger same-species ally and starts that one',()=>{
+ const {game,dom}=mount({virtualTime:true,seed:643});
+ game.startNew();game.pickStarter('cindrel');while(game.dialogOpen)game.nextDialog();
+ game.save.team=[
+  {...createCreature('velaria',3,()=>.11),uid:'weak-first',hp:2},
+  {...createCreature('velaria',18,()=>.22),uid:'strong-second'}
+ ];
+ const before=JSON.stringify(game.save.team);
+ const board=fieldHuntBoard(game.save),candidate=board.entries[0];
+ assert.equal(candidate.bestLeadUid,'strong-second','do not select first copy by species');
+ assert.equal(JSON.stringify(game.save.team),before,'advice must not change the roster');
+ game.openDuel();
+ assert.equal(game.prepareFieldDuel(candidate.id),true);
+ const markup=dom.get('modalContent').innerHTML;
+ assert.match(markup,/<option value="strong-second" selected>/);
+ assert.match(markup,/RECOMENDADO/);
+ assert.equal(game.launchFieldDuel(candidate.id,candidate.bestLeadUid),true);
+ assert.equal(game.battle.ally,1,'the battle must start with the recommended UID');
+});

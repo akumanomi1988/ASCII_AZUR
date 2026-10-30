@@ -11,14 +11,14 @@ import {freeRelicCopies,RELIC_IDS,RELICS,type RelicId} from './equipment.js';
 import {unlockedMoves} from './loadout.js';
 
 export interface TacticalProfile {
- speciesId:string;name:string;role:string;viable:boolean;
+ uid:string;speciesId:string;name:string;role:string;viable:boolean;
  bestMoveId:string|null;minDamage:number;maxDamage:number;
- effective:boolean;enemyElement:Element;estimatedIncoming:number;
+ effective:boolean;counterMoveId:string|null;counterMaxDamage:number;enemyElement:Element;estimatedIncoming:number;
  utility:string[];summary:string;score:number;
 }
 export interface TacticalUpgrade {moveId:string;currentMax:number;candidateMax:number;reason:string;}
 export interface TacticalRelic {id:RelicId;damageGain:number;incomingReduction:number;reason:string;}
-export interface TacticalTeamGuide {members:TacticalProfile[];recommended:string|null;missingCounter:boolean;notice:string;}
+export interface TacticalTeamGuide {members:TacticalProfile[];recommended:string|null;recommendedUid:string|null;missingCounter:boolean;notice:string;}
 function offensive(c:Creature,enemy:Creature,id:string,flags:readonly string[]){
  const move=MOVES[id];
  if(!move||move.power<=0)return null;
@@ -49,7 +49,7 @@ export function tacticalProfile(c:Creature,enemy:Creature,flags:readonly string[
  if(!SPECIES[c.speciesId]||!es)throw Error('Unknown tactical species');
  const candidates=c.moves.map(id=>offensive(c,enemy,id,flags)).filter((a):a is NonNullable<typeof a>=>!!a)
   .sort((a,b)=>b.max-a.max||Number(b.effective)-Number(a.effective)||a.id.localeCompare(b.id));
- const best=candidates[0],damage=best?.max??0;
+ const best=candidates[0],counter=candidates.find(move=>move.effective),damage=best?.max??0;
  const utility:string[]=[];
  const moves=c.moves.map(id=>MOVES[id]).filter((m):m is NonNullable<typeof m>=>!!m);
  if(moves.some(m=>m.role==='heal'))utility.push('CURA');
@@ -58,26 +58,28 @@ export function tacticalProfile(c:Creature,enemy:Creature,flags:readonly string[
  for(const kind of ['fracture','weaken','scorch'] as const)
   if(c.moves.some(id=>MOVE_EFFECTS[id]?.kind===kind))utility.push(kind==='fracture'?'FRACTURA':kind==='weaken'?'DEBILITA':'ARDOR');
  const threat=incoming(c,enemy,flags);
- const hpRatio=Math.min(1,Math.max(0,c.hp)/Math.max(1,maxHp(c)));
  const viable=c.hp>0, survival=viable?Math.min(30,c.hp/Math.max(1,threat)*7):0;
  const score=viable?damage+survival+(best?.effective?4:0)+Math.min(5,utility.length*1.25):0;
  const summary=!viable?'SIN VIDA':best
   ?MOVES[best.id]!.name+' '+best.min+'–'+best.max+' daño'+(best.effective?' · EFICAZ':'')+
+   (counter&&!best.effective?' · alternativa eficaz: '+MOVES[counter.id]!.name+' hasta '+counter.max+' daño':'')+
    ' · posible respuesta '+threat+' daño'
   :'SIN ATAQUE EQUIPADO';
- return {speciesId:c.speciesId,name:SPECIES[c.speciesId]!.name,role:creatureRole(c),
+ return {uid:c.uid,speciesId:c.speciesId,name:SPECIES[c.speciesId]!.name,role:creatureRole(c),
   viable,bestMoveId:best?.id??null,minDamage:best?.min??0,maxDamage:damage,effective:best?.effective??false,
+  counterMoveId:counter?.id??null,counterMaxDamage:counter?.max??0,
   enemyElement:es.element,estimatedIncoming:threat,utility,summary,score:Number(score.toFixed(2))};
 }
 export function teamGuide(team:readonly Creature[],enemy:Creature,flags:readonly string[]=[]):TacticalTeamGuide{
  const profiles=team.map(c=>tacticalProfile(c,enemy,flags));
  const members=profiles.slice().sort((a,b)=>b.score-a.score||a.name.localeCompare(b.name));
  const best=members.find(c=>c.viable)||null;
- const missingCounter=!profiles.some(p=>p.viable&&p.effective);
+ // Counter availability is independent of the strongest neutral attack.
+ const missingCounter=!profiles.some(p=>p.viable&&p.counterMoveId!==null);
  const notice=missingCounter
   ?'NINGUNA TÉCNICA ACTIVA EFICAZ · busca afinidad '+Object.entries(TYPE_ADV).find(([,target])=>target===SPECIES[enemy.speciesId]?.element)?.[0]+' o equipa una técnica conocida.'
   :'Tu equipo tiene contraataques efectivos. Cambiar de vínculo consume turno y protege a quien entra.';
- return {members,recommended:best?.speciesId??null,missingCounter,notice};
+ return {members,recommended:best?.speciesId??null,recommendedUid:best?.uid??null,missingCounter,notice};
 }
 export function loadoutUpgrade(c:Creature,enemy:Creature,flags:readonly string[]=[]):TacticalUpgrade|null{
  const current=tacticalProfile(c,enemy,flags),available=unlockedMoves(c);
