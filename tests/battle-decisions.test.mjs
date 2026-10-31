@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {createCreature,maxHp,MOVES} from '../dist/domain.js';
-import {suggestBattleAction} from '../dist/combat/planning.js';
+import {suggestBattleAction,protectedSwitchDamage} from '../dist/combat/planning.js';
 
 const c=(id,level=12)=>createCreature(id,level,()=>.35);
 const context=(ally,enemy,override={})=>({
@@ -36,6 +36,33 @@ test('near defeat suggests a protected viable replacement, without changing the 
  assert.deepEqual({kind:suggestion.kind,targetIndex:suggestion.targetIndex},{kind:'switch',targetIndex:1});
  assert.equal(JSON.stringify([party,enemy]),before);
 });
+test('switch advice evaluates the replacement creature, not the outgoing ally',()=>{
+ const ally=c('tideworn',24),enemy=c('ashglass',20),fragile=c('thorne',8);
+ ally.hp=1;ally.moves=['pulse'];
+ const outgoingShield=protectedSwitchDamage(enemy,ally,[],[],[],1);
+ const replacementShield=protectedSwitchDamage(enemy,fragile,[],[],[],1);
+ assert.ok(replacementShield>outgoingShield+2,'type advantage and low defense make the replacement more vulnerable');
+ assert.ok(replacementShield<=maxHp(fragile),'fixture can represent a weakened living replacement');
+ fragile.hp=replacementShield;
+ assert.ok(fragile.hp>outgoingShield+2,'the previous outgoing-ally projection would have treated this switch as safe');
+ const advice=decide(ally,enemy,context(ally,enemy,{type:'boss',party:[ally,fragile]}));
+ assert.equal(advice.kind,'guard','the unsafe replacement must not be recommended');
+ const next=protectedSwitchDamage(enemy,fragile,[],[{kind:'fracture',remaining:2}],[],1);
+ assert.ok(next>replacementShield,'the reserve creature\'s active fracture must increase projected incoming damage');
+ const fractured=decide(ally,enemy,context(ally,enemy,{type:'boss',party:[ally,fragile],
+  statusesByUid:{[fragile.uid]:[{kind:'fracture',remaining:2}]}}));
+ assert.notEqual(fractured.kind,'switch');
+});
+
+test('protected switch forecast uses the same boss-phase and guard rules as live combat',()=>{
+ const enemy=c('hollowhart',19),reserve=c('velaria',12);
+ const first=protectedSwitchDamage(enemy,reserve,[],[],[],1);
+ const escalated=protectedSwitchDamage(enemy,reserve,[],[],[],2);
+ assert.ok(first>0);assert.ok(escalated>=first);
+ assert.equal(protectedSwitchDamage({...enemy,moves:['drizzle']},reserve,[],[],[],1),0,
+  'an enemy healing action is not an incoming attack');
+});
+
 test('defensive cleanse is suggested against lasting statuses when not lethal',()=>{
  const ally=c('cindrel',12),enemy=c('hollowhart',18);
  ally.moves=['emberstorm','funeral'];

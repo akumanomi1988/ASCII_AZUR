@@ -580,7 +580,8 @@ class AzurGame {
     const suggestion=suggestBattleAction(ally,b.enemy,this.statuses(ally),this.statuses(b.enemy),this.save.inventory.tonics,b.chargeStage,b.bossPhase,recoveryCastsLeft(b.recoveryUses,ally.uid),{
       type:b.type,party:this.save.team,allyIndex:b.ally,seals:this.save.inventory.seals,
       hasRoom:this.save.team.length<6||this.save.storage.length<500,
-      ownedSpecies:[...this.save.team,...this.save.storage].map(c=>c.speciesId),flags:this.save.flags
+      ownedSpecies:[...this.save.team,...this.save.storage].map(c=>c.speciesId),flags:this.save.flags,
+      statusesByUid:b.effects
     });
     const advised=suggestion.kind==='move'?MOVES[suggestion.moveId]?.name:
       suggestion.kind==='guard'?'GUARDIA':suggestion.kind==='tonic'?'TÓNICO':

@@ -2,6 +2,7 @@
  * Forecasts share live combat formulas; defensive estimates are deliberately conservative.
  */
 import {MOVES,maxHp,type Creature} from '../domain.js';
+import {guardDamage} from '../actors/combat-fx.js';
 import {bondAttackDamage,bondIncomingDamage} from '../creatures/bond-quests.js';
 import {attackWithStatuses,skillUtility,chooseEnemyMove,chooseGuardianMove,effectiveHealing,MOVE_EFFECTS,type StatusEffect} from './tactics.js';
 import {capturePreview} from './capture-odds.js';
@@ -9,11 +10,32 @@ import {capturePreview} from './capture-odds.js';
 export interface BattleDecisionContext {
  type:'wild'|'boss'|'expedition';party:readonly Creature[];allyIndex:number;
  seals:number;hasRoom:boolean;ownedSpecies:readonly string[];flags:readonly string[];
+ /** Optional real combat status snapshots for bench creatures, keyed by UID. */
+ statusesByUid?:Readonly<Record<string,StatusEffect[]>>;
 }
 export type BattleSuggestion=
  |{kind:'move';moveId:string;reason:string}
  |{kind:'guard'|'tonic'|'capture';reason:string}
  |{kind:'switch';targetIndex:number;reason:string};
+
+/** Project the next ordinary enemy turn against the actual incoming creature.
+ * A switch shields 55% of the hit, but species, relics, statuses and opponent
+ * move selection can change the result. Never reuse the outgoing ally's damage.
+ * The estimate is intentionally high-roll; battle RNG remains authoritative. */
+export function protectedSwitchDamage(
+ enemy:Creature,target:Creature,enemyStatuses:StatusEffect[],targetStatuses:StatusEffect[],
+ flags:readonly string[],bossPhase:1|2=1
+):number{
+ const options={...enemy,moves:enemy.moves.filter(id=>MOVES[id])};
+ const moveId=enemy.speciesId==='hollowhart'||enemy.speciesId==='nullscribe'
+  ?chooseGuardianMove(options,target,enemyStatuses,targetStatuses,0)
+  :chooseEnemyMove(options,target,enemyStatuses,targetStatuses);
+ const move=MOVES[moveId]??MOVES.pulse!;
+ if(move.role==='heal'||move.power<=0)return 0;
+ const hit=attackWithStatuses(enemy,target,move,enemyStatuses,targetStatuses,1.07).value;
+ const raw=Math.ceil(hit*(bossPhase===2?1.15:1));
+ return bondIncomingDamage(guardDamage(raw,true),flags,target.speciesId);
+}
 
 export function suggestBattleAction(
  ally:Creature,enemy:Creature,allyStatuses:StatusEffect[],enemyStatuses:StatusEffect[],
@@ -60,7 +82,9 @@ export function suggestBattleAction(
    const offense=x.creature.moves.filter(id=>MOVES[id]&&MOVES[id]!.power>0)
     .map(id=>bondAttackDamage(attackWithStatuses(x.creature,enemy,MOVES[id]!,[],enemyStatuses,.90).value,flags,x.creature.speciesId));
    const improved=Math.max(0,...offense);
-   return{...x,improved,survives:x.creature.hp>Math.ceil(incoming*.45)+2};
+   const protectedIncoming=protectedSwitchDamage(enemy,x.creature,enemyStatuses,
+    context?.statusesByUid?.[x.creature.uid]??[],flags,bossPhase);
+   return{...x,improved,protectedIncoming,survives:x.creature.hp>protectedIncoming+2};
   }).filter(x=>x.survives&&x.improved>0)
   .sort((a,b)=>b.improved-a.improved||b.creature.hp-a.creature.hp||a.index-b.index)[0];
  if(switches&&(incoming>=ally.hp||(incoming>=ally.hp*.75&&switches.improved>=bestDamage*1.3)))
