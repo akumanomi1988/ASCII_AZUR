@@ -1,0 +1,43 @@
+name: ASCII AZUR gameplay promotional capture
+on:
+  push:
+    branches:
+      - media/gameplay-trailer-20261107
+    paths:
+      - tools/promo-record.mjs
+      - .github/workflows/promo-capture.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Prepare real browser-game build
+        run: |
+          npm install --ignore-scripts --no-audit --no-fund
+          npm run build
+      - name: Render original AZUR soundtrack
+        run: npm run score:master
+      - name: Install offline Spanish narrator and media encoder
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq espeak-ng ffmpeg
+          command -v google-chrome || command -v chromium
+      - name: Capture actual NPC dialogue, exploration and combat
+        run: node tools/promo-record.mjs
+      - name: Export edited YouTube and TikTok videos
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: azur-gameplay-promotional-videos
+          path: |
+            artifacts/promo/*.mp4
+            artifacts/promo/report.json
+          if-no-files-found: warn
+          retention-days: 30
