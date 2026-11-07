@@ -190,7 +190,8 @@ async function main(){
  const musicDir=resolve('artifacts/score-master');
  const tracks=existsSync(musicDir)?readdirSync(musicDir).filter(n=>/\.(wav|mp3|ogg)$/i.test(n)):[];
  const music=tracks.length?join(musicDir,tracks.find(n=>/explor|forest|ambient|title|main/i.test(n))||tracks[0]):null;
- const sources=['-framerate','8','-i',join(frames,'%06d.jpg')];
+ const playbackFrameRate=4; // Preserve approximate real-time pacing in headless software-rendered footage.
+ const sources=['-framerate',String(playbackFrameRate),'-i',join(frames,'%06d.jpg')];
  const filters=[];
  if(music){sources.push('-stream_loop','-1','-i',music);filters.push('[1:a]volume=0.20[m]')}
  if(speech.status===0){
@@ -200,21 +201,34 @@ async function main(){
  }else if(music)filters.push('[m]anull[a]');
  const withAudio=!!music||speech.status===0;
  const base=join(OUT,'azur-gameplay-youtube.mp4');
+ const font='/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf';
+ const titles=[
+  ['UN MUNDO ESCRITO EN CENIZA',0,4.5],
+  ['ELIGE TU VINCULO',5,10],
+  ['CADA NOMBRE TIENE UNA HISTORIA',11,15],
+  ['EXPLORA LO DESCONOCIDO',16,20.5],
+  ['DOMINA LAS TECNICAS ELEMENTALES',21,27.8]
+ ];
+ const overlays=titles.map(([text,a,b],i)=>{
+  const path=join(OUT,'title-'+i+'.txt');writeFileSync(path,text);
+  return "drawtext=fontfile="+font+":textfile="+path+":fontsize=26:fontcolor=white:shadowcolor=black@0.95:shadowx=2:shadowy=3:box=1:boxcolor=black@0.65:boxborderw=15:x=(w-text_w)/2:y=h-90:enable='between(t,"+a+","+b+")'";
+ });
+ const baseFilter='scale=1280:720,eq=contrast=1.10:saturation=1.16,'+overlays.join(',');
  const args=['-y','-hide_banner','-loglevel','error',...sources];
  if(filters.length){args.push('-filter_complex',filters.join(';'))}
  args.push('-map','0:v');
  if(withAudio)args.push('-map','[a]');
- args.push('-vf','scale=1280:720,eq=contrast=1.07:saturation=1.12','-c:v','libx264','-preset','veryfast','-crf','19','-pix_fmt','yuv420p','-r','24');
+ args.push('-vf',baseFilter,'-c:v','libx264','-preset','veryfast','-crf','19','-pix_fmt','yuv420p','-r','24');
  if(withAudio)args.push('-c:a','aac','-b:a','192k');
  args.push('-shortest','-movflags','+faststart',base);
  const make=spawnSync('ffmpeg',args,{encoding:'utf8',timeout:240000});
  if(make.status!==0)throw Error('ffmpeg main: '+String(make.stderr).slice(-1700));
  const short=join(OUT,'azur-gameplay-tiktok.mp4');
- const vertical=spawnSync('ffmpeg',['-y','-hide_banner','-loglevel','error','-ss','12','-i',base,
-  '-t','28','-filter_complex','[0:v]split=2[original][back];[back]scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280,boxblur=30:12,eq=brightness=-0.2[bg];[original]scale=720:-2[fg];[bg][fg]overlay=x=(W-w)/2:y=(H-h)/2,format=yuv420p[out]',
+ const vertical=spawnSync('ffmpeg',['-y','-hide_banner','-loglevel','error','-ss','2','-i',base,
+  '-t','25','-filter_complex','[0:v]split=2[original][back];[back]scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280,boxblur=30:12,eq=brightness=-0.2[bg];[original]scale=720:-2[fg];[bg][fg]overlay=x=(W-w)/2:y=(H-h)/2,format=yuv420p[out]',
   '-map','[out]','-map','0:a?','-c:v','libx264','-preset','veryfast','-crf','21','-r','24','-c:a','aac','-b:a','160k','-movflags','+faststart',short],{encoding:'utf8',timeout:240000});
  if(vertical.status!==0)throw Error('ffmpeg TikTok: '+String(vertical.stderr).slice(-1700));
- report.status='SUCCESS';report.outputs=[base,short].map(p=>({name:p.split('/').pop()}));
+ report.status='SUCCESS';report.approximateDurationSeconds=Math.round(report.frames/playbackFrameRate);report.outputs=[base,short].map(p=>({name:p.split('/').pop()}));
  writeFileSync(join(OUT,'report.json'),JSON.stringify(report,null,2)+'\n');
  console.log('AZUR_PROMO_SUCCESS',JSON.stringify(report));
 }
