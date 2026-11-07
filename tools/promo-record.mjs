@@ -133,22 +133,20 @@ async function main(){
    }
    await sleep(1250);
   });
+  const archivist=await c.eval('(async()=>{const m=await import("./dist/world.js");const l=m.ZONES.village.landmarks.find(x=>x.npcId==="archivist");return l?{x:l.x,y:l.y}:null})()');
+  if(!archivist)throw Error('Archivist is missing from the generated game world');
+  await stageSave(c,'village',archivist.x-1,archivist.y);
   await scene(c,'Exploration and The Archivist',async()=>{
-   await c.key('d',670);await sleep(700);await c.key('e');
-   let dialog=await c.eval('!document.getElementById("dialogue").classList.contains("hidden")');
-   if(!dialog){
-    // Stage near the real NPC on the game's own village map, then interact.
-    await sleep(700);
-    await c.eval('(()=>{const s=JSON.parse(localStorage.getItem("ascii-azur-save-v1"));s.x=7;s.y=16;localStorage.setItem("ascii-azur-save-v1",JSON.stringify(s))})()');
-    await c.send('Page.reload',{ignoreCache:true});await ready(c);await c.click('#continue');
-    await sleep(700);await c.key('e');
-    dialog=await c.eval('!document.getElementById("dialogue").classList.contains("hidden")');
-   }
-   if(!dialog)throw Error('NPC dialogue could not be triggered');
+   await c.key('a',280);await sleep(350);await c.key('d',350);await sleep(400);
+   await c.click('#touchInteract');
+   await c.until('!document.getElementById("dialogue").classList.contains("hidden")',10000);
+   const title=await c.eval('document.getElementById("diaTitle").textContent');
+   console.log('PROMO_NPC_DIALOGUE',title);
    report.npcDialogue=true;
-   for(let i=0;i<4;i++){
+   report.npcTitle=title;
+   for(let i=0;i<5;i++){
     if(await c.eval('document.getElementById("dialogue").classList.contains("hidden")'))break;
-    await sleep(1800);await c.click('#closeDialogue');
+    await sleep(1550);await c.click('#closeDialogue');
    }
    await sleep(550);
   });
